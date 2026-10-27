@@ -5,7 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>아가라고요</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5e8bbace">
+  <!-- 아래 import map과 ?v= 지문은 tools/stamp.py 가 채운다. 손으로 고치지 않는다. -->
+  <script type="importmap">
+{
+  "imports": {
+    "./data/apps.js": "./data/apps.js?v=1c5d9c65",
+    "./data/furniture.js": "./data/furniture.js?v=e5b1d42b",
+    "./src/apps/room-app.js": "./src/apps/room-app.js?v=ec7f7c8b",
+    "./src/config.js": "./src/config.js?v=b2faa2b0",
+    "./src/crt.js": "./src/crt.js?v=98658a6d",
+    "./src/icons.js": "./src/icons.js?v=3566a45c",
+    "./src/iso.js": "./src/iso.js?v=d8dfb6d7",
+    "./src/os.js": "./src/os.js?v=3cf98b64",
+    "./src/room.js": "./src/room.js?v=c6b93a54",
+    "./src/rules.js": "./src/rules.js?v=f2050583",
+    "./src/share.js": "./src/share.js?v=1d6e579a",
+    "./src/shelf.js": "./src/shelf.js?v=70dc9ee0",
+    "./src/win.js": "./src/win.js?v=73db6fa7"
+  }
+}
+  </script>
 </head>
 <body>
   <!-- 시대 비교 스위치 (모니터 바깥). 팀 의견을 들은 뒤 하나로 정하면 없앤다. -->
@@ -95,6 +115,6 @@
     </filter>
   </svg>
 
-  <script type="module" src="src/main.js"></script>
+  <script type="module" src="src/main.js?v=610b612f"></script>
 </body>
 </html>
