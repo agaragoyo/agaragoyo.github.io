@@ -38,11 +38,13 @@ function fit() {
   viewport.style.height = mon.rotated ? H + 'px' : '';
 
   const MARGIN = 16;
+  const TOP = mon.rotated ? 0 : 44; // 위쪽 시대 스위치 자리
   const PAD = 72;
   const CTRL = 108;
-  const s = Math.max(0.2, Math.min((W - 2 * MARGIN) / (STAGE_W + 2 * PAD), (H - 2 * MARGIN) / (STAGE_H + PAD + CTRL)));
+  const s = Math.max(0.2, Math.min((W - 2 * MARGIN) / (STAGE_W + 2 * PAD), (H - TOP - 2 * MARGIN) / (STAGE_H + PAD + CTRL)));
   const root = document.documentElement.style;
   root.setProperty('--margin', MARGIN + 'px');
+  root.setProperty('--top', TOP + 'px');
   root.setProperty('--u', s + 'px');
   root.setProperty('--pad', PAD * s + 'px');
   root.setProperty('--ctrl', CTRL * s + 'px');
@@ -57,7 +59,17 @@ addEventListener('resize', fit);
 PORTRAIT_PHONE.addEventListener('change', fit);
 
 // ---------- 테두리 버튼 설정 ----------
-const settings = { grain: true, curve: true, night: false, ...loadJSON(STORAGE_SETTINGS) };
+const settings = { grain: true, curve: true, night: false, era: '1998', ...loadJSON(STORAGE_SETTINGS) };
+
+// ---------- 시대 ----------
+// 같은 사이트를 두 시대 모습으로 보여 준다(팀 의견을 듣기 위한 비교용).
+//   1998: 베이지 CRT, 윈도우 98식 회색 창, BIOS 부팅
+//   2005: 은색 평면 CRT, XP 시절식 파란 창과 둥근 시작 버튼, 로고 부팅
+// 주소에 ?era=2005 를 붙이면 그 시대로 열리고 설정에도 남는다.
+const ERAS = { 1998: { warp: 0.06 }, 2005: { warp: 0.025 } };
+const fromUrl = new URLSearchParams(location.search).get('era');
+if (ERAS[fromUrl]) settings.era = fromUrl;
+if (!ERAS[settings.era]) settings.era = '1998';
 function applySettings() {
   for (const key of ['grain', 'curve']) {
     document.body.classList.toggle(key, !!settings[key]);
@@ -65,7 +77,9 @@ function applySettings() {
   }
   // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
   stage.dataset.theme = settings.night ? 'night' : 'day';
-  crt.apply();
+  document.body.dataset.era = settings.era;
+  for (const b of document.querySelectorAll('[data-era-pick]')) b.setAttribute('aria-pressed', String(b.dataset.eraPick === settings.era));
+  crt.setStrength(ERAS[settings.era].warp);
 }
 
 // 화면을 실제로 휘는 볼록 효과는 지금은 마우스를 쓰는 PC에서만 켠다.
@@ -83,6 +97,16 @@ document.querySelectorAll('[data-toggle]').forEach(btn => {
   btn.addEventListener('click', () => {
     settings[btn.dataset.toggle] = !settings[btn.dataset.toggle];
     saveJSON(STORAGE_SETTINGS, settings);
+    applySettings();
+  });
+});
+document.querySelectorAll('[data-era-pick]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    settings.era = btn.dataset.eraPick;
+    saveJSON(STORAGE_SETTINGS, settings);
+    const url = new URL(location.href);
+    url.searchParams.set('era', settings.era);
+    history.replaceState(null, '', url);
     applySettings();
   });
 });
@@ -129,6 +153,7 @@ const os = createOS({
   requestPowerOff: () => setPower(false),
   crt,
   getNight: () => settings.night,
+  getEra: () => settings.era,
   setNight: on => {
     settings.night = on;
     saveJSON(STORAGE_SETTINGS, settings);

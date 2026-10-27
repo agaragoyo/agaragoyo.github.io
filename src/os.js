@@ -14,7 +14,7 @@ const DOUBLE_CLICK_MS = 400;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNight }) {
+export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNight, getEra }) {
   const $ = sel => stage.querySelector(sel);
   const el = {
     boot: $('#boot'),
@@ -55,6 +55,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     text.textContent = '';
     logo.hidden = true;
     let skip = reduceMotion;
+    // 2005년식은 BIOS 글자 없이 로고와 진행 막대만 보여 준다.
+    const textBoot = getEra() !== '2005';
     const onSkip = () => { skip = true; };
     el.boot.addEventListener('pointerdown', onSkip);
     const lines = [
@@ -67,7 +69,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
       '',
       '아가라고요 OS를 불러오는 중',
     ];
-    for (const line of lines) {
+    for (const line of textBoot ? lines : []) {
       if (skip || my !== run) break;
       text.textContent += line + '\n';
       await wait(110);
@@ -75,7 +77,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     if (!skip && my === run) {
       text.textContent = '';
       logo.hidden = false;
-      await wait(1100);
+      await wait(textBoot ? 1100 : 2000);
     }
     el.boot.removeEventListener('pointerdown', onSkip);
     if (my === run) showLogin();

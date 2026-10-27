@@ -897,3 +897,266 @@ body:not(.curve) .fx-curve { display: none; }
   pointer-events: none;
 }
 [data-mode="visit"] .rotate-tip { display: none; }
+
+/* =====================================================================
+   시대 비교 (body[data-era]). 팀 의견을 들은 뒤 하나로 정하면 나머지는 지운다.
+   ===================================================================== */
+.viewport { padding-top: var(--top); }
+.era-switch {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: #ffffff14;
+  font-size: 13px;
+  color: #cfc9da;
+  transform: translateX(-50%);
+}
+.era-switch button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 13px;
+  color: #cfc9da;
+  cursor: pointer;
+}
+.era-switch button[aria-pressed="true"] { background: #f2ebda; color: #2a1f18; }
+
+/* ---------- 1998: 로그인은 윈도우 98식 대화 상자 ---------- */
+body[data-era="1998"] .login {
+  display: grid;
+  grid-template-rows: none;
+  place-items: center;
+  background: repeating-linear-gradient(45deg, #2f6f6b 0 20px, #2b6763 20px 40px);
+  color: var(--win-text);
+}
+body[data-era="1998"] .login-top,
+body[data-era="1998"] .login-bottom { display: none; }
+body[data-era="1998"] .login-mid {
+  display: block;
+  width: 560px;
+  padding: 3px;
+  border: 2px solid;
+  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
+  background: var(--win-face);
+  box-shadow: 1px 1px 0 #000, 8px 10px 0 #0004;
+}
+body[data-era="1998"] .login-mid::before {
+  content: "아가라고요에 로그인";
+  display: block;
+  height: 30px;
+  padding: 0 8px;
+  background: linear-gradient(90deg, var(--win-bar-a), var(--win-bar-b));
+  font-size: 15px;
+  line-height: 30px;
+  color: #fff;
+}
+body[data-era="1998"] .login-left {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 18px 18px 10px;
+  border: 0;
+  text-align: left;
+}
+body[data-era="1998"] .login-logo { font-size: 26px; text-shadow: none; color: var(--win-text); }
+body[data-era="1998"] .login-left p { margin: 0; font-size: 15px; color: var(--win-text); }
+body[data-era="1998"] .users { justify-items: stretch; gap: 6px; padding: 0 18px 18px; }
+body[data-era="1998"] .user {
+  border: 2px solid;
+  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
+  border-radius: 0;
+  background: #fff;
+  color: var(--win-text);
+}
+body[data-era="1998"] button.user:hover { background: var(--win-bar-a); color: #fff; }
+body[data-era="1998"] button.user:hover small { color: #e6e2ff; }
+body[data-era="1998"] .avatar { width: 40px; height: 40px; border: 2px solid #2a1f18; border-radius: 0; font-size: 20px; }
+body[data-era="1998"] .user-name { font-size: 18px; }
+body[data-era="1998"] .user-name small { font-size: 13px; color: #6c6457; }
+body[data-era="1998"] .welcome {
+  background: repeating-linear-gradient(45deg, #2f6f6b 0 20px, #2b6763 20px 40px);
+  font-size: 40px;
+  font-style: normal;
+  color: #fff;
+}
+
+/* ---------- 2005: 은색 평면 CRT ---------- */
+body[data-era="2005"] .bezel {
+  border-radius: calc(10 * var(--u));
+  background:
+    linear-gradient(100deg, #ffffff22 0 30%, transparent 30% 70%, #ffffff14 70%),
+    linear-gradient(#d9dce1, #b4b9c0 55%, #9ba0a8);
+  box-shadow:
+    inset 0 calc(2 * var(--u)) 0 #fff,
+    inset 0 calc(-5 * var(--u)) calc(4 * var(--u)) #00000033,
+    0 calc(3 * var(--u)) 0 #7c8189,
+    0 calc(30 * var(--u)) calc(60 * var(--u)) #000c;
+}
+/* 화면 둘레는 검은 광택 테 (2000년대 투톤 모니터) */
+body[data-era="2005"] .screen,
+body[data-era="2005"].curve .screen {
+  border-radius: calc(2 * var(--u));
+  box-shadow:
+    0 0 0 calc(3 * var(--u)) #000,
+    0 0 0 calc(24 * var(--u)) #1d1f23,
+    0 calc(-2 * var(--u)) 0 calc(26 * var(--u)) #3a3d43,
+    0 calc(2 * var(--u)) 0 calc(26 * var(--u)) #0b0c0e,
+    0 0 0 calc(30 * var(--u)) #8e939b;
+}
+body[data-era="2005"] .brand { color: #5d636c; text-shadow: 0 calc(1 * var(--u)) 0 #fff9; letter-spacing: 0.2em; }
+body[data-era="2005"] .model { background: linear-gradient(#5d636c, #3f444b); color: #e3e6ea; box-shadow: none; }
+body[data-era="2005"] .model::after { content: " FLAT"; }
+body[data-era="2005"] .grille { opacity: 0.35; background: repeating-linear-gradient(90deg, #4a4f57 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(6 * var(--u))); }
+/* 은색 둥근 버튼, 전원은 파란 불빛 */
+body[data-era="2005"] .phys {
+  border: calc(1 * var(--u)) solid #7b8088;
+  border-radius: 999px;
+  background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf);
+  box-shadow:
+    inset 0 calc(1.5 * var(--u)) 0 #fff,
+    0 calc(2 * var(--u)) calc(3 * var(--u)) #0005;
+  font-weight: 400;
+  color: #3d424a;
+  text-shadow: 0 calc(1 * var(--u)) 0 #fff;
+}
+body[data-era="2005"] .phys:hover { background: linear-gradient(#fff, #d5d9de 55%, #bfc4ca); }
+body[data-era="2005"] .phys:active { box-shadow: inset 0 calc(2 * var(--u)) calc(3 * var(--u)) #0004; }
+body[data-era="2005"] .phys.power { background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf); }
+body[data-era="2005"] .phys[aria-pressed="true"] .led { background: #6cc3ff; box-shadow: 0 0 calc(8 * var(--u)) #3fa9ff; }
+body[data-era="2005"] .power[aria-pressed="true"] .led { background: #3fa9ff; box-shadow: 0 0 calc(10 * var(--u)) #3fa9ff, 0 0 calc(18 * var(--u)) #3fa9ff88; }
+body[data-era="2005"] .power[aria-pressed="false"] .led { background: #ffb347; box-shadow: 0 0 calc(8 * var(--u)) #ffb347; }
+
+/* ---------- 2005: XP 시절식 창과 작업 표시줄 (모양새만 따르고 로고나 이름은 쓰지 않는다) ---------- */
+body[data-era="2005"] .stage {
+  --win-face: #ece9d8;
+  --win-paper: #ffffff;
+  --win-bar-a: #0a55d6;
+  --win-bar-b: #3d8ef2;
+  --win-check: #d8d4c0;
+  --bev-hi: #ffffff;
+  --bev-lo: #8c8a7c;
+  --bev-mid: #b9b6a6;
+}
+body[data-era="2005"] .stage[data-theme="night"] {
+  --win-face: #2f3442;
+  --win-paper: #1f2330;
+  --win-bar-a: #12306e;
+  --win-bar-b: #2e5aa8;
+  --win-check: #3a4152;
+  --bev-hi: #5a6275;
+  --bev-lo: #0d0f15;
+  --bev-mid: #141824;
+}
+body[data-era="2005"] .win {
+  padding: 0 3px 3px;
+  border: 0;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(var(--win-bar-b), var(--win-bar-a) 30px);
+  box-shadow: 0 0 0 1px #0831a0, 6px 8px 14px #0005;
+}
+body[data-era="2005"] .win.inactive { background: linear-gradient(#9db3e3, #7a95d3 30px); }
+body[data-era="2005"] .win-bar {
+  height: 30px;
+  padding: 0 4px 0 8px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(#3b8af0, #0d5ad8 45%, #0a4fc9 55%, #2a76e6);
+  font-weight: 700;
+  text-shadow: 1px 1px 0 #0a2f80;
+}
+body[data-era="2005"] .win.inactive .win-bar { background: linear-gradient(#a8bce8, #7c96d6 50%, #8fa7de); }
+body[data-era="2005"] .win-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #fff;
+  border-radius: 4px;
+  background: linear-gradient(#4f97ff, #1a5fd8);
+  font-weight: 700;
+  color: #fff;
+}
+body[data-era="2005"] .win-close { background: linear-gradient(#ee8a6c, #c8401c); }
+body[data-era="2005"] .win-btn:active { border-color: #ddd; filter: brightness(0.9); }
+body[data-era="2005"] .win-body { margin-top: 0; border: 0; }
+body[data-era="2005"] .win-body.flush { background: #111; }
+body[data-era="2005"] .btn {
+  border: 1px solid #003c74;
+  border-radius: 4px;
+  background: linear-gradient(#fff, #ecebe6 80%, #d6d0c5);
+  box-shadow: none;
+}
+body[data-era="2005"] .btn:hover { box-shadow: inset 0 0 0 2px #f8b33a; }
+body[data-era="2005"] .taskbar {
+  border-top: 0;
+  background: linear-gradient(#3f8cf3, #245edb 12%, #245edb 88%, #1941a5);
+}
+body[data-era="2005"] .start-btn {
+  height: 40px;
+  margin-left: -6px;
+  padding: 0 22px 0 14px;
+  border: 0;
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(#3c9a3c, #3aa335 20%, #2f8a2b 80%, #2b7a28);
+  font-size: 18px;
+  font-style: italic;
+  color: #fff;
+  text-shadow: 1px 1px 1px #0006;
+  box-shadow: inset -2px 0 3px #0004;
+}
+body[data-era="2005"] .start-btn:active { background: linear-gradient(#2b7a28, #2f8a2b); }
+body[data-era="2005"] .task {
+  border: 1px solid #1c49b8;
+  border-radius: 3px;
+  background: linear-gradient(#3c81f3, #2c6be4);
+  color: #fff;
+}
+body[data-era="2005"] .task.active { background: #1e52c8; box-shadow: inset 1px 1px 2px #0005; }
+body[data-era="2005"] .clock {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin-right: -6px;
+  border: 0;
+  border-left: 1px solid #1042af;
+  background: linear-gradient(#18a1ef, #0f8ae0 50%, #0b74cf);
+  color: #fff;
+}
+body[data-era="2005"] .start-menu {
+  padding: 0;
+  border: 1px solid #0831a0;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 4px 4px 10px #0006;
+}
+body[data-era="2005"] .start-head { margin: 0; background: linear-gradient(#2b74ea, #1450c8); font-weight: 700; }
+body[data-era="2005"] .start-item:hover { background: #316ac5; }
+body[data-era="2005"] .stage[data-theme="night"] .start-menu { background: var(--win-paper); }
+
+/* 2005년식 부팅: 검은 화면에 로고와 파란 진행 막대 */
+body[data-era="2005"] .boot-title {
+  font-style: italic;
+  background: linear-gradient(90deg, #fff, #cfe3ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+body[data-era="2005"] .boot-bar { width: 200px; height: 18px; border: 2px solid #b7b7b7; border-radius: 6px; }
+body[data-era="2005"] .boot-bar i {
+  width: 44px;
+  background: repeating-linear-gradient(90deg, #3d8ef2 0 10px, #1a5fd8 10px 12px, transparent 12px 14px);
+  border-radius: 3px;
+  animation-duration: 1.6s;
+}
+
+/* 2005년식 로그인: 파란 띠 사이의 사용자 목록 */
+body[data-era="2005"] .login-top { background: #00309c; border-bottom: 3px solid #f08a24; }
+body[data-era="2005"] .login-bottom { background: #00309c; border-top: 3px solid #5a7edc; color: #c9d6f5; }
+body[data-era="2005"] .login-mid { background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc); }
+body[data-era="2005"] .login-logo { font-style: italic; text-shadow: 0 2px 0 #0a2f80; }
+body[data-era="2005"] .avatar { border-radius: 6px; background: linear-gradient(#f8b33a, #e0861d); }
+body[data-era="2005"] .welcome { background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc); text-shadow: 0 2px 0 #0a2f80; }

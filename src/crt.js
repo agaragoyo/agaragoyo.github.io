@@ -5,7 +5,8 @@
 // 마우스 입력을 같은 공식으로 휘기 전 위치로 고친 뒤 그 자리의 요소에 다시 보낸다.
 // 그래서 왜곡 공식은 warp() 한 곳에만 두고, 필터 그림과 입력 보정이 같이 쓴다.
 
-const K = 0.06; // 휘는 정도. 클수록 가장자리가 많이 휜다.
+// 휘는 정도. 클수록 가장자리가 많이 휜다. 시대 설정에 따라 바뀐다(평면 CRT는 덜 휜다).
+let K = 0.06;
 
 // 화면에 보이는 점 (x, y) → 그 자리에 실제로 그려지는 원래 점. w, h: 화면 크기(px)
 function warp(x, y, w, h) {
@@ -19,7 +20,7 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
   const filter = document.getElementById('crt-warp');
   const feImage = document.getElementById('crt-map');
   const feMap = filter.querySelector('feDisplacementMap');
-  let size = { w: 0, h: 0 };
+  let size = { w: 0, h: 0, k: 0 };
 
   // 왜곡 지도: 픽셀마다 "원래 점까지의 거리"를 빨강(가로), 초록(세로)에 담는다.
   function buildMap(w, h) {
@@ -57,9 +58,9 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     const w = Math.round(r.width);
     const h = Math.round(r.height);
     const on = isWarpOn();
-    if (on && (w !== size.w || h !== size.h)) {
+    if (on && (w !== size.w || h !== size.h || K !== size.k)) {
       buildMap(w, h);
-      size = { w, h };
+      size = { w, h, k: K };
     }
     warpEl.style.filter = on ? 'url(#crt-warp)' : '';
     input.hidden = !on;
@@ -271,5 +272,6 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
   }
 
   window.addEventListener('resize', updateHoles);
-  return { apply, updateHoles, prepareFrame };
+  const setStrength = k => { K = k; apply(); };
+  return { apply, updateHoles, prepareFrame, setStrength };
 }
