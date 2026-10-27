@@ -7,7 +7,8 @@
   <!-- 짐 정리: 이삿짐 상자에 물건을 떨어뜨리고, 같은 물건 두 개가 닿으면 한 단계 큰 물건이 된다. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
   <style>
-    html, body { margin: 0; height: 100%; }
+    /* 스크롤바가 생기면 폭이 줄어 캔버스를 다시 맞추고, 그러면 스크롤바가 사라지는 일이 끝없이 반복된다. 아예 막는다. */
+    html, body { margin: 0; height: 100%; overflow: hidden; }
     body {
       display: flex;
       flex-direction: column;
@@ -88,15 +89,22 @@
 
     // ---------- 화면 크기 ----------
     let scale = 1;
+    let lastSize = '';
     function fit() {
       const wrap = $('wrap');
+      // 크기가 그대로면 다시 맞추지 않는다(소수점 차이로 계속 다시 맞추는 일을 막는다).
+      const size = `${wrap.clientWidth}x${wrap.clientHeight}`;
+      if (size === lastSize) return;
+      lastSize = size;
       scale = Math.min(wrap.clientWidth / W, wrap.clientHeight / H);
       const dpr = window.devicePixelRatio || 1;
-      cv.style.width = W * scale + 'px';
-      cv.style.height = H * scale + 'px';
-      cv.width = Math.round(W * scale * dpr);
-      cv.height = Math.round(H * scale * dpr);
-      ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+      const cssW = Math.floor(W * scale);
+      const cssH = Math.floor(H * scale);
+      cv.style.width = cssW + 'px';
+      cv.style.height = cssH + 'px';
+      cv.width = Math.round(cssW * dpr);
+      cv.height = Math.round(cssH * dpr);
+      ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
     }
     // 게임판 자리의 크기가 바뀔 때마다(창 크기, 머리줄 높이) 다시 맞춘다.
     new ResizeObserver(fit).observe($('wrap'));

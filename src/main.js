@@ -39,8 +39,7 @@ function fit() {
 
   const MARGIN = 16;
   const TOP = mon.rotated ? 0 : 44; // 위쪽 시대 스위치 자리
-  const PAD = 72;
-  const CTRL = 108;
+  const { pad: PAD, ctrl: CTRL } = ERAS[settings.era];
   const s = Math.max(0.2, Math.min((W - 2 * MARGIN) / (STAGE_W + 2 * PAD), (H - TOP - 2 * MARGIN) / (STAGE_H + PAD + CTRL)));
   const root = document.documentElement.style;
   root.setProperty('--margin', MARGIN + 'px');
@@ -67,7 +66,13 @@ const settings = { grain: true, curve: true, night: false, era: '1998', ...loadJ
 //   2005: 은색 평면 CRT, XP 시절식 파란 창과 둥근 시작 버튼, 로고 부팅
 // 주소에 ?era=2005 를 붙이면 그 시대로 열리고 설정에도 남는다.
 // warp: 화면이 휘는 정도. 2005년식 완전평면 CRT는 유리 앞면이 평평해서 휘지 않는다(0이면 왜곡과 클릭 보정을 끈다).
-const ERAS = { 1998: { warp: 0.06 }, 2005: { warp: 0 } };
+//   2010: 검은 광택 와이드 LCD, 반투명 유리 창, 둥근 시작 버튼, 맑은 고딕 (CRT 효과 없음)
+// pad, ctrl: 모니터 테두리 두께와 아래 줄 높이(무대 px). lcd: 화면 효과(그레인, 볼록)를 쓰지 않는다.
+const ERAS = {
+  1998: { warp: 0.06, pad: 72, ctrl: 108 },
+  2005: { warp: 0, pad: 72, ctrl: 108 },
+  2010: { warp: 0, pad: 26, ctrl: 58, lcd: true },
+};
 const fromUrl = new URLSearchParams(location.search).get('era');
 if (ERAS[fromUrl]) settings.era = fromUrl;
 if (!ERAS[settings.era]) settings.era = '1998';
@@ -81,6 +86,7 @@ function applySettings() {
   document.body.dataset.era = settings.era;
   for (const b of document.querySelectorAll('[data-era-pick]')) b.setAttribute('aria-pressed', String(b.dataset.eraPick === settings.era));
   crt.setStrength(ERAS[settings.era].warp);
+  fit(); // 시대마다 모니터 테두리 두께가 다르다
 }
 
 // 화면을 실제로 휘는 볼록 효과는 지금은 마우스를 쓰는 PC에서만 켠다.
@@ -91,7 +97,7 @@ const crt = initCRT({
   input: $('#crt-input'),
   grain: $('#grain'),
   isWarpOn: () => settings.curve && HAS_MOUSE.matches && !mon.rotated && ERAS[settings.era].warp > 0,
-  isGrainOn: () => settings.grain,
+  isGrainOn: () => settings.grain && !ERAS[settings.era].lcd,
 });
 fit();
 document.querySelectorAll('[data-toggle]').forEach(btn => {

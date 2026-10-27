@@ -1,7 +1,7 @@
 // 아가라고요 OS. 전원을 켜면 부팅, 로그인, 바탕화면 순서로 진행하고 앱을 창으로 띄운다.
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
 //         'visit' 공유 링크로 들어온 친구 컴퓨터 (보기만 한다)
-import { STORAGE_ROOM, STORAGE_ROOM_OLD } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
@@ -55,8 +55,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     text.textContent = '';
     logo.hidden = true;
     let skip = reduceMotion;
-    // 2005년식은 BIOS 글자 없이 로고와 진행 막대만 보여 준다.
-    const textBoot = getEra() !== '2005';
+    // 1998년식만 BIOS 글자가 지나가고, 2005, 2010년식은 로고와 진행 표시만 보여 준다.
+    const textBoot = getEra() === '1998';
     const onSkip = () => { skip = true; };
     el.boot.addEventListener('pointerdown', onSkip);
     const lines = [
@@ -124,6 +124,24 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
         enter('edit', home, my);
       }));
     }
+    if (hasOwn) users.append(resetButton());
+  }
+
+  // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 모니터 설정(시대, 그레인, 볼록, 밤)은 남긴다.
+  // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다.
+  function resetButton() {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'reset-link';
+    b.textContent = '이 컴퓨터 초기화';
+    b.addEventListener('click', () => {
+      if (!confirm('이 컴퓨터에 저장된 집과 게임 기록을 모두 지울까요? 되돌릴 수 없습니다.')) return;
+      try {
+        for (const key of Object.keys(localStorage)) if (key !== STORAGE_SETTINGS) localStorage.removeItem(key);
+      } catch { /* 저장소를 못 쓰는 환경 */ }
+      showLogin();
+    });
+    return b;
   }
 
   function avatar(name) {

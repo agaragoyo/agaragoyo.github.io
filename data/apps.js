@@ -23,14 +23,13 @@ export const APPS = [
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
 
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 김수민의 기존 게임들.
+// 새 앱을 만들 때는 apps/tidy-up 을 예시로 본다.
   { id: 'tidy-up', title: '짐 정리', icon: 'apps/tidy-up/icon.svg', src: 'apps/tidy-up/index.html', size: [440, 640], folder: 'games' },
   { id: 'file-ten', title: '파일 정리 10', icon: 'apps/file-ten/icon.svg', src: 'apps/file-ten/index.html', size: [720, 470], folder: 'games' },
-  { id: 'sample-click', title: '예시: 빨리 누르기', icon: 'apps/sample-click/icon.svg', src: 'apps/sample-click/index.html', size: [440, 340], folder: 'games' },
   { id: 'be-the-bee', title: 'Be the Bee', icon: `${SITE}/assets/be-the-bee.webp`, src: `${SITE}/be-the-bee/`, size: [1040, 660], folder: 'games' },
   { id: 'enigma', title: 'ENIGMA', icon: `${SITE}/assets/enigma.webp`, src: `${SITE}/Enigma/`, size: [1120, 700], folder: 'games' },
   { id: 'otherside', title: 'See you on the other side', icon: `${SITE}/assets/otherside.webp`, src: `${SITE}/Otherside/`, size: [1040, 660], folder: 'games' },
   { id: 'eyes-on-you', title: 'Eyes on You', icon: `${SITE}/assets/eyes-on-you.webp`, src: `${SITE}/EyesOnYou/`, size: [1120, 700], folder: 'games' },
-  { id: 'magic-straw', title: '내 자리, 내 충전기', color: '#6fae8f', src: `${SITE}/magic-straw/`, size: [1120, 700], folder: 'games' },
 ];
 
 export const APP_BY_ID = Object.fromEntries(APPS.map(a => [a.id, a]));
