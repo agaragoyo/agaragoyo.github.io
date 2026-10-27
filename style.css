@@ -929,7 +929,7 @@ body:not(.curve) .fx-curve { display: none; }
 .era-switch button[aria-pressed="true"] { background: #f2ebda; color: #2a1f18; }
 
 /* ---------- 1998: 로그인은 윈도우 98식 대화 상자 ---------- */
-body[data-era="1998"] .login {
+body[data-era="1998"] .login:not([hidden]) {
   display: grid;
   grid-template-rows: none;
   place-items: center;

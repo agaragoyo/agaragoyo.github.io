@@ -66,7 +66,8 @@ const settings = { grain: true, curve: true, night: false, era: '1998', ...loadJ
 //   1998: 베이지 CRT, 윈도우 98식 회색 창, BIOS 부팅
 //   2005: 은색 평면 CRT, XP 시절식 파란 창과 둥근 시작 버튼, 로고 부팅
 // 주소에 ?era=2005 를 붙이면 그 시대로 열리고 설정에도 남는다.
-const ERAS = { 1998: { warp: 0.06 }, 2005: { warp: 0.025 } };
+// warp: 화면이 휘는 정도. 2005년식 완전평면 CRT는 유리 앞면이 평평해서 휘지 않는다(0이면 왜곡과 클릭 보정을 끈다).
+const ERAS = { 1998: { warp: 0.06 }, 2005: { warp: 0 } };
 const fromUrl = new URLSearchParams(location.search).get('era');
 if (ERAS[fromUrl]) settings.era = fromUrl;
 if (!ERAS[settings.era]) settings.era = '1998';
@@ -89,7 +90,7 @@ const crt = initCRT({
   warpEl: $('#crt'),
   input: $('#crt-input'),
   grain: $('#grain'),
-  isWarpOn: () => settings.curve && HAS_MOUSE.matches && !mon.rotated,
+  isWarpOn: () => settings.curve && HAS_MOUSE.matches && !mon.rotated && ERAS[settings.era].warp > 0,
   isGrainOn: () => settings.grain,
 });
 fit();
