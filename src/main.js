@@ -21,6 +21,11 @@ const app = {
   // 화면 좌표를 1280×840 무대 좌표로 바꾼다.
   toLocal(clientX, clientY) {
     const r = stage.getBoundingClientRect();
+    if (app.rotated) {
+      // 시계 방향으로 90도 돌린 상태: 무대 왼쪽 위 모서리가 화면의 오른쪽 위에 있고,
+      // 무대의 x축은 화면 아래쪽, y축은 화면 왼쪽을 향한다.
+      return { x: (clientY - r.top) / app.scale, y: (r.right - clientX) / app.scale };
+    }
     return { x: (clientX - r.left) / app.scale, y: (clientY - r.top) / app.scale };
   },
   commit() {
@@ -47,15 +52,26 @@ const app = {
 // ---------- 화면 맞추기 ----------
 // MARGIN: 화면 가장자리와 모니터 사이, PAD: 모니터 테두리 두께, CTRL: 테두리 아래 버튼 줄 높이.
 // 폰처럼 짧은 변이 500px 미만인 화면에서는 테두리를 얇게 해 방을 조금이라도 크게 보여 준다.
+// style.css의 .viewport 회전 조건과 같아야 한다.
+const PORTRAIT_PHONE = matchMedia('(orientation: portrait) and (hover: none) and (max-width: 900px)');
+
 function fit() {
-  const small = Math.min(innerWidth, innerHeight) < 500;
+  app.rotated = PORTRAIT_PHONE.matches;
+  // 돌려 놓았으면 화면의 세로가 곧 모니터의 가로다.
+  const W = app.rotated ? innerHeight : innerWidth;
+  const H = app.rotated ? innerWidth : innerHeight;
+  const viewport = $('#viewport');
+  viewport.style.width = app.rotated ? W + 'px' : '';
+  viewport.style.height = app.rotated ? H + 'px' : '';
+
+  const small = Math.min(W, H) < 500;
   const [MARGIN, PAD, CTRL] = small ? [4, 8, 40] : [16, 26, 58];
   const root = document.documentElement.style;
   root.setProperty('--margin', MARGIN + 'px');
   root.setProperty('--pad', PAD + 'px');
   root.setProperty('--ctrl', CTRL + 'px');
-  const availW = innerWidth - 2 * (MARGIN + PAD);
-  const availH = innerHeight - 2 * MARGIN - PAD - CTRL;
+  const availW = W - 2 * (MARGIN + PAD);
+  const availH = H - 2 * MARGIN - PAD - CTRL;
   const s = Math.max(0.2, Math.min(availW / STAGE_W, availH / STAGE_H));
   app.scale = s;
   const screen = $('#screen');
@@ -64,6 +80,7 @@ function fit() {
   stage.style.transform = `scale(${s})`;
 }
 addEventListener('resize', fit);
+PORTRAIT_PHONE.addEventListener('change', fit);
 fit();
 
 // ---------- 테두리 버튼 설정 ----------

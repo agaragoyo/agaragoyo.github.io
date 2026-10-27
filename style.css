@@ -31,27 +31,25 @@ body.grabbing, body.grabbing * { cursor: grabbing !important; }
 button { font-family: inherit; }
 
 /* ---------- 모니터 ---------- */
-.monitor { padding: var(--margin); }
-
-/* 세로로 든 폰에서는 방이 아주 작아지므로 돌려 보라고 알린다. */
-.rotate-hint {
-  display: none;
+.viewport {
   position: fixed;
-  left: 12px;
-  right: 12px;
-  top: 12px;
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: #f4ebd7;
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: center;
-  word-break: keep-all;
+  inset: 0;
+  display: grid;
+  place-items: center;
 }
-@media (orientation: portrait) and (max-width: 820px) {
-  .rotate-hint { display: block; }
+/* 폰을 세로로 들면 화면 전체를 90도 돌려 처음부터 가로로 보여 준다.
+   이 조건은 main.js의 PORTRAIT_PHONE과 같아야 한다(입력 좌표를 돌려서 계산한다).
+   폭과 높이는 main.js가 innerWidth, innerHeight로 맞춘다. */
+@media (orientation: portrait) and (hover: none) and (max-width: 900px) {
+  .viewport {
+    inset: auto;
+    left: 0;
+    top: 0;
+    transform: translateX(100vw) rotate(90deg);
+    transform-origin: top left;
+  }
 }
+.monitor { padding: var(--margin); }
 .bezel {
   padding: var(--pad) var(--pad) 0;
   border-radius: 24px;
