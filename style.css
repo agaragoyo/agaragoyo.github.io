@@ -124,59 +124,61 @@ body.curve .screen { border-radius: 28px / 36px; }
   width: 1280px;
   height: 720px;
   overflow: hidden;
-  background:
-    linear-gradient(to bottom, transparent 428px, #8a6440 428px 440px, transparent 440px),
-    repeating-linear-gradient(90deg, var(--wall) 0 76px, var(--wall-line) 76px 80px) 0 0 / 100% 428px no-repeat,
-    repeating-linear-gradient(90deg, var(--floor) 0 156px, var(--floor-line) 156px 160px) 0 440px / 100% 280px no-repeat;
+  background: radial-gradient(ellipse at 50% 45%, #cfe6ea, #8fb8c4 75%);
+  --floor-a: #c69a6b;
+  --floor-b: #bb8e60;
+  --slab-a: #8a6440;
+  --slab-b: #6f4f32;
+  --wall-l: #f2e6cb;
+  --wall-r: #e3d2ad;
+  --wall-edge: #c9b48c;
+  --wall-cap: #fbf4e3;
+  --baseboard: #9a7550;
+  --baseboard-dark: #85633f;
 }
-/* 드래그하는 동안만 격자와 벽/바닥 경계를 보여 준다. */
-.room::after {
-  content: "";
-  position: absolute;
-  inset: 0;
+.room-bg { position: absolute; left: 0; top: 0; }
+.room-bg .stripes { stroke: #0000000d; stroke-width: 2; }
+/* 드래그하는 동안만 격자를 보여 준다. */
+.room-bg .grid {
+  fill: none;
+  stroke: #ffffff8c;
+  stroke-width: 1;
   opacity: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(to bottom, transparent 438px, #fff6 438px 442px, transparent 442px),
-    linear-gradient(#0000001f 1px, transparent 1px) 0 0 / 40px 40px,
-    linear-gradient(90deg, #0000001f 1px, transparent 1px) 0 0 / 40px 40px;
   transition: opacity 0.15s;
 }
-.room.dragging::after { opacity: 1; }
+.room.dragging .room-bg .grid { opacity: 1; }
 .items { position: absolute; inset: 0; z-index: 1; }
 
-.furn {
-  position: relative;
-  display: grid;
-  place-items: center;
-  border: 3px solid #0004;
-  border-radius: 6px;
-  background: var(--c);
-  box-shadow: inset 0 -6px 0 #0000001f, inset 0 3px 0 #ffffff40;
-}
+.furn { position: relative; }
+.furn svg { display: block; overflow: visible; }
+.furn img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
 .furn-label {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #fffa;
-  font-size: 15px;
-  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 13px;
+  text-anchor: middle;
+  fill: #2a1f18;
+  stroke: #fffc;
+  stroke-width: 4px;
+  paint-order: stroke;
+  pointer-events: none;
 }
-.furn img { display: none; width: 100%; height: 100%; object-fit: contain; }
-.furn.has-img { border: 0; background: none; box-shadow: none; }
-.furn.has-img img { display: block; }
-.furn.has-img .furn-label { display: none; }
 
-.item { position: absolute; cursor: pointer; }
-[data-mode="edit"] .item { cursor: grab; }
+/* 가구 상자의 빈 모서리를 눌러도 뒤의 가구가 눌리도록, 칠해진 부분(.hit)만 클릭을 받는다. */
+.item { position: absolute; transform-origin: 0 0; pointer-events: none; }
+.item .hit { pointer-events: auto; cursor: pointer; }
+[data-mode="edit"] .item .hit { cursor: grab; }
+.item.hover { filter: brightness(1.08) drop-shadow(0 0 3px #fff) drop-shadow(0 0 3px #fff); }
 @media (hover: hover) {
-  .item:hover { filter: brightness(1.08); outline: 3px dashed #fffb; outline-offset: 2px; }
+  .item:has(.hit:hover) { filter: brightness(1.08) drop-shadow(0 0 3px #fff) drop-shadow(0 0 3px #fff); }
 }
 .item.lifted { opacity: 0.2; }
 
-.ghost { position: absolute; z-index: 100; pointer-events: none; }
-.ghost[data-state="ok"] { filter: drop-shadow(0 6px 0 #0005); }
-.ghost[data-state="bad"] .furn { outline: 4px solid #ff4b4b; opacity: 0.75; }
-.ghost[data-state="remove"], .ghost[data-state="idle"] { opacity: 0.45; }
+.ghost { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
+.ghost .item .hit { pointer-events: none; }
+.ghost[data-state="ok"] .item { filter: drop-shadow(0 8px 2px #0005); }
+.ghost[data-state="bad"] .item { filter: sepia(1) saturate(6) hue-rotate(-45deg); opacity: 0.8; }
+.ghost[data-state="remove"], .ghost[data-state="idle"] { opacity: 0.4; }
+
 
 /* ---------- 가구 선반 ---------- */
 .shelf {
@@ -315,6 +317,7 @@ body:not([data-mode]) .hud { display: none; }
   background: var(--win-paper);
   font-size: 16px;
   line-height: 1.6;
+  word-break: keep-all;
 }
 .win-body p { margin: 0 0 10px; }
 .win-body .meta { margin: 0; font-size: 14px; color: #6c6457; }
@@ -365,18 +368,27 @@ body:not([data-mode]) .hud { display: none; }
 .fx-scan {
   background: repeating-linear-gradient(to bottom, #00000026 0 1px, transparent 1px 3px);
 }
+/* 그레인: crt.js가 화면 절반 해상도의 캔버스에 노이즈를 매 프레임 바꿔 그린다. */
 .fx-grain {
-  inset: -120px;
-  opacity: 0.09;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain 0.6s steps(4) infinite;
+  width: 100%;
+  height: 100%;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
 }
-@keyframes grain {
-  0% { transform: translate(0, 0); }
-  25% { transform: translate(-40px, 25px); }
-  50% { transform: translate(30px, -45px); }
-  75% { transform: translate(-60px, -15px); }
-  100% { transform: translate(15px, 35px); }
+/* 아주 약한 밝기 깜빡임 */
+.fx-flicker {
+  background: #fff;
+  opacity: 0;
+  animation: flicker 3.7s steps(1) infinite;
+}
+@keyframes flicker {
+  0% { opacity: 0.012; }
+  13% { opacity: 0.03; }
+  17% { opacity: 0.008; }
+  46% { opacity: 0.022; }
+  51% { opacity: 0.01; }
+  78% { opacity: 0.026; }
+  83% { opacity: 0.012; }
 }
 /* 볼록 효과: 실제로 휘게 하면 클릭 위치가 어긋나므로 비네팅과 반사광만 겹친다. */
 .fx-curve {
@@ -386,7 +398,11 @@ body:not([data-mode]) .hud { display: none; }
     radial-gradient(ellipse at center, transparent 60%, #00000070 100%);
   box-shadow: inset 0 0 50px #0009;
 }
-body:not(.grain) .fx-scan, body:not(.grain) .fx-grain { display: none; }
+body:not(.grain) .fx-scan, body:not(.grain) .fx-grain, body:not(.grain) .fx-flicker { display: none; }
+
+.crt { position: absolute; inset: 0; }
+.crt-input { position: absolute; inset: 0; z-index: 70; }
+.crt-input[hidden] { display: none; }
 body:not(.curve) .fx-curve { display: none; }
 
 /* ---------- 전원 연출 ---------- */
@@ -435,5 +451,5 @@ body:not(.curve) .fx-curve { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fx-grain, .power-hint, .shelf.hint .card { animation: none; }
+  .fx-flicker, .power-hint, .shelf.hint .card { animation: none; }
 }

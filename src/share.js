@@ -24,10 +24,10 @@ export function sanitizeRoom(raw) {
   const items = [];
   list
     .filter(it => it && BY_ID[it.id] && Number.isInteger(it.x) && Number.isInteger(it.y))
-    .map(it => ({ id: it.id, x: it.x, y: it.y }))
+    .map(it => (BY_ID[it.id].zone === 'wall' ? { id: it.id, wall: it.wall, x: it.x, y: it.y } : { id: it.id, x: it.x, y: it.y }))
     .sort((a, b) => rank(a) - rank(b))
     .forEach(it => { if (canPlace(items, it)) items.push(it); });
-  return { v: 1, owner, items };
+  return { v: 2, owner, items };
 }
 
 const toB64 = str => {
@@ -41,17 +41,17 @@ const fromB64 = str => {
   return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
 };
 
-// 링크에는 짧은 형태로 담는다: { v, o: 이름, i: [[id, x, y], ...] }
+// 링크에는 짧은 형태로 담는다: { v, o: 이름, i: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], ...] }
 export function encodeRoom(room) {
-  const compact = { v: 1, o: room.owner, i: room.items.map(it => [it.id, it.x, it.y]) };
+  const compact = { v: 2, o: room.owner, i: room.items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : [it.id, it.x, it.y])) };
   return toB64(JSON.stringify(compact));
 }
 
 export function decodeRoom(str) {
   try {
     const c = JSON.parse(fromB64(str));
-    if (!c || c.v !== 1 || !Array.isArray(c.i)) return null;
-    const items = c.i.filter(Array.isArray).map(([id, x, y]) => ({ id, x, y }));
+    if (!c || c.v !== 2 || !Array.isArray(c.i)) return null;
+    const items = c.i.filter(Array.isArray).map(([id, x, y, wall]) => ({ id, x, y, wall }));
     const room = sanitizeRoom({ owner: c.o, items });
     return room && room.owner ? room : null;
   } catch {

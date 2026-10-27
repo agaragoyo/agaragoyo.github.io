@@ -18,10 +18,24 @@
 
 - 증상: 파일 탐색기에서 `index.html`을 열면 빈 화면이다.
 - 원인: ES 모듈은 `file://` 주소에서 브라우저가 막는다.
-- 규칙: 로컬 서버로 연다. `python -m http.server 8123` 후 `http://localhost:8123`.
+- 규칙: 로컬 서버로 연다. `python tools/serve.py` 후 `http://localhost:8123`. 팀원에게는 GitHub Pages 주소를 준다.
 
 ## 4. 세로 폰에서 화면을 돌리면 입력 좌표도 돌려서 계산해야 한다
 
 - 증상: 화면만 90도 돌리고 좌표 계산을 그대로 두면 가구가 손가락과 다른 자리에 놓인다.
 - 원인: `getBoundingClientRect`는 돌아간 상자의 화면 좌표를 주므로, 무대의 x축이 화면 아래쪽, y축이 화면 왼쪽을 향한다.
 - 규칙: 무대 좌표는 반드시 `app.toLocal`로만 구한다. 회전 조건은 `style.css`의 `.viewport` 미디어 쿼리와 `main.js`의 `PORTRAIT_PHONE`, 두 곳이 같아야 한다.
+
+## 5. 화면 왜곡(볼록 효과)을 켜면 클릭은 보정 층을 거쳐야 한다
+
+- 증상: SVG 필터로 화면을 휘면 브라우저는 휘기 전 위치로 클릭 대상을 고른다. 모서리에서 화면 px로 18px쯤 어긋난다.
+- 원인: CSS filter는 그림만 바꾸고 클릭 판정(hit test)은 바꾸지 않는다.
+- 규칙: 왜곡 공식은 `crt.js`의 `warp()` 한 곳에만 둔다(필터 지도와 입력 보정이 같이 쓴다). 화면 안에 클릭을 받는 요소를 새로 만들면
+  `.crt-input` 층이 넘겨주는 합성 이벤트(pointerdown, pointermove, pointerup, click, wheel)로 동작하는지 확인한다.
+  `dblclick`, `contextmenu`, 드래그 앤 드롭 API는 넘기지 않는다. 움직이는 효과(그레인 등)는 `.crt` 바깥에 둔다(안에 두면 매 프레임 필터를 다시 계산한다).
+
+## 6. 고친 JS가 브라우저에 반영되지 않는다
+
+- 증상: 파일을 고쳤는데 옛 모듈이 실행되어 "export가 없다" 같은 오류가 난다.
+- 원인: `python -m http.server`는 캐시 금지 헤더를 보내지 않아 브라우저가 옛 모듈을 그대로 쓴다.
+- 규칙: 개발 서버는 `python tools/serve.py`(Cache-Control: no-store)로 띄운다.

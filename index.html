@@ -12,6 +12,8 @@
   <div class="monitor">
     <div class="bezel">
       <div class="screen" id="screen">
+        <!-- .crt 안쪽만 볼록하게 휜다. 움직이는 그레인은 다시 그리는 비용이 커서 바깥에 둔다. -->
+        <div class="crt" id="crt">
         <div class="stage" id="stage">
           <div class="room" id="room">
             <div class="items" id="items"></div>
@@ -37,7 +39,7 @@
             <form class="win start-win" id="start-form">
               <div class="win-bar"><span>아가라고요</span></div>
               <div class="win-body">
-                <p>내 방을 가구로 꾸미고, 링크로 친구를 초대하는 곳입니다.</p>
+                <p>내 방을 가구로 꾸미고,<br>링크로 친구를 초대하는 곳입니다.</p>
                 <label for="nickname">닉네임</label>
                 <div class="share-row">
                   <input id="nickname" maxlength="12" autocomplete="off" placeholder="최대 12글자">
@@ -49,12 +51,16 @@
         </div>
 
         <div class="fx fx-scan"></div>
-        <div class="fx fx-grain"></div>
-        <div class="fx fx-curve"></div>
         <div class="power-fx off" id="power-fx">
           <div class="beam"></div>
           <p class="power-hint">오른쪽 아래 전원 버튼을 눌러 주세요</p>
         </div>
+        </div>
+        <canvas class="fx fx-grain" id="grain"></canvas>
+        <div class="fx fx-flicker"></div>
+        <div class="fx fx-curve"></div>
+        <!-- 화면이 휘어 있을 때 마우스 입력을 받아 휘기 전 위치로 고쳐 전달하는 투명한 층 -->
+        <div class="crt-input" id="crt-input"></div>
       </div>
 
       <div class="controls">
@@ -66,6 +72,14 @@
     </div>
   </div>
   </div>
+
+  <svg class="defs" width="0" height="0" aria-hidden="true">
+    <filter id="crt-warp" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse"
+      color-interpolation-filters="sRGB" x="0" y="0" width="100" height="100">
+      <feImage id="crt-map" result="map" preserveAspectRatio="none" x="0" y="0" width="100" height="100" />
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="0" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
 
   <script type="module" src="src/main.js"></script>
 </body>

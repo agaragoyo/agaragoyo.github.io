@@ -1,10 +1,11 @@
 // 시작점. 모니터 크기 맞추기, 전원, 모드(꾸미기/구경) 전환을 맡는다.
 import { STAGE_W, STAGE_H, STORAGE_ROOM, STORAGE_SETTINGS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { renderItems } from './room.js';
+import { renderItems, mountRoom } from './room.js';
 import { mountShelf } from './shelf.js';
 import { openWindow, closeAllWindows } from './win.js';
 import { loadJSON, saveJSON, sanitizeRoom, encodeRoom, decodeRoom } from './share.js';
+import { initCRT } from './crt.js';
 
 const $ = sel => document.querySelector(sel);
 const stage = $('#stage');
@@ -35,6 +36,7 @@ const app = {
   openItem(item) {
     const def = BY_ID[item.id];
     const zone = { wall: '벽에 거는 가구', floor: '바닥 가구', top: '책상 위에도 올릴 수 있는 가구' }[def.zone];
+    const size = def.zone === 'wall' ? `가로 ${def.size[0]}칸, 높이 ${def.size[1]}줄` : `${def.size[0]}×${def.size[1]}칸`;
     openWindow(app, {
       key: item,
       title: def.name,
@@ -43,7 +45,7 @@ const app = {
           <p>이 가구를 누르면 열리는 창입니다.
           나중에 미니게임이나 가구 기믹이 이 자리에 들어갑니다.</p>
           <p class="meta"></p>`;
-        body.querySelector('.meta').textContent = `${def.size[0]}×${def.size[1]}칸, ${zone}`;
+        body.querySelector('.meta').textContent = `${size}, ${zone}`;
       },
     });
   },
@@ -78,10 +80,10 @@ function fit() {
   screen.style.width = STAGE_W * s + 'px';
   screen.style.height = STAGE_H * s + 'px';
   stage.style.transform = `scale(${s})`;
+  crt.apply();
 }
 addEventListener('resize', fit);
 PORTRAIT_PHONE.addEventListener('change', fit);
-fit();
 
 // ---------- 테두리 버튼 설정 ----------
 const settings = { grain: true, curve: true, ...loadJSON(STORAGE_SETTINGS) };
@@ -90,7 +92,20 @@ function applySettings() {
     document.body.classList.toggle(key, !!settings[key]);
     $(`[data-toggle="${key}"]`).setAttribute('aria-pressed', String(!!settings[key]));
   }
+  crt.apply();
 }
+
+// 화면을 실제로 휘는 볼록 효과는 지금은 마우스를 쓰는 PC에서만 켠다.
+const HAS_MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
+const crt = initCRT({
+  screen: $('#screen'),
+  warpEl: $('#crt'),
+  input: $('#crt-input'),
+  grain: $('#grain'),
+  isWarpOn: () => settings.curve && HAS_MOUSE.matches && !app.rotated,
+  isGrainOn: () => settings.grain,
+});
+fit();
 document.querySelectorAll('[data-toggle]').forEach(btn => {
   btn.addEventListener('click', () => {
     settings[btn.dataset.toggle] = !settings[btn.dataset.toggle];
@@ -171,7 +186,7 @@ $('#start-form').addEventListener('submit', e => {
   e.preventDefault();
   const name = $('#nickname').value.trim().slice(0, 12);
   if (!name) { $('#nickname').focus(); return; }
-  app.room = { v: 1, owner: name, items: [] };
+  app.room = { v: 2, owner: name, items: [] };
   saveJSON(STORAGE_ROOM, app.room);
   setMode('edit');
 });
@@ -222,4 +237,5 @@ function hideToast() {
   $('#toast').classList.remove('show');
 }
 
+mountRoom(app);
 mountShelf(app);
