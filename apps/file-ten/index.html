@@ -16,7 +16,9 @@
       color: #fff;
       user-select: none;
     }
-    header { display: flex; align-items: center; gap: 14px; padding: 8px 12px; background: #1f4d4a; font-size: 14px; }
+    /* 점수나 다음 물건 이름이 길어져도 한 줄을 지킨다(두 줄이 되면 아래 게임판이 밀린다). */
+    header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; white-space: nowrap; overflow: hidden; background: #1f4d4a; font-size: 14px; }
+    header > * { flex: none; }
     header .grow { flex: 1; }
     #timebar { width: 160px; height: 10px; border: 2px solid #fff; }
     #timebar i { display: block; height: 100%; background: #f6cf6a; }
@@ -80,7 +82,8 @@
       cv.height = Math.round(H * scale * dpr);
       ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
     }
-    addEventListener('resize', fit);
+    // 게임판 자리의 크기가 바뀔 때마다(창 크기, 머리줄 높이) 다시 맞춘다.
+    new ResizeObserver(fit).observe($('wrap'));
 
     // ---------- 고르기 ----------
     const toGame = e => {
