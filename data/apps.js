@@ -30,7 +30,6 @@ export const APPS = [
   { id: 'enigma', title: 'ENIGMA', icon: `${SITE}/assets/enigma.webp`, src: `${SITE}/Enigma/`, size: [1120, 700], folder: 'games' },
   { id: 'otherside', title: 'See you on the other side', icon: `${SITE}/assets/otherside.webp`, src: `${SITE}/Otherside/`, size: [1040, 660], folder: 'games' },
   { id: 'eyes-on-you', title: 'Eyes on You', icon: `${SITE}/assets/eyes-on-you.webp`, src: `${SITE}/EyesOnYou/`, size: [1120, 700], folder: 'games' },
-  { id: 'selection-pressure', title: '적자생존', icon: `${SITE}/assets/selection-pressure.webp`, src: `${SITE}/selection-pressure/`, size: [1120, 700], folder: 'games' },
   { id: 'magic-straw', title: '내 자리, 내 충전기', color: '#6fae8f', src: `${SITE}/magic-straw/`, size: [1120, 700], folder: 'games' },
 ];
 
