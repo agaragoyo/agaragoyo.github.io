@@ -45,6 +45,18 @@ export function mountRoom(app) {
   app.roomEl.insertAdjacentHTML('afterbegin', roomSVG());
 }
 
+// 누를 수 없는 방 그림 한 장 (바탕화면 배경에 쓴다). container 는 1280×720 크기여야 한다.
+export function renderStatic(container, items) {
+  container.innerHTML = roomSVG();
+  for (const item of items) {
+    const el = furnitureEl(item.id);
+    el.classList.add('item', 'static');
+    placeEl(el, item, elevOf(items, item));
+    el.style.zIndex = zOf(items, item);
+    container.append(el);
+  }
+}
+
 export function renderItems(app) {
   const items = app.room.items;
   app.itemEls.clear();
@@ -129,7 +141,7 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     ghost.append(el);
     return el;
   });
-  app.stage.append(ghost);
+  app.root.append(ghost);
   for (const g of group) app.itemEls.get(g)?.classList.add('lifted');
   app.roomEl.classList.add('dragging');
   document.body.classList.add('grabbing');

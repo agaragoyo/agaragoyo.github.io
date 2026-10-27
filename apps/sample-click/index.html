@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>빨리 누르기</title>
+  <!-- 예시 앱: 이 폴더를 통째로 복사해서 내 앱을 시작한다. 혼자 열어도 동작한다. -->
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background: #fdf6e3;
+      font-family: "Galmuri11", system-ui, sans-serif;
+      color: #2a1f18;
+      user-select: none;
+    }
+    header, footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+    header { background: #f0e4c4; font-size: 15px; }
+    #field { position: relative; overflow: hidden; }
+    #target {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border: 3px solid #2a1f18;
+      border-radius: 50%;
+      background: radial-gradient(#c5483f 0 30%, #f6cf6a 31%);
+      cursor: pointer;
+    }
+    #target[hidden] { display: none; }
+    #msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 18px; }
+    button { font: inherit; padding: 6px 14px; cursor: pointer; }
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+</head>
+<body>
+  <header><span id="hello">빨리 누르기</span><span>점수 <b id="score">0</b> · 남은 시간 <b id="time">10</b>초</span></header>
+  <div id="field">
+    <div id="msg">과녁이 나타나면 최대한 빨리 누르세요.<br><br><button id="start">시작</button></div>
+    <div id="target" hidden></div>
+  </div>
+  <footer><small>예시 앱 (apps/sample-click)</small><button id="quit">끝내기</button></footer>
+
+  <script src="../aga-sdk.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    let score = 0;
+    let left = 0;
+    let timer = 0;
+
+    // 아가라고요 안에서 열렸으면 방 주인 이름으로 인사한다.
+    AGA.info().then(info => {
+      if (info.owner) $('hello').textContent = `${info.owner}님, 빨리 누르기`;
+    });
+
+    function moveTarget() {
+      const f = $('field');
+      $('target').style.left = Math.random() * (f.clientWidth - 48) + 'px';
+      $('target').style.top = Math.random() * (f.clientHeight - 48) + 'px';
+    }
+
+    $('start').addEventListener('click', () => {
+      score = 0;
+      left = 10;
+      $('score').textContent = score;
+      $('time').textContent = left;
+      $('msg').hidden = true;
+      $('target').hidden = false;
+      moveTarget();
+      clearInterval(timer);
+      timer = setInterval(() => {
+        left -= 1;
+        $('time').textContent = left;
+        if (left > 0) return;
+        clearInterval(timer);
+        $('target').hidden = true;
+        $('msg').hidden = false;
+        $('msg').firstChild.textContent = `${score}점! 다시 해 볼까요?`;
+        AGA.setTitle(`빨리 누르기 (최고 ${score}점)`);
+      }, 1000);
+    });
+
+    $('target').addEventListener('pointerdown', () => {
+      score += 1;
+      $('score').textContent = score;
+      moveTarget();
+    });
+
+    $('quit').addEventListener('click', () => AGA.close());
+  </script>
+</body>
+</html>

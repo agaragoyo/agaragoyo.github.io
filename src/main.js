@@ -1,53 +1,24 @@
-// 시작점. 모니터 크기 맞추기, 전원, 모드(꾸미기/구경) 전환을 맡는다.
-import { STAGE_W, STAGE_H, STORAGE_ROOM, STORAGE_SETTINGS } from './config.js';
-import { BY_ID } from '../data/furniture.js';
-import { renderItems, mountRoom } from './room.js';
-import { mountShelf } from './shelf.js';
-import { openWindow, closeAllWindows } from './win.js';
-import { loadJSON, saveJSON, sanitizeRoom, encodeRoom, decodeRoom } from './share.js';
+// 시작점. 모니터(크기 맞추기, 테두리 버튼, 화면 효과, 전원)를 맡고, 화면 안쪽은 os.js에 넘긴다.
+import { STAGE_W, STAGE_H, STORAGE_SETTINGS } from './config.js';
+import { loadJSON, saveJSON } from './share.js';
 import { initCRT } from './crt.js';
+import { createOS } from './os.js';
 
 const $ = sel => document.querySelector(sel);
 const stage = $('#stage');
 
-const app = {
-  stage,
-  roomEl: $('#room'),
-  itemsEl: $('#items'),
-  winLayer: $('#windows'),
-  itemEls: new Map(),
+const mon = {
   scale: 1,
-  mode: null, // 'edit' | 'visit'
-  room: null,
+  rotated: false,
   // 화면 좌표를 1280×840 무대 좌표로 바꾼다.
   toLocal(clientX, clientY) {
     const r = stage.getBoundingClientRect();
-    if (app.rotated) {
+    if (mon.rotated) {
       // 시계 방향으로 90도 돌린 상태: 무대 왼쪽 위 모서리가 화면의 오른쪽 위에 있고,
       // 무대의 x축은 화면 아래쪽, y축은 화면 왼쪽을 향한다.
-      return { x: (clientY - r.top) / app.scale, y: (r.right - clientX) / app.scale };
+      return { x: (clientY - r.top) / mon.scale, y: (r.right - clientX) / mon.scale };
     }
-    return { x: (clientX - r.left) / app.scale, y: (clientY - r.top) / app.scale };
-  },
-  commit() {
-    if (app.mode === 'edit') saveJSON(STORAGE_ROOM, app.room);
-    render();
-  },
-  openItem(item) {
-    const def = BY_ID[item.id];
-    const zone = { wall: '벽에 거는 가구', floor: '바닥 가구', top: '책상 위에도 올릴 수 있는 가구' }[def.zone];
-    const size = def.zone === 'wall' ? `가로 ${def.size[0]}칸, 높이 ${def.size[1]}줄` : `${def.size[0]}×${def.size[1]}칸`;
-    openWindow(app, {
-      key: item,
-      title: def.name,
-      build: body => {
-        body.innerHTML = `
-          <p>이 가구를 누르면 열리는 창입니다.
-          나중에 미니게임이나 가구 기믹이 이 자리에 들어갑니다.</p>
-          <p class="meta"></p>`;
-        body.querySelector('.meta').textContent = `${size}, ${zone}`;
-      },
-    });
+    return { x: (clientX - r.left) / mon.scale, y: (clientY - r.top) / mon.scale };
   },
 };
 
@@ -58,13 +29,13 @@ const app = {
 const PORTRAIT_PHONE = matchMedia('(orientation: portrait) and (hover: none) and (max-width: 900px)');
 
 function fit() {
-  app.rotated = PORTRAIT_PHONE.matches;
+  mon.rotated = PORTRAIT_PHONE.matches;
   // 돌려 놓았으면 화면의 세로가 곧 모니터의 가로다.
-  const W = app.rotated ? innerHeight : innerWidth;
-  const H = app.rotated ? innerWidth : innerHeight;
+  const W = mon.rotated ? innerHeight : innerWidth;
+  const H = mon.rotated ? innerWidth : innerHeight;
   const viewport = $('#viewport');
-  viewport.style.width = app.rotated ? W + 'px' : '';
-  viewport.style.height = app.rotated ? H + 'px' : '';
+  viewport.style.width = mon.rotated ? W + 'px' : '';
+  viewport.style.height = mon.rotated ? H + 'px' : '';
 
   const small = Math.min(W, H) < 500;
   const [MARGIN, PAD, CTRL] = small ? [4, 8, 40] : [16, 26, 58];
@@ -75,7 +46,7 @@ function fit() {
   const availW = W - 2 * (MARGIN + PAD);
   const availH = H - 2 * MARGIN - PAD - CTRL;
   const s = Math.max(0.2, Math.min(availW / STAGE_W, availH / STAGE_H));
-  app.scale = s;
+  mon.scale = s;
   const screen = $('#screen');
   screen.style.width = STAGE_W * s + 'px';
   screen.style.height = STAGE_H * s + 'px';
@@ -102,7 +73,7 @@ const crt = initCRT({
   warpEl: $('#crt'),
   input: $('#crt-input'),
   grain: $('#grain'),
-  isWarpOn: () => settings.curve && HAS_MOUSE.matches && !app.rotated,
+  isWarpOn: () => settings.curve && HAS_MOUSE.matches && !mon.rotated,
   isGrainOn: () => settings.grain,
 });
 fit();
@@ -117,125 +88,43 @@ applySettings();
 
 // ---------- 전원 ----------
 // 소리를 나중에 넣을 때를 생각해, 사용자가 전원 버튼을 직접 누르게 해서 켠다.
-// (브라우저는 첫 클릭 전까지 소리 재생을 막는다.)
+// (브라우저는 첫 클릭 전까지 소리 재생을 막는다.) 끄면 실제 컴퓨터처럼 열린 창이 모두 사라진다.
 const powerFx = $('#power-fx');
 const powerBtn = $('#power');
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let powered = false;
-let booted = false;
 
 function setPowerState(state) { powerFx.className = `power-fx ${state}`; }
 
-powerFx.querySelector('.beam').addEventListener('animationend', () => {
+// 연출이 끝나면 화면을 켜거나 끈다. 탭이 뒤에 있으면 애니메이션이 멈춰 animationend가 오지 않으므로 타이머로도 끝낸다.
+let settleTimer = 0;
+function settlePower() {
+  clearTimeout(settleTimer);
+  if (!powerFx.className.includes('turning')) return;
   setPowerState(powered ? 'on' : 'off');
-});
+  if (!powered) os.reset();
+}
+powerFx.querySelector('.beam').addEventListener('animationend', settlePower);
 
-powerBtn.addEventListener('click', () => {
-  powered = !powered;
+function setPower(on) {
+  if (on === powered) return;
+  powered = on;
   powerBtn.setAttribute('aria-pressed', String(powered));
-  if (reduceMotion) setPowerState(powered ? 'on' : 'off');
-  else setPowerState(powered ? 'turning-on' : 'turning-off');
-  if (powered && !booted) { booted = true; boot(); }
-});
-
-// ---------- 모드 ----------
-function boot() {
-  const m = location.hash.match(/^#room=(.+)$/);
-  if (m) {
-    const room = decodeRoom(m[1]);
-    if (room) { app.room = room; setMode('visit'); return; }
-    toast('링크가 깨져서 친구 방을 열 수 없었습니다.');
+  if (reduceMotion) {
+    setPowerState(powered ? 'on' : 'off');
+    if (!powered) os.reset();
+  } else {
+    setPowerState(powered ? 'turning-on' : 'turning-off');
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settlePower, 900);
   }
-  enterOwnRoom();
+  if (powered) os.boot();
 }
 
-function enterOwnRoom() {
-  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-  const saved = sanitizeRoom(loadJSON(STORAGE_ROOM));
-  if (saved && saved.owner) { app.room = saved; setMode('edit'); }
-  else showStart();
-}
-
-function setMode(mode) {
-  closeAllWindows();
-  app.mode = mode;
-  document.body.dataset.mode = mode;
-  $('#start').hidden = true;
-  render();
-}
-
-function render() {
-  renderItems(app);
-  $('#owner').textContent = app.mode === 'visit'
-    ? `${app.room.owner}의 방에 놀러 왔습니다`
-    : `${app.room.owner}의 방`;
-  const empty = app.mode === 'edit' && app.room.items.length === 0;
-  $('.shelf').classList.toggle('hint', empty);
-  if (empty) toast('아래 선반에서 가구를 끌어 방에 놓아 보세요.', 0);
-  else if (toastSticky) hideToast();
-}
-
-function showStart() {
-  delete document.body.dataset.mode;
-  app.mode = null;
-  $('#start').hidden = false;
-  setTimeout(() => $('#nickname').focus(), 50);
-}
-
-$('#start-form').addEventListener('submit', e => {
-  e.preventDefault();
-  const name = $('#nickname').value.trim().slice(0, 12);
-  if (!name) { $('#nickname').focus(); return; }
-  app.room = { v: 2, owner: name, items: [] };
-  saveJSON(STORAGE_ROOM, app.room);
-  setMode('edit');
+const os = createOS({
+  stage,
+  toStage: mon.toLocal,
+  requestPowerOff: () => setPower(false),
+  crt,
 });
-
-$('#btn-share').addEventListener('click', () => {
-  const link = `${location.origin}${location.pathname}#room=${encodeRoom(app.room)}`;
-  openWindow(app, {
-    key: 'share',
-    title: '공유 링크',
-    width: 560,
-    build: body => {
-      body.innerHTML = `
-        <p>이 링크를 받은 친구는 지금 모습 그대로 방을 구경할 수 있습니다.
-        방을 고친 뒤에는 링크를 다시 복사해서 보내 주세요.</p>
-        <div class="share-row">
-          <input type="text" readonly aria-label="공유 링크">
-          <button type="button" class="btn">복사</button>
-        </div>`;
-      const input = body.querySelector('input');
-      input.value = link;
-      body.querySelector('button').addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(link); }
-        catch { input.select(); document.execCommand('copy'); }
-        toast('링크를 복사했습니다.');
-      });
-    },
-  });
-});
-
-$('#btn-mine').addEventListener('click', enterOwnRoom);
-
-// 열어 둔 채로 다른 방 링크를 붙여 넣은 경우
-addEventListener('hashchange', () => { if (booted && location.hash.startsWith('#room=')) boot(); });
-
-// ---------- 알림 ----------
-let toastTimer = 0;
-let toastSticky = false;
-function toast(msg, ms = 2400) {
-  const el = $('#toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastSticky = ms === 0;
-  if (ms) toastTimer = setTimeout(hideToast, ms);
-}
-function hideToast() {
-  toastSticky = false;
-  $('#toast').classList.remove('show');
-}
-
-mountRoom(app);
-mountShelf(app);
+powerBtn.addEventListener('click', () => setPower(!powered));

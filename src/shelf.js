@@ -7,7 +7,7 @@ import { boxSize } from './iso.js';
 const THUMB = 60; // 카드 안 미리보기 크기 (px)
 
 export function mountShelf(app) {
-  const shelf = app.stage.querySelector('.shelf');
+  const shelf = app.root.querySelector('.shelf');
   const track = shelf.querySelector('.shelf-track');
   const [prev, next] = shelf.querySelectorAll('.shelf-arrow');
 

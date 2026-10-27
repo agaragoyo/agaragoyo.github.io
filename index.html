@@ -15,39 +15,43 @@
         <!-- .crt 안쪽만 볼록하게 휜다. 움직이는 그레인은 다시 그리는 비용이 커서 바깥에 둔다. -->
         <div class="crt" id="crt">
         <div class="stage" id="stage">
-          <div class="room" id="room">
-            <div class="items" id="items"></div>
+          <!-- 바탕화면 (1280×800): 배경은 지금 꾸민 방 그림이다 -->
+          <div class="desktop" id="desktop" hidden>
+            <div class="wallpaper" id="wallpaper"></div>
+            <div class="icons" id="icons"></div>
+            <div class="windows" id="windows"></div>
+          </div>
+          <div class="taskbar" id="taskbar" hidden>
+            <button type="button" class="start-btn"><span class="start-logo"></span>시작</button>
+            <div class="tasks" id="tasks"></div>
+            <span class="clock"></span>
+          </div>
+          <div class="start-menu" id="start-menu" hidden></div>
+
+          <div class="boot" id="boot" hidden>
+            <pre class="boot-text"></pre>
+            <div class="boot-logo" hidden>
+              <div class="boot-title">아가라고요</div>
+              <div class="boot-bar"><i></i></div>
+            </div>
           </div>
 
-          <div class="shelf">
-            <button type="button" class="shelf-arrow" aria-label="앞 가구">◀</button>
-            <div class="shelf-track"></div>
-            <button type="button" class="shelf-arrow" aria-label="뒤 가구">▶</button>
-            <p class="shelf-visit">친구 방의 가구는 옮길 수 없습니다. 가구를 눌러 구경해 보세요.</p>
-          </div>
-
-          <div class="hud">
-            <span class="owner" id="owner"></span>
-            <button type="button" class="btn edit-only" id="btn-share">공유 링크</button>
-            <button type="button" class="btn visit-only" id="btn-mine">나도 만들기</button>
-          </div>
-
-          <div class="windows" id="windows"></div>
-          <div class="toast" id="toast" role="status"></div>
-
-          <div class="start" id="start" hidden>
-            <form class="win start-win" id="start-form">
-              <div class="win-bar"><span>아가라고요</span></div>
-              <div class="win-body">
-                <p>내 방을 가구로 꾸미고,<br>링크로 친구를 초대하는 곳입니다.</p>
-                <label for="nickname">닉네임</label>
-                <div class="share-row">
-                  <input id="nickname" maxlength="12" autocomplete="off" placeholder="최대 12글자">
-                  <button type="submit" class="btn">방 만들기</button>
-                </div>
+          <div class="login" id="login" hidden>
+            <div class="login-top"></div>
+            <div class="login-mid">
+              <div class="login-left">
+                <div class="login-logo">아가라고요</div>
+                <p>시작하려면 사용자 이름을 누르세요.</p>
               </div>
-            </form>
+              <div class="users"></div>
+            </div>
+            <div class="login-bottom">
+              <span>내 방을 꾸미고, 링크로 친구를 초대하는 컴퓨터</span>
+            </div>
+            <div class="welcome"></div>
           </div>
+
+          <div class="toast" id="toast" role="status"></div>
         </div>
 
         <div class="fx fx-scan"></div>

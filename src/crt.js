@@ -63,7 +63,94 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     }
     warpEl.style.filter = on ? 'url(#crt-warp)' : '';
     input.hidden = !on;
+    window.__agaWarpOn = on; // 같은 사이트 앱(iframe)이 포인터 캡처를 흉내 낼지 정할 때 본다
+    updateHoles();
     startGrain();
+  }
+
+  // ---------- iframe 앱 ----------
+  // 같은 사이트의 앱은 보정한 좌표를 iframe 안 문서까지 넣어 준다.
+  // 다른 사이트의 앱은 안을 건드릴 수 없으므로, 그 창 영역만 보정 층에 구멍을 내서 클릭이 그대로 들어가게 한다.
+  const sameOrigin = frame => {
+    try { return new URL(frame.src, location.href).origin === location.origin; } catch { return false; }
+  };
+
+  function updateHoles() {
+    if (input.hidden) { input.style.clipPath = ''; return; }
+    const r = screen.getBoundingClientRect();
+    const holes = [];
+    for (const frame of screen.querySelectorAll('iframe')) {
+      if (sameOrigin(frame) || !frame.offsetParent) continue;
+      const f = frame.getBoundingClientRect();
+      const x = f.left - r.left;
+      const y = f.top - r.top;
+      holes.push(`M${x} ${y}h${f.width}v${f.height}h${-f.width}Z`);
+    }
+    input.style.clipPath = holes.length
+      ? `path(evenodd, "M0 0H${r.width}V${r.height}H0Z ${holes.join(' ')}")`
+      : '';
+  }
+
+  // 같은 사이트 앱이 setPointerCapture를 부르면, 우리가 보내는 가짜 포인터 이벤트에는 진짜 캡처가 안 되어 오류가 난다.
+  // 화면이 휘어 있는 동안만 캡처를 흉내 내서, 이후 이벤트를 그 요소로 보낸다.
+  function prepareFrame(frame) {
+    let w;
+    try { w = frame.contentWindow; if (!w.document) return; } catch { return; }
+    if (w.__agaPrepared) return;
+    w.__agaPrepared = true;
+    const proto = w.Element.prototype;
+    const orig = {
+      set: proto.setPointerCapture,
+      release: proto.releasePointerCapture,
+      has: proto.hasPointerCapture,
+    };
+    const fake = () => window.__agaWarpOn;
+    proto.setPointerCapture = function (id) { if (fake()) w.__agaCapture = this; else orig.set.call(this, id); };
+    proto.releasePointerCapture = function (id) {
+      if (fake()) { if (w.__agaCapture === this) w.__agaCapture = null; } else orig.release.call(this, id);
+    };
+    proto.hasPointerCapture = function (id) { return fake() ? w.__agaCapture === this : orig.has.call(this, id); };
+  }
+
+  const MOUSE_TWIN = { pointerdown: 'mousedown', pointermove: 'mousemove', pointerup: 'mouseup' };
+
+  // 무대 위 iframe 안으로 이벤트를 넣는다. 성공하면 true.
+  function intoFrame(frame, type, x, y, e) {
+    let w;
+    let doc;
+    try { w = frame.contentWindow; doc = w.document; } catch { return false; }
+    if (!doc) return false;
+    const f = frame.getBoundingClientRect();
+    const sc = f.width / frame.clientWidth || 1;
+    const ix = (x - f.left) / sc;
+    const iy = (y - f.top) / sc;
+    const target = (type !== 'click' && type !== 'wheel' && w.__agaCapture) || doc.elementFromPoint(ix, iy) || doc.body;
+    if (!target) return true;
+    const init = {
+      bubbles: true, cancelable: true, composed: true, view: w,
+      clientX: ix, clientY: iy, screenX: e.screenX, screenY: e.screenY,
+      button: e.button, buttons: e.buttons,
+      ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey,
+    };
+    if (type === 'wheel') {
+      target.dispatchEvent(new w.WheelEvent('wheel', { ...init, deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode }));
+      return true;
+    }
+    if (type === 'click') {
+      target.dispatchEvent(new w.MouseEvent('click', init));
+      return true;
+    }
+    if (type === 'pointerdown') {
+      w.focus();
+      const field = target.closest?.('input, textarea, select, [tabindex], button, a');
+      if (field) field.focus();
+    }
+    target.dispatchEvent(new w.PointerEvent(type, {
+      ...init, pointerId: e.pointerId, pointerType: e.pointerType, isPrimary: e.isPrimary,
+    }));
+    if (MOUSE_TWIN[type]) target.dispatchEvent(new w.MouseEvent(MOUSE_TWIN[type], init));
+    if (type === 'pointerup' || type === 'pointercancel') w.__agaCapture = null;
+    return true;
   }
 
   // ---------- 입력 보정 ----------
@@ -79,6 +166,7 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     return el && screen.contains(el) ? el : null;
   };
   let hovered = null;
+  let activeFrame = null;
   const setHover = el => {
     const item = el?.closest('.item') || null;
     if (item === hovered) return;
@@ -102,6 +190,11 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
       setHover(target);
       input.style.cursor = target ? getComputedStyle(target).cursor : '';
     }
+    // 앞서 누른 곳이 iframe 이었으면 손을 뗄 때까지 그 iframe 으로 보낸다(창 밖으로 끌어도 놓치지 않게).
+    const frame = activeFrame || (target?.tagName === 'IFRAME' ? target : null);
+    if (e.type === 'pointerdown') activeFrame = frame;
+    if (e.type === 'pointerup' || e.type === 'pointercancel') activeFrame = null;
+    if (frame && intoFrame(frame, e.type, x, y, e)) return;
     (target || window).dispatchEvent(new PointerEvent(e.type, {
       bubbles: true,
       cancelable: true,
@@ -121,7 +214,9 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
   input.addEventListener('pointerleave', () => setHover(null));
   input.addEventListener('click', e => {
     e.stopPropagation();
-    const target = under(...fix(e.clientX, e.clientY));
+    const [x, y] = fix(e.clientX, e.clientY);
+    const target = under(x, y);
+    if (target?.tagName === 'IFRAME' && intoFrame(target, 'click', x, y, e)) return;
     const clickable = target?.closest('button, a, label');
     if (clickable) clickable.click();
   });
@@ -129,7 +224,9 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     e.preventDefault();
     e.stopPropagation();
     const [x, y] = fix(e.clientX, e.clientY);
-    under(x, y)?.dispatchEvent(new WheelEvent('wheel', {
+    const target = under(x, y);
+    if (target?.tagName === 'IFRAME' && intoFrame(target, 'wheel', x, y, e)) return;
+    target?.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true, cancelable: true, clientX: x, clientY: y,
       deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,
     }));
@@ -173,5 +270,6 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     }, 1000 / FPS);
   }
 
-  return { apply };
+  window.addEventListener('resize', updateHoles);
+  return { apply, updateHoles, prepareFrame };
 }
