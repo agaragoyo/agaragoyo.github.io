@@ -62,7 +62,7 @@ button { font-family: inherit; }
 .bezel {
   position: relative;
   padding: var(--pad) var(--pad) 0;
-  border-radius: calc(7 * var(--u));
+  border-radius: calc(2 * var(--u));
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.37 0 0 0 0 0.3 0 0 0 0.22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"),
     radial-gradient(ellipse at 18% 0%, #fffaf0 0%, transparent 55%),
@@ -81,7 +81,7 @@ button { font-family: inherit; }
 .screen {
   position: relative;
   overflow: hidden;
-  border-radius: calc(6 * var(--u));
+  border-radius: calc(2 * var(--u));
   background: #000;
   /* 안에서 밖으로: 유리 가장자리, 검은 안쪽 테, 화면 쪽으로 깊게 꺾여 들어가는 비탈(위는 그늘, 아래는 빛), 바깥 턱 */
   box-shadow:
@@ -93,7 +93,7 @@ button { font-family: inherit; }
     0 0 0 calc(32 * var(--u)) #c4bba4,
     0 0 0 calc(35 * var(--u)) #b3a990;
 }
-body.curve .screen { border-radius: calc(22 * var(--u)) / calc(28 * var(--u)); }
+body.curve .screen { border-radius: calc(3 * var(--u)); }
 .stage {
   position: absolute;
   left: 0;
@@ -112,8 +112,13 @@ body.curve .screen { border-radius: calc(22 * var(--u)) / calc(28 * var(--u)); }
   display: flex;
   align-items: center;
   gap: calc(15 * var(--u));
+  position: relative;
+  z-index: 1;
   height: var(--ctrl);
-  padding: 0 calc(5 * var(--u));
+  /* 화면 둘레의 비탈(.screen box-shadow, 38u)이 버튼 줄을 덮지 않게 그만큼 띄운다 */
+  padding-top: calc(38 * var(--u));
+  padding-left: calc(5 * var(--u));
+  padding-right: calc(5 * var(--u));
 }
 /* 이름표: 몸체에 눌러 찍은 듯한 글씨 */
 .brand {
