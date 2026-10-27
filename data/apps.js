@@ -22,7 +22,9 @@ export const APPS = [
   { id: 'games', title: '미니게임', icon: 'builtin:folder', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
 
-  // 미니게임 폴더. 지금은 김수민이 만든 게임들을 자리 채우기로 넣어 두었다.
+  // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 김수민의 기존 게임들.
+  { id: 'tidy-up', title: '짐 정리', icon: 'apps/tidy-up/icon.svg', src: 'apps/tidy-up/index.html', size: [440, 640], folder: 'games' },
+  { id: 'file-ten', title: '파일 정리 10', icon: 'apps/file-ten/icon.svg', src: 'apps/file-ten/index.html', size: [720, 470], folder: 'games' },
   { id: 'sample-click', title: '예시: 빨리 누르기', icon: 'apps/sample-click/icon.svg', src: 'apps/sample-click/index.html', size: [440, 340], folder: 'games' },
   { id: 'be-the-bee', title: 'Be the Bee', icon: `${SITE}/assets/be-the-bee.webp`, src: `${SITE}/be-the-bee/`, size: [1040, 660], folder: 'games' },
   { id: 'enigma', title: 'ENIGMA', icon: `${SITE}/assets/enigma.webp`, src: `${SITE}/Enigma/`, size: [1120, 700], folder: 'games' },

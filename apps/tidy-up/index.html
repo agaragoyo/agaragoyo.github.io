@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>짐 정리</title>
+  <!-- 짐 정리: 이삿짐 상자에 물건을 떨어뜨리고, 같은 물건 두 개가 닿으면 한 단계 큰 물건이 된다. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: #3b2f2a;
+      font-family: "Galmuri11", system-ui, sans-serif;
+      color: #fdf6e3;
+      user-select: none;
+    }
+    header { display: flex; align-items: center; gap: 14px; padding: 8px 12px; background: #2a211d; font-size: 14px; }
+    header .grow { flex: 1; }
+    button { font: inherit; font-size: 13px; padding: 4px 10px; cursor: pointer; }
+    #wrap { flex: 1; display: grid; place-items: center; min-height: 0; }
+    canvas { display: block; touch-action: none; cursor: crosshair; }
+  </style>
+</head>
+<body>
+  <header>
+    <span>점수 <b id="score">0</b></span>
+    <span>최고 <b id="best">0</b></span>
+    <span class="grow"></span>
+    <span>다음: <b id="next"></b></span>
+    <button id="restart">다시</button>
+    <button id="quit">끝내기</button>
+  </header>
+  <div id="wrap"><canvas id="cv"></canvas></div>
+
+  <script src="../aga-sdk.js"></script>
+  <script>
+    // ---------- 물건 단계 ----------
+    // 같은 단계 두 개가 닿으면 다음 단계가 된다. 옷장 두 개가 만나면 큰 보너스를 받고 사라진다.
+    const TIERS = [
+      { name: '단추', r: 14, c: '#e07a5f' },
+      { name: '지우개', r: 19, c: '#f2cc8f' },
+      { name: '머그컵', r: 25, c: '#81b29a' },
+      { name: '책', r: 32, c: '#5b8def' },
+      { name: '화분', r: 40, c: '#6fae6a' },
+      { name: '라디오', r: 49, c: '#b5838d' },
+      { name: '의자', r: 59, c: '#c9a227' },
+      { name: '책상', r: 70, c: '#b08354' },
+      { name: '소파', r: 82, c: '#c9766a' },
+      { name: '침대', r: 96, c: '#8fa9d6' },
+      { name: '옷장', r: 112, c: '#d8c3a0' },
+    ];
+    const W = 400;          // 상자 안쪽 가로 (게임 단위)
+    const H = 560;          // 상자 안쪽 세로
+    const LINE = 92;        // 이 줄 위로 물건이 쌓여 1.2초를 넘기면 끝
+    const GRAVITY = 1500;
+    const DROP_GAP = 450;   // 떨어뜨린 뒤 다음 물건까지 (ms)
+
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d');
+    const $ = id => document.getElementById(id);
+    const BEST_KEY = 'tidy-up.best';
+    let best = +(localStorage.getItem(BEST_KEY) || 0);
+    $('best').textContent = best;
+
+    let bodies, score, aimX, current, nextTier, lastDrop, overTimer, over;
+
+    function randTier() {
+      const r = Math.random();
+      return r < 0.35 ? 0 : r < 0.62 ? 1 : r < 0.82 ? 2 : r < 0.95 ? 3 : 4;
+    }
+
+    function reset() {
+      bodies = [];
+      score = 0;
+      aimX = W / 2;
+      current = randTier();
+      nextTier = randTier();
+      lastDrop = 0;
+      overTimer = 0;
+      over = false;
+      $('score').textContent = 0;
+      $('next').textContent = TIERS[nextTier].name;
+    }
+
+    // ---------- 화면 크기 ----------
+    let scale = 1;
+    function fit() {
+      const wrap = $('wrap');
+      scale = Math.min(wrap.clientWidth / W, wrap.clientHeight / H);
+      const dpr = window.devicePixelRatio || 1;
+      cv.style.width = W * scale + 'px';
+      cv.style.height = H * scale + 'px';
+      cv.width = Math.round(W * scale * dpr);
+      cv.height = Math.round(H * scale * dpr);
+      ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    }
+    addEventListener('resize', fit);
+
+    // ---------- 입력 ----------
+    const toGame = e => {
+      const r = cv.getBoundingClientRect();
+      return (e.clientX - r.left) / (r.width / W);
+    };
+    cv.addEventListener('pointermove', e => { aimX = toGame(e); });
+    cv.addEventListener('pointerdown', e => {
+      aimX = toGame(e);
+      if (over) { reset(); return; }
+      const now = performance.now();
+      if (now - lastDrop < DROP_GAP) return;
+      const r = TIERS[current].r;
+      // 같은 자리에 정확히 떨어뜨리면 공이 탑처럼 균형을 잡고 서 버리므로 아주 조금 흔든다.
+      const x = Math.max(r, Math.min(W - r, aimX + (Math.random() - 0.5) * 2));
+      bodies.push({ x, y: LINE - r - 6, vx: 0, vy: 0, t: current, r, born: now });
+      lastDrop = now;
+      current = nextTier;
+      nextTier = randTier();
+      $('next').textContent = TIERS[nextTier].name;
+    });
+    $('restart').addEventListener('click', reset);
+    $('quit').addEventListener('click', () => AGA.close());
+
+    // ---------- 물리 ----------
+    function step(dt) {
+      for (const b of bodies) {
+        b.vy += GRAVITY * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < b.r) { b.x = b.r; b.vx *= -0.3; }
+        if (b.x > W - b.r) { b.x = W - b.r; b.vx *= -0.3; }
+        if (b.y > H - b.r) { b.y = H - b.r; b.vy *= -0.2; b.vx *= 0.98; }
+      }
+      const merged = new Set();
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const a = bodies[i];
+          const b = bodies[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const d = Math.hypot(dx, dy) || 0.001;
+          const overlap = a.r + b.r - d;
+          if (overlap <= 0) continue;
+          if (a.t === b.t && !merged.has(a) && !merged.has(b)) {
+            merged.add(a);
+            merged.add(b);
+            continue;
+          }
+          // 겹친 만큼 질량(넓이) 비율로 밀어내고, 마주 오는 속도를 줄인다.
+          const nx = dx / d;
+          const ny = dy / d;
+          const ma = a.r * a.r;
+          const mb = b.r * b.r;
+          const pa = mb / (ma + mb);
+          const pb = ma / (ma + mb);
+          a.x -= nx * overlap * pa;
+          a.y -= ny * overlap * pa;
+          b.x += nx * overlap * pb;
+          b.y += ny * overlap * pb;
+          const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (rel < 0) {
+            const j2 = -rel * 1.2;
+            a.vx -= nx * j2 * pa;
+            a.vy -= ny * j2 * pa;
+            b.vx += nx * j2 * pb;
+            b.vy += ny * j2 * pb;
+          }
+        }
+      }
+      if (merged.size) mergePairs(merged);
+    }
+
+    function mergePairs(set) {
+      const list = [...set];
+      const used = new Set();
+      for (const a of list) {
+        if (used.has(a)) continue;
+        const b = list.find(o => o !== a && !used.has(o) && o.t === a.t && Math.hypot(o.x - a.x, o.y - a.y) <= o.r + a.r + 0.5);
+        if (!b) continue;
+        used.add(a);
+        used.add(b);
+        bodies = bodies.filter(o => o !== a && o !== b);
+        const t = a.t + 1;
+        if (t >= TIERS.length) {
+          score += 500; // 옷장 두 개: 방이 깔끔해졌다
+        } else {
+          const r = TIERS[t].r;
+          bodies.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, vx: 0, vy: -120, t, r, born: performance.now() });
+          score += (t + 1) * (t + 2) / 2;
+        }
+      }
+      $('score').textContent = score;
+      if (score > best) {
+        best = score;
+        $('best').textContent = best;
+        localStorage.setItem(BEST_KEY, best);
+      }
+    }
+
+    function checkOver(dt) {
+      const now = performance.now();
+      const high = bodies.some(b => now - b.born > 900 && b.y - b.r < LINE);
+      overTimer = high ? overTimer + dt : 0;
+      if (overTimer > 1.2) {
+        over = true;
+        AGA.setTitle(`짐 정리 (최고 ${best}점)`);
+      }
+    }
+
+    // ---------- 그리기 ----------
+    function drawBody(x, y, t, alpha = 1) {
+      const tier = TIERS[t];
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(x, y, tier.r, 0, Math.PI * 2);
+      ctx.fillStyle = tier.c;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#2a211d';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x - tier.r * 0.3, y - tier.r * 0.35, tier.r * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff55';
+      ctx.fill();
+      ctx.fillStyle = '#2a211d';
+      ctx.font = `${Math.max(10, Math.min(18, tier.r * 0.5))}px Galmuri11, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tier.name, x, y + 1);
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      // 상자 안쪽 (골판지)
+      ctx.fillStyle = '#d8b07a';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#cfa56d';
+      for (let y = 0; y < H; y += 8) ctx.fillRect(0, y, W, 3);
+      // 넘치면 안 되는 줄
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = overTimer > 0 ? '#c5483f' : '#7a5530';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, LINE);
+      ctx.lineTo(W, LINE);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (const b of bodies) drawBody(b.x, b.y, b.t);
+      if (!over) {
+        const r = TIERS[current].r;
+        const x = Math.max(r, Math.min(W - r, aimX));
+        ctx.strokeStyle = '#7a553066';
+        ctx.beginPath();
+        ctx.moveTo(x, LINE - r - 6);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+        drawBody(x, LINE - r - 6, current, performance.now() - lastDrop < DROP_GAP ? 0.4 : 1);
+      } else {
+        ctx.fillStyle = '#000a';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fdf6e3';
+        ctx.textAlign = 'center';
+        ctx.font = '28px Galmuri11, sans-serif';
+        ctx.fillText('상자가 꽉 찼어요', W / 2, H / 2 - 24);
+        ctx.font = '18px Galmuri11, sans-serif';
+        ctx.fillText(`${score}점, 누르면 다시 시작`, W / 2, H / 2 + 16);
+      }
+    }
+
+    let last = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      if (!over) {
+        for (let i = 0; i < 4; i++) step(dt / 4);
+        checkOver(dt);
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    reset();
+    fit();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
