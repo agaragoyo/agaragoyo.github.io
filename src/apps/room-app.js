@@ -41,6 +41,7 @@ export function openRoomApp(os, appInfo) {
             <button type="button" class="shelf-arrow" aria-label="뒤 가구">▶</button>
             <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 가구를 눌러 구경해 보세요.</p>
           </div>
+          <p class="rotate-tip">가구를 끄는 동안 R 키나 마우스 휠로 돌릴 수 있어요</p>
           <div class="hud">
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>

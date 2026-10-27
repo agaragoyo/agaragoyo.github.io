@@ -21,23 +21,31 @@ function hasImage(id) {
 }
 
 // 가구 한 개의 겉모습. assets/furniture/<id>.png 가 있으면 그림을, 없으면 임시 모양을 보여 준다.
-export function furnitureEl(id) {
+// r: 돌려 놓았으면 1. 돌린 그림(<id>-r.png)이 있으면 그걸 쓰고, 없으면 원래 그림을 좌우로 뒤집는다.
+export function furnitureEl(id, r = 0) {
   const def = BY_ID[id];
   const el = document.createElement('div');
   el.className = 'furn';
-  const { w, h } = boxSize(def);
+  const { w, h } = boxSize(def, r);
   el.style.width = w + 'px';
   el.style.height = h + 'px';
-  el.innerHTML = placeholderSVG(def);
-  hasImage(id).then(ok => {
-    if (!ok) return;
+  el.innerHTML = placeholderSVG(def, r);
+  const show = (name, mirror) => {
     const img = new Image();
-    img.className = 'hit';
+    img.className = mirror ? 'hit mirror' : 'hit';
     img.alt = '';
     img.draggable = false;
-    img.src = `assets/furniture/${id}.png`;
+    img.src = `assets/furniture/${name}.png`;
     el.replaceChildren(img);
-  });
+  };
+  if (r) {
+    hasImage(`${id}-r`).then(ok => {
+      if (ok) show(`${id}-r`, false);
+      else hasImage(id).then(base => { if (base) show(id, true); });
+    });
+  } else {
+    hasImage(id).then(ok => { if (ok) show(id, false); });
+  }
   return el;
 }
 
@@ -70,7 +78,7 @@ function renderShade(container, items) {
 export function renderStatic(container, items, kind, onLight) {
   container.innerHTML = sceneSVG(kind);
   for (const item of items) {
-    const el = furnitureEl(item.id);
+    const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static');
     if (BY_ID[item.id].light) {
       el.classList.add('switch', 'light');
@@ -92,7 +100,7 @@ export function renderItems(app) {
   app.itemEls.clear();
   app.itemsEl.replaceChildren();
   for (const item of items) {
-    const el = furnitureEl(item.id);
+    const el = furnitureEl(item.id, item.r);
     el.classList.add('item');
     if (BY_ID[item.id].light) el.classList.add('light');
     placeEl(el, item, elevOf(items, item));
@@ -167,8 +175,11 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
 
   const ghost = document.createElement('div');
   ghost.className = 'ghost';
-  const ghostEls = [leadId, ...group.slice(1).map(g => g.id)].map(gid => {
-    const el = furnitureEl(gid);
+  // 끄는 동안 R 키나 마우스 휠로 돌린다(바닥 가구만, 위에 물건을 얹은 책상은 빼고).
+  let rot = item?.r ? 1 : 0;
+  const canRotate = lead.zone !== 'wall' && group.length <= 1 && lead.size[0] !== lead.size[1];
+  const ghostEls = [{ id: leadId, r: rot }, ...group.slice(1)].map(g => {
+    const el = furnitureEl(g.id, g.r);
     el.classList.add('item');
     ghost.append(el);
     return el;
@@ -181,7 +192,7 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
   let result = null; // { action: 'place' | 'remove', moved }
 
   const candidate = p => {
-    const [w, d] = lead.size;
+    const [w, d] = rot ? [lead.size[1], lead.size[0]] : lead.size;
     if (lead.zone === 'wall') {
       const f = fromWall(p.x, p.y);
       return [{
@@ -212,8 +223,8 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
       x = clamp(Math.round(t.x - grab.x), 0, N - w);
       y = clamp(Math.round(t.y - grab.y), 0, N - d);
     }
-    const moved = [{ id: leadId, x, y }];
-    for (const c of group.slice(1)) moved.push({ id: c.id, x: x + c.x - item.x, y: y + c.y - item.y });
+    const moved = [{ id: leadId, x, y, ...(rot ? { r: 1 } : {}) }];
+    for (const c of group.slice(1)) moved.push({ id: c.id, x: x + c.x - item.x, y: y + c.y - item.y, ...(c.r ? { r: 1 } : {}) });
     return moved;
   };
 
@@ -236,10 +247,30 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     result = ok ? { action: 'place', moved } : null;
   };
 
+  let last = { x: ev.clientX, y: ev.clientY };
+  let lastWheel = 0;
+  const rotate = () => {
+    if (!canRotate) return;
+    rot ^= 1;
+    const el = furnitureEl(leadId, rot);
+    el.classList.add('item');
+    ghostEls[0].replaceWith(el);
+    ghostEls[0] = el;
+    update(last.x, last.y);
+  };
+  const onKey = e => { if (e.key === 'r' || e.key === 'R' || e.key === 'ㄱ') { e.preventDefault(); rotate(); } };
+  const onWheel = e => {
+    e.preventDefault();
+    const now = performance.now();
+    if (now - lastWheel > 180) { lastWheel = now; rotate(); }
+  };
+
   const finish = commit => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', cancel);
+    window.removeEventListener('keydown', onKey);
+    window.removeEventListener('wheel', onWheel);
     ghost.remove();
     app.roomEl.classList.remove('dragging');
     document.body.classList.remove('grabbing');
@@ -251,16 +282,23 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     if (commit && result?.action === 'remove') {
       app.room.items = app.room.items.filter(o => !group.includes(o));
     } else if (commit && result?.action === 'place') {
-      if (item) group.forEach((g, i) => Object.assign(g, result.moved[i]));
+      if (item) {
+        group.forEach((g, i) => {
+          Object.assign(g, result.moved[i]);
+          if (!result.moved[i].r) delete g.r;
+        });
+      }
       else app.room.items.push(result.moved[0]);
     }
     app.commit();
   };
-  const move = e => update(e.clientX, e.clientY);
+  const move = e => { last = { x: e.clientX, y: e.clientY }; update(e.clientX, e.clientY); };
   const up = () => finish(true);
   const cancel = () => finish(false);
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', cancel);
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('wheel', onWheel, { passive: false });
   update(ev.clientX, ev.clientY);
 }

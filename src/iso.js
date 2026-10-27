@@ -4,6 +4,7 @@
 //         u는 두 벽이 만나는 모서리에서 벽을 따라간 칸, v는 바닥에서 올라간 줄이다.
 import { N, TW, TH, WALL_ROWS, WH, ORIGIN as O } from './config.js';
 import { BY_ID } from '../data/furniture.js';
+import { dims } from './rules.js';
 
 const SKEW = (Math.atan(TH / TW) * 180) / Math.PI; // 벽의 기울기 (2:1이면 26.565도)
 
@@ -29,15 +30,16 @@ export function fromWall(px, py) {
 }
 
 // 가구 그림 한 장이 차지하는 상자 크기 (px). 아트 팀이 PNG를 그릴 때도 이 크기를 쓴다.
-export function boxSize(def) {
+// r: 돌려 놓았으면 1 (가로와 세로 칸 수가 바뀐다)
+export function boxSize(def, r = 0) {
   if (def.zone === 'wall') return { w: (def.size[0] * TW) / 2, h: def.size[1] * WH };
-  const [w, d] = def.size;
+  const [w, d] = r ? [def.size[1], def.size[0]] : def.size;
   return { w: ((w + d) * TW) / 2, h: ((w + d) * TH) / 2 + def.height };
 }
 
 // 바닥 쪽 가구가 그려지는 순서. 앞(화면 아래)에 있을수록 크다.
 export const depthOf = item => {
-  const [w, d] = BY_ID[item.id].size;
+  const [w, d] = dims(item);
   return item.x + w / 2 + item.y + d / 2;
 };
 
@@ -54,7 +56,7 @@ export function placeEl(el, item, elev = 0) {
     return;
   }
   const p = tile(item.x, item.y);
-  el.style.left = p.x - (def.size[1] * TW) / 2 + 'px';
+  el.style.left = p.x - (dims(item)[1] * TW) / 2 + 'px';
   el.style.top = p.y - def.height - elev + 'px';
   el.style.transform = '';
 }
@@ -63,8 +65,8 @@ const pts = list => list.map(p => `${p.x},${p.y}`).join(' ');
 const mix = (c, other, pct) => `color-mix(in srgb, ${c} ${pct}%, ${other})`;
 
 // 그림이 없는 동안 쓰는 임시 모양: 바닥 가구는 입체 상자, 벽 가구는 액자.
-export function placeholderSVG(def) {
-  const { w: bw, h: bh } = boxSize(def);
+export function placeholderSVG(def, r = 0) {
+  const { w: bw, h: bh } = boxSize(def, r);
   const c = def.color;
   const label = `<text x="${bw / 2}" y="__Y__" class="furn-label">${def.name}</text>`;
   if (def.zone === 'wall') {
@@ -75,7 +77,7 @@ export function placeholderSVG(def) {
       ${label.replace('__Y__', bh / 2 + 5)}
     </svg>`;
   }
-  const [w, d] = def.size;
+  const [w, d] = r ? [def.size[1], def.size[0]] : def.size;
   const H = def.height;
   const dx = (d * TW) / 2;
   const back = { x: dx, y: 0 };
@@ -98,9 +100,9 @@ export function placeholderSVG(def) {
 export function lightPoint(item, elev = 0) {
   const def = BY_ID[item.id];
   const p = tile(item.x, item.y);
-  const left = p.x - (def.size[1] * TW) / 2;
+  const left = p.x - (dims(item)[1] * TW) / 2;
   const top = p.y - def.height - elev;
-  return { x: left + boxSize(def).w / 2, y: top + TH / 2 };
+  return { x: left + boxSize(def, item.r).w / 2, y: top + TH / 2 };
 }
 
 // 공간 배경. kind: 'indoor'(벽과 바닥) 또는 'outdoor'(울타리, 땅, 뒤쪽 아파트)

@@ -22,7 +22,9 @@ function sanitizeItems(list, sceneId) {
   const items = [];
   (Array.isArray(list) ? list.slice(0, MAX_ITEMS) : [])
     .filter(it => it && BY_ID[it.id] && BY_ID[it.id].scene === sceneId && Number.isInteger(it.x) && Number.isInteger(it.y))
-    .map(it => (BY_ID[it.id].zone === 'wall' ? { id: it.id, wall: it.wall, x: it.x, y: it.y } : { id: it.id, x: it.x, y: it.y }))
+    .map(it => (BY_ID[it.id].zone === 'wall'
+      ? { id: it.id, wall: it.wall, x: it.x, y: it.y }
+      : { id: it.id, x: it.x, y: it.y, ...(it.r === 1 ? { r: 1 } : {}) }))
     .sort((a, b) => rank(a) - rank(b))
     .forEach(it => { if (canPlace(items, it)) items.push(it); });
   return items;
@@ -50,8 +52,11 @@ const fromB64 = str => {
   return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
 };
 
-const pack = items => items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : [it.id, it.x, it.y]));
-const unpack = list => (Array.isArray(list) ? list.filter(Array.isArray).map(([id, x, y, wall]) => ({ id, x, y, wall })) : []);
+// 네 번째 칸: 벽 가구는 'L'|'R', 돌려 놓은 바닥 가구는 1
+const pack = items => items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : it.r ? [it.id, it.x, it.y, 1] : [it.id, it.x, it.y]));
+const unpack = list => (Array.isArray(list)
+  ? list.filter(Array.isArray).map(([id, x, y, extra]) => (typeof extra === 'string' ? { id, x, y, wall: extra } : { id, x, y, r: extra === 1 ? 1 : 0 }))
+  : []);
 
 // 링크에는 짧은 형태로 담는다: { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], ...] } }
 export function encodeHome(home) {

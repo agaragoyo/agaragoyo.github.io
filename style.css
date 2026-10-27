@@ -237,6 +237,7 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 .furn { position: relative; }
 .furn svg { display: block; overflow: visible; }
 .furn img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+.furn img.mirror { transform: scaleX(-1); }
 .furn-label {
   font-family: var(--font);
   font-size: 13px;
@@ -861,3 +862,19 @@ body:not(.curve) .fx-curve { display: none; }
 .stage[data-theme="night"] .win-body input { background: #1a1922; color: var(--win-text); }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
+
+/* 방 꾸미기: 돌리기 안내 */
+.rotate-tip {
+  position: absolute;
+  right: 18px;
+  bottom: 130px;
+  z-index: 5;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #0006;
+  font-size: 14px;
+  color: #fff;
+  pointer-events: none;
+}
+[data-mode="visit"] .rotate-tip { display: none; }
