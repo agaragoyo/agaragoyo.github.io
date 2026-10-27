@@ -45,13 +45,15 @@ const app = {
 };
 
 // ---------- 화면 맞추기 ----------
-const MARGIN = 16; // 화면 가장자리와 모니터 사이
-const PAD = 26;    // 모니터 테두리 두께
-const CTRL = 58;   // 테두리 아래 버튼 줄 높이
-document.documentElement.style.setProperty('--pad', PAD + 'px');
-document.documentElement.style.setProperty('--ctrl', CTRL + 'px');
-
+// MARGIN: 화면 가장자리와 모니터 사이, PAD: 모니터 테두리 두께, CTRL: 테두리 아래 버튼 줄 높이.
+// 폰처럼 짧은 변이 500px 미만인 화면에서는 테두리를 얇게 해 방을 조금이라도 크게 보여 준다.
 function fit() {
+  const small = Math.min(innerWidth, innerHeight) < 500;
+  const [MARGIN, PAD, CTRL] = small ? [4, 8, 40] : [16, 26, 58];
+  const root = document.documentElement.style;
+  root.setProperty('--margin', MARGIN + 'px');
+  root.setProperty('--pad', PAD + 'px');
+  root.setProperty('--ctrl', CTRL + 'px');
   const availW = innerWidth - 2 * (MARGIN + PAD);
   const availH = innerHeight - 2 * MARGIN - PAD - CTRL;
   const s = Math.max(0.2, Math.min(availW / STAGE_W, availH / STAGE_H));
