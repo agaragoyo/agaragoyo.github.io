@@ -94,6 +94,62 @@ export function placeholderSVG(def) {
   </svg>`;
 }
 
+// 불빛이 퍼져 나오는 점 (무대 px). 가구 그림 윗면의 가운데다.
+export function lightPoint(item, elev = 0) {
+  const def = BY_ID[item.id];
+  const p = tile(item.x, item.y);
+  const left = p.x - (def.size[1] * TW) / 2;
+  const top = p.y - def.height - elev;
+  return { x: left + boxSize(def).w / 2, y: top + TH / 2 };
+}
+
+// 공간 배경. kind: 'indoor'(벽과 바닥) 또는 'outdoor'(울타리, 땅, 뒤쪽 아파트)
+export function sceneSVG(kind) {
+  return kind === 'outdoor' ? outdoorSVG() : roomSVG();
+}
+
+// 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트
+function outdoorSVG() {
+  const SLAB = 16;
+  const below = p => ({ x: p.x, y: p.y + SLAB });
+  const ground = [];
+  for (let x = 0; x < N; x++) {
+    for (let y = 0; y < N; y++) {
+      const fill = (x + y) % 2 ? 'var(--grass-a)' : 'var(--grass-b)';
+      ground.push(`<polygon points="${pts([tile(x, y), tile(x + 1, y), tile(x + 1, y + 1), tile(x, y + 1)])}" style="fill:${fill}" />`);
+    }
+  }
+  const gridLines = [];
+  for (let i = 0; i <= N; i++) {
+    gridLines.push(`<polyline points="${pts([tile(i, 0), tile(i, N)])}" />`, `<polyline points="${pts([tile(0, i), tile(N, i)])}" />`);
+  }
+  // 아파트 세 동: 화면 기준 사각형과 창문 무늬
+  const blocks = [[150, 70, 280, 300], [470, 30, 340, 300], [860, 80, 270, 290]]
+    .map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="fill:var(--apt)" />
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#apt-windows)" />
+      <rect x="${x}" y="${y - 10}" width="${w}" height="10" style="fill:var(--apt-roof)" />`).join('');
+  // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대
+  const H = 34;
+  const fence = [];
+  for (let i = 0; i <= N; i += 0.5) {
+    for (const p of [tile(i, 0), tile(0, i)]) fence.push(`<line x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - H}" />`);
+  }
+  const rail = (h) => `<polyline points="${pts([{ x: tile(0, N).x, y: tile(0, N).y - h }, { x: tile(0, 0).x, y: tile(0, 0).y - h }, { x: tile(N, 0).x, y: tile(N, 0).y - h }])}" />`;
+  return `<svg class="room-bg" width="1280" height="720" viewBox="0 0 1280 720">
+    <defs>
+      <pattern id="apt-windows" width="34" height="30" patternUnits="userSpaceOnUse">
+        <rect x="8" y="9" width="18" height="12" style="fill:var(--apt-window)" />
+      </pattern>
+    </defs>
+    ${blocks}
+    <polygon points="${pts([tile(0, N), tile(N, N), below(tile(N, N)), below(tile(0, N))])}" style="fill:var(--dirt-a)" />
+    <polygon points="${pts([tile(N, N), tile(N, 0), below(tile(N, 0)), below(tile(N, N))])}" style="fill:var(--dirt-b)" />
+    ${ground.join('')}
+    <g class="fence">${fence.join('')}${rail(12)}${rail(28)}</g>
+    <g class="grid">${gridLines.join('')}</g>
+  </svg>`;
+}
+
 // 방의 벽과 바닥 (가구를 놓아도 바뀌지 않는 배경)
 export function roomSVG() {
   const up = WALL_ROWS * WH;

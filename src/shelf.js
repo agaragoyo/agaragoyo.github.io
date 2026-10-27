@@ -15,6 +15,7 @@ export function mountShelf(app) {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'card';
+    card.dataset.scene = def.scene;
     const thumb = document.createElement('div');
     thumb.className = 'card-thumb';
     const f = furnitureEl(def.id);
@@ -41,7 +42,16 @@ export function mountShelf(app) {
   };
   track.addEventListener('scroll', syncArrows);
   window.addEventListener('resize', syncArrows);
+  app.syncShelf = syncArrows;
   syncArrows();
+}
+
+// 지금 공간에 놓을 수 있는 가구만 선반에 남긴다.
+export function filterShelf(app, sceneId) {
+  const track = app.root.querySelector('.shelf-track');
+  for (const card of track.children) card.hidden = card.dataset.scene !== sceneId;
+  track.scrollLeft = 0;
+  app.syncShelf?.();
 }
 
 function onCardDown(app, def, e) {

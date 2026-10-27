@@ -1,20 +1,20 @@
 // 아가라고요 OS. 전원을 켜면 부팅, 로그인, 바탕화면 순서로 진행하고 앱을 창으로 띄운다.
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
 //         'visit' 공유 링크로 들어온 친구 컴퓨터 (보기만 한다)
-import { STORAGE_ROOM } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic } from './room.js';
 import { openRoomApp } from './apps/room-app.js';
-import { loadJSON, saveJSON, sanitizeRoom, encodeRoom, decodeRoom } from './share.js';
+import { loadJSON, saveJSON, sanitizeHome, encodeHome, decodeHome } from './share.js';
 
 const DOUBLE_CLICK_MS = 400;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-export function createOS({ stage, toStage, requestPowerOff, crt }) {
+export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNight }) {
   const $ = sel => stage.querySelector(sel);
   const el = {
     boot: $('#boot'),
@@ -30,7 +30,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
   const os = {
     stage,
     toStage,
-    room: null,
+    home: null,
     mode: null,
     wm: createWM({
       layer: $('#windows'),
@@ -97,12 +97,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     show('login');
     const users = el.login.querySelector('.users');
     users.replaceChildren();
-    const own = sanitizeRoom(loadJSON(STORAGE_ROOM));
+    const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
     const hasOwn = own && own.owner;
 
     const m = location.hash.match(/^#room=(.+)$/);
     if (m) {
-      const friend = decodeRoom(m[1]);
+      const friend = decodeHome(m[1]);
       if (friend) {
         users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
       } else {
@@ -117,9 +117,9 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     } else {
       users.append(newUserTile(name => {
         clearHash();
-        const room = { v: 2, owner: name, items: [] };
-        saveJSON(STORAGE_ROOM, room);
-        enter('edit', room, my);
+        const home = sanitizeHome({ owner: name });
+        saveJSON(STORAGE_ROOM, home);
+        enter('edit', home, my);
       }));
     }
   }
@@ -168,10 +168,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     return f;
   }
 
-  async function enter(mode, room, my) {
+  async function enter(mode, home, my) {
     if (my !== run) return;
     os.mode = mode;
-    os.room = room;
+    os.home = home;
     const welcome = el.login.querySelector('.welcome');
     welcome.textContent = '환영합니다';
     el.login.classList.add('entering');
@@ -179,6 +179,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     el.login.classList.remove('entering');
     if (my !== run) return;
     showDesktop();
+    // 친구는 방을 보러 왔으니 방 꾸미기를 바로 열어 준다.
+    if (mode === 'visit') os.openApp('room');
   }
 
   const clearHash = () => {
@@ -203,8 +205,11 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
   const visible = app => !(app.editOnly && os.mode === 'visit');
 
   function renderWallpaper() {
-    renderStatic(el.wallpaper, os.room.items);
+    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.toggleNight);
   }
+
+  // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
+  os.toggleNight = () => setNight(!getNight());
 
   // 아이콘 묶음. 한 번 누르면 고르고, 두 번 누르면 연다.
   function renderIcons(container, apps) {
@@ -247,7 +252,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     menu.replaceChildren();
     const head = document.createElement('div');
     head.className = 'start-head';
-    head.append(avatar(os.room.owner), document.createTextNode(os.mode === 'visit' ? `${os.room.owner} (손님)` : os.room.owner));
+    head.append(avatar(os.home.owner), document.createTextNode(os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner));
     menu.append(head);
     const item = (app, label, onClick) => {
       const b = document.createElement('button');
@@ -261,6 +266,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     };
     for (const app of APPS.filter(a => !a.folder && visible(a))) item(app, app.title, () => os.openApp(app.id));
     menu.append(Object.assign(document.createElement('hr'), { className: 'start-sep' }));
+    item({ title: '밤', color: '#2c2a6b' }, getNight() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight);
     item({ title: '로그아웃', color: '#6b6f8f' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin);
     item({ title: '끄기', color: '#b5483f' }, '컴퓨터 끄기', requestPowerOff);
     menu.hidden = false;
@@ -331,7 +337,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
   }
 
   function openShare(app) {
-    const link = `${location.origin}${location.pathname}#room=${encodeRoom(os.room)}`;
+    const link = `${location.origin}${location.pathname}#room=${encodeHome(os.home)}`;
     os.wm.open({
       key: app.id,
       app,
@@ -356,10 +362,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     });
   }
 
-  // 방 안의 가구를 눌렀을 때. 컴퓨터는 미니게임 폴더를 열고, 나머지는 기믹이 들어갈 빈 창이다.
+  // 방 안의 가구를 눌렀을 때. 가구 목록의 gimmick 대로 하고, 없으면 기믹이 들어갈 빈 창을 띄운다.
+  // ('scene:' 기믹은 공간을 바꿔야 하므로 방 꾸미기 앱이 먼저 처리한다.)
   os.openFurniture = item => {
-    if (item.id === 'computer') return os.openApp('games');
     const def = BY_ID[item.id];
+    if (def.gimmick === 'night') return os.toggleNight();
+    if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
     const zone = { wall: '벽에 거는 가구', floor: '바닥 가구', top: '책상 위에도 올릴 수 있는 가구' }[def.zone];
     const size = def.zone === 'wall' ? `가로 ${def.size[0]}칸, 높이 ${def.size[1]}줄` : `${def.size[0]}×${def.size[1]}칸`;
     os.wm.open({
@@ -378,8 +386,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     });
   };
 
-  os.saveRoom = () => {
-    if (os.mode === 'edit') saveJSON(STORAGE_ROOM, os.room);
+  os.saveHome = () => {
+    if (os.mode === 'edit') saveJSON(STORAGE_ROOM, os.home);
     renderWallpaper();
   };
 
@@ -392,7 +400,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt }) {
     if (d.type === 'close') win.close();
     else if (d.type === 'title') win.setTitle(String(d.title).slice(0, 40));
     else if (d.type === 'hello') {
-      e.source.postMessage({ aga: 1, type: 'info', info: { owner: os.room?.owner || '', visitor: os.mode === 'visit' } }, '*');
+      e.source.postMessage({ aga: 1, type: 'info', info: { owner: os.home?.owner || '', visitor: os.mode === 'visit' } }, '*');
     }
   });
 

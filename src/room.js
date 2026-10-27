@@ -2,7 +2,7 @@
 import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace, supportOf, elevOf, isWall } from './rules.js';
-import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, roomSVG } from './iso.js';
+import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -41,20 +41,50 @@ export function furnitureEl(id) {
   return el;
 }
 
-export function mountRoom(app) {
-  app.roomEl.insertAdjacentHTML('afterbegin', roomSVG());
+// 공간 배경을 그린다(공간을 바꿀 때도 부른다). kind: 'indoor' | 'outdoor'
+export function setSceneBg(app, kind) {
+  app.roomEl.querySelector('.room-bg')?.remove();
+  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(kind));
+  app.roomEl.dataset.kind = kind;
+}
+
+// 밤 그늘: 공간 전체를 덮는 어두운 층에, 불빛 가구 둘레만 구멍을 낸다(밤이 아니면 CSS가 숨긴다).
+function renderShade(container, items) {
+  let shade = container.querySelector(':scope > .night-shade');
+  if (!shade) {
+    shade = document.createElement('div');
+    shade.className = 'night-shade';
+    container.append(shade);
+  }
+  const holes = items.filter(it => BY_ID[it.id].light).map(it => {
+    const p = lightPoint(it, elevOf(items, it));
+    return `radial-gradient(circle 260px at ${p.x}px ${p.y}px, transparent 0, transparent 22%, #000 100%)`;
+  });
+  const mask = holes.length ? holes.join(', ') : '';
+  shade.style.maskImage = mask;
+  shade.style.webkitMaskImage = mask;
 }
 
 // 누를 수 없는 방 그림 한 장 (바탕화면 배경에 쓴다). container 는 1280×720 크기여야 한다.
-export function renderStatic(container, items) {
-  container.innerHTML = roomSVG();
+// 불빛 가구만은 누를 수 있다: 누르면 onLight()를 부른다(밤과 낮 바꾸기).
+export function renderStatic(container, items, kind, onLight) {
+  container.innerHTML = sceneSVG(kind);
   for (const item of items) {
     const el = furnitureEl(item.id);
     el.classList.add('item', 'static');
+    if (BY_ID[item.id].light) {
+      el.classList.add('switch', 'light');
+      el.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        const up = () => { window.removeEventListener('pointerup', up); onLight?.(); };
+        window.addEventListener('pointerup', up);
+      });
+    }
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
   }
+  renderShade(container, items);
 }
 
 export function renderItems(app) {
@@ -64,12 +94,14 @@ export function renderItems(app) {
   for (const item of items) {
     const el = furnitureEl(item.id);
     el.classList.add('item');
+    if (BY_ID[item.id].light) el.classList.add('light');
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     el.addEventListener('pointerdown', e => onItemDown(app, item, e));
     app.itemEls.set(item, el);
     app.itemsEl.append(el);
   }
+  renderShade(app.roomEl, items);
 }
 
 // 벽 가구는 늘 뒤에, 바닥 가구는 앞(화면 아래)에 있을수록 위에 그린다.

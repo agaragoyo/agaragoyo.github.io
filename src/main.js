@@ -38,8 +38,8 @@ function fit() {
   viewport.style.height = mon.rotated ? H + 'px' : '';
 
   const MARGIN = 16;
-  const PAD = 32;
-  const CTRL = 72;
+  const PAD = 72;
+  const CTRL = 108;
   const s = Math.max(0.2, Math.min((W - 2 * MARGIN) / (STAGE_W + 2 * PAD), (H - 2 * MARGIN) / (STAGE_H + PAD + CTRL)));
   const root = document.documentElement.style;
   root.setProperty('--margin', MARGIN + 'px');
@@ -57,12 +57,14 @@ addEventListener('resize', fit);
 PORTRAIT_PHONE.addEventListener('change', fit);
 
 // ---------- 테두리 버튼 설정 ----------
-const settings = { grain: true, curve: true, ...loadJSON(STORAGE_SETTINGS) };
+const settings = { grain: true, curve: true, night: false, ...loadJSON(STORAGE_SETTINGS) };
 function applySettings() {
   for (const key of ['grain', 'curve']) {
     document.body.classList.toggle(key, !!settings[key]);
     $(`[data-toggle="${key}"]`).setAttribute('aria-pressed', String(!!settings[key]));
   }
+  // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
+  stage.dataset.theme = settings.night ? 'night' : 'day';
   crt.apply();
 }
 
@@ -126,5 +128,11 @@ const os = createOS({
   toStage: mon.toLocal,
   requestPowerOff: () => setPower(false),
   crt,
+  getNight: () => settings.night,
+  setNight: on => {
+    settings.night = on;
+    saveJSON(STORAGE_SETTINGS, settings);
+    applySettings();
+  },
 });
 powerBtn.addEventListener('click', () => setPower(!powered));
