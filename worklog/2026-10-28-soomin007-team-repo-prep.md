@@ -24,7 +24,7 @@
 - AI 규칙은 여러 도구가 함께 읽는 `AGENTS.md`에 두고, `CLAUDE.md`는 그 파일을 불러오기만 한다.
 
 ## 남은 일과 알아 둘 것
-- 조직(Organization)을 만들고 새 레포로 복사한 뒤, Pages Source를 "GitHub Actions"로 바꾸고 main 브랜치 보호를 켠다.
-- 새 레포 주소가 정해지면 README 맨 위 배포 주소를 바꾼다.
+- 팀 레포는 `agaragoyo/agaragoyo.github.io`이고, 배포 주소는 https://agaragoyo.github.io/ 다. Pages는 Actions 방식, main은 PR로만 합친다.
+- 예전 데모 레포(`soomin007/agarago-demo`)는 팀 레포로 옮기기 직전 모습으로 멈춰 둔다. 이미 공유한 링크가 계속 열리게 하려는 것이다.
 - 기존 게임들은 팀 레포에서 다른 사이트가 되어, 혼자 열 때의 이어 하기 기록과 따로 저장된다(known-issues 17).
-- 이 데모 레포는 아직 Pages가 예전 방식(브랜치 배포)이라, 워크플로가 올라가면 배포 단계가 실패한다. 이쪽도 Actions로 바꾸거나 워크플로를 빼야 한다.
+- 팀원 초대와 레포 쓰기 권한은 팀원 GitHub 아이디를 받은 뒤에 한다.
