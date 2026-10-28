@@ -1,0 +1,29 @@
+name: 아이디어
+description: 넣고 싶은 기능, 가구, 미니게임, 바꾸고 싶은 모양
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        이 레포는 누구나 볼 수 있습니다. 작업 이야기만 적어 주세요.
+  - type: textarea
+    id: what
+    attributes:
+      label: 어떤 아이디어인가요
+      description: 그림이나 참고 사이트가 있으면 이 칸에 같이 올려 주세요.
+      placeholder: 예) 책상 서랍을 열면 스티커를 붙일 수 있는 화면이 나옵니다.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜 있으면 좋을까요
+      placeholder: 예) 방마다 주인의 개성이 더 잘 드러납니다.
+  - type: dropdown
+    id: who
+    attributes:
+      label: 직접 만들 생각이 있나요
+      options:
+        - 제가 만들어 보겠습니다
+        - 같이 만들 사람이 필요합니다
+        - 아이디어만 남깁니다
