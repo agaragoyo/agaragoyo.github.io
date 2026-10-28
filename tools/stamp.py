@@ -1,4 +1,5 @@
-# 캐시 지문 찍기. 커밋 전에 실행한다(.git/hooks/pre-commit 이 자동으로 부른다).
+# 캐시 지문 찍기. 배포할 때 GitHub Actions(.github/workflows/pages.yml)가 자동으로 실행한다.
+# 손으로 돌려도 되지만, 팀원은 커밋 전에 따로 실행하지 않는다(여러 사람이 찍으면 index.html이 충돌한다).
 #
 # GitHub Pages는 파일을 10분 동안 브라우저에 캐시하게 한다. 그래서 고친 직후에는 옛 JS와 새 JS가 섞여서
 # 예전 화면이 나오거나 깨진다. index.html 에 각 파일 내용의 지문(?v=해시)을 붙인 주소를 적어 두면,

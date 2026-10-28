@@ -92,8 +92,9 @@
 
 - 증상: 2010을 골라도 1998이 나오고, 지운 앱 아이콘이 남아 404 창이 떴다. 배포본 자체는 새것이었다.
 - 원인: GitHub Pages는 `Cache-Control: max-age=600`이라 브라우저가 옛 JS를 10분 동안 그대로 쓴다. 옛 main.js에는 2010이 없어 1998로 돌아갔다.
-- 규칙: index.html의 JS, CSS 주소에는 내용 지문(`?v=`)을 붙인다. 커밋하기 전에 반드시 `python tools/stamp.py`를 실행한다
-  (import map과 지문을 채운다. src/, data/ 아래 새 모듈도 자동으로 들어간다).
+- 규칙: index.html의 JS, CSS 주소에는 내용 지문(`?v=`)을 붙인다. `python tools/stamp.py`가 import map과 지문을 채운다
+  (src/, data/ 아래 새 모듈도 자동으로 들어간다). 팀 레포에서는 배포할 때 GitHub Actions(`.github/workflows/pages.yml`)가 실행하므로
+  사람은 커밋 전에 돌리지 않는다. 여러 사람이 각자 찍으면 index.html이 PR마다 충돌한다.
 
 ## 16. 게임 창이 흰 화면에 깨진 그림 하나로 바뀐다
 
@@ -107,3 +108,5 @@
 - 증상: "이 컴퓨터 초기화"가 Be the Bee의 이어 하기 기록까지 지울 뻔했다.
 - 원인: 데모(`soomin007.github.io/agarago-demo/`)와 기존 게임들(`/be-the-bee/`, `/Otherside/` 등)은 출처(origin)가 같아 localStorage와 IndexedDB를 같이 쓴다.
 - 규칙: 저장소를 지울 때는 우리 키만 고른다(`agarago.`로 시작하거나 apps/ 앱의 `<id>.`로 시작). `localStorage.clear()`와 전체 순회 삭제는 쓰지 않는다.
+- 팀 레포(`<조직>.github.io`)로 옮기면 반대로 김수민의 게임들이 다른 사이트가 된다. 그 게임들을 혼자 열었을 때의 이어 하기 기록은 창 안에서 보이지 않고,
+  창 안의 기록은 브라우저가 따로 보관한다(서드파티 저장소 분리). 1998 볼록 화면의 클릭 보정도 그 창 안까지는 들어가지 않는다.
