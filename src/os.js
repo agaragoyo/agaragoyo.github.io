@@ -129,6 +129,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
 
   // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 모니터 설정(시대, 그레인, 볼록, 밤)은 남긴다.
   // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다.
+  // 배포 주소는 김수민의 다른 게임(Be the Bee 등)과 저장소를 같이 쓰므로, 우리 키만 골라 지운다.
+  // 우리 키: 'agarago.'로 시작하는 것과, apps/ 안 앱이 자기 id로 시작하게 만든 것('tidy-up.best').
+  const ownApps = APPS.filter(a => a.src?.startsWith('apps/')).map(a => a.id + '.');
+  const ownKey = key => key.startsWith('agarago.') || ownApps.some(p => key.startsWith(p));
   function resetButton() {
     const b = document.createElement('button');
     b.type = 'button';
@@ -137,7 +141,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     b.addEventListener('click', () => {
       if (!confirm('이 컴퓨터에 저장된 집과 게임 기록을 모두 지울까요? 되돌릴 수 없습니다.')) return;
       try {
-        for (const key of Object.keys(localStorage)) if (key !== STORAGE_SETTINGS) localStorage.removeItem(key);
+        for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);
       } catch { /* 저장소를 못 쓰는 환경 */ }
       showLogin();
     });
@@ -330,6 +334,19 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     });
   }
 
+  // iframe이 앱 폴더 밖으로 나갔는지. 앱 안에서 페이지를 옮기는 것은 괜찮다(같은 폴더 아래면 앱으로 본다).
+  // 다른 사이트의 앱은 안을 볼 수 없으므로 판단하지 않는다.
+  function leftApp(frame, src) {
+    const home = new URL(src, location.href);
+    const folder = home.pathname.replace(/[^/]*$/, '');
+    let now;
+    try { now = frame.contentWindow.location; now.href; } catch {
+      // 같은 사이트 앱인데 안을 볼 수 없으면 data:, blob: 같은 다른 문서로 바뀐 것이다.
+      return home.origin === location.origin;
+    }
+    return now.origin !== home.origin || !now.pathname.startsWith(folder);
+  }
+
   // 앱 페이지를 iframe으로 띄운다. 앱은 apps/aga-sdk.js 로 창을 닫거나 제목을 바꿀 수 있다.
   function openFrame(app) {
     const [w, h] = app.size || [800, 560];
@@ -345,13 +362,30 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
         const frame = document.createElement('iframe');
         frame.title = app.title;
         frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write';
+        // 앱 화면이 엉뚱한 페이지로 넘어가면(흰 화면 제보, 2026-10-28) 다시 열기 안내를 띄운다.
+        const lost = document.createElement('div');
+        lost.className = 'frame-lost';
+        lost.hidden = true;
+        lost.innerHTML = `
+          <p>앱 화면이 다른 페이지로 넘어갔습니다.</p>
+          <p class="meta">다시 열기를 누르면 처음 화면부터 다시 불러옵니다.</p>
+          <button class="btn" type="button">다시 열기</button>`;
+        lost.querySelector('button').addEventListener('click', () => {
+          lost.hidden = true;
+          frame.style.visibility = '';
+          frame.src = app.src;
+        });
         frame.addEventListener('load', () => {
           crt.prepareFrame(frame);
           crt.updateHoles();
+          if (leftApp(frame, app.src)) {
+            lost.hidden = false;
+            frame.style.visibility = 'hidden';
+          }
         });
         frame.src = app.src;
         win.iframe = frame;
-        body.append(frame);
+        body.append(frame, lost);
       },
     });
   }
