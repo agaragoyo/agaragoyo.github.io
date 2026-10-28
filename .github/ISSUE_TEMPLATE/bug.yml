@@ -1,0 +1,52 @@
+name: 버그 제보
+description: 사이트를 쓰다가 이상한 점을 발견했을 때
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        이 레포는 누구나 볼 수 있습니다. 작업 이야기만 적어 주세요.
+  - type: textarea
+    id: what
+    attributes:
+      label: 무엇이 이상했나요
+      description: 화면이 어떻게 됐는지 적어 주세요. 스크린샷을 이 칸에 끌어다 놓으면 같이 올라갑니다.
+      placeholder: 예) 미니게임 창이 갑자기 하얗게 변했습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 바로 전에 무엇을 하고 있었나요
+      description: 어느 앱의 어떤 장면에서, 무엇을 누르거나 끌었는지 순서대로 적어 주세요.
+      placeholder: |
+        1. 미니게임 폴더에서 게임을 열었습니다.
+        2. 두 번째 장면에서 아이템을 골랐습니다.
+    validations:
+      required: true
+  - type: dropdown
+    id: era
+    attributes:
+      label: 시대
+      description: 모니터 위 스위치에서 고른 시대입니다.
+      options:
+        - '1998'
+        - '2005'
+        - '2010'
+        - 모르겠음
+  - type: input
+    id: browser
+    attributes:
+      label: 컴퓨터와 브라우저
+      placeholder: 예) 맥북, 크롬
+    validations:
+      required: true
+  - type: dropdown
+    id: again
+    attributes:
+      label: 다시 해도 똑같이 생기나요
+      options:
+        - 매번 생깁니다
+        - 가끔 생깁니다
+        - 한 번만 생겼습니다
+        - 아직 다시 안 해 봤습니다
