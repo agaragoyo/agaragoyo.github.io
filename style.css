@@ -1312,6 +1312,7 @@ body[data-era="2010"] .btn {
   border-radius: 3px;
   background: linear-gradient(#f2f2f2, #ebebeb 50%, #dddddd 51%, #cfcfcf);
   box-shadow: none;
+  color: #1c2633; /* 바탕이 밤에도 밝으므로 글자색을 --win-text에 맡기지 않는다 */
 }
 body[data-era="2010"] .btn:hover { border-color: #3c7fb1; background: linear-gradient(#eaf6fd, #d9f0fc 50%, #bee6fd 51%, #a7d9f5); }
 body[data-era="2010"] .taskbar {
@@ -1354,7 +1355,7 @@ body[data-era="2010"] .start-menu {
   box-shadow: 0 6px 22px #0007;
 }
 body[data-era="2010"] .start-head { margin: 0 0 6px; border-radius: 4px; background: #ffffff33; color: #1c2633; }
-body[data-era="2010"] .start-item { border-radius: 3px; background: #fffc; }
+body[data-era="2010"] .start-item { border-radius: 3px; background: #fffc; color: #1c2633; } /* 위와 같은 이유 */
 body[data-era="2010"] .start-item + .start-item { margin-top: 2px; }
 body[data-era="2010"] .start-item:hover { background: linear-gradient(#eaf6fd, #bee6fd); color: #1c2633; }
 
