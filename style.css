@@ -1359,7 +1359,8 @@ body[data-era="2010"] .start-item { border-radius: 3px; background: #fffc; color
 body[data-era="2010"] .start-item + .start-item { margin-top: 2px; }
 body[data-era="2010"] .start-item:hover { background: linear-gradient(#eaf6fd, #bee6fd); color: #1c2633; }
 
-/* 2010년식 부팅: 네 빛 방울이 모였다가 흩어진다 */
+/* 2010년식 부팅: 네 빛 방울이 사방에서 날아와 한데 모이고, 그 자리에 작은 집(시작 버튼 로고)이 뜬다.
+   방울을 2×2 사각형으로 두면 실제 윈도우 부팅 화면과 같은 구도가 되므로 위, 오른쪽, 아래, 왼쪽에서 들어온다 */
 body[data-era="2010"] .boot-orbs { display: block; position: relative; width: 90px; height: 90px; }
 body[data-era="2010"] .boot-orbs i {
   position: absolute;
@@ -1369,15 +1370,31 @@ body[data-era="2010"] .boot-orbs i {
   height: 20px;
   border-radius: 50%;
   filter: blur(1px);
-  animation: orb 1.8s ease-in-out infinite;
+  opacity: 0;
+  animation: orb-gather 0.9s ease-in var(--delay) forwards;
 }
-body[data-era="2010"] .boot-orbs i:nth-child(1) { background: #c56c96; box-shadow: 0 0 16px #c56c96; --dx: -30px; --dy: -30px; }
-body[data-era="2010"] .boot-orbs i:nth-child(2) { background: #e8b84a; box-shadow: 0 0 16px #e8b84a; --dx: 30px; --dy: -30px; }
-body[data-era="2010"] .boot-orbs i:nth-child(3) { background: #6fae8f; box-shadow: 0 0 16px #6fae8f; --dx: -30px; --dy: 30px; }
-body[data-era="2010"] .boot-orbs i:nth-child(4) { background: #5b8def; box-shadow: 0 0 16px #5b8def; --dx: 30px; --dy: 30px; }
-@keyframes orb {
-  0%, 100% { transform: translate(var(--dx), var(--dy)) scale(0.6); opacity: 0.6; }
-  50% { transform: translate(0, 0) scale(1.1); opacity: 1; }
+body[data-era="2010"] .boot-orbs i:nth-child(1) { background: #c56c96; box-shadow: 0 0 16px #c56c96; --dx: 0px; --dy: -60px; --delay: 0s; }
+body[data-era="2010"] .boot-orbs i:nth-child(2) { background: #e8b84a; box-shadow: 0 0 16px #e8b84a; --dx: 60px; --dy: 0px; --delay: 0.06s; }
+body[data-era="2010"] .boot-orbs i:nth-child(3) { background: #6fae8f; box-shadow: 0 0 16px #6fae8f; --dx: 0px; --dy: 60px; --delay: 0.12s; }
+body[data-era="2010"] .boot-orbs i:nth-child(4) { background: #5b8def; box-shadow: 0 0 16px #5b8def; --dx: -60px; --dy: 0px; --delay: 0.18s; }
+body[data-era="2010"] .boot-orbs::after {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%23123d7a'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 0 10px #9fd2ff);
+  opacity: 0;
+  animation: house-in 0.4s ease-out 0.9s forwards;
+}
+@keyframes orb-gather {
+  0% { transform: translate(var(--dx), var(--dy)) scale(0.7); opacity: 0; }
+  25% { opacity: 1; }
+  75% { transform: translate(0, 0) scale(1.1); opacity: 1; }
+  100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
+}
+@keyframes house-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 body[data-era="2010"] .boot-title {
   font-size: 40px;
