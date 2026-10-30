@@ -597,11 +597,11 @@ body.moving-window iframe { pointer-events: none; }
   cursor: pointer;
 }
 .start-btn { font-weight: 700; }
+/* 시작 버튼 로고: 작은 집(우리 개념). 실제 윈도우 로고를 닮은 네 칸 사각형은 쓰지 않는다 */
 .start-logo {
   width: 18px;
   height: 18px;
-  border-radius: 3px;
-  background: conic-gradient(#c56c96 0 25%, #e8b84a 0 50%, #6fae8f 0 75%, #5b8def 0);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23c56c96' stroke='%235a4632'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23f7f3e8' stroke='%235a4632'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%23e8b84a'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .tasks { flex: 1; display: flex; gap: 4px; min-width: 0; }
 .task { width: 190px; min-width: 0; }
@@ -1334,7 +1334,7 @@ body[data-era="2010"] .start-btn {
   color: transparent;
 }
 body[data-era="2010"] .start-btn:active { background: radial-gradient(circle at 50% 30%, #7fbcf5, #1f5aa6 55%, #0e2f61); }
-body[data-era="2010"] .start-logo { width: 20px; height: 20px; border-radius: 4px; }
+body[data-era="2010"] .start-logo { width: 22px; height: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%232b6fc2'/%3E%3C/svg%3E"); }
 body[data-era="2010"] .task {
   width: 160px;
   height: 34px;
