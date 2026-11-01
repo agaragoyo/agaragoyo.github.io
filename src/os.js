@@ -456,7 +456,20 @@ export function createOS({ stage, toStage, requestPowerOff, crt, getNight, setNi
     else if (d.type === 'hello') {
       e.source.postMessage({ aga: 1, type: 'info', info: { owner: os.home?.owner || '', visitor: os.mode === 'visit' } }, '*');
     }
+    else if (d.type === 'cursor') e.source.postMessage({ aga: 1, type: 'cursor', cursor: cursorSet() }, '*');
   });
+
+  // 화면 안 커서(style.css의 --cur-*)를 앱에도 나눠 준다. 시대를 바꾸면 열린 앱에 다시 보낸다.
+  function cursorSet() {
+    const cs = getComputedStyle(document.body);
+    const set = {};
+    for (const k of ['arrow', 'hand', 'grab', 'grabbing', 'wait']) set[k] = cs.getPropertyValue(`--cur-${k}`).trim();
+    return set;
+  }
+  new MutationObserver(() => {
+    const msg = { aga: 1, type: 'cursor', cursor: cursorSet() };
+    for (const w of os.wm.all()) w.iframe?.contentWindow?.postMessage(msg, '*');
+  }).observe(document.body, { attributes: true, attributeFilter: ['data-era'] });
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
   window.addEventListener('hashchange', () => {
