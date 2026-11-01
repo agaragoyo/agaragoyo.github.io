@@ -52,6 +52,10 @@ CSS나 전역 변수는 마음대로 써도 됩니다. 앱은 iframe이라는 �
 마우스 이벤트는 `pointerdown`, `pointermove`, `pointerup`, `click`, `mousedown`, `mousemove`, `mouseup`, `wheel`이 들어갑니다.
 더블클릭(`dblclick`)과 오른쪽 클릭 메뉴(`contextmenu`)는 아직 들어가지 않으니, 게임 조작에 쓰지 말아 주세요. 키보드는 그대로 들어갑니다.
 
+SDK를 불러온 앱은 아가라고요 창 안에서 기본 커서가 그 시대의 화살표로 바뀝니다. 버튼처럼 누를 수 있는 곳에 손가락 커서를 쓰려면
+`cursor: pointer` 대신 `cursor: var(--aga-hand, pointer)`라고 적어 주세요. 혼자 열었을 때는 뒤에 적은 `pointer`가 나옵니다.
+쥔 손(`--aga-grab`, `--aga-grabbing`)과 모래시계(`--aga-wait`)도 같은 방식으로 쓸 수 있습니다.
+
 캔버스로 게임판을 그리고 창 크기에 맞춰 늘리고 줄인다면, `html, body`에 `overflow: hidden`을 주고 크기를 정수로 내려서 맞춰 주세요.
 스크롤바가 생겼다 사라졌다 하면서 화면이 떨리는 문제가 생길 수 있습니다(짐 정리에서 실제로 있었습니다).
 

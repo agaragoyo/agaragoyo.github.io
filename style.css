@@ -32,7 +32,25 @@ body {
   font-family: var(--font);
   color: var(--ink);
 }
-body.grabbing, body.grabbing * { cursor: grabbing !important; }
+/* 화면 안 커서: 우리가 그린 화살표, 손가락, 손, 모래시계. 시대마다 화살표와 기다림 모양이 다르다.
+   모니터 바깥(시대 스위치, 전원 버튼)은 브라우저 기본 커서를 쓴다 */
+body {
+  --cur-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M2 2 L2 23 L7.5 18 L11 26.5 L14.5 25 L11 16.5 L18 16.5 Z' fill='%23fff' stroke='%23000' stroke-width='1.5' stroke-linejoin='miter' shape-rendering='crispEdges'/%3E%3C/svg%3E") 2 2, default;
+  --cur-hand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M12 3.5c0-1.4 2.6-1.4 2.6 0V13h.3c0-1.3 2.5-1.3 2.5 0v.6c0-1.3 2.5-1.3 2.5 0v.8c0-1.2 2.4-1.2 2.4 0V22c0 3.2-2.4 5.5-5.6 5.5h-2.4c-2.1 0-3.6-.9-4.8-2.6L5.6 19c-.8-1.2.9-2.7 2-1.6L12 21Z' fill='%23fff' stroke='%23000' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M14.6 13v5.5M17.4 13.6v5M19.9 14.4v4.2' stroke='%23000' stroke-width='1' fill='none'/%3E%3C/svg%3E") 13 3, pointer;
+  --cur-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M9.5 12.5c0-1.3 2.4-1.3 2.4 0V9c0-1.4 2.6-1.4 2.6 0v-.6c0-1.4 2.6-1.4 2.6 0V9c0-1.3 2.5-1.3 2.5 0v3.2c0-1.2 2.4-1.2 2.4 0V21c0 3.4-2.6 6-6 6h-2.2c-2.4 0-4.2-1.1-5-3l-1.6-4.5c-.5-1.4 1.3-2.3 2.2-1.1L9.5 20Z' fill='%23fff' stroke='%23000' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M11.9 12.5v5M14.5 9v8.5M17.1 9v8.5M19.6 12v5.5' stroke='%23000' stroke-width='1' fill='none'/%3E%3C/svg%3E") 16 14, grab;
+  --cur-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M7.5 15.5c0-1.7 1.3-2.8 2.8-2.5.3-1.5 1.7-2.4 3.1-1.9.5-1.3 2-1.9 3.3-1.3.6-1.1 2.1-1.5 3.2-.8 1.3-.6 2.9.3 2.9 1.8V21c0 3.8-3 6.5-6.6 6.5h-1.9C10.3 27.5 7.5 24.8 7.5 21.2Z' fill='%23fff' stroke='%23000' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M10.3 13v3.4M13.4 11.1v4.6M16.7 9.8v5.6M19.9 10.7v5' stroke='%23000' stroke-width='1' fill='none'/%3E%3Cpath d='M7.8 17.6c2.4-1 6.2-.9 8.2.6' stroke='%23000' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, grabbing;
+  --cur-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M9 4h14M9 28h14' stroke='%23000' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M10.5 5h11v3.5c0 3-3.6 5.5-5.5 7.5 1.9 2 5.5 4.5 5.5 7.5V27h-11v-3.5c0-3 3.6-5.5 5.5-7.5-1.9-2-5.5-4.5-5.5-7.5Z' fill='%23fff' stroke='%23000' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M13 26h6l-3-3.5Z M13.2 9h5.6c-.8 1.5-1.8 2.4-2.8 3.4-1-1-2-1.9-2.8-3.4Z' fill='%23c56c96'/%3E%3C/svg%3E") 16 16, wait;
+}
+body[data-era="2005"] {
+  --cur-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M2 2 L2 23 L7.5 18 L11 26.5 L14.5 25 L11 16.5 L18 16.5 Z' fill='%23000' opacity='.28' transform='translate%281.6 1.6%29'/%3E%3Cpath d='M2 2 L2 23 L7.5 18 L11 26.5 L14.5 25 L11 16.5 L18 16.5 Z' fill='%23fff' stroke='%23000' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, default;
+  --cur-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M9 4h14M9 28h14' stroke='%23000' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M10.5 5h11v3.5c0 3-3.6 5.5-5.5 7.5 1.9 2 5.5 4.5 5.5 7.5V27h-11v-3.5c0-3 3.6-5.5 5.5-7.5-1.9-2-5.5-4.5-5.5-7.5Z' fill='%23fff' stroke='%23000' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M13 26h6l-3-3.5Z M13.2 9h5.6c-.8 1.5-1.8 2.4-2.8 3.4-1-1-2-1.9-2.8-3.4Z' fill='%23c56c96'/%3E%3C/svg%3E") 16 16, wait;
+}
+body[data-era="2010"] {
+  --cur-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3Cfilter id='s' x='-30%25' y='-30%25' width='160%25' height='160%25'%3E%3CfeGaussianBlur stdDeviation='1.1'/%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M3 2.5 L3 22 L8 17.6 L11.4 25.4 L14 24.3 L10.8 16.6 L17 16.6 Z' fill='%23000' opacity='.35' transform='translate%281 1.6%29' filter='url%28%23s%29'/%3E%3Cpath d='M3 2.5 L3 22 L8 17.6 L11.4 25.4 L14 24.3 L10.8 16.6 L17 16.6 Z' fill='%23fff' stroke='%231d2733' stroke-width='1.3' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, default;
+  --cur-wait: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23fff' stroke-width='5'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%239fd2ff' stroke-width='3.4'/%3E%3Cpath d='M16 6a10 10 0 0 1 10 10' fill='none' stroke='%232b6fc2' stroke-width='3.4' stroke-linecap='round'/%3E%3C/svg%3E") 16 16, wait;
+}
+.screen { cursor: var(--cur-arrow); }
+body.grabbing, body.grabbing * { cursor: var(--cur-grabbing) !important; }
 button { font-family: inherit; }
 
 /* ---------- 모니터 ---------- */
@@ -270,8 +288,8 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 
 /* 가구 상자의 빈 모서리를 눌러도 뒤의 가구가 눌리도록, 칠해진 부분(.hit)만 클릭을 받는다. */
 .item { position: absolute; transform-origin: 0 0; pointer-events: none; }
-.item .hit { pointer-events: auto; cursor: pointer; }
-[data-mode="edit"] .item .hit { cursor: grab; }
+.item .hit { pointer-events: auto; cursor: var(--cur-hand); }
+[data-mode="edit"] .item .hit { cursor: var(--cur-grab); }
 .item.hover { filter: brightness(1.08) drop-shadow(0 0 3px #fff) drop-shadow(0 0 3px #fff); }
 @media (hover: hover) {
   .item:has(.hit:hover) { filter: brightness(1.08) drop-shadow(0 0 3px #fff) drop-shadow(0 0 3px #fff); }
@@ -308,9 +326,9 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   background: #e9dfc8;
   font-size: 18px;
   color: var(--ink);
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
-.shelf-arrow:disabled { opacity: 0.35; cursor: default; }
+.shelf-arrow:disabled { opacity: 0.35; cursor: var(--cur-arrow); }
 .shelf-track {
   flex: 1;
   display: flex;
@@ -332,7 +350,7 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   box-shadow: 0 3px 0 var(--ink);
   font-size: 14px;
   color: var(--ink);
-  cursor: grab;
+  cursor: var(--cur-grab);
 }
 .card[hidden] { display: none; }
 .card-thumb { position: relative; width: 100%; height: 62px; overflow: hidden; pointer-events: none; }
@@ -374,7 +392,7 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   box-shadow: 1px 1px 0 #000;
   font-size: 16px;
   color: var(--win-text);
-  cursor: pointer;
+  cursor: var(--cur-hand);
   white-space: nowrap;
 }
 .btn:active { border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo); }
@@ -404,9 +422,9 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   background: linear-gradient(90deg, var(--win-bar-a), var(--win-bar-b));
   font-size: 15px;
   color: #fff;
-  cursor: move;
+  cursor: var(--cur-arrow);
 }
-.win.maximized .win-bar { cursor: default; }
+.win.maximized .win-bar { cursor: var(--cur-arrow); }
 .win.inactive .win-bar { background: linear-gradient(90deg, #7c7972, #b4b0a6); }
 .win-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .win-btns { display: flex; gap: 2px; }
@@ -420,7 +438,7 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   font-size: 15px;
   line-height: 1;
   color: var(--win-text);
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .win-btn:active { border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo); }
 .win-close { margin-left: 4px; }
@@ -556,7 +574,7 @@ body.moving-window iframe { pointer-events: none; }
   font-size: 14px;
   line-height: 1.3;
   color: #fff;
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .desk-icon span:last-child {
   max-width: 92px;
@@ -594,7 +612,7 @@ body.moving-window iframe { pointer-events: none; }
   background: var(--win-face);
   font-size: 15px;
   color: var(--win-text);
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .start-btn { font-weight: 700; }
 /* 시작 버튼 로고: 작은 집(우리 개념). 실제 윈도우 로고를 닮은 네 칸 사각형은 쓰지 않는다 */
@@ -650,13 +668,13 @@ body.moving-window iframe { pointer-events: none; }
   font-size: 15px;
   text-align: left;
   color: var(--win-text);
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .start-item:hover { background: var(--win-bar-a); color: #fff; }
 .start-sep { margin: 4px 2px; border: 0; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
 
 /* ---------- 부팅 ---------- */
-.boot { position: absolute; inset: 0; z-index: 50; background: #000; color: #c9c9c9; cursor: default; }
+.boot { position: absolute; inset: 0; z-index: 50; background: #000; color: #c9c9c9; cursor: var(--cur-wait); }
 .boot-text { margin: 0; padding: 48px 56px; font: 20px/1.6 var(--font); white-space: pre; }
 .boot-logo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 30px; }
 .boot-logo[hidden] { display: none; }
@@ -716,10 +734,10 @@ body.moving-window iframe { pointer-events: none; }
   font: inherit;
   text-align: left;
   color: #fff;
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 button.user:hover { background: #ffffff26; }
-form.user { cursor: default; }
+form.user { cursor: var(--cur-arrow); }
 .avatar {
   display: inline-grid;
   flex: none;
@@ -869,12 +887,12 @@ body:not(.curve) .fx-curve { display: none; }
   background: #e9dfc8;
   font-size: 17px;
   color: var(--ink);
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .scene-tab[aria-selected="true"] { background: #fffbea; box-shadow: inset 0 -4px 0 var(--win-bar-b); }
 
 /* ---------- 밤 모드 (스탠드, 가로등으로 켜고 끈다) ---------- */
-.wallpaper .item.switch .hit { pointer-events: auto; cursor: pointer; }
+.wallpaper .item.switch .hit { pointer-events: auto; cursor: var(--cur-hand); }
 .stage[data-theme="night"] {
   --win-face: #3a394a;
   --win-paper: #24232e;
@@ -1184,7 +1202,7 @@ body[data-era="2005"] .welcome { background: radial-gradient(ellipse at 25% 35%,
   text-decoration: underline;
   color: inherit;
   opacity: 0.7;
-  cursor: pointer;
+  cursor: var(--cur-hand);
 }
 .reset-link:hover { opacity: 1; }
 body[data-era="1998"] .reset-link { justify-self: end; }
