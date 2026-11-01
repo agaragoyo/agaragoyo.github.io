@@ -91,7 +91,6 @@ const crt = initCRT({
   input: $('#crt-input'),
   grain: $('#grain'),
   isWarpOn: () => settings.get('curve') && HAS_MOUSE.matches && !mon.rotated && era().warp > 0,
-  isGrainOn: () => settings.get('grain') && !era().lcd,
 });
 
 // 설정이 바뀔 때마다 화면에 반영한다(테두리 버튼, 밤, 시대).

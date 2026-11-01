@@ -1,10 +1,9 @@
-// CRT 화면 효과: 볼록하게 휘는 화면과 그레인.
+// CRT 화면 효과: 볼록하게 휘는 화면과 그레인(노이즈 그림만 만들고 움직임은 CSS).
 //
 // 볼록 효과는 SVG 필터(feDisplacementMap)로 .crt 를 실제로 휘게 만든다.
 // 브라우저는 클릭 대상을 휘기 전 위치로 판단하므로, 화면 위에 투명한 층(.crt-input)을 깔고
 // 마우스 입력을 같은 공식으로 휘기 전 위치로 고친 뒤 그 자리의 요소에 다시 보낸다.
 // 그래서 왜곡 공식은 warp() 한 곳에만 두고, 필터 그림과 입력 보정이 같이 쓴다.
-import { reduceMotion } from './util.js';
 
 // 휘는 정도. 클수록 가장자리가 많이 휜다. 시대 설정에 따라 바뀐다(평면 CRT는 덜 휜다).
 let K = 0.06;
@@ -17,7 +16,7 @@ function warp(x, y, w, h) {
   return [((nx * m + 1) / 2) * w, ((ny * m + 1) / 2) * h];
 }
 
-export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
+export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
   const filter = document.getElementById('crt-warp');
   const feImage = document.getElementById('crt-map');
   const feMap = filter.querySelector('feDisplacementMap');
@@ -71,7 +70,6 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     input.hidden = !on;
     window.__agaWarpOn = on; // 같은 사이트 앱(iframe)이 포인터 캡처를 흉내 낼지 정할 때 본다
     updateHoles();
-    startGrain();
   }
 
   // ---------- iframe 앱 ----------
@@ -243,40 +241,22 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
   }, { passive: false });
 
   // ---------- 그레인 ----------
-  // 작은 캔버스에 노이즈 몇 장을 미리 만들어 두고 번갈아 보여 준다. 같은 얼룩이 눈에 띄지 않게 장마다 새로 뿌린다.
-  const FRAMES = 8;
-  const FPS = 24;
-  let frames = [];
-  let timer = 0;
-  function startGrain() {
-    clearInterval(timer);
-    if (!isGrainOn()) return;
-    const r = screen.getBoundingClientRect();
-    const gw = Math.ceil(r.width / 2);
-    const gh = Math.ceil(r.height / 2);
-    if (grain.width !== gw || grain.height !== gh || !frames.length) {
-      grain.width = gw;
-      grain.height = gh;
-      const ctx = grain.getContext('2d');
-      frames = Array.from({ length: FRAMES }, () => {
-        const img = ctx.createImageData(gw, gh);
-        const d = img.data;
-        for (let k = 0; k < d.length; k += 4) {
-          const v = (Math.random() * 255) | 0;
-          d[k] = d[k + 1] = d[k + 2] = v;
-          d[k + 3] = 255;
-        }
-        return img;
-      });
+  // 노이즈 그림 한 장만 여기서 만들고, 움직임은 CSS(.fx-grain::before)가 맡는다.
+  // 같은 노이즈를 1초에 24번 다른 자리로 옮기면 새 노이즈처럼 보이고, 브라우저가 화면을 다시 칠하지 않아도 된다.
+  // (예전에는 화면 절반 크기 캔버스를 1초에 24번 새로 칠해서 그레인을 켜 두는 동안 CPU를 계속 썼다.)
+  {
+    const TILE = 128;
+    const c = document.createElement('canvas');
+    c.width = c.height = TILE;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(TILE, TILE);
+    const d = img.data;
+    for (let k = 0; k < d.length; k += 4) {
+      d[k] = d[k + 1] = d[k + 2] = (Math.random() * 255) | 0;
+      d[k + 3] = 255;
     }
-    const ctx = grain.getContext('2d');
-    let n = 0;
-    ctx.putImageData(frames[0], 0, 0);
-    if (reduceMotion) return;
-    timer = setInterval(() => {
-      n = (n + 1 + ((Math.random() * (FRAMES - 1)) | 0)) % FRAMES;
-      ctx.putImageData(frames[n], 0, 0);
-    }, 1000 / FPS);
+    ctx.putImageData(img, 0, 0);
+    grain.style.setProperty('--grain-img', `url("${c.toDataURL()}")`);
   }
 
   window.addEventListener('resize', updateHoles);
