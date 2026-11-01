@@ -63,8 +63,7 @@
     const cv = document.getElementById('cv');
     const ctx = cv.getContext('2d');
     const $ = id => document.getElementById(id);
-    const BEST_KEY = 'tidy-up.best';
-    let best = +(localStorage.getItem(BEST_KEY) || 0);
+    let best = AGA.load('best', 0); // localStorage 'tidy-up.best'
     $('best').textContent = best;
 
     let bodies, score, aimX, current, nextTier, lastDrop, overTimer, over;
@@ -88,32 +87,11 @@
     }
 
     // ---------- 화면 크기 ----------
-    let scale = 1;
-    let lastSize = '';
-    function fit() {
-      const wrap = $('wrap');
-      // 크기가 그대로면 다시 맞추지 않는다(소수점 차이로 계속 다시 맞추는 일을 막는다).
-      const size = `${wrap.clientWidth}x${wrap.clientHeight}`;
-      if (size === lastSize) return;
-      lastSize = size;
-      scale = Math.min(wrap.clientWidth / W, wrap.clientHeight / H);
-      const dpr = window.devicePixelRatio || 1;
-      const cssW = Math.floor(W * scale);
-      const cssH = Math.floor(H * scale);
-      cv.style.width = cssW + 'px';
-      cv.style.height = cssH + 'px';
-      cv.width = Math.round(cssW * dpr);
-      cv.height = Math.round(cssH * dpr);
-      ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
-    }
-    // 게임판 자리의 크기가 바뀔 때마다(창 크기, 머리줄 높이) 다시 맞춘다.
-    new ResizeObserver(fit).observe($('wrap'));
+    // 게임판 자리의 크기가 바뀔 때마다(창 크기, 머리줄 높이) SDK가 다시 맞춘다. 그리기는 늘 W×H 단위다.
+    const board = AGA.fitCanvas(cv, $('wrap'), W, H);
 
     // ---------- 입력 ----------
-    const toGame = e => {
-      const r = cv.getBoundingClientRect();
-      return (e.clientX - r.left) / (r.width / W);
-    };
+    const toGame = e => board.point(e).x;
     cv.addEventListener('pointermove', e => { aimX = toGame(e); });
     cv.addEventListener('pointerdown', e => {
       aimX = toGame(e);
@@ -204,7 +182,7 @@
       if (score > best) {
         best = score;
         $('best').textContent = best;
-        localStorage.setItem(BEST_KEY, best);
+        AGA.save('best', best);
       }
     }
 
@@ -291,7 +269,6 @@
     }
 
     reset();
-    fit();
     requestAnimationFrame(loop);
   </script>
 </body>
