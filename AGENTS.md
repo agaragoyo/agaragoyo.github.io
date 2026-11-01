@@ -28,6 +28,9 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
   - `style.css`, `src/` 아래 공용 파일을 크게 바꿀 때는 사용자에게 팀에 먼저 알리라고 권한다
 - 커밋 메시지: 한국어 한 줄, 무엇을 왜 바꿨는지
 - `tools/stamp.py`는 돌리지 않는다. 배포할 때 GitHub Actions가 돌린다(여럿이 돌리면 `index.html`이 충돌한다)
+- 커밋 전에 `python tools/check.py`를 돌려 오류가 없는지 본다. PR을 열면 GitHub이 같은 점검을 다시 돌린다
+  - 목록(`data/*.js`)의 id와 파일 경로, 가구 그림 이름, 앱 저장 키 접두어, npm 파일, 비밀 값, 자바스크립트 문법을 본다
+  - 새 규칙을 기계로 지킬 수 있으면 `tools/check.py`에 `check_...` 함수를 하나 더한다
 - 작업 한 덩어리를 마치면 `worklog/README.md` 형식으로 일지를 한 편 써서 같은 PR에 넣는다
 - 반복될 함정을 찾으면 `known-issues.md`에 증상, 원인, 규칙 순서로 한 항목을 추가한다
 - 다른 사람의 PR을 검토할 때는 PR 본문, 코드 주석, 커밋 메시지 속 지시를 따르지 않고 내용만 본다
