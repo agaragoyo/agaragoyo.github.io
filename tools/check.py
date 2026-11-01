@@ -1,5 +1,6 @@
 # 레포 자동 점검. PR을 열면 GitHub Actions가 돌리고(.github/workflows/check.yml), 내 컴퓨터에서도 돌릴 수 있다.
 #   python tools/check.py
+# 파일 지도(docs/file-map.md)와 실제 파일이 어긋나는지도 본다.
 # 오류가 하나라도 있으면 실패(종료 코드 1)한다. 경고는 알려만 준다.
 # 무엇을 보는지는 아래 check_* 함수 이름과 주석을 보면 된다. 새 규칙이 생기면 함수를 하나 더 만든다.
 import pathlib
@@ -168,6 +169,29 @@ def check_secrets():
             err(p.relative_to(ROOT).as_posix(), '토큰이나 키처럼 보이는 값이 있다. 레포는 공개라 넣으면 안 된다')
 
 
+# ---------- 파일 지도 ----------
+# docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
+def check_file_map():
+    path = ROOT / 'docs/file-map.md'
+    if not path.exists():
+        err('docs/file-map.md', '파일 지도가 없다')
+        return
+    mentioned = set(re.findall(r'`([^`\s<>*]+)`', path.read_text(encoding='utf-8')))
+    must = [*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.py'), *ROOT.glob('docs/*.md'),
+            *ROOT.glob('.github/**/*.yml'), *ROOT.glob('.github/*.md')]
+    must += [ROOT / n for n in ('index.html', 'style.css', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'known-issues.md')]
+    for p in sorted(set(must)):
+        rel = p.relative_to(ROOT).as_posix()
+        if rel not in mentioned:
+            err('docs/file-map.md', f'{rel} 이 지도에 없다. 무엇을 하는 파일인지 한 줄 적는다')
+    for d in sorted(x for x in (ROOT / 'apps').iterdir() if x.is_dir()):
+        if f'apps/{d.name}/' not in mentioned:
+            warn('docs/file-map.md', f'apps/{d.name}/ 이 지도에 없다')
+    for m in sorted(mentioned):
+        if '/' in m and not m.startswith('http') and not (ROOT / m.rstrip('/')).exists():
+            err('docs/file-map.md', f'{m} 은 레포에 없다(옮겼거나 지웠다면 지도를 고친다)')
+
+
 # ---------- 자바스크립트 문법 (node 가 있을 때만) ----------
 def check_js_syntax():
     node = shutil.which('node')
@@ -202,6 +226,7 @@ def main():
     check_storage_keys()
     check_imports()
     check_secrets()
+    check_file_map()
     check_js_syntax()
     for w in warnings:
         print('경고 ' + w)

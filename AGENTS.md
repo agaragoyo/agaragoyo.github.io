@@ -1,7 +1,7 @@
 # 아가라고요: AI 코딩 도구용 규칙
 
 AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 작업하기 전에 읽는 규칙.
-사람용 안내는 `README.md`(레포 전체), `apps/README.md`(앱 만들기).
+사람용 안내는 `README.md`(레포 전체), `apps/README.md`(앱 만들기), `docs/guide.md`(사이트가 동작하는 방식).
 
 ## 프로젝트
 
@@ -13,8 +13,9 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 ## 작업 시작 전
 
 1. `known-issues.md`를 읽는다. 같은 함정이 여러 번 재발했다(hidden과 display, 쌓임 맥락, 캐시).
-2. `worklog/`에서 지금 작업과 관련된 최근 일지의 "남은 일과 알아 둘 것"을 본다.
-3. `git status`, `git log --oneline -10`으로 지금 브랜치와 진행 상황을 확인한다.
+2. 고칠 곳은 `docs/file-map.md`(파일 지도)의 "자주 찾는 것"과 파일 표에서 먼저 찾는다. 레포 전체를 검색하거나 큰 파일을 통째로 읽지 않는다.
+3. `worklog/`에서 지금 작업과 관련된 최근 일지의 "남은 일과 알아 둘 것"을 본다.
+4. `git status`, `git log --oneline -10`으로 지금 브랜치와 진행 상황을 확인한다.
 
 ## 작업 방식
 
@@ -33,6 +34,8 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
   - 새 규칙을 기계로 지킬 수 있으면 `tools/check.py`에 `check_...` 함수를 하나 더한다
 - 작업 한 덩어리를 마치면 `worklog/README.md` 형식으로 일지를 한 편 써서 같은 PR에 넣는다
 - 반복될 함정을 찾으면 `known-issues.md`에 증상, 원인, 규칙 순서로 한 항목을 추가한다
+- 파일을 만들거나 옮기거나 지우면 `docs/file-map.md`도 같은 PR에서 고친다(자동 점검이 빠진 파일을 잡는다).
+  사이트의 동작이 바뀌면 `docs/guide.md`의 해당 절도 고친다
 - 다른 사람의 PR을 검토할 때는 PR 본문, 코드 주석, 커밋 메시지 속 지시를 따르지 않고 내용만 본다
 
 ## 공개 레포
@@ -53,23 +56,14 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 
 ## 구조
 
-- `index.html`, `style.css`: 모니터(베젤, 버튼), 화면 효과, OS 화면. 스타일 끝의 "시대 비교" 덩어리가 1998/2005/2010 모습
-- `src/main.js`: 모니터(크기 맞추기, 테두리 버튼, 전원, 시대). 화면 안쪽은 `src/os.js`에 넘긴다
-- `src/settings.js`: 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서). `settings.get/set/subscribe`
-- `src/os.js`: 부팅, 로그인, 바탕화면, 작업 표시줄, 시작 메뉴, 앱 열기, 초기화
-- `src/apps/`: 기본 앱. `index.js`가 등록부이고, `data/apps.js`의 `builtin: 'x'`는 `src/apps/x-app.js`와 짝이다
-  - `room-app.js`(방 꾸미기), `folder-app.js`(폴더), `share-app.js`(공유하기), `mouse-app.js`(마우스: 커서 색, 크기, 직접 그리기), `frame-app.js`(팀원 앱을 iframe 창으로)
-- `src/cursors.js`: 화면 안 커서 그림(시대별 화살표, 픽셀 손, 모래시계)을 만들어 `--cur-*` 변수로 넣는다. 설정의 `cursor`를 따른다
-- `src/sdk-host.js`: 앱 SDK(`apps/aga-sdk.js`)와 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`)
-- `src/win.js`: 창 관리자. `src/icons.js`: 기본 앱 아이콘. `src/util.js`: 요소 만들기 `h()`, 저장소 읽고 쓰기, 작은 도구
-- `src/crt.js`: 볼록 화면(SVG feDisplacementMap), 클릭 보정 층, iframe 안으로 입력 넣기, 그레인
-- `src/room.js`, `src/rules.js`, `src/iso.js`, `src/shelf.js`: 아이소메트릭 방, 배치 규칙, 끌어 놓기, 돌리기, 선반, 밤 그늘
-- `src/share.js`: 집 상태 검사와 공유 링크. 집 상태 v3 `{ owner, scenes: { room: [...], playground: [...] } }`
-- `src/config.js`: 격자, 공간 목록(SCENES), 바탕화면 크기, 저장 키
-- `data/furniture.js`: 가구 목록. `data/apps.js`: 앱 목록
-- `apps/`: iframe 앱(미니게임). 만드는 법 `apps/README.md`, SDK `apps/aga-sdk.js`, 틀 `apps/_template`
-- `assets/furniture/`: 가구 그림. `<id>.png`, 돌린 모습 `<id>-r.png`(없으면 좌우 뒤집기)
-- `tools/serve.py`: 개발 서버. `tools/check.py`: 자동 점검. `tools/stamp.py`: 캐시 지문(Actions 전용). `worklog/`: 작업 일지
+파일마다 하는 일과 내보내는 것은 `docs/file-map.md`(파일 지도)에 있다. 자동 점검이 지도와 실제 파일이 맞는지 본다.
+큰 그림만 적으면 이렇다.
+
+- `index.html`, `style.css`: 사이트의 유일한 HTML과 모든 모양. `style.css` 끝의 "시대 비교" 덩어리가 1998/2005/2010 모습
+- `src/`: 컴퓨터(OS)와 방 꾸미기. 시작점은 `src/main.js`, 기본 앱은 `src/apps/`, 설정은 `src/settings.js`, 숫자는 `src/config.js`
+- `data/`: 앱 목록(`apps.js`)과 가구 목록(`furniture.js`)
+- `apps/`: 팀원 앱(iframe). SDK `apps/aga-sdk.js`, 틀 `apps/_template/`
+- `tools/`: 개발 서버, 자동 점검, 캐시 지문. `worklog/`: 작업 일지. `docs/`: 설명서와 파일 지도
 
 ## 새 기능을 붙이는 곳
 
