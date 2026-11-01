@@ -3,6 +3,7 @@ import { STAGE_W, STAGE_H } from './config.js';
 import { settings } from './settings.js';
 import { reduceMotion } from './util.js';
 import { initCRT } from './crt.js';
+import { initCursors } from './cursors.js';
 import { createOS } from './os.js';
 
 const $ = sel => document.querySelector(sel);
@@ -40,6 +41,9 @@ const fromUrl = new URLSearchParams(location.search).get('era');
 if (ERAS[fromUrl] && fromUrl !== settings.get('era')) settings.set({ era: fromUrl });
 if (!ERAS[settings.get('era')]) settings.set({ era: '1998' });
 const era = () => ERAS[settings.get('era')];
+
+// 화면 안 커서(시대마다 다르고, 마우스 앱에서 바꿀 수 있다)
+initCursors(settings);
 
 // ---------- 화면 맞추기 ----------
 // MARGIN: 화면 가장자리와 모니터 사이(px). PAD, CTRL: 모니터 테두리 두께와 아래 버튼 줄 높이(무대 px).
