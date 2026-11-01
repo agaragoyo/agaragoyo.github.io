@@ -486,23 +486,33 @@ body.moving-window iframe { pointer-events: none; }
 .frame-lost:not([hidden]) { display: grid; }
 .frame-lost .btn { margin-top: 12px; }
 
-/* 마우스 앱 (src/apps/mouse-app.js) */
-.mouse-app { display: flex; flex-direction: column; gap: 8px; }
-.mouse-app .meta { margin: 0; }
+/* 마우스 앱 (src/apps/mouse-app.js). 그 시절 대화상자처럼 제목 붙은 묶음(fieldset)으로 나누고, 그림판처럼 도구를 세로로 둔다. */
+.mouse-app { display: flex; flex-direction: column; gap: 6px; }
+.mouse-app .meta { margin: 0; font-size: 13px; }
+.mouse-group {
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--bev-mid);
+  box-shadow: inset 1px 1px 0 var(--bev-hi), 1px 1px 0 var(--bev-hi);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mouse-group legend { padding: 0 4px; font-size: 14px; }
 .mouse-preview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .mouse-tile {
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: 6px 0;
+  gap: 2px;
+  padding: 4px 0;
   border: 1px solid var(--bev-mid);
   background: repeating-conic-gradient(var(--win-check) 0 25%, var(--win-paper) 0 50%) 0 0 / 12px 12px;
   font-size: 13px;
 }
-.mouse-big { width: 64px; height: 64px; background: center / 64px 64px no-repeat; image-rendering: pixelated; }
+.mouse-big { width: 40px; height: 40px; background: center / 40px 40px no-repeat; image-rendering: pixelated; }
 .mouse-row { display: flex; align-items: center; gap: 6px; }
-.mouse-row .grow { flex: 1; }
-.mouse-label { min-width: 52px; font-size: 14px; }
+.mouse-row .grow, .mouse-commands .grow { flex: 1; }
+.mouse-label { min-width: 64px; font-size: 14px; }
 .swatch {
   width: 26px;
   height: 26px;
@@ -514,12 +524,31 @@ body.moving-window iframe { pointer-events: none; }
 }
 .swatch-default { width: auto; padding: 0 6px; background: var(--win-face); }
 .swatch.on { outline: 3px solid var(--win-bar-b); outline-offset: 1px; }
-.mouse-app .btn.on { box-shadow: inset 0 0 0 2px var(--win-bar-b); }
+.mouse-app .btn { padding: 3px 10px; font-size: 14px; }
+/* 눌린 버튼: 시대마다 버튼 모양이 달라서 바탕을 덮지 않고 안쪽 그림자와 밝기로만 눌린 티를 낸다 */
+.mouse-app .btn.on { box-shadow: inset 1px 1px 4px #0008; filter: brightness(0.9); }
+.mouse-default { outline: 1px solid var(--win-text); outline-offset: 1px; }
 .mouse-draw { display: flex; gap: 12px; align-items: flex-start; }
-.mouse-canvas { width: 256px; height: 256px; border: 1px solid var(--bev-mid); image-rendering: pixelated; cursor: var(--cur-arrow); touch-action: none; }
-.mouse-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.mouse-btns, .mouse-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.mouse-app .btn { padding: 4px 10px; font-size: 14px; }
+.mouse-tools { display: flex; flex-direction: column; gap: 6px; width: 112px; }
+.mouse-tool { display: flex; align-items: center; gap: 8px; text-align: left; }
+.mouse-chip { flex: none; width: 16px; height: 16px; border: 1px solid var(--win-text); }
+svg.mouse-chip { border: 0; }
+.mouse-chip-clear { background: repeating-conic-gradient(#d9d4c7 0 25%, #f2efe8 0 50%) 0 0 / 8px 8px; }
+.mouse-canvas { width: 224px; height: 224px; border: 1px solid var(--bev-mid); image-rendering: pixelated; cursor: var(--cur-arrow); touch-action: none; }
+.mouse-side { display: grid; justify-items: center; gap: 4px; font-size: 13px; }
+.mouse-hot-note { white-space: nowrap; }
+.mouse-view {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--bev-mid);
+  background: repeating-conic-gradient(var(--win-check) 0 25%, var(--win-paper) 0 50%) 0 0 / 12px 12px;
+}
+.mouse-view-2 { width: 72px; height: 72px; }
+.mouse-real { width: 32px; height: 32px; background: center / 32px 32px no-repeat; }
+.mouse-twice { width: 64px; height: 64px; background: center / 64px 64px no-repeat; image-rendering: pixelated; }
+.mouse-commands { display: flex; gap: 6px; }
 
 /* 미니게임 폴더 */
 .folder { display: flex; flex-direction: column; padding: 10px; }

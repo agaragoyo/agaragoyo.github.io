@@ -160,14 +160,22 @@ const url = (body, size) => {
 };
 
 // 커서 한 개의 그림(SVG 조각)과 클릭 위치
+export const lineColor = (era, prefs = {}) => prefs.line || ERA_LINE[era] || '#000000';
+export const fillColor = (prefs = {}) => prefs.fill || '#ffffff';
+
 function shape(key, era, prefs) {
-  const line = prefs.line || ERA_LINE[era] || '#000000';
-  const fill = prefs.fill || '#ffffff';
+  const line = lineColor(era, prefs);
+  const fill = fillColor(prefs);
   const custom = prefs.custom?.[key];
   if (custom?.px?.length === SIZE * SIZE) return { body: pixelSVG(custom.px, line, fill), hot: custom.hot || [0, 0] };
   if (key === 'arrow') return { body: (ARROWS[era] || ARROWS[1998])(line, fill), hot: HOT.arrow };
   if (key === 'wait') return { body: era === '2010' ? RING() : HOURGLASS(line, fill), hot: HOT.wait };
   return { body: pixelSVG(defaultPixels(key).px, line, fill), hot: HOT[key] };
+}
+
+// 픽셀 글자 1024개를 그대로 그린 그림 주소(마우스 앱의 그리는 중인 그림 미리보기)
+export function pixelImage(px, line, fill) {
+  return url(pixelSVG(px, line, fill), 1);
 }
 
 // 미리보기용 그림 주소(url(...)) 하나
