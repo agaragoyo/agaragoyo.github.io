@@ -239,6 +239,17 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
       deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,
     }));
   }, { passive: false });
+  // 오른쪽 클릭 메뉴: 화면 안 요소에 같은 이벤트를 넘기고, 그 요소가 막으면(preventDefault) 브라우저 메뉴도 띄우지 않는다.
+  // (마우스 앱 그리기 판처럼 오른쪽 버튼으로 칠하는 곳에서 메뉴가 뜨지 않게.) iframe 앱 안으로는 넘기지 않는다.
+  input.addEventListener('contextmenu', e => {
+    const [x, y] = fix(e.clientX, e.clientY);
+    const target = under(x, y);
+    if (!target || target.tagName === 'IFRAME') return;
+    const passed = target.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2, buttons: e.buttons,
+    }));
+    if (!passed) e.preventDefault();
+  });
 
   // ---------- 그레인 ----------
   // 노이즈 그림 한 장만 여기서 만들고, 움직임은 CSS(.fx-grain::before)가 맡는다.

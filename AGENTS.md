@@ -93,7 +93,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 무대는 1280×840 고정 좌표. 화면 좌표는 반드시 `toLocal`(main의 `mon.toLocal`, 방 앱의 `ctx.toLocal`)로 바꾼다
 - 볼록 화면에서는 브라우저의 클릭 위치가 어긋난다
   - 클릭을 받는 새 요소는 `.crt-input`이 보내는 합성 이벤트로 동작하는지 확인한다
-  - 더블클릭과 오른쪽 클릭은 넘어가지 않는다(아이콘 더블클릭은 클릭 간격으로 직접 판정)
+  - 더블클릭은 넘어가지 않는다(아이콘 더블클릭은 클릭 간격으로 직접 판정). 오른쪽 클릭 메뉴(`contextmenu`)는 화면 안 요소까지만 넘어가고 iframe 앱 안으로는 넘어가지 않는다
 - hidden으로 숨기는 요소에 display를 주면 `:not([hidden])`이나 `[hidden]` 짝 규칙을 같이 둔다
 - 가구를 그리는 상자는 쌓임 맥락을 만든다(`isolation: isolate`). 없으면 가구 z-index가 창 위로 샌다
 - localStorage 키는 `agarago.`(OS) 또는 `<앱id>.`(앱)로 시작. `localStorage.clear()` 금지
