@@ -58,7 +58,8 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - `src/settings.js`: 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대). `settings.get/set/subscribe`
 - `src/os.js`: 부팅, 로그인, 바탕화면, 작업 표시줄, 시작 메뉴, 앱 열기, 초기화
 - `src/apps/`: 기본 앱. `index.js`가 등록부이고, `data/apps.js`의 `builtin: 'x'`는 `src/apps/x-app.js`와 짝이다
-  - `room-app.js`(방 꾸미기), `folder-app.js`(폴더), `share-app.js`(공유하기), `frame-app.js`(팀원 앱을 iframe 창으로)
+  - `room-app.js`(방 꾸미기), `folder-app.js`(폴더), `share-app.js`(공유하기), `mouse-app.js`(마우스: 커서 색, 크기, 직접 그리기), `frame-app.js`(팀원 앱을 iframe 창으로)
+- `src/cursors.js`: 화면 안 커서 그림(시대별 화살표, 픽셀 손, 모래시계)을 만들어 `--cur-*` 변수로 넣는다. 설정의 `cursor`를 따른다
 - `src/sdk-host.js`: 앱 SDK(`apps/aga-sdk.js`)와 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`)
 - `src/win.js`: 창 관리자. `src/icons.js`: 기본 앱 아이콘. `src/util.js`: 요소 만들기 `h()`, 저장소 읽고 쓰기, 작은 도구
 - `src/crt.js`: 볼록 화면(SVG feDisplacementMap), 클릭 보정 층, iframe 안으로 입력 넣기, 그레인

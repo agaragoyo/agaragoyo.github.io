@@ -2,7 +2,7 @@
 // 앱이 { aga: 1, type, ... }를 보내면 HANDLERS[type](창, 메시지)를 부르고, 돌려준 값이 있으면 답으로 보낸다.
 // SDK에 새 기능을 더하려면 여기 HANDLERS에 하나, aga-sdk.js에 하나를 더한다.
 export function createSdkHost(os) {
-  // 화면 안 커서(style.css의 --cur-*)를 앱에도 나눠 준다.
+  // 화면 안 커서(src/cursors.js가 body에 넣은 --cur-*)를 앱에도 나눠 준다.
   const cursorSet = () => {
     const cs = getComputedStyle(document.body);
     const set = {};
@@ -30,8 +30,8 @@ export function createSdkHost(os) {
   const broadcast = msg => {
     for (const w of os.wm.all()) w.iframe?.contentWindow?.postMessage({ aga: 1, ...msg }, '*');
   };
-  // 시대가 바뀌면 커서도 바뀌므로 열린 앱에 다시 보낸다.
-  os.settings.subscribe(patch => { if ('era' in patch) broadcast({ type: 'cursor', cursor: cursorSet() }); });
+  // 시대나 커서 설정이 바뀌면 커서도 바뀌므로 열린 앱에 다시 보낸다.
+  os.settings.subscribe(patch => { if ('era' in patch || 'cursor' in patch) broadcast({ type: 'cursor', cursor: cursorSet() }); });
 
   return { broadcast };
 }

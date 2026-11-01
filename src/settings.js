@@ -1,4 +1,4 @@
-// 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대 ...)을 한곳에 둔다. 값이 바뀌면 구독한 쪽에 알린다.
+// 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서 ...)을 한곳에 둔다. 값이 바뀌면 구독한 쪽에 알린다.
 //   settings.get('night')                  값 읽기
 //   settings.set({ night: true })          바꾸고 저장한 뒤 구독자에게 알린다
 //   settings.subscribe((patch, all) => {}) 바뀔 때마다 부른다. 그만 들을 때 부를 함수를 돌려준다
@@ -6,7 +6,8 @@
 import { STORAGE_SETTINGS } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
-const DEFAULTS = { grain: true, curve: true, night: false, era: '1998' };
+// cursor: 마우스 앱에서 고른 커서 색, 크기, 직접 그린 그림(자세한 모양은 src/cursors.js 맨 위)
+const DEFAULTS = { grain: true, curve: true, night: false, era: '1998', cursor: { line: null, fill: null, size: 1, custom: {} } };
 const state = { ...DEFAULTS, ...loadJSON(STORAGE_SETTINGS) };
 const listeners = new Set();
 

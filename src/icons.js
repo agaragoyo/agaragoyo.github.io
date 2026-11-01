@@ -10,6 +10,9 @@ const BUILTIN = {
   share: `<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" fill="#a9d6e5" stroke="#2f5d6e" stroke-width="2"/>
     <path d="M7 24 h34 M24 7 c-8 9 -8 25 0 34 M24 7 c8 9 8 25 0 34" fill="none" stroke="#2f5d6e" stroke-width="1.8"/>
     <rect x="25" y="27" width="16" height="10" rx="5" fill="#f7f3e8" stroke="#6b2d5c" stroke-width="2"/><path d="M30 32 h6" stroke="#6b2d5c" stroke-width="2"/></svg>`,
+  mouse: `<svg viewBox="0 0 48 48"><path d="M24 6 c0 4 -3 5 -8 6" fill="none" stroke="#5a4632" stroke-width="2"/>
+    <rect x="13" y="12" width="22" height="31" rx="11" fill="#f7f3e8" stroke="#5a4632" stroke-width="2"/>
+    <path d="M13 24 h22 M24 12 v12" stroke="#5a4632" stroke-width="2"/><rect x="22" y="15" width="4" height="7" rx="2" fill="#c56c96"/></svg>`,
   furniture: `<svg viewBox="0 0 48 48"><rect x="8" y="10" width="32" height="28" rx="3" fill="#f7f3e8" stroke="#5a4632" stroke-width="2"/>
     <rect x="8" y="10" width="32" height="7" fill="#6b2d5c"/><path d="M14 24 h20 M14 30 h14" stroke="#5a4632" stroke-width="2"/></svg>`,
 };
