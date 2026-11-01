@@ -1,0 +1,9 @@
+# 줄바꿈을 LF로 맞춘다. 맥과 윈도우 팀원이 섞여 있어서, 이게 없으면 줄바꿈 문자만 바뀐 파일 전체가 변경으로 잡힌다.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.gif binary
+*.mp3 binary
+*.wav binary
+*.ogg binary

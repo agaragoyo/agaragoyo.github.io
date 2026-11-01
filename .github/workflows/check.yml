@@ -1,0 +1,21 @@
+# PR을 열거나 고칠 때마다 tools/check.py로 레포를 점검한다. 실패하면 PR 화면에 빨간 X가 뜨고, 눌러 보면 무엇이 틀렸는지 나온다.
+# (자바스크립트 문법 검사는 GitHub 서버에 있는 node로 한다. 우리 레포에 npm을 들이는 것은 아니다.)
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/check.py
