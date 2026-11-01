@@ -55,7 +55,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 
 - `index.html`, `style.css`: 모니터(베젤, 버튼), 화면 효과, OS 화면. 스타일 끝의 "시대 비교" 덩어리가 1998/2005/2010 모습
 - `src/main.js`: 모니터(크기 맞추기, 테두리 버튼, 전원, 시대). 화면 안쪽은 `src/os.js`에 넘긴다
-- `src/settings.js`: 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대). `settings.get/set/subscribe`
+- `src/settings.js`: 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서). `settings.get/set/subscribe`
 - `src/os.js`: 부팅, 로그인, 바탕화면, 작업 표시줄, 시작 메뉴, 앱 열기, 초기화
 - `src/apps/`: 기본 앱. `index.js`가 등록부이고, `data/apps.js`의 `builtin: 'x'`는 `src/apps/x-app.js`와 짝이다
   - `room-app.js`(방 꾸미기), `folder-app.js`(폴더), `share-app.js`(공유하기), `mouse-app.js`(마우스: 커서 색, 크기, 직접 그리기), `frame-app.js`(팀원 앱을 iframe 창으로)
@@ -64,12 +64,26 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - `src/win.js`: 창 관리자. `src/icons.js`: 기본 앱 아이콘. `src/util.js`: 요소 만들기 `h()`, 저장소 읽고 쓰기, 작은 도구
 - `src/crt.js`: 볼록 화면(SVG feDisplacementMap), 클릭 보정 층, iframe 안으로 입력 넣기, 그레인
 - `src/room.js`, `src/rules.js`, `src/iso.js`, `src/shelf.js`: 아이소메트릭 방, 배치 규칙, 끌어 놓기, 돌리기, 선반, 밤 그늘
-- `src/share.js`: 저장(localStorage)과 공유 링크. 집 상태 v3 `{ owner, scenes: { room: [...], playground: [...] } }`
-- `src/config.js`: 격자, 공간 목록(SCENES), 저장 키
+- `src/share.js`: 집 상태 검사와 공유 링크. 집 상태 v3 `{ owner, scenes: { room: [...], playground: [...] } }`
+- `src/config.js`: 격자, 공간 목록(SCENES), 바탕화면 크기, 저장 키
 - `data/furniture.js`: 가구 목록. `data/apps.js`: 앱 목록
-- `apps/`: iframe 앱(미니게임). 만드는 법 `apps/README.md`, SDK `apps/aga-sdk.js`, 예시 `apps/tidy-up`
+- `apps/`: iframe 앱(미니게임). 만드는 법 `apps/README.md`, SDK `apps/aga-sdk.js`, 틀 `apps/_template`
 - `assets/furniture/`: 가구 그림. `<id>.png`, 돌린 모습 `<id>-r.png`(없으면 좌우 뒤집기)
-- `tools/serve.py`: 개발 서버. `tools/stamp.py`: 캐시 지문. `worklog/`: 작업 일지
+- `tools/serve.py`: 개발 서버. `tools/check.py`: 자동 점검. `tools/stamp.py`: 캐시 지문(Actions 전용). `worklog/`: 작업 일지
+
+## 새 기능을 붙이는 곳
+
+모두 같은 자리에서 같은 방식으로 붙인다. 아래에 없는 종류면 사용자에게 먼저 묻는다.
+
+- 미니게임, 새 앱: `apps/_template`를 `apps/<id>/`로 복사해서 고치고, `data/apps.js`에 한 줄. SDK 도우미(`AGA.fitCanvas`, `AGA.save/load`)를 쓴다
+- 가구 기믹(가구를 누르면 열리는 화면): 위처럼 앱을 만들고 `folder: 'furniture'`, 가구 줄에 `gimmick: 'app:<id>'`
+- 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`
+- 새 공간: `src/config.js`의 `SCENES`에 한 줄, 가구의 `scene`
+- 새 설정 값: `src/settings.js`의 `DEFAULTS`에 기본값, 쓰는 쪽은 `settings.get/subscribe`
+- OS가 직접 그리는 기본 앱: `src/apps/<이름>-app.js`에 `open<이름>App(os, app)`, `src/apps/index.js`에 등록, `data/apps.js`에 `builtin: '<이름>'`
+  - 요소는 `src/util.js`의 `h()`로 만든다. 창은 `os.wm.open({ key, app, title, width, height, build })`, `build`가 돌려준 함수는 창을 닫을 때 불린다
+- 앱 SDK에 새 기능: `src/sdk-host.js`의 `HANDLERS`에 하나, `apps/aga-sdk.js`에 하나
+- 기계로 지킬 수 있는 새 규칙: `tools/check.py`에 `check_...` 함수
 
 ## 지켜야 할 것
 
