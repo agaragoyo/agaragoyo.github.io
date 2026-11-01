@@ -1,4 +1,4 @@
-// 저장(localStorage)과 공유 링크(#room=...) 변환.
+// 집 상태 검사와 공유 링크(#room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
 // 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] } }
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
@@ -6,14 +6,6 @@ import { canPlace } from './rules.js';
 
 const MAX_ITEMS = 200;
 const MAX_NAME = 12;
-
-export function loadJSON(key) {
-  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
-}
-
-export function saveJSON(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* 사생활 보호 모드 등 */ }
-}
 
 // 한 공간의 가구 목록 검사. 모르는 가구, 다른 공간의 가구, 정수가 아닌 좌표, 규칙에 어긋나는 배치는 버린다.
 function sanitizeItems(list, sceneId) {

@@ -13,7 +13,7 @@
 //            (다른 사이트 주소도 되지만, 화면이 휘어 있을 때 클릭 위치가 조금 어긋날 수 있다)
 //   size     창 안쪽 크기 [가로, 세로] (px). 바탕화면은 1280×800이다
 //   folder   'games' 이면 바탕화면 대신 미니게임 폴더 안에 나온다
-//   builtin  OS가 직접 만드는 기본 앱 (room, folder, share). 팀원은 쓰지 않는다
+//   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share). 팀원은 쓰지 않는다
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
 const SITE = 'https://soomin007.github.io';
 

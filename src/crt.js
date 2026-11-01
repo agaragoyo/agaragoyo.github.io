@@ -4,6 +4,7 @@
 // 브라우저는 클릭 대상을 휘기 전 위치로 판단하므로, 화면 위에 투명한 층(.crt-input)을 깔고
 // 마우스 입력을 같은 공식으로 휘기 전 위치로 고친 뒤 그 자리의 요소에 다시 보낸다.
 // 그래서 왜곡 공식은 warp() 한 곳에만 두고, 필터 그림과 입력 보정이 같이 쓴다.
+import { reduceMotion } from './util.js';
 
 // 휘는 정도. 클수록 가장자리가 많이 휜다. 시대 설정에 따라 바뀐다(평면 CRT는 덜 휜다).
 let K = 0.06;
@@ -53,14 +54,18 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     feMap.setAttribute('scale', scale);
   }
 
+  // 지도 만들기는 화면 크기만큼 계산해서 무겁다. 창 크기를 끄는 동안에는 손을 멈춘 뒤 한 번만 다시 만든다.
+  let mapTimer = 0;
   function apply() {
     const r = screen.getBoundingClientRect();
     const w = Math.round(r.width);
     const h = Math.round(r.height);
     const on = isWarpOn();
+    clearTimeout(mapTimer);
     if (on && (w !== size.w || h !== size.h || K !== size.k)) {
-      buildMap(w, h);
-      size = { w, h, k: K };
+      const build = () => { buildMap(w, h); size = { w, h, k: K }; };
+      if (size.w && K === size.k) mapTimer = setTimeout(build, 150);
+      else build();
     }
     warpEl.style.filter = on ? 'url(#crt-warp)' : '';
     input.hidden = !on;
@@ -167,6 +172,7 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     return el && screen.contains(el) ? el : null;
   };
   let hovered = null;
+  let hoverTarget = null; // 커서 모양은 가리키는 요소가 바뀔 때만 다시 읽는다(getComputedStyle은 매번 부르기엔 무겁다)
   let activeFrame = null;
   const setHover = el => {
     const item = el?.closest('.item') || null;
@@ -189,7 +195,10 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
     }
     if (e.type === 'pointermove') {
       setHover(target);
-      input.style.cursor = target ? getComputedStyle(target).cursor : '';
+      if (target !== hoverTarget) {
+        hoverTarget = target;
+        input.style.cursor = target ? getComputedStyle(target).cursor : '';
+      }
     }
     // 앞서 누른 곳이 iframe 이었으면 손을 뗄 때까지 그 iframe 으로 보낸다(창 밖으로 끌어도 놓치지 않게).
     const frame = activeFrame || (target?.tagName === 'IFRAME' ? target : null);
@@ -237,7 +246,6 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn, isGrainOn }) {
   // 작은 캔버스에 노이즈 몇 장을 미리 만들어 두고 번갈아 보여 준다. 같은 얼룩이 눈에 띄지 않게 장마다 새로 뿌린다.
   const FRAMES = 8;
   const FPS = 24;
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let frames = [];
   let timer = 0;
   function startGrain() {

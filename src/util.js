@@ -1,0 +1,31 @@
+// 여러 파일이 같이 쓰는 작은 도구.
+
+export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const wait = ms => new Promise(r => setTimeout(r, ms));
+export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// localStorage 읽고 쓰기. 사생활 보호 모드처럼 저장소를 못 쓰는 환경에서도 오류 없이 넘어간다.
+export function loadJSON(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+export function saveJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* 저장소를 못 쓰는 환경 */ }
+}
+
+// 요소 하나 만들기.
+//   h('button', { className: 'btn', type: 'button', onclick: f, 'aria-label': '닫기' }, '글자', 다른 요소)
+// on으로 시작하는 함수는 이벤트로 붙이고, dataset과 style은 객체를 풀어 넣고,
+// 요소에 같은 이름의 속성이 있으면(className, type, hidden, value ...) 그 속성에, 없으면 HTML 속성으로 넣는다.
+// null, undefined, false인 값과 자식은 건너뛴다.
+export function h(tag, props = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k === 'dataset' || k === 'style') Object.assign(el[k], v);
+    else if (k in el) el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  el.append(...children.flat().filter(c => c != null && c !== false));
+  return el;
+}

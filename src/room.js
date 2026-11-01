@@ -3,8 +3,7 @@ import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+import { clamp } from './util.js';
 
 // 가구 id마다 이미지가 있는지 한 번만 물어본다. 없으면 콘솔에 404가 가구당 한 줄 찍히는데 정상이다.
 const probes = new Map();

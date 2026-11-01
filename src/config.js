@@ -14,6 +14,9 @@ export const STAGE_W = ROOM_W;
 export const STAGE_H = ROOM_H + SHELF_H;
 
 export const DRAG_THRESHOLD = 5;     // 이만큼(px) 움직여야 클릭이 아니라 드래그로 본다
+export const DESK_W = STAGE_W;       // 바탕화면(창이 움직이는 곳) 크기. 아래 40px은 작업 표시줄이다
+export const DESK_H = STAGE_H - 40;
+export const DOUBLE_CLICK_MS = 400;  // 이 시간 안에 두 번 누르면 더블클릭(볼록 화면은 dblclick을 넘기지 못해 직접 잰다)
 
 // 집 안의 공간들. 'indoor'는 벽과 바닥이 있는 방, 'outdoor'는 울타리와 땅만 있는 바깥이다.
 // 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다.

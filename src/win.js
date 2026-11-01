@@ -1,10 +1,7 @@
 // 창 관리자. 옛 OS 모양 창을 열고, 끌어 옮기고, 최소화, 최대화, 닫는다.
 // 작업 표시줄 버튼도 여기서 만든다. 바탕화면 좌표(1280×800) 안에서 움직인다.
+import { DESK_W, DESK_H, DOUBLE_CLICK_MS } from './config.js';
 import { iconEl } from './icons.js';
-
-const DESK_W = 1280;
-const DESK_H = 800;
-const DOUBLE_CLICK_MS = 400;
 // 창 안쪽(body) 크기에 더하면 바깥 크기가 되는 테두리, 제목 줄 몫 (style.css의 .win과 맞춘다)
 export const CHROME_W = 14;
 export const CHROME_H = 47;

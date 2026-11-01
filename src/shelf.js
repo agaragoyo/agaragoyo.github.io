@@ -40,8 +40,9 @@ export function mountShelf(app) {
     prev.disabled = track.scrollLeft <= 0;
     next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
   };
+  // 선반은 1280 무대 안에서 transform으로만 줄어들어 창 크기와 무관하므로, 스크롤과 공간 바꾸기 때만 다시 잰다.
+  // (예전에는 window resize도 들었는데, 방 꾸미기를 열 때마다 떼지 않은 리스너가 쌓였다.)
   track.addEventListener('scroll', syncArrows);
-  window.addEventListener('resize', syncArrows);
   app.syncShelf = syncArrows;
   syncArrows();
 }
