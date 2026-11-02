@@ -32,6 +32,7 @@ export const APPS = [
   { id: 'enigma', title: 'ENIGMA', icon: `${SITE}/assets/enigma.webp`, src: `${SITE}/Enigma/`, size: [1120, 700], folder: 'games' },
   { id: 'otherside', title: 'See you on the other side', icon: `${SITE}/assets/otherside.webp`, src: `${SITE}/Otherside/`, size: [1040, 660], folder: 'games' },
   { id: 'eyes-on-you', title: 'Eyes on You', icon: `${SITE}/assets/eyes-on-you.webp`, src: `${SITE}/EyesOnYou/`, size: [1120, 700], folder: 'games' },
+  { id: 'outlet-villains', title: '충전이 필요해!', icon: `${SITE}/assets/outlet-villains.webp`, src: `${SITE}/outlet-villains/`, size: [1120, 700], folder: 'games' },
 ];
 
 export const APP_BY_ID = Object.fromEntries(APPS.map(a => [a.id, a]));

@@ -107,7 +107,7 @@
 | `apps/tidy-up/` | 짐 정리. 같은 물건 두 개가 닿으면 커지는 게임(아가라고요용으로 만든 예시) |
 | `apps/file-ten/` | 파일 정리 10. 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지우는 게임(아가라고요용으로 만든 예시) |
 
-김수민의 기존 게임 네 개(Be the Bee, ENIGMA, See you on the other side, Eyes on You)는 레포 밖 다른 주소에 있고, `data/apps.js`에 주소만 적혀 있습니다.
+김수민의 기존 게임 다섯 개(Be the Bee, ENIGMA, See you on the other side, Eyes on You, 충전이 필요해!)는 레포 밖 다른 주소에 있고, `data/apps.js`에 주소만 적혀 있습니다.
 
 ## assets/
 
