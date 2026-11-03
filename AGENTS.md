@@ -75,6 +75,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 
 - 미니게임, 새 앱: `apps/_template`를 `apps/<id>/`로 복사해서 고치고, `data/apps.js`에 한 줄. SDK 도우미(`AGA.fitCanvas`, `AGA.save/load`)를 쓴다
 - 가구 기믹(바탕화면에서 가구를 두 번 누르면 아바타가 다가가 여는 화면, `os.useFurniture`): 위처럼 앱을 만들고 `folder: 'furniture'`, 가구 줄에 `gimmick: 'app:<id>'`
+- 다른 사이트 창(iframe) 안에서 돌지 않는 남의 게임: `data/apps.js`에 `href`(https 주소). `src/apps/link-app.js`가 새 탭에서 열린다고 알린 뒤 연다
 - 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`
 - 아바타 그림: `data/avatars.js`에 한 줄, 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄). 걷기와 말풍선은 `src/avatar.js`
 - 새 공간: `src/config.js`의 `SCENES`에 한 줄(바깥 공간은 돌아오는 울타리 문 `gate`), 가구의 `scene`. 바탕화면 바로 가기는 `data/apps.js`에 `scene: '<id>'`
@@ -97,9 +98,12 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 가구를 그리는 상자는 쌓임 맥락을 만든다(`isolation: isolate`). 없으면 가구 z-index가 창 위로 샌다
 - localStorage 키는 `agarago.`(OS) 또는 `<앱id>.`(앱)로 시작. `localStorage.clear()` 금지
 - 미니게임 캔버스: `html, body { overflow: hidden }`, 정수 크기, 크기가 바뀔 때만 다시 맞춘다(스크롤바 진동)
+- 누르기 전에 결과를 알 수 있게 한다. 새 탭이나 다른 사이트로 가기, 내려받기, 지우기, 소리처럼 화면을 벗어나거나 되돌리기 어려운 동작은 무엇이 어디서 일어나는지 먼저 보여 준다
+  - 확인 창의 단추는 "예/아니오", "확인" 대신 결과를 말하는 동사로 쓴다(예: "새 탭에서 열기", "취소"). 새 탭으로 열리는 아이콘에는 바깥 화살표를 단다(known-issues 32)
+  - 안내는 사용자가 모르는 것만 짧게 쓴다. 새 탭이 열려도 이 탭은 그대로라는 것처럼 당연한 결과는 적지 않는다
 - 실제 윈도우 로고, 이름, 다른 회사 로고 색은 쓰지 않는다. 시대의 모양새만 따른다
 - 남의 게임을 그대로 베끼지 않는다. 같은 장르의 우리 게임으로 만든다(예: 짐 정리, 파일 정리 10)
-  - 남의 게임을 넣을 때는 파일을 옮겨 오지 않고 원작 주소를 `data/apps.js`의 `src`로 이어 준다(레포 밖 게임과 같은 방식). 창 안에 띄우는 것을 막은 사이트(`X-Frame-Options`, `frame-ancestors`)는 창에 뜨지 않는다
+  - 남의 게임을 넣을 때는 파일을 옮겨 오지 않고 원작 주소로 이어 준다. 창에 띄울 수 있으면 `src`(레포 밖 게임과 같은 방식), 띄우는 것이 막혀 있거나(`X-Frame-Options`, `frame-ancestors`) 창 안에서 게임이 시작되지 않으면 `href`로 새 탭에 연다(known-issues 31)
 
 ## 팀에서 정하는 중
 
