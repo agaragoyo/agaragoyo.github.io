@@ -114,6 +114,11 @@ fit();
 settings.subscribe(applySettings);
 applySettings();
 
+// 모니터 바깥 버튼(전원, 효과, 시대)은 마우스로 눌러도 키보드 초점을 가져가지 않는다. 초점이 남아 있으면
+// 바탕화면에서 Enter(아바타 말하기)를 누를 때 그 버튼이 다시 눌려 전원이 꺼진다(known-issues 26).
+document.querySelectorAll('.phys, [data-era-pick]').forEach(btn => {
+  btn.addEventListener('mousedown', e => e.preventDefault());
+});
 document.querySelectorAll('[data-toggle]').forEach(btn => {
   btn.addEventListener('click', () => settings.set({ [btn.dataset.toggle]: !settings.get(btn.dataset.toggle) }));
 });
