@@ -30,6 +30,14 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     syncTasks();
   }
 
+  // 바탕화면을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면(아바타)이 받는다.
+  function blur() {
+    if (!focused) return;
+    focused = null;
+    for (const w of wins.values()) w.el.classList.add('inactive');
+    syncTasks();
+  }
+
   function minimize(win) {
     win.minimized = true;
     win.el.hidden = true;
@@ -213,6 +221,8 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
   return {
     open,
     fit,
+    blur,
+    focusedWin: () => focused,
     get: key => wins.get(key),
     all: () => [...wins.values()],
     closeAll: () => { for (const w of [...wins.values()]) close(w); },

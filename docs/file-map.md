@@ -20,7 +20,7 @@
 | 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace` |
 | 가구 끌기, 돌리기, 치우기 | `src/room.js`의 `beginDrag` |
 | 앞뒤로 겹쳐 그리는 순서 | `src/room.js`의 `zOf`, `src/iso.js`의 `depthOf` |
-| 방 안을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 가구와의 앞뒤는 `depthZ` |
+| 바탕화면 방을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 바탕화면에 붙이는 곳은 `src/os.js`의 `showDesktop`, 가구와의 앞뒤는 `depthZ` |
 | 아바타 그림과 옷 색 | `data/avatars.js`. 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄) |
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`, `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
@@ -64,7 +64,7 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
+| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 방(아바타 포함), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
@@ -76,7 +76,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(스탠드와 창문만 눌린다) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
-| `src/avatar.js` | 방 꾸미기 안을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 가구와 앞뒤 순서, 말풍선. 바탕화면 배경에는 서 있는 아바타. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar`, `standAvatar` |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림 | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -158,11 +158,10 @@
 ```
 index.html
 └─ src/main.js ─── settings.js, cursors.js, crt.js
-   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic), avatar.js(standAvatar)
+   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
-         │                ├─ shelf.js
-         │                └─ avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
+         │                └─ shelf.js
          ├─ folder-app.js, share-app.js, mouse-app.js(cursors.js)
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
