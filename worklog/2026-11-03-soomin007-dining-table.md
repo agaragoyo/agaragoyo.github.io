@@ -9,7 +9,7 @@
 - `data/furniture.js`: 식탁 한 줄(`size: [2, 2]`, `height: 70`). 선반에서 책상 다음에 나온다
 - `src/room.js`: 그림 가구는 그림 위에 겹친 상자(`.furn-hit`)가 클릭을 받고, `outlineOf`가 그림의 칠해진 모양대로 clip-path를 씌운다
 - `style.css`: `.furn-hit` 자리, 좌우 뒤집기를 그림과 클릭 상자에 같이 적용
-- `docs/guide.md`, `docs/file-map.md`, `known-issues.md` 26번
+- `docs/guide.md`, `docs/file-map.md`, `known-issues.md` 27번
 
 ## 정한 것과 이유
 - 크기는 그림에 맞췄다. 잘라 낸 식탁의 가로(윗판 왼쪽 끝부터 오른쪽 끝까지)를 2×2칸 바닥의 폭 144px에 맞추면 비율을 지킨 세로가 141.5px이 되고,
