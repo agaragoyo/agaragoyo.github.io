@@ -19,6 +19,48 @@ function hasImage(id) {
   return probes.get(id);
 }
 
+// 그림의 칠해진 모양(클릭을 받을 곳). 그림을 OUTLINE_BANDS개의 가로 띠로 나눠, 띠마다 칠해진 왼쪽 끝과 오른쪽 끝을
+// 계단처럼 이은 다각형이다(그림 px). 칠해진 곳은 모두 들어가고, 다리 사이처럼 안쪽에 난 빈틈은 그대로 둔다.
+const OUTLINE_BANDS = 40;
+const outlines = new Map();
+function outlineOf(name) {
+  if (!outlines.has(name)) {
+    outlines.set(name, new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const g = canvas.getContext('2d', { willReadFrequently: true });
+        g.drawImage(img, 0, 0);
+        const data = g.getImageData(0, 0, w, h).data;
+        const left = [];
+        const right = [];
+        for (let b = 0; b < OUTLINE_BANDS; b++) {
+          const y0 = Math.floor((b * h) / OUTLINE_BANDS);
+          const y1 = Math.floor(((b + 1) * h) / OUTLINE_BANDS);
+          let l = w;
+          let r = -1;
+          for (let y = y0; y < y1; y++) {
+            for (let x = 0; x < w; x++) {
+              if (data[(y * w + x) * 4 + 3] > 8) { l = Math.min(l, x); r = Math.max(r, x); }
+            }
+          }
+          if (r < 0) continue;
+          left.push([l, y0], [l, y1]);
+          right.push([r + 1, y0], [r + 1, y1]);
+        }
+        resolve(left.length ? { w, h, pts: [...left, ...right.reverse()] } : null);
+      };
+      img.onerror = () => resolve(null);
+      img.src = `assets/furniture/${name}.png`;
+    }));
+  }
+  return outlines.get(name);
+}
+
 // 가구 한 개의 겉모습. assets/furniture/<id>.png 가 있으면 그림을, 없으면 임시 모양을 보여 준다.
 // r: 돌려 놓았으면 1. 돌린 그림(<id>-r.png)이 있으면 그걸 쓰고, 없으면 원래 그림을 좌우로 뒤집는다.
 export function furnitureEl(id, r = 0) {
@@ -31,11 +73,22 @@ export function furnitureEl(id, r = 0) {
   el.innerHTML = placeholderSVG(def, r);
   const show = (name, mirror) => {
     const img = new Image();
-    img.className = mirror ? 'hit mirror' : 'hit';
+    img.className = mirror ? 'mirror' : '';
     img.alt = '';
     img.draggable = false;
     img.src = `assets/furniture/${name}.png`;
-    el.replaceChildren(img);
+    // 클릭은 그림 위에 겹친 상자가 받는다. 그림의 칠해진 모양대로 잘라 두어, 투명한 여백을 누르면 뒤의 가구가 눌린다.
+    const hit = document.createElement('div');
+    hit.className = mirror ? 'hit furn-hit mirror' : 'hit furn-hit';
+    el.replaceChildren(img, hit);
+    outlineOf(name).then(o => {
+      if (!o) return;
+      // 그림은 상자에 맞춰 줄고 아래 가운데에 붙는다(style.css의 .furn img)
+      const s = Math.min(w / o.w, h / o.h);
+      const dx = (w - o.w * s) / 2;
+      const dy = h - o.h * s;
+      hit.style.clipPath = `polygon(${o.pts.map(([x, y]) => `${(dx + x * s).toFixed(1)}px ${(dy + y * s).toFixed(1)}px`).join(', ')})`;
+    });
   };
   if (r) {
     hasImage(`${id}-r`).then(ok => {
