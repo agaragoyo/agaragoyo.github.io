@@ -69,7 +69,12 @@ def check_apps():
         seen.add(a['id'])
         if not KEBAB.match(a['id']):
             err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
-        if 'builtin' in a:
+        if 'scene' in a:
+            if 'builtin' in a or 'src' in a:
+                err(where, 'scene(공간 바로 가기)은 builtin, src 와 같이 쓰지 않는다')
+            if a['scene'] not in known_scenes:
+                err(where, f"scene '{a['scene']}' 은 src/config.js 의 SCENES 에 없다")
+        elif 'builtin' in a:
             if not (ROOT / f"src/apps/{a['builtin']}-app.js").exists():
                 err(where, f"기본 앱 파일 src/apps/{a['builtin']}-app.js 가 없다")
         elif 'src' not in a:
@@ -82,8 +87,6 @@ def check_apps():
             err(where, f'아이콘 {icon} 파일이 없다')
         if a.get('folder') not in (None, 'null', 'games', 'furniture'):
             err(where, "folder 는 'games'(미니게임 폴더), 'furniture'(가구로만 열림) 중 하나다")
-        if 'scene' in a and (a.get('builtin') != 'room' or a['scene'] not in known_scenes):
-            err(where, "scene 은 builtin: 'room' 과 같이 쓰고, src/config.js 의 SCENES 에 있는 공간이어야 한다")
     # apps/ 아래 폴더는 목록에 올라가 있어야 한다(_로 시작하는 폴더는 틀이라 뺀다)
     listed = {a.get('src', '').split('/')[1] for a in apps if a.get('src', '').startswith('apps/')}
     for d in sorted(p for p in (ROOT / 'apps').iterdir() if p.is_dir()):

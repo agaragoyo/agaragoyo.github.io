@@ -13,8 +13,9 @@
 | 새 미니게임이나 앱 만들기 | `apps/_template/`를 복사하고 `data/apps.js`에 한 줄 (`apps/README.md`) |
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
-| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES` |
-| 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `builtin: 'room'`, `scene: '<공간 id>'` (놀이터가 예) |
+| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
+| 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다 |
+| 바탕화면의 공간 옮기기(창문, 놀이터 아이콘, 놀이터 문) | `src/os.js`의 `goScene`, `useGate`, 문 그림은 `src/iso.js`의 `outdoorSVG` |
 | 바탕화면에서 가구 두 번 누르기(아바타가 다가가 기믹) | `src/room.js`의 `renderStatic`, `src/os.js`의 `useFurniture`, `src/avatar.js`의 `approach` |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
 | 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace` |
@@ -57,14 +58,14 @@
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다 | 없음 |
 | `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서) 저장소. 바뀌면 구독자에게 알린다 | `settings` |
-| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록, 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
+| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `reduceMotion` |
 
 ## src/: 컴퓨터(OS)
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 방(아바타 포함), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
+| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
@@ -75,10 +76,10 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(가구를 두 번 누르면 쓰기) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구 옆으로 걸어가기(`approach`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구와 놀이터 문을 두 번 누르면 쓰기) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 놀이터 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
-| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림 | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
+| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
 

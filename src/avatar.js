@@ -206,23 +206,25 @@ export function mountAvatar(host, avatarId = 'basic') {
   }
 
   // 가구 옆까지 걸어가 가구 쪽을 본 뒤 then을 부른다(바탕화면에서 가구를 두 번 눌렀을 때).
-  // 벽 가구는 그 벽 바로 앞 바닥 칸에, 책상 위 물건은 책상 둘레 칸에 선다. 갈 수 있는 칸이 없으면 그 자리에서 바로 부른다.
+  // 벽 가구는 그 벽 바로 앞 바닥 칸에, 책상 위 물건은 책상 둘레 칸에 선다.
   function approach(item, then) {
-    let goal;
-    let face;
-    if (isWall(item)) {
-      // 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
-      const [w] = dims(item);
-      const along = u => u >= item.x && u < item.x + w;
-      goal = (x, y) => (item.wall === 'R' ? y === 0 && along(x) : x === 0 && along(y));
-      face = () => FACING[item.wall === 'R' ? '0,-1' : '-1,0'];
-    } else {
-      const base = supportOf(host.items(), item) || item;
-      const [w, d] = dims(base);
-      const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
-      goal = (x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy));
-      face = () => FACING[me.x < base.x ? '1,0' : me.x >= base.x + w ? '-1,0' : me.y < base.y ? '0,1' : '0,-1'];
-    }
+    if (isWall(item)) return approachWall(item.wall, item.x, dims(item)[0], then);
+    const base = supportOf(host.items(), item) || item;
+    const [w, d] = dims(base);
+    const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
+    const face = () => FACING[me.x < base.x ? '1,0' : me.x >= base.x + w ? '-1,0' : me.y < base.y ? '0,1' : '0,-1'];
+    go((x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy)), face, then);
+  }
+
+  // 벽(놀이터에서는 울타리)의 칸 from부터 w칸 바로 앞까지 걸어가 벽 쪽을 본 뒤 then을 부른다. 벽 가구와 놀이터 문이 쓴다.
+  // 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
+  function approachWall(wall, from, w, then) {
+    const along = u => u >= from && u < from + w;
+    go((x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)), () => FACING[wall === 'R' ? '0,-1' : '-1,0'], then);
+  }
+
+  // goal(x, y)를 만족하는 가장 가까운 빈칸까지 걸어가 face()쪽을 본 뒤 then을 부른다. 갈 수 있는 칸이 없으면 그 자리에서 바로 부른다.
+  function go(goal, face, then) {
     held.length = 0;
     const route = pathTo(goal);
     if (!route) { then(); return; }
@@ -398,9 +400,19 @@ export function mountAvatar(host, avatarId = 'basic') {
       host.layer.append(el, bubble);
       draw(me);
     },
+    // 다른 공간으로 옮겨 갈 때, 방을 다시 그리기 전에 부른다. 다음 attach에서 spot 칸(막혀 있으면 가장 가까운 빈칸)에 앞을 보고 선다.
+    // spot이 없으면 처음 서는 곳이다.
+    moveTo(spot = SPAWN) {
+      stop();
+      me.x = spot.x;
+      me.y = spot.y;
+      facing = FACING['0,1'];
+      placed = true;
+    },
     openSay,
     say,
     approach,
+    approachWall,
     destroy() {
       stop();
       clearTimeout(sayTimer);

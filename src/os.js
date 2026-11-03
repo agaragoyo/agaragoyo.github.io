@@ -2,7 +2,7 @@
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
 //         'visit' 공유 링크로 들어온 친구 컴퓨터 (가구는 옮기지 못하고, 바탕화면에서 아바타로 걸으며 써 본다)
 // 앱은 src/apps/(기본 앱)와 apps/(팀원 앱, iframe)에 있고, 여기서는 목록대로 열어 주기만 한다.
-import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, DOUBLE_CLICK_MS } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, DOUBLE_CLICK_MS, SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
@@ -46,6 +46,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     settings,
     home: null,
     mode: null,
+    place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
       layer: $('#windows'),
       tasks: $('#tasks'),
@@ -217,10 +218,11 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   function showDesktop() {
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
+    os.place = SCENES[0].id;
     walker?.destroy();
     walker = mountAvatar({
       layer: el.wallpaper,
-      items: () => os.home.scenes.room,
+      items: () => os.home.scenes[os.place],
       toLocal: (x, y) => {
         const p = toStage(x, y);
         return { x: p.x - el.desktop.offsetLeft - el.wallpaper.offsetLeft, y: p.y - el.desktop.offsetTop - el.wallpaper.offsetTop };
@@ -244,11 +246,30 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다.
   os.canSee = app => !(app.editOnly && os.mode === 'visit');
 
-  // 바탕화면 배경: 내 방 그림과 그 방을 걷는 아바타. 방 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
+  // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
-    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.useFurniture);
+    const scene = SCENES.find(s => s.id === os.place);
+    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, os.useFurniture, os.useGate);
     walker?.attach();
   }
+
+  // 바탕화면의 공간을 옮긴다(창문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 문으로 막 들어온 칸
+  // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에, 내 방에서는 처음 서는 곳에 선다.
+  // 방 꾸미기 창의 탭과는 따로 움직인다(꾸미는 화면은 꾸밀 공간을 탭으로 고른다).
+  os.goScene = id => {
+    const scene = SCENES.find(s => s.id === id);
+    if (!scene || id === os.place) return;
+    os.place = id;
+    walker?.moveTo(scene.gate ? { x: scene.gate.x, y: 1 } : undefined);
+    renderWallpaper();
+  };
+
+  // 놀이터 문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 내 방으로 돌아간다.
+  os.useGate = gate => {
+    const home = () => os.goScene(SCENES[0].id);
+    if (walker) walker.approachWall('R', gate.x, gate.w, home);
+    else home();
+  };
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
 
   // 바탕화면(창 바깥)을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면의 아바타가 받는다.
@@ -323,6 +344,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   os.openApp = id => {
     const app = APP_BY_ID[id];
     if (!app || !os.canSee(app)) return;
+    if (app.scene) return os.goScene(app.scene); // 공간 바로 가기(놀이터 아이콘)는 창 대신 바탕화면을 그 공간으로 옮긴다
     if (app.builtin) return BUILTIN_APPS[app.builtin]?.(os, app);
     if (app.src) return openFrameApp(os, app);
   };
@@ -334,11 +356,11 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   };
 
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 가구 이름을 말한다.
-  // 'scene:' 기믹은 방 꾸미기를 그 공간으로 연다. 방 꾸미기가 이미 열려 있으면 그 창의 공간만 바꾼다.
+  // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(창문을 쓰면 아바타가 놀이터로 나간다).
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
-    if (def.gimmick?.startsWith('scene:')) return BUILTIN_APPS.room(os, APP_BY_ID.room, def.gimmick.slice(6));
+    if (def.gimmick?.startsWith('scene:')) return os.goScene(def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
     walker?.say(`${def.name}${batchim(def.name) ? '이네' : '네'}.`);
   };

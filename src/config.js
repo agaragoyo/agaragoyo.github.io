@@ -19,10 +19,12 @@ export const DESK_H = STAGE_H - 40;
 export const DOUBLE_CLICK_MS = 400;  // 이 시간 안에 두 번 누르면 더블클릭(볼록 화면은 dblclick을 넘기지 못해 직접 잰다)
 
 // 집 안의 공간들. 'indoor'는 벽과 바닥이 있는 방, 'outdoor'는 울타리와 땅만 있는 바깥이다.
-// 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다.
+// 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다. 바탕화면은 첫 공간(내 방)에서 시작한다.
+// gate: 바깥 공간에서 내 방으로 돌아가는 울타리 문. 오른쪽 뒤 울타리(y = 0 줄)의 칸 x부터 w칸이다.
+//       바탕화면에서 두 번 누르면 아바타가 걸어가 내 방으로 돌아가고, 이 공간에 들어올 때는 문으로 막 들어온 칸에 선다.
 export const SCENES = [
   { id: 'room', name: '내 방', kind: 'indoor' },
-  { id: 'playground', name: '놀이터', kind: 'outdoor' },
+  { id: 'playground', name: '놀이터', kind: 'outdoor', gate: { x: 5, w: 2 } },
 ];
 
 export const STORAGE_ROOM = 'agarago.home.v3';

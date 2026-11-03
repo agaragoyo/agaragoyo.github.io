@@ -234,6 +234,11 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 .room-bg { position: absolute; left: 0; top: 0; }
 .room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
 .room-bg .fence { stroke: #f4efe3; stroke-width: 4; stroke-linecap: round; fill: none; }
+/* 놀이터 울타리의 문(src/iso.js의 outdoorSVG). 바탕화면에서는 .gate-hit를 두 번 누르면 내 방으로 돌아간다 */
+.room-bg .fence .gate-post { stroke-width: 7; }
+.room-bg .gate-sign { fill: #3f7a4f; stroke: #f4efe3; stroke-width: 2; stroke-linejoin: round; }
+.room-bg .gate-text { font-family: var(--font); font-size: 12px; font-weight: 700; fill: #f4efe3; }
+.room-bg .gate-hit { fill: transparent; pointer-events: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
 .night-shade {
   position: absolute;
@@ -632,8 +637,8 @@ svg.mouse-chip { border: 0; }
 /* 가구의 z-index가 창 위로 새어 나오지 않게 배경을 따로 쌓는다 */
 .wallpaper { position: absolute; left: 0; top: 40px; z-index: 0; isolation: isolate; width: 1280px; height: 720px; pointer-events: none; }
 .wallpaper .room-bg { position: absolute; left: 0; top: 0; }
-/* 바탕화면 가구는 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic). 배경은 클릭을 흘려보내고 가구 그림만 받는다. */
-.wallpaper .item.usable .hit { pointer-events: auto; cursor: var(--cur-hand); }
+/* 바탕화면 가구와 놀이터 문은 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic). 배경은 클릭을 흘려보내고 가구 그림과 문만 받는다. */
+.wallpaper .item.usable .hit, .wallpaper .room-bg .gate-hit { pointer-events: auto; cursor: var(--cur-hand); }
 .room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
 .room-bg .fence { stroke: #f4efe3; stroke-width: 4; stroke-linecap: round; fill: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
