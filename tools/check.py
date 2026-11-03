@@ -132,6 +132,21 @@ def check_furniture(app_ids):
             err(p.relative_to(ROOT).as_posix(), f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
 
 
+# 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
+def check_avatars():
+    ids = set()
+    for a in entries(read('data/avatars.js')):
+        where = f"data/avatars.js '{a['id']}'"
+        if a['id'] in ids:
+            err(where, 'id가 겹친다')
+        ids.add(a['id'])
+        if not KEBAB.match(a['id']):
+            err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
+        sheet = a.get('sheet')
+        if sheet and not (ROOT / sheet).is_file():
+            err(where, f"그림 '{sheet}' 이 레포에 없다")
+
+
 # ---------- 저장소 키 ----------
 def check_storage_keys():
     for p in sorted(ROOT.glob('apps/*/**/*')):
@@ -226,6 +241,7 @@ def main():
     check_no_build_tools()
     app_ids = check_apps()
     check_furniture(app_ids)
+    check_avatars()
     check_storage_keys()
     check_imports()
     check_secrets()

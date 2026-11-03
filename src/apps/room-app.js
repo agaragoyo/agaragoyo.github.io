@@ -4,6 +4,7 @@ import { ROOM_W, STAGE_H, SCENES } from '../config.js';
 import { APP_BY_ID } from '../../data/apps.js';
 import { renderItems, setSceneBg } from '../room.js';
 import { mountShelf, filterShelf } from '../shelf.js';
+import { mountAvatar } from '../avatar.js';
 
 const ROOT_H = STAGE_H; // 공간 720 + 선반 120
 
@@ -50,9 +51,11 @@ export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
             <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 가구를 눌러 구경해 보세요.</p>
           </div>
           <p class="rotate-tip">가구를 끄는 동안 R 키나 마우스 휠로 돌릴 수 있어요</p>
+          <p class="walk-tip">바닥을 누르거나 방향키로 걷고, Enter로 말해요</p>
           <div class="hud">
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>
+            <button type="button" class="btn" data-act="say">말하기</button>
             <button type="button" class="btn edit-only" data-act="share">공유 링크</button>
             <button type="button" class="btn visit-only" data-act="mine">나도 만들기</button>
           </div>
@@ -89,6 +92,9 @@ export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
         },
       };
 
+      // 방 안을 걷는 내 아바타(src/avatar.js). 가구를 다시 그릴 때마다 attach로 다시 붙인다.
+      const avatar = mountAvatar(ctx);
+
       // 공간 탭
       const tabs = root.querySelector('.scene-tabs');
       for (const sc of SCENES) {
@@ -107,11 +113,13 @@ export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
         for (const t of tabs.children) t.setAttribute('aria-selected', String(t.dataset.scene === scene.id));
         setSceneBg(ctx, scene.kind);
         filterShelf(ctx, scene.id);
+        avatar.reset();
         render();
       }
 
       function render() {
         renderItems(ctx);
+        avatar.attach();
         root.querySelector('.owner').textContent = visiting ? `${os.home.owner}의 집에 놀러 왔습니다` : `${os.home.owner}의 집`;
         const empty = !visiting && ctx.room.items.length === 0;
         root.querySelector('.shelf').classList.toggle('hint', empty);
@@ -131,12 +139,14 @@ export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
 
       root.querySelector('[data-act="share"]').addEventListener('click', () => os.openApp('share'));
       root.querySelector('[data-act="mine"]').addEventListener('click', () => os.goHome());
+      root.querySelector('[data-act="say"]').addEventListener('click', () => avatar.openSay());
 
       win.showScene = showScene;
       mountShelf(ctx);
       showScene(sceneId || SCENES[0].id);
       return () => {
         ro.disconnect();
+        avatar.destroy();
         os.hideStickyToast();
       };
     },

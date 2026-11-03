@@ -20,6 +20,8 @@
 | 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace` |
 | 가구 끌기, 돌리기, 치우기 | `src/room.js`의 `beginDrag` |
 | 앞뒤로 겹쳐 그리는 순서 | `src/room.js`의 `zOf`, `src/iso.js`의 `depthOf` |
+| 방 안을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 가구와의 앞뒤는 `depthZ` |
+| 아바타 그림과 옷 색 | `data/avatars.js`. 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄) |
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`, `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 부팅 글자, 로그인 화면 흐름 | `src/os.js`의 `BIOS`, `showLogin` |
@@ -74,6 +76,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(스탠드와 창문만 눌린다) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag` 등 |
+| `src/avatar.js` | 방 꾸미기 안을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 가구와 앞뒤 순서, 말풍선. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림 | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -98,6 +101,7 @@
 | --- | --- |
 | `data/apps.js` | 앱 목록. 바탕화면 아이콘, 시작 메뉴, 미니게임 폴더가 모두 여기서 만들어진다. 칸의 뜻은 파일 맨 위에 있다 |
 | `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있다 |
+| `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
 
 ## apps/: 팀원 앱
 
@@ -157,7 +161,8 @@ index.html
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic)
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
-         │                └─ shelf.js
+         │                ├─ shelf.js
+         │                └─ avatar.js ── iso.js, rules.js, data/avatars.js
          ├─ folder-app.js, share-app.js, mouse-app.js(cursors.js)
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다

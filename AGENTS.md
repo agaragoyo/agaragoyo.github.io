@@ -72,6 +72,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 미니게임, 새 앱: `apps/_template`를 `apps/<id>/`로 복사해서 고치고, `data/apps.js`에 한 줄. SDK 도우미(`AGA.fitCanvas`, `AGA.save/load`)를 쓴다
 - 가구 기믹(가구를 누르면 열리는 화면): 위처럼 앱을 만들고 `folder: 'furniture'`, 가구 줄에 `gimmick: 'app:<id>'`
 - 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`
+- 아바타 그림: `data/avatars.js`에 한 줄, 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄). 걷기와 말풍선은 `src/avatar.js`
 - 새 공간: `src/config.js`의 `SCENES`에 한 줄, 가구의 `scene`
 - 새 설정 값: `src/settings.js`의 `DEFAULTS`에 기본값, 쓰는 쪽은 `settings.get/subscribe`
 - OS가 직접 그리는 기본 앱: `src/apps/<이름>-app.js`에 `open<이름>App(os, app)`, `src/apps/index.js`에 등록, `data/apps.js`에 `builtin: '<이름>'`

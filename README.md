@@ -85,6 +85,7 @@ https://agaragoyo.github.io/ 에서 직접 써 보고 버그나 아이디어가 
 - 가구를 눌렀을 때 열리는 화면(가구 기믹)도 앱으로 만듭니다.
   `data/apps.js`의 그 앱 줄에 `folder: 'furniture'`를 붙이고 `data/furniture.js`의 그 가구에 `gimmick: 'app:<앱 id>'`를 넣습니다.
 - 새 가구는 `data/furniture.js`에 한 줄을 넣고 그림을 `assets/furniture/<가구 id>.png`로 올립니다.
+- 방 안을 걷는 아바타는 `src/avatar.js`가 맡습니다. 아바타 그림은 `data/avatars.js`에 한 줄을 넣고 `assets/avatars/<아바타 id>.png`로 올리며, 그림 규격은 `data/avatars.js` 맨 위에 있습니다.
 - 방이나 놀이터 같은 새 공간은 `src/config.js`의 `SCENES`에 한 줄을 넣고 가구의 `scene`에 그 id를 적습니다.
 - 모니터와 화면 모양은 `index.html`과 `style.css`가 맡습니다. `style.css` 끝부분의 "시대 비교" 덩어리가 1998, 2005, 2010의 모습입니다.
 - 부팅, 창, 방 꾸미기, 마우스처럼 컴퓨터 자체의 동작은 `src/` 폴더에 있습니다.
