@@ -8,7 +8,7 @@ import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic } from './room.js';
-import { standAvatar } from './avatar.js';
+import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
@@ -50,10 +50,15 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   };
   settings.subscribe(() => os.wm.fit());
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
+  let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
 
   function show(...names) {
     for (const k of ['boot', 'login', 'desktop', 'taskbar']) el[k].hidden = !names.includes(k);
     el.startMenu.hidden = true;
+    if (!names.includes('desktop')) {
+      walker?.destroy();
+      walker = null;
+    }
   }
 
   // ---------- 부팅 ----------
@@ -208,7 +213,23 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   function showDesktop() {
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
+    walker?.destroy();
+    walker = mountAvatar({
+      layer: el.wallpaper,
+      items: () => os.home.scenes.room,
+      toLocal: (x, y) => {
+        const p = toStage(x, y);
+        return { x: p.x - el.desktop.offsetLeft - el.wallpaper.offsetLeft, y: p.y - el.desktop.offsetTop - el.wallpaper.offsetTop };
+      },
+      input: el.desktop,
+      sayRoot: el.desktop,
+      active: () => !el.desktop.hidden && !os.wm.focusedWin(),
+    });
     renderWallpaper();
+    if (os.mode === 'edit' && !walkTipShown) {
+      walkTipShown = true;
+      toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말해요', 5000);
+    }
     os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
     tick();
   }
@@ -216,11 +237,17 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다.
   os.canSee = app => !(app.editOnly && os.mode === 'visit');
 
-  // 바탕화면 배경: 내 방 그림과, 방 꾸미기에서 처음 서는 자리에 서 있는 아바타
+  // 바탕화면 배경: 내 방 그림과 그 방을 걷는 아바타. 방 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
     renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.openFurniture);
-    standAvatar(el.wallpaper, os.home.scenes.room);
+    walker?.attach();
   }
+  let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
+
+  // 바탕화면(창 바깥)을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면의 아바타가 받는다.
+  el.desktop.addEventListener('pointerdown', e => {
+    if (!e.target.closest('.win')) os.wm.blur();
+  });
 
   // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
   os.toggleNight = () => settings.set({ night: !settings.get('night') });

@@ -256,14 +256,14 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 }
 .room.dragging .room-bg .grid { opacity: 1; }
 .items { position: absolute; inset: 0; z-index: 1; }
-/* 방 안을 걷는 아바타(src/avatar.js): 가구와 같은 층(.items)에서 앞뒤 순서를 맞춘다. 그림 한 칸은 64×104px.
-   .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). */
-.room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: none; }
+/* 바탕화면 방을 걷는 아바타(src/avatar.js): 가구와 같은 상자(.wallpaper)에서 앞뒤 순서를 맞춘다. 그림 한 칸은 64×104px.
+   .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). 누르면 말하기 */
+.room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: auto; cursor: var(--cur-hand); }
 .room-avatar.flip { transform: scaleX(-1); }
-/* 말풍선은 가구에 가리지 않게 밤 그늘(z-index 2)보다 위에 둔다 */
+/* 말풍선은 가구(z-index 100부터)에 가리지 않게 그 위에 둔다. 바탕화면 배경 안이라 창과 아이콘보다는 아래다 */
 .room-avatar-say {
   position: absolute;
-  z-index: 3;
+  z-index: 10000;
   max-width: 240px;
   padding: 6px 12px;
   border: 2px solid #2b2b33;
@@ -286,11 +286,12 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   border-top-color: #2b2b33;
   transform: translateX(-50%);
 }
+/* 말하기 입력 칸: 바탕화면 아래쪽 가운데, 작업 표시줄 바로 위. 창(z-index 20)보다 위에 띄운다 */
 .say-input {
   position: absolute;
   left: 50%;
-  bottom: 134px;
-  z-index: 6;
+  bottom: 24px;
+  z-index: 30;
   width: 380px;
   padding: 8px 12px;
   border: 2px solid #2b2b33;
@@ -1039,20 +1040,6 @@ body:not(.curve) .fx-curve { display: none; }
   pointer-events: none;
 }
 [data-mode="visit"] .rotate-tip { display: none; }
-.walk-tip {
-  position: absolute;
-  left: 18px;
-  bottom: 130px;
-  z-index: 5;
-  margin: 0;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: #0006;
-  font-size: 14px;
-  white-space: nowrap;
-  color: #fff;
-  pointer-events: none;
-}
 
 /* =====================================================================
    시대 비교 (body[data-era]). 팀 의견을 들은 뒤 하나로 정하면 나머지는 지운다.

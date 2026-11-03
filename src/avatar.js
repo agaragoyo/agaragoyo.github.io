@@ -1,7 +1,7 @@
-// 방 안을 걸어 다니는 내 아바타(1단계: 서버 없이 내 화면에서만 움직인다).
-// 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 층(.items)에 그려서
-// 가구와 앞뒤 순서를 맞춘다. 바닥을 누르면 길을 찾아 걸어가고, 방향키(WASD)로 한 칸씩 걷고, Enter로 말풍선을 띄운다.
-// 바탕화면 배경의 방 그림에도 같은 아바타가 걷지 않고 서 있다(standAvatar).
+// 바탕화면 배경의 방을 걸어 다니는 내 아바타(1단계: 서버 없이 내 화면에서만 움직인다).
+// 바탕화면은 지내는 화면, 방 꾸미기는 꾸미는 화면이라 아바타는 바탕화면에만 있다(꾸밀 때 가구 놓기를 가리지 않게).
+// 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 상자에 그려서 가구와 앞뒤 순서를 맞춘다.
+// 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile } from './iso.js';
@@ -124,27 +124,23 @@ function placeAt(el, pos, facing, col) {
   return c;
 }
 
-// 바탕화면 배경의 방 그림에 아바타를 세워 둔다(걷지 않는 그림). 방 꾸미기에서 처음 서는 자리에 앞을 보고 선다.
-export function standAvatar(container, items, avatarId = 'basic') {
-  const spot = nearestFree(blockedOf(items), SPAWN.x, SPAWN.y);
-  if (!spot) return;
+// host: 아바타가 사는 곳(지금은 바탕화면 배경, os.js가 넘긴다).
+//   layer          가구와 아바타가 같이 들어 있는 상자. 다시 그리면 비워지므로 그 뒤에 attach를 부른다
+//   items()        그 방의 가구 목록
+//   toLocal(x, y)  화면 좌표 → 방 좌표(1280×720)
+//   input          바닥 클릭을 받는 요소. 이 요소 자체를 누른 것만 바닥으로 본다(아이콘, 창, 가구는 건너뛴다)
+//   sayRoot        말하기 입력 칸을 넣을 상자
+//   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
+// 돌려주는 것: attach(다시 그린 뒤), openSay, destroy
+export function mountAvatar(host, avatarId = 'basic') {
   const el = avatarEl(avatarId);
-  placeAt(el, spot, FACING['0,1'], 0);
-  el.style.zIndex = depthZ(items, spot);
-  container.append(el);
-}
-
-// ctx: 방 꾸미기 앱의 ctx(root, roomEl, itemsEl, room.items, dragging, toLocal).
-// 돌려주는 것: attach(가구를 다시 그린 뒤), reset(공간을 바꿀 때), openSay, destroy
-export function mountAvatar(ctx, avatarId = 'basic') {
-  const el = avatarEl(avatarId);
+  el.title = '누르면 말할 수 있어요';
   const bubble = h('div', { className: 'room-avatar-say', hidden: true });
   const input = h('input', {
     className: 'say-input', type: 'text', maxLength: 40, hidden: true,
     placeholder: '할 말을 쓰고 Enter (Esc는 취소)', 'aria-label': '말풍선에 쓸 말',
   });
-  ctx.roomEl.append(bubble);
-  ctx.root.append(input);
+  host.sayRoot.append(input);
 
   const me = { x: SPAWN.x, y: SPAWN.y }; // 서 있는 칸(걷는 중에는 들어가는 칸)
   let pos = { ...me };                   // 그리는 자리. 걷는 동안은 두 칸 사이의 소수
@@ -188,18 +184,14 @@ export function mountAvatar(ctx, avatarId = 'basic') {
   // 지금 자리에 그린다. at이 있으면 그 칸 기준으로 가구와의 앞뒤 순서도 다시 정한다.
   function draw(at) {
     const c = placeAt(el, pos, facing, col);
-    if (at) el.style.zIndex = depthZ(ctx.room.items, at);
+    if (at) el.style.zIndex = depthZ(host.items(), at);
     if (!bubble.hidden) {
       bubble.style.left = `${Math.round(c.x)}px`;
       bubble.style.top = `${Math.round(c.y - FOOT - 4)}px`;
     }
   }
 
-  // 방 꾸미기 창이 맨 앞에 있고 가구를 끌고 있지 않을 때만 키를 받는다.
-  function active() {
-    const win = ctx.root.closest('.win');
-    return !!win && !win.hidden && !win.classList.contains('inactive') && !ctx.dragging;
-  }
+  const active = () => host.active();
 
   function stop() {
     cancelAnimationFrame(raf);
@@ -270,17 +262,17 @@ export function mountAvatar(ctx, avatarId = 'basic') {
   }
 
   // ---------- 입력 ----------
-  // 바닥을 눌렀다 떼면 그 칸으로 걸어간다. 가구를 누른 것은 가구 쪽(room.js)이 맡으므로 건너뛴다.
+  // 바닥을 눌렀다 떼면 그 칸으로 걸어간다. 아이콘, 창, 눌리는 가구를 누른 것은 그쪽이 맡으므로 건너뛴다.
   let down = null;
   function onFloorDown(e) {
-    if (e.button !== 0 || ctx.dragging || e.target.closest('.item')) return;
-    down = ctx.toLocal(e.clientX, e.clientY);
+    if (e.button !== 0 || e.target !== host.input) return;
+    down = host.toLocal(e.clientX, e.clientY);
   }
   function onFloorUp(e) {
     if (!down) return;
     const start = down;
     down = null;
-    const p = ctx.toLocal(e.clientX, e.clientY);
+    const p = host.toLocal(e.clientX, e.clientY);
     if (Math.hypot(p.x - start.x, p.y - start.y) > DRAG_THRESHOLD) return;
     const t = toTile(p.x, p.y);
     const target = { x: Math.floor(t.x), y: Math.floor(t.y) };
@@ -322,18 +314,20 @@ export function mountAvatar(ctx, avatarId = 'basic') {
   });
   input.addEventListener('blur', () => { input.hidden = true; });
 
-  ctx.roomEl.addEventListener('pointerdown', onFloorDown);
-  ctx.roomEl.addEventListener('pointerup', onFloorUp);
+  el.addEventListener('click', openSay); // 아바타를 누르면 말하기
+
+  host.input.addEventListener('pointerdown', onFloorDown);
+  host.input.addEventListener('pointerup', onFloorUp);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', onBlur);
 
   return {
-    // 가구를 다시 그린 뒤 부른다. renderItems가 .items를 비우고 다시 채우므로 아바타를 다시 넣는다.
-    // 서 있던 칸에 가구가 놓였으면 가장 가까운 빈칸으로 옮긴다.
+    // 방을 다시 그린 뒤 부른다. 방 그림(room.js의 renderStatic)이 상자를 비우고 다시 채우므로 아바타와 말풍선을 다시 넣는다.
+    // 서 있던 칸에 가구가 놓였으면(방 꾸미기에서 옮겼으면) 가장 가까운 빈칸으로 옮긴다.
     attach() {
       stop();
-      blocked = blockedOf(ctx.room.items);
+      blocked = blockedOf(host.items());
       if (!placed || !free(me.x, me.y)) {
         const spot = nearestFree(blocked, placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
         if (!spot) { el.remove(); return; }
@@ -342,21 +336,15 @@ export function mountAvatar(ctx, avatarId = 'basic') {
         placed = true;
       }
       pos = { ...me };
-      ctx.itemsEl.append(el);
+      host.layer.append(el, bubble);
       draw(me);
-    },
-    // 다른 공간으로 갈 때. 다음 attach에서 그 공간의 처음 자리에 선다.
-    reset() {
-      stop();
-      placed = false;
-      bubble.hidden = true;
     },
     openSay,
     destroy() {
       stop();
       clearTimeout(sayTimer);
-      ctx.roomEl.removeEventListener('pointerdown', onFloorDown);
-      ctx.roomEl.removeEventListener('pointerup', onFloorUp);
+      host.input.removeEventListener('pointerdown', onFloorDown);
+      host.input.removeEventListener('pointerup', onFloorUp);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
