@@ -39,7 +39,7 @@
 | --- | --- |
 | `index.html` | 사이트의 유일한 HTML. 모니터, 화면 층(무대, 그레인, 볼록 보정 층), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map과 `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다 |
 | `style.css` | 모든 모양. 아래 "style.css 안의 순서"에 절 목록이 있다 |
-| `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 시작하는 자리 |
+| `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 새 기능을 붙이는 곳, 지켜야 할 것 |
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
 | `CLAUDE.md` | Claude Code용. `AGENTS.md`를 불러오고 Claude 전용 몇 줄만 더한다 |
 | `known-issues.md` | 되풀이된 함정 목록(증상, 원인, 규칙). 코드를 고치기 전에 읽는다 |
@@ -107,7 +107,7 @@
 | `apps/tidy-up/` | 짐 정리. 같은 물건 두 개가 닿으면 커지는 게임(아가라고요용으로 만든 예시) |
 | `apps/file-ten/` | 파일 정리 10. 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지우는 게임(아가라고요용으로 만든 예시) |
 
-김수민의 기존 게임 다섯 개(Be the Bee, ENIGMA, See you on the other side, Eyes on You, 충전이 필요해!)는 레포 밖 다른 주소에 있고, `data/apps.js`에 주소만 적혀 있습니다.
+자리를 채우려고 넣은 기존 게임 다섯 개(Be the Bee, ENIGMA, See you on the other side, Eyes on You, 충전이 필요해!)는 레포 밖 다른 주소에 있고 `data/apps.js`에 주소만 적혀 있습니다.
 
 ## assets/
 
