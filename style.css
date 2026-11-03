@@ -1413,6 +1413,7 @@ body[data-era="2010"] .win {
   border: 1px solid #0006;
   border-radius: 7px;
   background: linear-gradient(#a9c8ecb3, #7fa7d8a6);
+  -webkit-backdrop-filter: blur(6px) saturate(1.3);
   backdrop-filter: blur(6px) saturate(1.3);
   box-shadow: inset 0 0 0 1px #ffffff99, 0 6px 22px #0007;
 }
@@ -1458,6 +1459,7 @@ body[data-era="2010"] .taskbar {
   height: 40px;
   border-top: 1px solid #ffffff55;
   background: linear-gradient(#2a3a52cc, #12192699);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
   backdrop-filter: blur(8px) saturate(1.4);
 }
 body[data-era="2010"] .start-btn {
@@ -1490,6 +1492,7 @@ body[data-era="2010"] .start-menu {
   border: 1px solid #0007;
   border-radius: 7px;
   background: linear-gradient(#a9c8ecd9, #7fa7d8cc);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 22px #0007;
 }
