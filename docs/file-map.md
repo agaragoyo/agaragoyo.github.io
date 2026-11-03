@@ -5,6 +5,7 @@
 `src/`, `data/`, `tools/`, `docs/` 아래 파일이 여기에 빠져 있으면 자동 점검(`python tools/check.py`)이 오류로 알려 줍니다.
 
 사이트가 어떻게 동작하는지는 `docs/guide.md`, 작업 규칙은 `AGENTS.md`, 실행과 올리는 순서는 `README.md`에 있습니다.
+무엇을 만들지는 `docs/requirements.md`, 할 일과 담당은 `docs/tasks.md`, 올리기 전에 확인할 것은 `docs/checklists.md`에 있습니다.
 
 ## 자주 찾는 것
 
@@ -135,6 +136,9 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `docs/guide.md` | 사람이 읽는 설명서. 사이트가 어떻게 동작하고 왜 이렇게 만들었는지 |
+| `docs/requirements.md` | 요구 사항. 기능 목록과 상태, 가구와 인터랙션, 소리, 아직 정하지 않은 것과 정한 것 |
+| `docs/tasks.md` | 할 일 목록. 담당(역할 이름)과 상태 |
+| `docs/checklists.md` | PR을 올리기 전, 합치기 전, 발표 전에 사람이 확인할 것 |
 | `docs/file-map.md` | 이 문서 |
 
 ## worklog/: 작업 일지
