@@ -75,8 +75,8 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(스탠드와 창문만 눌린다) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag` 등 |
-| `src/avatar.js` | 방 꾸미기 안을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 가구와 앞뒤 순서, 말풍선. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(스탠드와 창문만 눌린다) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/avatar.js` | 방 꾸미기 안을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 가구와 앞뒤 순서, 말풍선. 바탕화면 배경에는 서 있는 아바타. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar`, `standAvatar` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림 | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -158,11 +158,11 @@
 ```
 index.html
 └─ src/main.js ─── settings.js, cursors.js, crt.js
-   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic)
+   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic), avatar.js(standAvatar)
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                ├─ shelf.js
-         │                └─ avatar.js ── iso.js, rules.js, data/avatars.js
+         │                └─ avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
          ├─ folder-app.js, share-app.js, mouse-app.js(cursors.js)
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
