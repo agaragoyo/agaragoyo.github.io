@@ -12,6 +12,7 @@
 | 하고 싶은 일 | 가 볼 곳 |
 | --- | --- |
 | 새 미니게임이나 앱 만들기 | `apps/_template/`를 복사하고 `data/apps.js`에 한 줄 (`apps/README.md`) |
+| 창 안에서 돌지 않는 바깥 게임을 새 탭으로 열기 | `data/apps.js`에 `href: 'https://...'` (`src/apps/link-app.js`가 새 탭에서 열린다고 알리고 연다) |
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
 | 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
@@ -96,6 +97,7 @@
 | `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들고 복사한다 |
 | `src/apps/mouse-app.js` | 마우스. 커서 색과 크기, 32×32칸 직접 그리기 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
+| `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임) |
 
 ## data/: 목록
 

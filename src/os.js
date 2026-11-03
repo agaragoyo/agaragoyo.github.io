@@ -9,7 +9,7 @@ import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic } from './room.js';
 import { mountAvatar } from './avatar.js';
-import { BUILTIN_APPS, openFrameApp } from './apps/index.js';
+import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
 import { h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
@@ -285,9 +285,11 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     container.replaceChildren();
     let last = { id: null, t: 0 };
     for (const app of apps) {
+      // 새 탭으로 열리는 앱(href)은 누르기 전에 알 수 있게 아이콘에 바깥 화살표를 달고, 마우스를 올리면 열리는 곳을 보여 준다(known-issues 32).
       const b = h('button', {
         type: 'button',
-        className: 'desk-icon',
+        className: app.href ? 'desk-icon external' : 'desk-icon',
+        title: app.href ? `새 탭에서 열립니다(${new URL(app.href).host})` : null,
         onclick: () => {
           const now = performance.now();
           for (const o of container.querySelectorAll('.desk-icon')) o.classList.toggle('selected', o === b);
@@ -340,13 +342,14 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   setInterval(tick, 20000);
 
   // ---------- 앱 ----------
-  // builtin이 있으면 src/apps/의 기본 앱으로, src가 있으면 iframe 창으로 연다.
+  // builtin이 있으면 src/apps/의 기본 앱으로, src가 있으면 iframe 창으로, href가 있으면 새 탭에서 열린다고 알린 뒤 새 탭으로 연다.
   os.openApp = id => {
     const app = APP_BY_ID[id];
     if (!app || !os.canSee(app)) return;
     if (app.scene) return os.goScene(app.scene); // 공간 바로 가기(놀이터 아이콘)는 창 대신 바탕화면을 그 공간으로 옮긴다
     if (app.builtin) return BUILTIN_APPS[app.builtin]?.(os, app);
     if (app.src) return openFrameApp(os, app);
+    if (app.href) return openLinkApp(os, app);
   };
 
   // 바탕화면에서 가구를 두 번 눌렀을 때. 아바타가 그 옆으로 걸어간 뒤 기믹을 쓴다(심즈처럼 캐릭터가 가서 쓴다).

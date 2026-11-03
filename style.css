@@ -497,6 +497,8 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 .win-body p { margin: 0 0 10px; }
 .win-body .meta { margin: 0; font-size: 14px; color: #6c6457; }
 .share-row { display: flex; gap: 8px; }
+.link-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.link-row a.btn { display: inline-block; text-decoration: none; }
 .share-row input, .new-row input {
   flex: 1;
   min-width: 0;
@@ -610,6 +612,8 @@ svg.mouse-chip { border: 0; }
   grid-auto-rows: 104px;
   gap: 4px;
   align-content: start;
+  min-height: 0;
+  overflow-y: auto;
 }
 .folder-hint { margin: 6px 4px 0; font-size: 13px; color: #6c6457; }
 .folder .desk-icon span:last-child { color: var(--ink); text-shadow: none; }
@@ -688,6 +692,24 @@ svg.mouse-chip { border: 0; }
 }
 .desk-icon.selected { border-color: #fff8; }
 .desk-icon.selected span:last-child { background: var(--win-bar-a); text-shadow: none; color: #fff; }
+/* 새 탭으로 열리는 앱(href)은 아이콘 오른쪽 아래에 바깥 화살표를 단다. 누르기 전에 화면 밖으로 나간다는 것을 알 수 있게(known-issues 32) */
+.desk-icon.external .app-icon::after {
+  content: '↗';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: none;
+}
 
 /* ---------- 작업 표시줄과 시작 메뉴 ---------- */
 .taskbar {

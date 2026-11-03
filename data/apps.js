@@ -16,6 +16,8 @@
 //            'furniture' 이면 어디에도 아이콘이 없고, 가구의 gimmick: 'app:<id>' 로만 열린다
 //   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, mouse). 팀원은 쓰지 않는다
 //   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다
+//   href     창 대신 새 탭으로 여는 바깥 주소(https). 다른 사이트의 창(iframe) 안에서는 돌지 않는 남의 게임에 쓴다.
+//            열기 전에 새 탭에서 열린다는 것과 열리는 주소를 보여 준다(src/apps/link-app.js). builtin, src 없이 쓴다
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
 const SITE = 'https://soomin007.github.io';
 
@@ -35,6 +37,13 @@ export const APPS = [
   { id: 'otherside', title: 'See you on the other side', icon: `${SITE}/assets/otherside.webp`, src: `${SITE}/Otherside/`, size: [1040, 660], folder: 'games' },
   { id: 'eyes-on-you', title: 'Eyes on You', icon: `${SITE}/assets/eyes-on-you.webp`, src: `${SITE}/EyesOnYou/`, size: [1120, 700], folder: 'games' },
   { id: 'outlet-villains', title: '충전이 필요해!', icon: `${SITE}/assets/outlet-villains.webp`, src: `${SITE}/outlet-villains/`, size: [1120, 700], folder: 'games' },
+
+  // 추억의 플래시 게임. 남의 게임이라 파일을 레포로 옮기지 않고 원작 주소를 새 탭으로 연다.
+  // 와플래시 게임 아카이브의 플레이어는 다른 사이트의 창 안에서 게임을 시작하지 않고, friv.com은 창에 띄우는 것을 막아 두었다(known-issues 31).
+  { id: 'shu-ramen', title: '슈의 라면가게', color: '#c0703a', href: 'https://waflash.org/36', folder: 'games' },
+  { id: 'prison-escape', title: '감옥탈출', color: '#55606e', href: 'https://waflash.org/155', folder: 'games' },
+  { id: 'eye-signal', title: '눈빛보내기', color: '#b0577f', href: 'https://waflash.org/203', folder: 'games' },
+  { id: 'fireboy-watergirl', title: 'Fireboy and Watergirl', color: '#4a78b5', href: 'https://www.friv.com/z/games/fireboyandwatergirlforest/game.html', folder: 'games' },
 ];
 
 export const APP_BY_ID = Object.fromEntries(APPS.map(a => [a.id, a]));

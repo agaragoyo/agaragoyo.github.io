@@ -77,8 +77,13 @@ def check_apps():
         elif 'builtin' in a:
             if not (ROOT / f"src/apps/{a['builtin']}-app.js").exists():
                 err(where, f"기본 앱 파일 src/apps/{a['builtin']}-app.js 가 없다")
+        elif 'href' in a:
+            if 'src' in a:
+                err(where, 'href(새 탭으로 여는 주소)는 src 와 같이 쓰지 않는다')
+            if not a['href'].startswith('https://'):
+                err(where, 'href 는 https:// 로 시작하는 바깥 주소다')
         elif 'src' not in a:
-            err(where, 'src(앱 페이지 주소)가 없다')
+            err(where, 'src(창에 띄울 주소)나 href(새 탭 주소)가 없다')
         src = a.get('src', '')
         if src.startswith('apps/') and not (ROOT / src).exists():
             err(where, f'{src} 파일이 없다')

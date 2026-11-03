@@ -14,3 +14,4 @@ export const BUILTIN_APPS = {
 };
 
 export { openFrameApp } from './frame-app.js';
+export { openLinkApp } from './link-app.js';
