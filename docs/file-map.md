@@ -14,6 +14,8 @@
 | 가구를 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
 | 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES` |
+| 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `builtin: 'room'`, `scene: '<공간 id>'` (놀이터가 예) |
+| 바탕화면 배경에서 눌리는 가구 | `src/room.js`의 `renderStatic` |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
 | 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace` |
 | 가구 끌기, 돌리기, 치우기 | `src/room.js`의 `beginDrag` |
@@ -62,7 +64,7 @@
 | --- | --- | --- |
 | `src/os.js` | 부팅, 로그인, 바탕화면 아이콘, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다 | `createWM` |
-| `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
+| `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
 | `src/crt.js` | 볼록 화면(SVG 필터), 휜 화면의 입력을 바로잡는 보정 층, iframe 안으로 입력 넣기, 그레인 노이즈 그림 | `initCRT` |
 | `src/cursors.js` | 화면 안 커서 그림을 만들어 `--cur-*` CSS 변수로 넣는다. 설정의 `cursor`(색, 크기, 직접 그린 그림)를 따른다 | `initCursors`, `cursorSet`, `defaultPixels` 등 |
@@ -71,7 +73,7 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림 | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag` 등 |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 방 그림(스탠드와 창문만 눌린다) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag` 등 |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림 | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -84,7 +86,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `src/apps/index.js` | 기본 앱 등록부(`BUILTIN_APPS`). 새 기본 앱은 여기에 한 줄 더한다 |
-| `src/apps/room-app.js` | 방 꾸미기. 공간 탭, 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
+| `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바로 가기나 창문으로 열면 그 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
 | `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들고 복사한다 |
 | `src/apps/mouse-app.js` | 마우스. 커서 색과 크기, 32×32칸 직접 그리기 |

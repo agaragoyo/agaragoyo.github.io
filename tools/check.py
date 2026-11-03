@@ -60,6 +60,7 @@ def scenes():
 
 def check_apps():
     apps = entries(read('data/apps.js'))
+    known_scenes = scenes()
     seen = set()
     for a in apps:
         where = f"data/apps.js '{a['id']}'"
@@ -81,6 +82,8 @@ def check_apps():
             err(where, f'아이콘 {icon} 파일이 없다')
         if a.get('folder') not in (None, 'null', 'games', 'furniture'):
             err(where, "folder 는 'games'(미니게임 폴더), 'furniture'(가구로만 열림) 중 하나다")
+        if 'scene' in a and (a.get('builtin') != 'room' or a['scene'] not in known_scenes):
+            err(where, "scene 은 builtin: 'room' 과 같이 쓰고, src/config.js 의 SCENES 에 있는 공간이어야 한다")
     # apps/ 아래 폴더는 목록에 올라가 있어야 한다(_로 시작하는 폴더는 틀이라 뺀다)
     listed = {a.get('src', '').split('/')[1] for a in apps if a.get('src', '').startswith('apps/')}
     for d in sorted(p for p in (ROOT / 'apps').iterdir() if p.is_dir()):
