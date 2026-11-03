@@ -256,11 +256,12 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 }
 .room.dragging .room-bg .grid { opacity: 1; }
 .items { position: absolute; inset: 0; z-index: 1; }
-/* 아바타(src/avatar.js): 가구와 같은 층(.items)에서 앞뒤 순서를 맞춘다. 그림 한 칸은 64×104px */
-.avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: none; }
-.avatar.flip { transform: scaleX(-1); }
+/* 방 안을 걷는 아바타(src/avatar.js): 가구와 같은 층(.items)에서 앞뒤 순서를 맞춘다. 그림 한 칸은 64×104px.
+   .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). */
+.room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: none; }
+.room-avatar.flip { transform: scaleX(-1); }
 /* 말풍선은 가구에 가리지 않게 밤 그늘(z-index 2)보다 위에 둔다 */
-.avatar-say {
+.room-avatar-say {
   position: absolute;
   z-index: 3;
   max-width: 240px;
@@ -276,7 +277,7 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   transform: translate(-50%, -100%);
   pointer-events: none;
 }
-.avatar-say::after {
+.room-avatar-say::after {
   content: '';
   position: absolute;
   left: 50%;

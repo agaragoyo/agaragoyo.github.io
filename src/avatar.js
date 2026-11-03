@@ -69,9 +69,9 @@ function placeholderSheet(shirt) {
 // 돌려주는 것: attach(가구를 다시 그린 뒤), reset(공간을 바꿀 때), openSay, destroy
 export function mountAvatar(ctx, avatarId = 'basic') {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
-  const el = h('div', { className: 'avatar' });
+  const el = h('div', { className: 'room-avatar' });
   el.style.backgroundImage = def.sheet ? `url("${def.sheet}")` : placeholderSheet(def.color);
-  const bubble = h('div', { className: 'avatar-say', hidden: true });
+  const bubble = h('div', { className: 'room-avatar-say', hidden: true });
   const input = h('input', {
     className: 'say-input', type: 'text', maxLength: 40, hidden: true,
     placeholder: '할 말을 쓰고 Enter (Esc는 취소)', 'aria-label': '말풍선에 쓸 말',
