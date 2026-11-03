@@ -82,7 +82,7 @@ https://agaragoyo.github.io/ 에서 직접 써 보고 버그나 아이디어가 
 만들려는 것마다 시작하는 자리가 정해져 있습니다. 모두 같은 자리에서 같은 방식으로 붙여야 서로 부딪히지 않습니다.
 
 - 미니게임이나 새 앱은 `apps/_template` 폴더를 복사해서 시작하고 `data/apps.js`에 한 줄을 넣습니다. 자세한 방법은 `apps/README.md`에 있습니다.
-- 가구를 눌렀을 때 열리는 화면(가구 기믹)도 앱으로 만듭니다.
+- 바탕화면에서 가구를 두 번 눌렀을 때 열리는 화면(가구 기믹)도 앱으로 만듭니다.
   `data/apps.js`의 그 앱 줄에 `folder: 'furniture'`를 붙이고 `data/furniture.js`의 그 가구에 `gimmick: 'app:<앱 id>'`를 넣습니다.
 - 새 가구는 `data/furniture.js`에 한 줄을 넣고 그림을 `assets/furniture/<가구 id>.png`로 올립니다.
 - 방 안을 걷는 아바타는 `src/avatar.js`가 맡습니다. 아바타 그림은 `data/avatars.js`에 한 줄을 넣고 `assets/avatars/<아바타 id>.png`로 올리며, 그림 규격은 `data/avatars.js` 맨 위에 있습니다.
