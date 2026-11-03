@@ -73,17 +73,19 @@ function renderShade(container, items) {
 }
 
 // 누를 수 없는 방 그림 한 장 (바탕화면 배경에 쓴다). container 는 1280×720 크기여야 한다.
-// 불빛 가구만은 누를 수 있다: 누르면 onLight()를 부른다(밤과 낮 바꾸기).
-export function renderStatic(container, items, kind, onLight) {
+// 밤과 낮을 바꾸는 가구(스탠드)와 다른 공간으로 가는 가구(창문)만은 누를 수 있다: 누르면 onPress(item)을 부른다.
+export function renderStatic(container, items, kind, onPress) {
   container.innerHTML = sceneSVG(kind);
   for (const item of items) {
+    const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static');
-    if (BY_ID[item.id].light) {
-      el.classList.add('switch', 'light');
+    if (def.light) el.classList.add('light');
+    if (def.gimmick === 'night' || def.gimmick?.startsWith('scene:')) {
+      el.classList.add('switch');
       el.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
-        const up = () => { window.removeEventListener('pointerup', up); onLight?.(); };
+        const up = () => { window.removeEventListener('pointerup', up); onPress?.(item); };
         window.addEventListener('pointerup', up);
       });
     }

@@ -1,7 +1,7 @@
 // 기본 앱: 방 꾸미기. 집 안의 공간(내 방, 놀이터 ...)을 탭으로 오가며 꾸민다.
 // 1280×840 크기의 공간과 선반을 창 크기에 맞춰 줄여 보여 준다.
 import { ROOM_W, STAGE_H, SCENES } from '../config.js';
-import { BY_ID } from '../../data/furniture.js';
+import { APP_BY_ID } from '../../data/apps.js';
 import { renderItems, setSceneBg } from '../room.js';
 import { mountShelf, filterShelf } from '../shelf.js';
 
@@ -20,17 +20,25 @@ function stageOffset(el, stage) {
   return { x, y };
 }
 
-export function openRoomApp(os, appInfo) {
+// sceneId: 처음 보여 줄 공간. 놀이터 바로 가기(앱 목록의 scene)와 바탕화면 배경의 창문이 넘긴다.
+// 방 꾸미기 창은 하나뿐이라, 이미 열려 있으면 그 창을 앞으로 가져와 공간만 바꾼다.
+export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
+  const opened = os.wm.get('room');
+  if (opened) {
+    opened.focus();
+    if (sceneId) opened.showScene(sceneId);
+    return opened;
+  }
   const visiting = os.mode === 'visit';
   return os.wm.open({
     key: 'room',
-    app: appInfo,
+    app: APP_BY_ID.room, // 바로 가기로 열어도 창과 작업 표시줄에는 방 꾸미기 아이콘을 쓴다
     title: visiting ? `${os.home.owner}의 집` : '방 꾸미기',
     width: 1100,
     height: 700,
     maximized: true,
     flush: true,
-    build(body) {
+    build(body, win) {
       body.classList.add('room-app');
       body.innerHTML = `
         <div class="room-root">
@@ -77,8 +85,6 @@ export function openRoomApp(os, appInfo) {
           render();
         },
         openItem(item) {
-          const g = BY_ID[item.id].gimmick;
-          if (g?.startsWith('scene:')) return showScene(g.slice(6));
           os.openFurniture(item);
         },
       };
@@ -126,8 +132,9 @@ export function openRoomApp(os, appInfo) {
       root.querySelector('[data-act="share"]').addEventListener('click', () => os.openApp('share'));
       root.querySelector('[data-act="mine"]').addEventListener('click', () => os.goHome());
 
+      win.showScene = showScene;
       mountShelf(ctx);
-      showScene(SCENES[0].id);
+      showScene(sceneId || SCENES[0].id);
       return () => {
         ro.disconnect();
         os.hideStickyToast();

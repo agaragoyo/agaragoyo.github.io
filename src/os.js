@@ -216,7 +216,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   os.canSee = app => !(app.editOnly && os.mode === 'visit');
 
   function renderWallpaper() {
-    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.toggleNight);
+    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.openFurniture);
   }
 
   // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
@@ -290,11 +290,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     if (app.src) return openFrameApp(os, app);
   };
 
-  // 방 안의 가구를 눌렀을 때. 가구 목록의 gimmick 대로 하고, 없으면 기믹이 들어갈 빈 창을 띄운다.
-  // ('scene:' 기믹은 공간을 바꿔야 하므로 방 꾸미기 앱이 먼저 처리한다.)
+  // 가구를 눌렀을 때(방 꾸미기 창, 바탕화면 배경). 가구 목록의 gimmick 대로 하고, 없으면 기믹이 들어갈 빈 창을 띄운다.
+  // 'scene:' 기믹은 방 꾸미기를 그 공간으로 연다. 방 꾸미기가 이미 열려 있으면 그 창의 공간만 바꾼다.
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
+    if (def.gimmick?.startsWith('scene:')) return BUILTIN_APPS.room(os, APP_BY_ID.room, def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
     const zone = { wall: '벽에 거는 가구', floor: '바닥 가구', top: '책상 위에도 올릴 수 있는 가구' }[def.zone];
     const size = def.zone === 'wall' ? `가로 ${def.size[0]}칸, 높이 ${def.size[1]}줄` : `${def.size[0]}×${def.size[1]}칸`;
