@@ -88,13 +88,24 @@ PORTRAIT_PHONE.addEventListener('change', fit);
 
 // ---------- 화면 효과 ----------
 // 화면을 실제로 휘는 볼록 효과는 지금은 마우스를 쓰는 PC에서만 켠다.
+// 트랙패드나 터치패드로 화면을 키운(핀치 줌) 동안에도 끄고 평평하게 보여 준다. 맥 크롬에서 핀치 줌을 하면
+// 휜 화면이 깨진다는 제보가 있었다(윈도우 크롬은 멀쩡하다, known-issues 29). 키워서 보는 동안에는 평평한 화면이 글자도 또렷하다.
 const HAS_MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
+const pinched = () => (window.visualViewport?.scale ?? 1) > 1.01;
 const crt = initCRT({
   screen: $('#screen'),
   warpEl: $('#crt'),
   input: $('#crt-input'),
   grain: $('#grain'),
-  isWarpOn: () => settings.get('curve') && HAS_MOUSE.matches && !mon.rotated && era().warp > 0,
+  isWarpOn: () => settings.get('curve') && HAS_MOUSE.matches && !mon.rotated && era().warp > 0 && !pinched(),
+});
+// 핀치 줌은 창 크기(resize) 이벤트를 보내지 않으므로 visualViewport의 resize를 따로 듣는다.
+// 손가락을 움직이는 동안 연달아 오므로 한 화면에 한 번만 다시 정한다.
+let pinchQueued = false;
+window.visualViewport?.addEventListener('resize', () => {
+  if (pinchQueued) return;
+  pinchQueued = true;
+  requestAnimationFrame(() => { pinchQueued = false; crt.apply(); });
 });
 
 // 설정이 바뀔 때마다 화면에 반영한다(테두리 버튼, 밤, 시대).
