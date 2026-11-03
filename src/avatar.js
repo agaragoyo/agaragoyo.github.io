@@ -5,7 +5,7 @@
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile } from './iso.js';
-import { dims, isWall } from './rules.js';
+import { dims, isWall, supportOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
 import { h } from './util.js';
@@ -153,6 +153,7 @@ export function mountAvatar(host, avatarId = 'basic') {
   let raf = 0;
   let sayTimer = 0;
   let blocked = new Set();
+  let arrive = null; // 가구 옆에 다 왔을 때 할 일 { face(), then() }. 다른 데로 걸으면 버린다
   const held = []; // 누르고 있는 방향키. 나중에 누른 것이 먼저다
 
   const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y));
@@ -181,6 +182,55 @@ export function mountAvatar(host, avatarId = 'basic') {
     return out;
   }
 
+  // 지금 칸에서 넓이 우선으로 훑어 goal(x, y)을 처음 만족하는 빈칸까지의 길. 지금 칸이 goal이면 [], 갈 수 없으면 null.
+  function pathTo(goal) {
+    const from = { ...me };
+    if (goal(from.x, from.y)) return [];
+    const prev = new Map([[key(from.x, from.y), null]]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      for (const [dx, dy] of DIRS) {
+        const n = { x: c.x + dx, y: c.y + dy };
+        if (!free(n.x, n.y) || prev.has(key(n.x, n.y))) continue;
+        prev.set(key(n.x, n.y), c);
+        if (goal(n.x, n.y)) {
+          const out = [n];
+          for (let p = c; p && p !== from; p = prev.get(key(p.x, p.y))) out.unshift(p);
+          return out;
+        }
+        queue.push(n);
+      }
+    }
+    return null;
+  }
+
+  // 가구 옆까지 걸어가 가구 쪽을 본 뒤 then을 부른다(바탕화면에서 가구를 두 번 눌렀을 때).
+  // 벽 가구는 그 벽 바로 앞 바닥 칸에, 책상 위 물건은 책상 둘레 칸에 선다. 갈 수 있는 칸이 없으면 그 자리에서 바로 부른다.
+  function approach(item, then) {
+    let goal;
+    let face;
+    if (isWall(item)) {
+      // 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
+      const [w] = dims(item);
+      const along = u => u >= item.x && u < item.x + w;
+      goal = (x, y) => (item.wall === 'R' ? y === 0 && along(x) : x === 0 && along(y));
+      face = () => FACING[item.wall === 'R' ? '0,-1' : '-1,0'];
+    } else {
+      const base = supportOf(host.items(), item) || item;
+      const [w, d] = dims(base);
+      const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
+      goal = (x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy));
+      face = () => FACING[me.x < base.x ? '1,0' : me.x >= base.x + w ? '-1,0' : me.y < base.y ? '0,1' : '0,-1'];
+    }
+    held.length = 0;
+    const route = pathTo(goal);
+    if (!route) { then(); return; }
+    arrive = { face, then };
+    path = route;
+    if (!walking) nextStep();
+  }
+
   // 지금 자리에 그린다. at이 있으면 그 칸 기준으로 가구와의 앞뒤 순서도 다시 정한다.
   function draw(at) {
     const c = placeAt(el, pos, facing, col);
@@ -197,6 +247,7 @@ export function mountAvatar(host, avatarId = 'basic') {
     cancelAnimationFrame(raf);
     walking = false;
     path = [];
+    arrive = null;
     col = 0;
   }
 
@@ -212,7 +263,11 @@ export function mountAvatar(host, avatarId = 'basic') {
       walking = false;
       col = 0;
       pos = { ...me };
+      const a = arrive;
+      arrive = null;
+      if (a) facing = a.face();
       draw(me);
+      a?.then();
       return;
     }
     walking = true;
@@ -236,6 +291,7 @@ export function mountAvatar(host, avatarId = 'basic') {
   }
 
   function walkTo(target) {
+    arrive = null;
     path = findPath(target);
     if (!walking) nextStep();
   }
@@ -286,7 +342,8 @@ export function mountAvatar(host, avatarId = 'basic') {
     if (KEYS[e.code]) {
       e.preventDefault();
       if (!held.includes(e.code)) held.push(e.code);
-      path = []; // 방향키를 누르면 클릭으로 정한 길은 버린다
+      path = []; // 방향키를 누르면 클릭으로 정한 길과 가구로 가던 일은 버린다
+      arrive = null;
       if (!walking) nextStep();
     } else if (e.key === 'Enter' && !e.isComposing) {
       // 바탕화면이 앞에 있을 때 Enter는 늘 말하기다. 초점이 남은 버튼(전원 등)이 대신 눌리지 않게 기본 동작을 막는다.
@@ -342,6 +399,8 @@ export function mountAvatar(host, avatarId = 'basic') {
       draw(me);
     },
     openSay,
+    say,
+    approach,
     destroy() {
       stop();
       clearTimeout(sayTimer);

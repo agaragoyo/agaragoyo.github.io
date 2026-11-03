@@ -10,7 +10,7 @@
 // surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
 // light:   true 이면 밤에 둘레를 밝힌다. 누르면 밤과 낮이 바뀐다
 // gimmick: 눌렀을 때 하는 일. 'night' 밤/낮 바꾸기, 'scene:<id>' 그 공간으로 가기, 'app:<id>' 앱 열기.
-//          없으면 기믹이 들어갈 빈 창이 뜬다
+//          바탕화면에서 가구를 두 번 누르면 아바타가 옆으로 가서 쓴다. 없으면 아바타가 가구 이름을 말한다
 export const FURNITURE = [
   // 내 방: 바닥
   { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 56, surface: true, color: '#b08354' },

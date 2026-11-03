@@ -251,6 +251,8 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
     if (target?.tagName === 'IFRAME' && intoFrame(target, 'click', x, y, e)) return;
     const clickable = target?.closest('button, a, label');
     if (clickable) clickable.click();
+    // 버튼이 아닌 요소(바탕화면 가구, 아바타 등)도 평평한 화면처럼 click을 받게 같은 자리로 click 이벤트를 보낸다(known-issues 5).
+    else target?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: e.button }));
   });
   input.addEventListener('wheel', e => {
     e.preventDefault();

@@ -632,6 +632,8 @@ svg.mouse-chip { border: 0; }
 /* 가구의 z-index가 창 위로 새어 나오지 않게 배경을 따로 쌓는다 */
 .wallpaper { position: absolute; left: 0; top: 40px; z-index: 0; isolation: isolate; width: 1280px; height: 720px; pointer-events: none; }
 .wallpaper .room-bg { position: absolute; left: 0; top: 0; }
+/* 바탕화면 가구는 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic). 배경은 클릭을 흘려보내고 가구 그림만 받는다. */
+.wallpaper .item.usable .hit { pointer-events: auto; cursor: var(--cur-hand); }
 .room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
 .room-bg .fence { stroke: #f4efe3; stroke-width: 4; stroke-linecap: round; fill: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
@@ -1006,7 +1008,6 @@ body:not(.curve) .fx-curve { display: none; }
 .scene-tab[aria-selected="true"] { background: #fffbea; box-shadow: inset 0 -4px 0 var(--win-bar-b); }
 
 /* ---------- 밤 모드 (스탠드, 가로등으로 켜고 끈다) ---------- */
-.wallpaper .item.switch .hit { pointer-events: auto; cursor: var(--cur-hand); }
 .stage[data-theme="night"] {
   --win-face: #3a394a;
   --win-paper: #24232e;

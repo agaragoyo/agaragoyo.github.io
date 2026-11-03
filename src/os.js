@@ -19,6 +19,12 @@ import { h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
 // 아래는 작업 표시줄이 원래 자리를 지키므로 비우지 않는다(known-issues 21).
 const CURVE_INSET = { top: 42, right: 64, bottom: 0, left: 64 };
 
+// 낱말 끝 글자에 받침이 있는지(조사 고르기: 옷장이네, 소파네). 한글이 아니면 없는 것으로 본다.
+function batchim(word) {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  return c >= 0 && c < 11172 && c % 28 !== 0;
+}
+
 export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   const $ = sel => stage.querySelector(sel);
   const el = {
@@ -239,7 +245,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
 
   // 바탕화면 배경: 내 방 그림과 그 방을 걷는 아바타. 방 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
-    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.openFurniture);
+    renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.useFurniture);
     walker?.attach();
   }
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
@@ -320,28 +326,20 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     if (app.src) return openFrameApp(os, app);
   };
 
-  // 가구를 눌렀을 때(방 꾸미기 창, 바탕화면 배경). 가구 목록의 gimmick 대로 하고, 없으면 기믹이 들어갈 빈 창을 띄운다.
+  // 바탕화면에서 가구를 두 번 눌렀을 때. 아바타가 그 옆으로 걸어간 뒤 기믹을 쓴다(심즈처럼 캐릭터가 가서 쓴다).
+  os.useFurniture = item => {
+    if (walker) walker.approach(item, () => os.openFurniture(item));
+    else os.openFurniture(item);
+  };
+
+  // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 가구 이름을 말한다.
   // 'scene:' 기믹은 방 꾸미기를 그 공간으로 연다. 방 꾸미기가 이미 열려 있으면 그 창의 공간만 바꾼다.
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
     if (def.gimmick?.startsWith('scene:')) return BUILTIN_APPS.room(os, APP_BY_ID.room, def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
-    const zone = { wall: '벽에 거는 가구', floor: '바닥 가구', top: '책상 위에도 올릴 수 있는 가구' }[def.zone];
-    const size = def.zone === 'wall' ? `가로 ${def.size[0]}칸, 높이 ${def.size[1]}줄` : `${def.size[0]}×${def.size[1]}칸`;
-    os.wm.open({
-      key: item,
-      app: { icon: 'builtin:furniture', title: def.name },
-      title: def.name,
-      width: 400,
-      height: 120,
-      build(body) {
-        body.append(
-          h('p', {}, '이 가구를 누르면 열리는 창입니다. 나중에 미니게임이나 가구 기믹이 이 자리에 들어갑니다.'),
-          h('p', { className: 'meta' }, `${size}, ${zone}`),
-        );
-      },
-    });
+    walker?.say(`${def.name}${batchim(def.name) ? '이네' : '네'}.`);
   };
 
   os.saveHome = () => {

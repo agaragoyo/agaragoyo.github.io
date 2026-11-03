@@ -1,5 +1,5 @@
 // 방 그리기와 가구 끌어 놓기.
-import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
+import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
@@ -125,23 +125,27 @@ function renderShade(container, items) {
   shade.style.webkitMaskImage = mask;
 }
 
-// 누를 수 없는 방 그림 한 장 (바탕화면 배경에 쓴다). container 는 1280×720 크기여야 한다.
-// 밤과 낮을 바꾸는 가구(스탠드)와 다른 공간으로 가는 가구(창문)만은 누를 수 있다: 누르면 onPress(item)을 부른다.
-export function renderStatic(container, items, kind, onPress) {
+// 바탕화면 배경의 방 그림 한 장. container 는 1280×720 크기여야 한다.
+// 가구를 두 번 누르면 onUse(item)를 부른다(아바타가 그 옆으로 걸어가 기믹을 쓴다).
+// 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
+// 볼록 화면은 dblclick을 넘기지 못하므로 두 번 누르기는 클릭 간격으로 직접 잰다.
+export function renderStatic(container, items, kind, onUse) {
   container.innerHTML = sceneSVG(kind);
+  let last = { item: null, t: 0 };
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
-    el.classList.add('item', 'static');
+    el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
-    if (def.gimmick === 'night' || def.gimmick?.startsWith('scene:')) {
-      el.classList.add('switch');
-      el.addEventListener('pointerdown', e => {
-        if (e.button !== 0) return;
-        const up = () => { window.removeEventListener('pointerup', up); onPress?.(item); };
-        window.addEventListener('pointerup', up);
-      });
-    }
+    el.addEventListener('click', () => {
+      const now = performance.now();
+      if (last.item === item && now - last.t < DOUBLE_CLICK_MS) {
+        last = { item: null, t: 0 };
+        onUse?.(item);
+      } else {
+        last = { item, t: now };
+      }
+    });
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
@@ -175,7 +179,7 @@ export function zOf(items, item) {
   return 100 + Math.round(depthOf(item) * 100);
 }
 
-// 누르고 조금만 움직이면 드래그, 그대로 떼면 클릭(창 열기).
+// 누르고 조금만 움직이면 드래그, 그대로 떼면 클릭. 방 꾸미기는 꾸미는 화면이라 클릭해도 기믹을 쓰지 않는다(바탕화면에서 쓴다).
 function onItemDown(app, item, e) {
   if (e.button !== 0) return;
   e.preventDefault();
@@ -203,7 +207,7 @@ function onItemDown(app, item, e) {
   };
   const up = () => {
     cleanup();
-    if (!dragging) app.openItem(item);
+    if (!dragging) app.pressItem(item);
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);

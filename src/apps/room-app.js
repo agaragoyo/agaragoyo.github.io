@@ -84,8 +84,9 @@ export function openRoomApp(os, appInfo, sceneId = appInfo.scene) {
           os.saveHome();
           render();
         },
-        openItem(item) {
-          os.openFurniture(item);
+        // 꾸미는 화면에서는 가구를 눌러도 기믹을 쓰지 않고, 바탕화면에서 쓰라고 알려 준다.
+        pressItem() {
+          os.toast('가구는 바탕화면에서 두 번 눌러 써 볼 수 있어요');
         },
       };
 
