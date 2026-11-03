@@ -1,10 +1,12 @@
 // 방 안을 걸어 다니는 내 아바타(1단계: 서버 없이 내 화면에서만 움직인다).
 // 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 층(.items)에 그려서
 // 가구와 앞뒤 순서를 맞춘다. 바닥을 누르면 길을 찾아 걸어가고, 방향키(WASD)로 한 칸씩 걷고, Enter로 말풍선을 띄운다.
+// 바탕화면 배경의 방 그림에도 같은 아바타가 걷지 않고 서 있다(standAvatar).
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile } from './iso.js';
 import { dims, isWall } from './rules.js';
+import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
 import { h } from './util.js';
 
@@ -65,12 +67,77 @@ function placeholderSheet(shirt) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-// ctx: 방 꾸미기 앱의 ctx(root, roomEl, itemsEl, itemEls, room.items, dragging, toLocal).
-// 돌려주는 것: attach(가구를 다시 그린 뒤), reset(공간을 바꿀 때), openSay, destroy
-export function mountAvatar(ctx, avatarId = 'basic') {
+const inRoom = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+
+// 바닥 가구가 차지한 칸들. 책상 위 물건은 책상 칸 안에 있으므로 따로 세지 않아도 된다.
+function blockedOf(items) {
+  const blocked = new Set();
+  for (const it of items) {
+    if (isWall(it)) continue;
+    const [w, d] = dims(it);
+    for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < d; dy++) blocked.add(key(it.x + dx, it.y + dy));
+  }
+  return blocked;
+}
+
+// 칸 (x, y)에 가장 가까운 빈칸. 방이 가구로 꽉 차 있으면 null.
+function nearestFree(blocked, x, y) {
+  let best = null;
+  let bestD = Infinity;
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const d = Math.abs(i - x) + Math.abs(j - y);
+      if (!blocked.has(key(i, j)) && d < bestD) { best = { x: i, y: j }; bestD = d; }
+    }
+  }
+  return best;
+}
+
+// 칸 a에 선 아바타를 어느 가구보다 위에 그릴지. 가구 순서(room.js의 zOf)를 쓰고, 겹치지 않는 두 네모를 가르는 축으로
+// 앞뒤를 판단해서, 아바타가 앞에 있는 가구들 중 가장 높은 것 바로 위에 그린다.
+// 가구 중심의 합(depthOf)으로만 비교하면 긴 가구 옆에서 앞뒤가 뒤집힌다.
+function depthZ(items, a) {
+  let z = 100;
+  for (const it of items) {
+    if (isWall(it)) continue;
+    const [w, d] = dims(it);
+    if (a.x >= it.x + w || a.y >= it.y + d) z = Math.max(z, zOf(items, it));
+  }
+  return z + 1;
+}
+
+// 아바타 그림 상자 하나. 그림 파일(sheet)이 없으면 임시 그림을 배경으로 깐다.
+function avatarEl(avatarId) {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
   const el = h('div', { className: 'room-avatar' });
   el.style.backgroundImage = def.sheet ? `url("${def.sheet}")` : placeholderSheet(def.color);
+  return el;
+}
+
+// 발끝을 칸(걷는 중에는 소수) 가운데에 맞춰 놓고, 방향과 걸음에 맞는 그림 칸을 보여 준다. 발끝의 화면 위치를 돌려준다.
+function placeAt(el, pos, facing, col) {
+  const c = tile(pos.x + 0.5, pos.y + 0.5);
+  el.style.left = `${Math.round(c.x - FW / 2)}px`;
+  el.style.top = `${Math.round(c.y - FOOT)}px`;
+  el.style.backgroundPosition = `${-col * FW}px ${-facing.row * FH}px`;
+  el.classList.toggle('flip', facing.flip);
+  return c;
+}
+
+// 바탕화면 배경의 방 그림에 아바타를 세워 둔다(걷지 않는 그림). 방 꾸미기에서 처음 서는 자리에 앞을 보고 선다.
+export function standAvatar(container, items, avatarId = 'basic') {
+  const spot = nearestFree(blockedOf(items), SPAWN.x, SPAWN.y);
+  if (!spot) return;
+  const el = avatarEl(avatarId);
+  placeAt(el, spot, FACING['0,1'], 0);
+  el.style.zIndex = depthZ(items, spot);
+  container.append(el);
+}
+
+// ctx: 방 꾸미기 앱의 ctx(root, roomEl, itemsEl, room.items, dragging, toLocal).
+// 돌려주는 것: attach(가구를 다시 그린 뒤), reset(공간을 바꿀 때), openSay, destroy
+export function mountAvatar(ctx, avatarId = 'basic') {
+  const el = avatarEl(avatarId);
   const bubble = h('div', { className: 'room-avatar-say', hidden: true });
   const input = h('input', {
     className: 'say-input', type: 'text', maxLength: 40, hidden: true,
@@ -92,31 +159,7 @@ export function mountAvatar(ctx, avatarId = 'basic') {
   let blocked = new Set();
   const held = []; // 누르고 있는 방향키. 나중에 누른 것이 먼저다
 
-  const inRoom = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
   const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y));
-
-  // 바닥 가구가 차지한 칸들. 책상 위 물건은 책상 칸 안에 있으므로 따로 세지 않아도 된다.
-  function scanBlocked() {
-    blocked = new Set();
-    for (const it of ctx.room.items) {
-      if (isWall(it)) continue;
-      const [w, d] = dims(it);
-      for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < d; dy++) blocked.add(key(it.x + dx, it.y + dy));
-    }
-  }
-
-  // 칸 (x, y)에 가장 가까운 빈칸. 방이 가구로 꽉 차 있으면 null.
-  function nearestFree(x, y) {
-    let best = null;
-    let bestD = Infinity;
-    for (let i = 0; i < N; i++) {
-      for (let j = 0; j < N; j++) {
-        const d = Math.abs(i - x) + Math.abs(j - y);
-        if (free(i, j) && d < bestD) { best = { x: i, y: j }; bestD = d; }
-      }
-    }
-    return best;
-  }
 
   // 지금 칸에서 갈 수 있는 칸을 가까운 순서로 훑어, to에 가장 가까운 칸까지의 길을 돌려준다(지금 칸은 빼고).
   // to가 가구에 막혀 있거나 갈 수 없으면 그 근처까지 간다. 바닥이 144칸뿐이라 매번 새로 훑어도 순식간이다.
@@ -142,27 +185,10 @@ export function mountAvatar(ctx, avatarId = 'basic') {
     return out;
   }
 
-  // 칸 a에 선 아바타를 어느 가구보다 위에 그릴지. 가구 순서(room.js의 zOf가 정한 z-index)를 그대로 읽고,
-  // 겹치지 않는 두 네모를 가르는 축으로 앞뒤를 판단한다. 아바타가 앞에 있는 가구들 중 가장 높은 것 바로 위에 그린다.
-  // 가구 중심의 합(depthOf)으로만 비교하면 긴 가구 옆에서 앞뒤가 뒤집힌다.
-  function depthZ(a) {
-    let z = 100;
-    for (const [it, itemEl] of ctx.itemEls) {
-      if (isWall(it)) continue;
-      const [w, d] = dims(it);
-      if (a.x >= it.x + w || a.y >= it.y + d) z = Math.max(z, Number(itemEl.style.zIndex) || 0);
-    }
-    return z + 1;
-  }
-
-  // 발끝을 칸 가운데에 맞춰 놓는다. at이 있으면 그 칸 기준으로 앞뒤 순서도 다시 정한다.
+  // 지금 자리에 그린다. at이 있으면 그 칸 기준으로 가구와의 앞뒤 순서도 다시 정한다.
   function draw(at) {
-    const c = tile(pos.x + 0.5, pos.y + 0.5);
-    el.style.left = `${Math.round(c.x - FW / 2)}px`;
-    el.style.top = `${Math.round(c.y - FOOT)}px`;
-    el.style.backgroundPosition = `${-col * FW}px ${-facing.row * FH}px`;
-    el.classList.toggle('flip', facing.flip);
-    if (at) el.style.zIndex = depthZ(at);
+    const c = placeAt(el, pos, facing, col);
+    if (at) el.style.zIndex = depthZ(ctx.room.items, at);
     if (!bubble.hidden) {
       bubble.style.left = `${Math.round(c.x)}px`;
       bubble.style.top = `${Math.round(c.y - FOOT - 4)}px`;
@@ -307,9 +333,9 @@ export function mountAvatar(ctx, avatarId = 'basic') {
     // 서 있던 칸에 가구가 놓였으면 가장 가까운 빈칸으로 옮긴다.
     attach() {
       stop();
-      scanBlocked();
+      blocked = blockedOf(ctx.room.items);
       if (!placed || !free(me.x, me.y)) {
-        const spot = nearestFree(placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
+        const spot = nearestFree(blocked, placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
         if (!spot) { el.remove(); return; }
         me.x = spot.x;
         me.y = spot.y;

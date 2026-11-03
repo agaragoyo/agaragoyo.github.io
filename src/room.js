@@ -115,7 +115,7 @@ export function renderItems(app) {
 
 // 벽 가구는 늘 뒤에, 바닥 가구는 앞(화면 아래)에 있을수록 위에 그린다.
 // 책상 위의 물건은 책상 바로 위 순서로 그린다.
-function zOf(items, item) {
+export function zOf(items, item) {
   if (isWall(item)) return 1 + item.y;
   const s = supportOf(items, item);
   if (s) return zOf(items, s) + 1 + Math.round(depthOf(item) * 3);

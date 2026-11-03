@@ -8,6 +8,7 @@ import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic } from './room.js';
+import { standAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
@@ -215,8 +216,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다.
   os.canSee = app => !(app.editOnly && os.mode === 'visit');
 
+  // 바탕화면 배경: 내 방 그림과, 방 꾸미기에서 처음 서는 자리에 서 있는 아바타
   function renderWallpaper() {
     renderStatic(el.wallpaper, os.home.scenes.room, 'indoor', os.openFurniture);
+    standAvatar(el.wallpaper, os.home.scenes.room);
   }
 
   // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
