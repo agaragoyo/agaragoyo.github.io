@@ -16,6 +16,28 @@ function warp(x, y, w, h) {
   return [((nx * m + 1) / 2) * w, ((ny * m + 1) / 2) * h];
 }
 
+// warp()의 반대: 원래 점 (x, y)가 화면 어디에 보이는지. 식을 거꾸로 풀지 않고 warp()로 몇 번 되짚어 맞춘다(K가 작아서 금방 맞는다).
+function unwarp(x, y, w, h) {
+  let px = x;
+  let py = y;
+  for (let i = 0; i < 8; i++) {
+    const [sx, sy] = warp(px, py, w, h);
+    px += x - sx;
+    py += y - sy;
+  }
+  return [px, py];
+}
+
+// 네모 테두리를 따라 고르게 찍은 점들. 휜 모양을 다각형으로 따라 그릴 때 쓴다.
+function rectEdge(x, y, w, h, n = 12) {
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push([x + (w * i) / n, y]);
+  for (let i = 0; i < n; i++) pts.push([x + w, y + (h * i) / n]);
+  for (let i = 0; i < n; i++) pts.push([x + w - (w * i) / n, y + h]);
+  for (let i = 0; i < n; i++) pts.push([x, y + h - (h * i) / n]);
+  return pts;
+}
+
 export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
   const filter = document.getElementById('crt-warp');
   const feImage = document.getElementById('crt-map');
@@ -75,6 +97,8 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
   // ---------- iframe 앱 ----------
   // 같은 사이트의 앱은 보정한 좌표를 iframe 안 문서까지 넣어 준다.
   // 다른 사이트의 앱은 안을 건드릴 수 없으므로, 그 창 영역만 보정 층에 구멍을 내서 클릭이 그대로 들어가게 한다.
+  // 구멍은 iframe이 화면에 휘어 보이는 모양대로 낸다. 휘기 전 네모대로 내면 안쪽으로 밀려 그려진
+  // 제목 줄 단추(최소화, 최대화, 닫기)가 구멍에 들어가서 클릭이 게임으로 새어 들어간다(known-issues 21).
   const sameOrigin = frame => {
     try { return new URL(frame.src, location.href).origin === location.origin; } catch { return false; }
   };
@@ -86,9 +110,9 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
     for (const frame of screen.querySelectorAll('iframe')) {
       if (sameOrigin(frame) || !frame.offsetParent) continue;
       const f = frame.getBoundingClientRect();
-      const x = f.left - r.left;
-      const y = f.top - r.top;
-      holes.push(`M${x} ${y}h${f.width}v${f.height}h${-f.width}Z`);
+      const pts = rectEdge(f.left - r.left, f.top - r.top, f.width, f.height)
+        .map(([x, y]) => unwarp(x, y, r.width, r.height));
+      holes.push(`M${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')}Z`);
     }
     input.style.clipPath = holes.length
       ? `path(evenodd, "M0 0H${r.width}V${r.height}H0Z ${holes.join(' ')}")`
@@ -272,5 +296,5 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
 
   window.addEventListener('resize', updateHoles);
   const setStrength = k => { K = k; apply(); };
-  return { apply, updateHoles, prepareFrame, setStrength };
+  return { apply, updateHoles, prepareFrame, setStrength, isWarpOn };
 }

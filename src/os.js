@@ -13,6 +13,11 @@ import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
 import { h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
 
+// 볼록 화면(1998)은 가장자리가 휘어 들어가고 어두워서, 그 자리에 놓인 창의 제목 줄 단추가 보이지 않는다.
+// 방송 화면의 자막 안전 영역(가운데 90%)처럼 위와 양옆을 5%씩(무대 840의 5%, 1280의 5%) 비우고 그 안에만 창을 둔다.
+// 아래는 작업 표시줄이 원래 자리를 지키므로 비우지 않는다(known-issues 21).
+const CURVE_INSET = { top: 42, right: 64, bottom: 0, left: 64 };
+
 export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   const $ = sel => stage.querySelector(sel);
   const el = {
@@ -39,8 +44,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       tasks: $('#tasks'),
       toLocal: toStage,
       onChange: () => crt.updateHoles(),
+      inset: () => (crt.isWarpOn() ? CURVE_INSET : null),
     }),
   };
+  settings.subscribe(() => os.wm.fit());
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
 
   function show(...names) {
