@@ -24,7 +24,7 @@ export const APPS = [
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'mouse', title: '마우스', icon: 'builtin:mouse', builtin: 'mouse' },
 
-  // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 김수민의 기존 게임들.
+  // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.
 // 새 앱을 만들 때는 apps/tidy-up 을 예시로 본다.
   { id: 'tidy-up', title: '짐 정리', icon: 'apps/tidy-up/icon.svg', src: 'apps/tidy-up/index.html', size: [440, 640], folder: 'games' },
   { id: 'file-ten', title: '파일 정리 10', icon: 'apps/file-ten/icon.svg', src: 'apps/file-ten/index.html', size: [720, 470], folder: 'games' },
