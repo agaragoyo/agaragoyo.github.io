@@ -105,13 +105,13 @@ export function lightPoint(item, elev = 0) {
   return { x: left + boxSize(def, item.r).w / 2, y: top + TH / 2 };
 }
 
-// 공간 배경. kind: 'indoor'(벽과 바닥) 또는 'outdoor'(울타리, 땅, 뒤쪽 아파트)
-export function sceneSVG(kind) {
-  return kind === 'outdoor' ? outdoorSVG() : roomSVG();
+// 공간 배경. kind: 'indoor'(벽과 바닥) 또는 'outdoor'(울타리, 땅, 뒤쪽 아파트). gate: 바깥 공간의 울타리 문(config.js의 SCENES)
+export function sceneSVG(kind, gate) {
+  return kind === 'outdoor' ? outdoorSVG(gate) : roomSVG();
 }
 
-// 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트
-function outdoorSVG() {
+// 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트. gate가 있으면 오른쪽 뒤 울타리에 아파트로 가는 문을 낸다.
+function outdoorSVG(gate) {
   const SLAB = 16;
   const below = p => ({ x: p.x, y: p.y + SLAB });
   const ground = [];
@@ -130,13 +130,34 @@ function outdoorSVG() {
     .map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="fill:var(--apt)" />
       <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#apt-windows)" />
       <rect x="${x}" y="${y - 10}" width="${w}" height="10" style="fill:var(--apt-roof)" />`).join('');
-  // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대
+  // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대. 문 자리는 비운다.
   const H = 34;
+  const up = (p, h) => ({ x: p.x, y: p.y - h });
+  const post = (p, h, cls = '') => `<line${cls && ` class="${cls}"`} x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - h}" />`;
+  const atGate = i => gate && i >= gate.x && i <= gate.x + gate.w;
   const fence = [];
   for (let i = 0; i <= N; i += 0.5) {
-    for (const p of [tile(i, 0), tile(0, i)]) fence.push(`<line x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - H}" />`);
+    if (!atGate(i)) fence.push(post(tile(i, 0), H));
+    fence.push(post(tile(0, i), H));
   }
-  const rail = (h) => `<polyline points="${pts([{ x: tile(0, N).x, y: tile(0, N).y - h }, { x: tile(0, 0).x, y: tile(0, 0).y - h }, { x: tile(N, 0).x, y: tile(N, 0).y - h }])}" />`;
+  const rail = h => (gate
+    ? `<polyline points="${pts([up(tile(0, N), h), up(tile(0, 0), h), up(tile(gate.x, 0), h)])}" />`
+      + `<polyline points="${pts([up(tile(gate.x + gate.w, 0), h), up(tile(N, 0), h)])}" />`
+    : `<polyline points="${pts([up(tile(0, N), h), up(tile(0, 0), h), up(tile(N, 0), h)])}" />`);
+  // 아파트로 가는 문: 양쪽 높은 기둥과 "아파트" 팻말. 팻말 글자는 울타리 비탈(가로 2 : 세로 1, 26.57도)을 따라 기울인다.
+  // .gate-hit는 문 자리 전체를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 내 방으로 돌아간다(room.js의 renderStatic).
+  let gateSVG = '';
+  if (gate) {
+    const a = tile(gate.x, 0);
+    const b = tile(gate.x + gate.w, 0);
+    const G = 60; // 문 기둥 높이(px)
+    const S = 18; // 팻말 높이(px)
+    const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - G + S / 2 };
+    fence.push(post(a, G, 'gate-post'), post(b, G, 'gate-post'));
+    gateSVG = `<polygon class="gate-sign" points="${pts([up(a, G), up(b, G), up(b, G - S), up(a, G - S)])}" />
+    <text class="gate-text" transform="translate(${c.x} ${c.y}) skewY(26.57)" text-anchor="middle" dominant-baseline="central">아파트</text>
+    <polygon class="gate-hit" points="${pts([a, b, up(b, G), up(a, G)])}"><title>두 번 누르면 집으로 돌아가요</title></polygon>`;
+  }
   return `<svg class="room-bg" width="1280" height="720" viewBox="0 0 1280 720">
     <defs>
       <pattern id="apt-windows" width="34" height="30" patternUnits="userSpaceOnUse">
@@ -149,6 +170,7 @@ function outdoorSVG() {
     ${ground.join('')}
     <g class="fence">${fence.join('')}${rail(12)}${rail(28)}</g>
     <g class="grid">${gridLines.join('')}</g>
+    ${gateSVG}
   </svg>`;
 }
 

@@ -101,11 +101,11 @@ export function furnitureEl(id, r = 0) {
   return el;
 }
 
-// 공간 배경을 그린다(공간을 바꿀 때도 부른다). kind: 'indoor' | 'outdoor'
-export function setSceneBg(app, kind) {
+// 공간 배경을 그린다(공간을 바꿀 때도 부른다). scene: config.js의 SCENES 한 줄
+export function setSceneBg(app, scene) {
   app.roomEl.querySelector('.room-bg')?.remove();
-  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(kind));
-  app.roomEl.dataset.kind = kind;
+  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene.kind, scene.gate));
+  app.roomEl.dataset.kind = scene.kind;
 }
 
 // 밤 그늘: 공간 전체를 덮는 어두운 층에, 불빛 가구 둘레만 구멍을 낸다(밤이 아니면 CSS가 숨긴다).
@@ -125,27 +125,29 @@ function renderShade(container, items) {
   shade.style.webkitMaskImage = mask;
 }
 
-// 바탕화면 배경의 방 그림 한 장. container 는 1280×720 크기여야 한다.
-// 가구를 두 번 누르면 onUse(item)를 부른다(아바타가 그 옆으로 걸어가 기믹을 쓴다).
+// 바탕화면 배경의 공간 그림 한 장. container 는 1280×720 크기여야 한다. scene: config.js의 SCENES 한 줄.
+// 가구를 두 번 누르면 onUse(item)를, 바깥 공간의 울타리 문을 두 번 누르면 onGate(gate)를 부른다(아바타가 그 옆으로 걸어가 쓴다).
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
 // 볼록 화면은 dblclick을 넘기지 못하므로 두 번 누르기는 클릭 간격으로 직접 잰다.
-export function renderStatic(container, items, kind, onUse) {
-  container.innerHTML = sceneSVG(kind);
-  let last = { item: null, t: 0 };
+export function renderStatic(container, items, scene, onUse, onGate) {
+  container.innerHTML = sceneSVG(scene.kind, scene.gate);
+  let last = { what: null, t: 0 };
+  const twice = (what, use) => () => {
+    const now = performance.now();
+    if (last.what === what && now - last.t < DOUBLE_CLICK_MS) {
+      last = { what: null, t: 0 };
+      use();
+    } else {
+      last = { what, t: now };
+    }
+  };
+  container.querySelector('.gate-hit')?.addEventListener('click', twice(scene.gate, () => onGate?.(scene.gate)));
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
-    el.addEventListener('click', () => {
-      const now = performance.now();
-      if (last.item === item && now - last.t < DOUBLE_CLICK_MS) {
-        last = { item: null, t: 0 };
-        onUse?.(item);
-      } else {
-        last = { item, t: now };
-      }
-    });
+    el.addEventListener('click', twice(item, () => onUse?.(item)));
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
