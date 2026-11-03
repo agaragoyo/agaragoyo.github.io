@@ -1,6 +1,6 @@
 // 아가라고요 OS. 전원을 켜면 부팅, 로그인, 바탕화면 순서로 진행하고 앱을 창으로 띄운다.
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
-//         'visit' 공유 링크로 들어온 친구 컴퓨터 (보기만 한다)
+//         'visit' 공유 링크로 들어온 친구 컴퓨터 (가구는 옮기지 못하고, 바탕화면에서 아바타로 걸으며 써 본다)
 // 앱은 src/apps/(기본 앱)와 apps/(팀원 앱, iframe)에 있고, 여기서는 목록대로 열어 주기만 한다.
 import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
@@ -201,8 +201,6 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     el.login.classList.remove('entering');
     if (my !== run) return;
     showDesktop();
-    // 친구는 방을 보러 왔으니 방 꾸미기를 바로 열어 준다.
-    if (mode === 'visit') os.openApp('room');
   }
 
   const clearHash = () => {
@@ -232,7 +230,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       active: () => !el.desktop.hidden && !os.wm.focusedWin(),
     });
     renderWallpaper();
-    if (os.mode === 'edit' && !walkTipShown) {
+    // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
+    if (os.mode === 'visit') {
+      toast(`${os.home.owner}의 집에 놀러 왔어요. 바닥을 눌러 걷고, 가구를 두 번 눌러 보세요`, 6000);
+    } else if (!walkTipShown) {
       walkTipShown = true;
       toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말해요', 5000);
     }
