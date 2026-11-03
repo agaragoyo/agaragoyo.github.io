@@ -14,6 +14,7 @@
 export const FURNITURE = [
   // 내 방: 바닥
   { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 56, surface: true, color: '#b08354' },
+  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, color: '#efe7cf' },
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 40, color: '#8fa9d6' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 124, color: '#9a6b44' },
