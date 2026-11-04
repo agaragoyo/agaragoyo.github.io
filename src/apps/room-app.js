@@ -113,7 +113,7 @@ export function openRoomApp(os, appInfo) {
       function render() {
         renderItems(ctx);
         root.querySelector('.owner').textContent = visiting ? `${os.home.owner}의 집에 놀러 왔습니다` : `${os.home.owner}의 집`;
-        const empty = !visiting && ctx.room.items.length === 0;
+        const empty = !visiting && !os.tutorial.active && ctx.room.items.length === 0; // 튜토리얼이 할 일을 하나씩 가리키는 동안에는 선반 전체 안내를 띄우지 않는다
         root.querySelector('.shelf').classList.toggle('hint', empty);
         // 안내는 창 안에 둔다. 창을 최소화하거나 다른 창으로 가리면 같이 보이지 않아야 한다.
         const hint = root.querySelector('.room-hint');

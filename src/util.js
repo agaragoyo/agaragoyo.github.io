@@ -4,6 +4,12 @@ export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').match
 export const wait = ms => new Promise(r => setTimeout(r, ms));
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// 낱말 끝 글자에 받침이 있는지(조사 고르기: 옷장이네, 소파네). 한글이 아니면 없는 것으로 본다.
+export function batchim(word) {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  return c >= 0 && c < 11172 && c % 28 !== 0;
+}
+
 // localStorage 읽고 쓰기. 사생활 보호 모드처럼 저장소를 못 쓰는 환경에서도 오류 없이 넘어간다.
 export function loadJSON(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }

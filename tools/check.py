@@ -140,6 +140,29 @@ def check_furniture(app_ids):
             err(p.relative_to(ROOT).as_posix(), f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
 
 
+# 튜토리얼 (src/tutorial.js). 쓰는 단계의 기믹이 없으면 그 단계에서 막히고, 화면에서 찾는 이름이 바뀌면 화살표가 조용히 사라진다.
+def check_tutorial():
+    where = 'data/furniture.js TUTORIAL_FURNITURE'
+    text = read('data/furniture.js')
+    m = re.search(r'TUTORIAL_FURNITURE\s*=\s*\{(.*?)\}', text)
+    if not m:
+        err(where, '튜토리얼 가구 목록이 없다')
+        return
+    picked = dict(re.findall(r"(\w+):\s*'([^']+)'", m.group(1)))
+    items = {f['id']: f for f in entries(text)}
+    for role, gimmick in (('first', None), ('light', 'night'), ('door', 'scene:playground')):
+        f = items.get(picked.get(role))
+        if not f:
+            err(where, f"{role} 의 가구 '{picked.get(role)}' 이 목록에 없다")
+        elif f.get('scene') != 'room':
+            err(where, f"{role} 의 가구 '{f['id']}' 은 내 방(scene: 'room') 가구여야 한다")
+        elif gimmick and f.get('gimmick') != gimmick:
+            err(where, f"{role} 의 가구 '{f['id']}' 은 gimmick: '{gimmick}' 이어야 한다")
+    for name, path in (('scene-tab', 'src/apps/room-app.js'), ('win-close', 'src/win.js'), ('gate-hit', 'src/iso.js')):
+        if name not in read(path):
+            err('src/tutorial.js', f"화면에서 찾는 이름 '{name}' 이 {path} 에 없다(이름을 바꿨다면 튜토리얼도 고친다)")
+
+
 # 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
 def check_avatars():
     ids = set()
@@ -255,7 +278,7 @@ def check_js_syntax():
         for n, (p, ext, code) in enumerate(jobs):
             f = pathlib.Path(tmp) / f'c{n}{ext}'
             f.write_text(code, encoding='utf-8')
-            r = subprocess.run([node, '--check', str(f)], capture_output=True, text=True)
+            r = subprocess.run([node, '--check', str(f)], capture_output=True, encoding='utf-8', errors='replace')
             if r.returncode:
                 detail = (r.stderr.strip().splitlines() or [''])
                 err(p.relative_to(ROOT).as_posix(), '자바스크립트 문법 오류: ' + next((l for l in detail if 'Error' in l), detail[0]))
@@ -265,6 +288,7 @@ def main():
     check_no_build_tools()
     app_ids = check_apps()
     check_furniture(app_ids)
+    check_tutorial()
     check_avatars()
     check_storage_keys()
     check_imports()

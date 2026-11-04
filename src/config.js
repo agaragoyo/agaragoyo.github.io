@@ -30,3 +30,4 @@ export const SCENES = [
 export const STORAGE_ROOM = 'agarago.home.v3';
 export const STORAGE_ROOM_OLD = 'agarago.room.v2'; // 공간이 하나뿐이던 때의 저장본 (내 방으로 옮겨 온다)
 export const STORAGE_SETTINGS = 'agarago.settings';
+export const STORAGE_TUTORIAL = 'agarago.tutorial'; // 튜토리얼 진행 상태(src/tutorial.js)

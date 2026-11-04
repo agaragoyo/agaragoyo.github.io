@@ -12,18 +12,13 @@ import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
-import { h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
+import { createTutorial } from './tutorial.js';
+import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
 
 // 볼록 화면(1998)은 가장자리가 휘어 들어가고 어두워서, 그 자리에 놓인 창의 제목 줄 단추가 보이지 않는다.
 // 방송 화면의 자막 안전 영역(가운데 90%)처럼 위와 양옆을 5%씩(무대 840의 5%, 1280의 5%) 비우고 그 안에만 창을 둔다.
 // 아래는 작업 표시줄이 원래 자리를 지키므로 비우지 않는다(known-issues 21).
 const CURVE_INSET = { top: 42, right: 64, bottom: 0, left: 64 };
-
-// 낱말 끝 글자에 받침이 있는지(조사 고르기: 옷장이네, 소파네). 한글이 아니면 없는 것으로 본다.
-function batchim(word) {
-  const c = word.charCodeAt(word.length - 1) - 0xac00;
-  return c >= 0 && c < 11172 && c % 28 !== 0;
-}
 
 export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   const $ = sel => stage.querySelector(sel);
@@ -56,6 +51,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     }),
   };
   settings.subscribe(() => os.wm.fit());
+  os.tutorial = createTutorial(os);
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
 
@@ -65,6 +61,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     if (!names.includes('desktop')) {
       walker?.destroy();
       walker = null;
+      os.tutorial.hide();
     }
   }
 
@@ -141,6 +138,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
         clearHash();
         const home = sanitizeHome({ owner: name });
         saveJSON(STORAGE_ROOM, home);
+        os.tutorial.arm();
         enter('edit', home, my);
       }));
     }
@@ -241,12 +239,13 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
     if (os.mode === 'visit') {
       toast(`${os.home.owner}의 집에 놀러 왔어요. 바닥을 눌러 걷고, 가구를 두 번 눌러 보세요`, 6000);
-    } else if (!walkTipShown) {
+    } else if (!walkTipShown && !os.tutorial.active) { // 튜토리얼을 하는 동안에는 걷는 법을 튜토리얼 끝에서 알려 준다
       walkTipShown = true;
       toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말해요', 5000);
     }
     renderDesktopIcons();
     tick();
+    if (os.mode === 'edit') os.tutorial.resume();
   }
 
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다. 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
@@ -299,6 +298,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       const b = h('button', {
         type: 'button',
         className: app.href ? 'desk-icon external' : 'desk-icon',
+        dataset: { app: app.id },
         title: app.href ? `새 탭에서 열립니다(${new URL(app.href).host})` : null,
         onclick: () => {
           const now = performance.now();
@@ -343,6 +343,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
       item({ title: '밤', color: '#2c2a6b' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
+      ...(os.mode === 'edit' ? [item({ title: '튜토리얼', color: '#3f7a4f' }, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
       item({ title: '로그아웃', color: '#6b6f8f' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
       item({ title: '끄기', color: '#b5483f' }, '컴퓨터 끄기', requestPowerOff),
     );
@@ -369,8 +370,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
 
   // 바탕화면에서 가구를 두 번 눌렀을 때. 아바타가 그 옆으로 걸어간 뒤 기믹을 쓴다(심즈처럼 캐릭터가 가서 쓴다).
   os.useFurniture = item => {
-    if (walker) walker.approach(item, () => os.openFurniture(item));
-    else os.openFurniture(item);
+    const use = () => {
+      os.openFurniture(item);
+      os.tutorial.used(item.id);
+    };
+    if (walker) walker.approach(item, use);
+    else use();
   };
 
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 가구 이름을 말한다.
