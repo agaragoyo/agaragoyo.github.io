@@ -1091,6 +1091,63 @@ body:not(.curve) .fx-curve { display: none; }
   pointer-events: none;
 }
 
+/* ---------- 튜토리얼 (src/tutorial.js) ---------- */
+/* 창(20)과 작업 표시줄(30) 위, 시작 메뉴(40) 아래에 뜬다. 무대에 붙어 있어 볼록 화면에서 같이 휜다.
+   카드 자리는 방 바닥 마름모의 오른쪽 아래 빈 귀퉁이다. 볼록 화면의 창 여백(오른쪽 64px) 안쪽이고 방 꾸미기의 돌리기 안내보다 위다.
+   글을 읽는 동안에도 뒤의 바닥을 누를 수 있게 클릭은 흘려보내고 단추만 받는다. 바탕과 글자색은 밤에도 그대로 고정한다 */
+.coach-card {
+  position: absolute;
+  right: 84px;
+  bottom: 212px;
+  z-index: 35;
+  width: 340px;
+  padding: 8px 12px 12px;
+  border: 2px solid #2b2b33;
+  border-radius: 8px;
+  background: #ffffe1;
+  box-shadow: 3px 3px 0 #0005;
+  font-size: 18px;
+  line-height: 1.4;
+  color: #2b2b33;
+  word-break: keep-all;
+  pointer-events: none;
+}
+/* 가리키는 가구가 카드 자리에 놓여 있으면 왼쪽 빈 귀퉁이로 비킨다(바탕화면 아이콘 줄 오른쪽) */
+.coach-card.left { right: auto; left: 124px; }
+.coach-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; }
+.coach-title { flex: none; font-weight: 700; }
+.coach-blocks { flex: 1; display: flex; gap: 2px; }
+.coach-blocks i { flex: 0 1 12px; height: 10px; border: 1px solid #2b2b33; }
+.coach-blocks i.on { background: #2b2b33; }
+.coach-btn { flex: none; padding: 2px 8px; font-size: 14px; pointer-events: auto; }
+.coach-text, .coach-hint { margin: 0; }
+.coach-text { white-space: pre-line; }
+.coach-hint { margin-top: 6px; font-size: 15px; color: #b3261e; }
+.coach-ring {
+  position: absolute;
+  z-index: 36;
+  border-radius: 6px;
+  outline: 3px solid #ffd23c;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #2b2b33;
+  pointer-events: none;
+}
+.coach-arrow { position: absolute; z-index: 36; width: 40px; height: 48px; pointer-events: none; }
+.coach-arrow[data-dir="up"], .coach-arrow[data-dir="rise"] { transform: rotate(180deg); }
+.coach-arrow[data-dir="left"] { transform: rotate(90deg); }
+/* 움직임은 몇 칸씩 끊어 뛴다. 부드럽게 움직이면 볼록 화면이 매 프레임 필터를 다시 계산한다(known-issues 5) */
+.coach-arrow svg { display: block; overflow: visible; animation: coach-bob 0.8s steps(1) infinite; }
+.coach-arrow[data-dir="rise"] svg { animation: coach-rise 0.9s steps(1) infinite; }
+@keyframes coach-bob { 50% { transform: translateY(8px); } }
+@keyframes coach-rise { 33% { transform: translateY(14px); } 66% { transform: translateY(28px); } }
+@media (prefers-reduced-motion: reduce) {
+  .coach-arrow svg, .coach-arrow[data-dir="rise"] svg { animation: none; }
+}
+/* 가구를 쓰고 나면 아바타가 바로 앞에 서 있다. 튜토리얼이 그 가구를 다시 누르라고 할 때 아바타가 대신 눌리지 않게 한다 */
+.stage.coach-use .room-avatar { pointer-events: none; }
+/* 끄는 동안에는 선반 카드를 가리킬 일이 없고 가구를 가리기만 한다 */
+body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
+
 /* =====================================================================
    시대 비교 (body[data-era]). 팀 의견을 들은 뒤 하나로 정하면 나머지는 지운다.
    ===================================================================== */

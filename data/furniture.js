@@ -46,3 +46,9 @@ export const FURNITURE = [
 ];
 
 export const BY_ID = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
+
+// 튜토리얼(src/tutorial.js)에서 놓아 보는 기본 가구. 여기의 id만 바꾸면 안내 문구와 화살표가 따라간다.
+//   first  놓는 법을 배우는 가구. 기믹을 쓰지 않으므로 내 방 가구 아무거나 된다. 가구별 인터랙션이 정해지면 바뀔 수 있다
+//   light  가구를 쓸 수 있다는 것을 배우는 가구. gimmick: 'night'여야 한다
+//   door   놀이터가 있다는 것을 배우는 가구. gimmick: 'scene:playground'여야 한다
+export const TUTORIAL_FURNITURE = { first: 'bed', light: 'lamp', door: 'window' };

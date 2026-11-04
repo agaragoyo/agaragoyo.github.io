@@ -29,6 +29,8 @@
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 부팅 글자, 로그인 화면 흐름 | `src/os.js`의 `BIOS`, `showLogin` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
+| 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
+| 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 창 열기, 끌기, 최대화 | `src/win.js` |
 | 시대마다 다른 모니터와 창 모양 | `style.css` 끝의 "시대 비교" 덩어리, `src/main.js`의 `ERAS` |
 | 볼록 화면이 휘는 정도 | `src/main.js`의 `ERAS`(`warp`), 공식은 `src/crt.js`의 `warp` |
@@ -62,13 +64,14 @@
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 볼록 효과를 켤지 정하기(핀치 줌 중에는 끈다), 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다 | 없음 |
 | `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서) 저장소. 바뀌면 구독자에게 알린다 | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
-| `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `reduceMotion` |
+| `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
 ## src/: 컴퓨터(OS)
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
+| `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기와 다시 보기 | `createTutorial` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
@@ -106,7 +109,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `data/apps.js` | 앱 목록. 바탕화면 아이콘, 시작 메뉴, 미니게임 폴더가 모두 여기서 만들어진다. 칸의 뜻은 파일 맨 위에 있다 |
-| `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있다 |
+| `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있고, 튜토리얼 기본 가구는 맨 아래에 있다 |
 | `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
 
 ## apps/: 팀원 앱
@@ -168,7 +171,7 @@
 ```
 index.html
 └─ src/main.js ─── settings.js, cursors.js, crt.js
-   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
+   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
@@ -190,5 +193,5 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 6. 아이콘, 바탕화면, 작업 표시줄과 시작 메뉴
 7. 부팅, 로그인
 8. 화면 효과(스캔라인, 그레인, 깜빡임, 볼록), 전원 연출
-9. 공간 탭, 밤 모드, 돌리기 안내
+9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
 10. 시대 비교: 1998, 2005, 2010 덩어리(모니터, 창, 부팅, 로그인 모양을 시대마다 덮어쓴다)

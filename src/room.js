@@ -77,6 +77,7 @@ export function furnitureEl(id, r = 0) {
   const def = BY_ID[id];
   const el = document.createElement('div');
   el.className = 'furn';
+  el.dataset.id = id;
   const { w, h } = boxSize(def, r);
   el.style.width = w + 'px';
   el.style.height = h + 'px';
