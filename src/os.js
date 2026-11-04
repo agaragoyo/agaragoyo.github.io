@@ -40,6 +40,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     crt,
     settings,
     home: null,
+    realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
     mode: null,
     place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
@@ -289,6 +290,28 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   };
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
 
+  // 튜토리얼 다시 보기의 연습 방(src/tutorial.js). 저장된 집을 realHome에 두고 빈 집으로 바꿔 낀다.
+  // 화면과 창은 모두 os.home을 읽으므로 바꿔 끼우기만 하면 따라온다. 저장(os.saveHome)만 막고, 공유는 realHome을 읽는다.
+  // 바탕화면을 다시 만들어 가구로 걸어가던 아바타의 예약도 버린다. 남아 있으면 연습이 끝난 뒤 진짜 밤낮을 바꾼다.
+  // 모두 메모리에만 있어서 새로 고침을 하면 저장된 집으로 돌아온다(known-issues 40).
+  os.startPractice = () => {
+    os.realHome = os.home;
+    os.home = sanitizeHome({ owner: os.home.owner });
+    settings.hold({ night: false });
+    os.wm.closeAll();
+    showDesktop();
+  };
+
+  // redraw: 바탕화면으로 돌아오는 길이면 true, 로그아웃이나 전원 끄기로 바탕화면을 떠나는 길이면 false다.
+  os.endPractice = redraw => {
+    os.home = os.realHome;
+    os.realHome = null;
+    settings.release();
+    if (!redraw) return;
+    for (const key of ['room', 'share']) os.wm.get(key)?.close(); // 연습 방을 보여 주던 창만 닫는다. 연습 중에 연 게임은 그대로 둔다
+    showDesktop();
+  };
+
   // 바탕화면(창 바깥)을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면의 아바타가 받는다.
   el.desktop.addEventListener('pointerdown', e => {
     if (!e.target.closest('.win')) os.wm.blur();
@@ -351,7 +374,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
       item({ title: '밤', color: '#2c2a6b' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
-      ...(os.mode === 'edit' ? [item({ title: '튜토리얼', color: '#3f7a4f' }, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
+      ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
       item({ title: '로그아웃', color: '#6b6f8f' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
       item({ title: '끄기', color: '#b5483f' }, '컴퓨터 끄기', requestPowerOff),
     );
@@ -397,7 +420,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   };
 
   os.saveHome = () => {
-    if (os.mode === 'edit') saveJSON(STORAGE_ROOM, os.home);
+    if (os.mode === 'edit' && !os.realHome) saveJSON(STORAGE_ROOM, os.home);
     renderWallpaper();
   };
 
