@@ -22,8 +22,16 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     return { x: i.left, y: i.top, w: DESK_W - i.left - i.right, h: DESK_H - i.top - i.bottom };
   }
 
+  // 앞서 쓰던 앱(iframe)의 키보드 초점을 거둔다. win을 주면 그 창 안의 앱은 그대로 둔다.
+  // 제목 줄 끌기와 볼록 화면의 보정 층은 브라우저의 초점 이동을 막아서, 다른 곳을 눌러도 키가 앱으로 계속 들어간다(known-issues 36).
+  function releaseFrame(win) {
+    const a = document.activeElement;
+    if (a?.tagName === 'IFRAME' && !win?.el.contains(a)) a.blur();
+  }
+
   function focus(win) {
     if (win.minimized) restore(win);
+    releaseFrame(win);
     focused = win;
     win.el.style.zIndex = ++topZ;
     for (const w of wins.values()) w.el.classList.toggle('inactive', w !== win);
@@ -32,6 +40,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
 
   // 바탕화면을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면(아바타)이 받는다.
   function blur() {
+    releaseFrame();
     if (!focused) return;
     focused = null;
     for (const w of wins.values()) w.el.classList.add('inactive');
@@ -44,6 +53,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     if (focused === win) {
       focused = [...wins.values()].filter(w => !w.minimized).sort((a, b) => b.el.style.zIndex - a.el.style.zIndex)[0] || null;
       if (focused) focus(focused);
+      else releaseFrame();
     }
     syncTasks();
     onChange();
@@ -132,7 +142,6 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
       b.className = `win-btn ${cls}`;
       b.setAttribute('aria-label', label);
       b.textContent = text;
-      b.addEventListener('pointerdown', e => e.stopPropagation());
       btns.append(b);
       return b;
     };
@@ -179,6 +188,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     el.addEventListener('pointerdown', () => { if (focused !== win) focus(win); });
     let lastBarClick = 0;
     bar.addEventListener('pointerdown', e => {
+      if (e.target.closest('.win-btn')) return; // 제목 줄 단추는 끌기와 두 번 누르기에서 뺀다
       const now = performance.now();
       if (now - lastBarClick < DOUBLE_CLICK_MS) { setMax(win, !win.maximized); lastBarClick = 0; return; }
       lastBarClick = now;
@@ -191,6 +201,15 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     onChange();
     return win;
   }
+
+  // iframe 앱 안을 누르면 이 문서에는 pointerdown이 오지 않아 창이 앞으로 나오지 않는다.
+  // 대신 키보드 초점이 앱으로 넘어가면서 이 문서의 window에 blur가 오므로, 그때 그 앱의 창을 앞으로 가져온다(known-issues 36).
+  window.addEventListener('blur', () => setTimeout(() => {
+    const frame = document.activeElement;
+    if (frame?.tagName !== 'IFRAME') return;
+    const win = [...wins.values()].find(w => w.el.contains(frame));
+    if (win && win !== focused) focus(win);
+  }));
 
   function dragWindow(win, e) {
     if (e.button !== 0) return;

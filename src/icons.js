@@ -9,6 +9,9 @@ const BUILTIN = {
     <path d="M13 32 V10 M19 34 V12 M13 17 l6 2 M13 23 l6 2 M13 29 l6 2" fill="none" stroke="#5a4632" stroke-width="2"/>
     <path d="M19 12 C26 13 28 31 37 33" fill="none" stroke="#5a4632" stroke-width="8" stroke-linecap="round"/>
     <path d="M19 12 C26 13 28 31 37 33" fill="none" stroke="#e5534b" stroke-width="4.5" stroke-linecap="round"/></svg>`,
+  home: `<svg viewBox="0 0 48 48"><rect x="10" y="22" width="28" height="20" fill="#f2e6cb" stroke="#5a4632" stroke-width="2"/>
+    <polygon points="24,6 44,24 4,24" fill="#c0503a" stroke="#5a4632" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="20" y="29" width="9" height="13" fill="#8a6440" stroke="#5a4632" stroke-width="2"/></svg>`,
   folder: `<svg viewBox="0 0 48 48"><path d="M5 12 h14 l4 5 h20 v23 h-38 z" fill="#e8b84a" stroke="#7a5a12" stroke-width="2"/>
     <path d="M5 19 h38 v21 h-38 z" fill="#f6cf6a" stroke="#7a5a12" stroke-width="2"/>
     <rect x="19" y="25" width="10" height="7" rx="2" fill="#7a5a12"/><circle cx="21.5" cy="28.5" r="1" fill="#f6cf6a"/><circle cx="26.5" cy="28.5" r="1" fill="#f6cf6a"/></svg>`,
