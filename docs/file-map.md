@@ -31,6 +31,7 @@
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
+| 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
 | 창 열기, 끌기, 최대화 | `src/win.js` |
 | 시대마다 다른 모니터와 창 모양 | `style.css` 끝의 "시대 비교" 덩어리, `src/main.js`의 `ERAS` |
 | 볼록 화면이 휘는 정도 | `src/main.js`의 `ERAS`(`warp`), 공식은 `src/crt.js`의 `warp` |
@@ -62,7 +63,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 볼록 효과를 켤지 정하기(핀치 줌 중에는 끄고, 주소의 `?warp=on`은 크롬 계열이 아닌 브라우저에서도 켠다), 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다 | 없음 |
-| `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서) 저장소. 바뀌면 구독자에게 알린다 | `settings` |
+| `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서) 저장소. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
@@ -70,8 +71,8 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
-| `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기와 다시 보기 | `createTutorial` |
+| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |

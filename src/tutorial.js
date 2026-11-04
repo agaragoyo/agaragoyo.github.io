@@ -6,7 +6,11 @@
 // 길마다 알림을 심는 대신 이렇게 읽는다. 읽기만 하고 달라진 것이 없으면 그리지 않으므로 볼록 화면의 필터를 다시 계산하지 않는다.
 // 스탠드를 썼는지처럼 상태로 남지 않는 일만 passed에 적어 저장한다.
 //
-// 가구는 data/furniture.js의 TUTORIAL_FURNITURE 한곳에서 바꾼다. 안내 카드는 무대에 붙고 클릭을 흘려보낸다(건너뛰기 단추만 받는다).
+// 시작 메뉴의 다시 보기는 저장된 방을 두고 빈 연습 방에서 첫 단계부터 진행한다. 지금 상태를 읽는 방식이라 가구가 이미 있는 방에서는 놓는 단계가 저절로 지나가기 때문이다.
+// 연습 방은 os.startPractice가 만들고, os.realHome이 있는 동안이 연습 중이다. 연습 중에는 진행 상태도 저장하지 않아서,
+// 연습이 끝나면 저장된 상태로 돌아온다(처음 튜토리얼을 하던 사람은 하던 자리에서 이어진다).
+//
+// 가구는 data/furniture.js의 TUTORIAL_FURNITURE 한곳에서 바꾼다. 안내 카드는 무대에 붙고 클릭을 흘려보낸다(카드의 단추만 받는다).
 import { STORAGE_TUTORIAL } from './config.js';
 import { BY_ID, TUTORIAL_FURNITURE } from '../data/furniture.js';
 import { batchim, h, loadJSON, saveJSON } from './util.js';
@@ -17,15 +21,18 @@ const LESSONS = ['가구 놓기', '가구 쓰기', '놀이터 가기'];
 const ARROW_H = 56; // 화살표가 차지하는 높이(그림 48px, 튀는 폭 8px). 대상 위쪽에 이만큼 자리가 없으면 아래에 둔다
 const CARD = { left: 860, top: 470, bottom: 628 }; // 안내 카드의 기본 자리(style.css의 .coach-card). 대상이 여기에 걸리면 카드가 왼쪽으로 비킨다
 
+const APP = { title: '튜토리얼', color: '#3f7a4f' }; // 시작 메뉴와 안내 창의 아이콘
+
 const eul = word => `${word}${batchim(word) ? '을' : '를'}`;
 const newState = active => ({ active, passed: {} });
+const loadState = () => ({ ...newState(false), ...loadJSON(STORAGE_TUTORIAL) });
 
 export function createTutorial(os) {
   const { first, light, door } = TUTORIAL_FURNITURE;
   const lightName = eul(BY_ID[light].name);
   const doorName = eul(BY_ID[door].name);
-  let state = { ...newState(false), ...loadJSON(STORAGE_TUTORIAL) };
-  const save = () => saveJSON(STORAGE_TUTORIAL, state);
+  let state = loadState();
+  const save = () => { if (!os.realHome) saveJSON(STORAGE_TUTORIAL, state); };
 
   // ---------- 지금 상태 읽기 ----------
   const has = id => os.home.scenes[HOME].some(it => it.id === id);
@@ -91,7 +98,7 @@ export function createTutorial(os) {
     {
       id: 'close',
       lesson: 0,
-      text: () => '놓은 가구는 바로 저장됩니다.\n× 단추를 눌러 창을 닫으세요.',
+      text: () => `${os.realHome ? '평소에는 놓은 가구가\n바로 저장됩니다.' : '놓은 가구는 바로 저장됩니다.'}\n× 단추를 눌러 창을 닫으세요.`,
       done: () => !roomWin(),
       target: () => roomWin()?.el.querySelector('.win-close'),
     },
@@ -127,7 +134,7 @@ export function createTutorial(os) {
   const END = {
     id: 'end',
     title: '튜토리얼 끝',
-    text: () => '튜토리얼을 마쳤습니다.\n바닥을 누르면 아바타가 걷고,\nEnter를 누르면 말합니다.\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.',
+    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르면 아바타가 걷고,\nEnter를 누르면 말합니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
     target: () => null,
   };
 
@@ -148,7 +155,7 @@ export function createTutorial(os) {
   // ---------- 그리기 ----------
   const title = h('span', { className: 'coach-title' });
   const blocks = h('span', { className: 'coach-blocks', 'aria-hidden': 'true' }, STEPS.map(() => h('i')));
-  const action = h('button', { type: 'button', className: 'btn coach-btn', onclick: () => (shown === END ? hide() : skip()) });
+  const action = h('button', { type: 'button', className: 'btn coach-btn', onclick: () => (shown === END || os.realHome ? close() : skip()) });
   const text = h('p', { className: 'coach-text' });
   const hint = h('p', { className: 'coach-hint', hidden: true }, '빨갛게 보이는 자리에는 놓을 수 없습니다.');
   const card = h('div', { className: 'coach-card', role: 'status', hidden: true },
@@ -168,8 +175,8 @@ export function createTutorial(os) {
     title.textContent = view.title || LESSONS[STEPS[index].lesson];
     text.textContent = view.text();
     [...blocks.children].forEach((b, i) => b.classList.toggle('on', i < index));
-    action.textContent = view === END ? '닫기' : '건너뛰기';
-    action.title = view === END ? '' : '튜토리얼을 끝냅니다. 시작 메뉴에서 다시 볼 수 있습니다';
+    action.textContent = os.realHome ? '내 방으로 돌아가기' : view === END ? '닫기' : '건너뛰기';
+    action.title = os.realHome || view === END ? '' : '튜토리얼을 끝냅니다. 시작 메뉴에서 다시 볼 수 있습니다';
     hint.hidden = true;
     card.hidden = false;
     // 가구를 쓰고 나면 아바타가 그 옆에 서 있어서, 다시 쓰라고 할 때 가구 대신 아바타(말하기)가 눌리지 않게 한다.
@@ -238,6 +245,19 @@ export function createTutorial(os) {
     card.hidden = true;
   }
 
+  // 연습 방에서 나와 저장된 집과 진행 상태로 돌아간다. redraw의 뜻은 os.endPractice에 있다.
+  function leavePractice(redraw) {
+    if (!os.realHome) return;
+    state = loadState();
+    os.endPractice(redraw);
+  }
+
+  // 카드의 단추: 끝 카드를 닫거나 연습을 그만둔다.
+  function close() {
+    hide();
+    leavePractice(true);
+  }
+
   function finish() {
     stop();
     state = newState(false);
@@ -252,7 +272,34 @@ export function createTutorial(os) {
     os.toast('튜토리얼은 시작 메뉴에서 다시 볼 수 있습니다', 4000);
   }
 
+  function startPractice() {
+    state = newState(true);
+    os.startPractice(); // 바탕화면을 새로 그리면서 resume을 부른다
+  }
+
+  // 바로 시작하지 않고 어디서 연습하는지 먼저 알린다(known-issues 32). 창을 닫는 것도 사용자가 모르는 결과이므로 열린 창이 있을 때만 적는다.
+  function askPractice() {
+    const lost = os.wm.all().length ? '연습에서 놓은 가구는 저장되지 않고, 열려 있는 창은 닫힙니다.' : '연습에서 놓은 가구는 저장되지 않습니다.';
+    os.wm.open({
+      key: 'tutorial',
+      app: APP,
+      title: '튜토리얼 다시 보기',
+      width: 360,
+      height: 190,
+      build(body, win) {
+        body.append(
+          h('p', {}, '지금 방은 그대로 두고', h('br'), '빈 방에서 연습합니다.'),
+          h('p', { className: 'meta' }, lost),
+          h('div', { className: 'link-row' },
+            h('button', { className: 'btn', type: 'button', onclick: startPractice }, '빈 방에서 연습하기'),
+            h('button', { className: 'btn', type: 'button', onclick: () => win.close() }, '취소')),
+        );
+      },
+    });
+  }
+
   return {
+    app: APP,
     get active() { return state.active; },
     // 새 사용자를 만들 때 부른다. 기존 사용자는 여기를 지나지 않으므로 튜토리얼이 저절로 나오지 않는다.
     arm() {
@@ -265,16 +312,13 @@ export function createTutorial(os) {
       stop();
       tick();
     },
-    // 바탕화면을 떠날 때 부른다. 진행 상태는 그대로 둔다.
-    hide,
-    // 시작 메뉴의 다시 보기. 방을 건드리지 않으려고 이미 있는 가구를 지우지 않으므로, 놓는 단계는 없는 가구만 남는다.
-    restart() {
-      state = newState(true);
-      save();
-      stop();
-      tick();
-      if ([first, light, door].some(has)) os.toast('방에 있는 가구는 놓는 단계를 건너뜁니다', 4000);
+    // 바탕화면을 떠날 때 부른다. 진행 상태는 그대로 두고, 연습 중이었으면 연습을 끝낸다.
+    hide() {
+      hide();
+      leavePractice(false);
     },
+    // 시작 메뉴의 다시 보기.
+    restart: askPractice,
     // 바탕화면에서 가구를 쓴 뒤 부른다.
     used(id) {
       if (state.active && os.mode === 'edit' && id === light) pass('night');

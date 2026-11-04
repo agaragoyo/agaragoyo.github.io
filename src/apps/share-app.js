@@ -16,7 +16,8 @@ function saveFile(blob, name) {
 }
 
 export function openShareApp(os, app) {
-  const linkNow = () => `${location.origin}${location.pathname}#room=${encodeHome(os.home)}`;
+  const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다
+  const linkNow = () => `${location.origin}${location.pathname}#room=${encodeHome(home())}`;
   const win = os.wm.open({
     key: app.id,
     app,
@@ -52,7 +53,7 @@ export function openShareApp(os, app) {
           button.disabled = true;
           button.textContent = '그림을 만드는 중';
           try {
-            const canvas = await renderRoomImage(os.home.scenes[scene.id], scene);
+            const canvas = await renderRoomImage(home().scenes[scene.id], scene);
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             if (!blob) throw new Error('PNG 파일을 만들지 못했다(canvas.toBlob이 빈 값을 돌려줌)');
             saveFile(blob, file);
@@ -70,8 +71,10 @@ export function openShareApp(os, app) {
       };
 
       body.append(
-        h('p', {}, '이 링크를 받은 친구는 내 컴퓨터에 손님으로 들어와 지금 모습 그대로 방을 구경할 수 있습니다. ',
-          '방을 고친 뒤에는 링크를 다시 복사해서 보내 주세요.'),
+        os.realHome
+          ? h('p', {}, '연습 방은 공유되지 않습니다. 링크와 그림에는 저장된 내 방이 담깁니다.')
+          : h('p', {}, '이 링크를 받은 친구는 내 컴퓨터에 손님으로 들어와 지금 모습 그대로 방을 구경할 수 있습니다. ',
+            '방을 고친 뒤에는 링크를 다시 복사해서 보내 주세요.'),
         h('div', { className: 'share-row' }, input, h('button', { type: 'button', className: 'btn', onclick: copy }, '복사')),
         h('p', { className: 'share-save-tip' }, '그림 한 장으로 보내려면 PNG 파일로 내려받으세요.'),
         h('div', { className: 'share-row share-save' }, ...SCENES.map(saveButton)),
