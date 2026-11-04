@@ -497,6 +497,9 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 .win-body p { margin: 0 0 10px; }
 .win-body .meta { margin: 0; font-size: 14px; color: #6c6457; }
 .share-row { display: flex; gap: 8px; }
+/* 공유하기의 그림 내려받기: 링크 줄과 떨어뜨리고, 공간이 늘어 단추가 많아지면 줄을 바꾼다 */
+.win-body .share-save-tip { margin-top: 14px; }
+.share-save { flex-wrap: wrap; }
 .link-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .link-row a.btn { display: inline-block; text-decoration: none; }
 .share-row input, .new-row input {

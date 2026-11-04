@@ -19,6 +19,16 @@ function hasImage(id) {
   return probes.get(id);
 }
 
+// 가구 한 개에 쓸 그림 파일. 돌려 놓았으면(r: 1) 돌린 그림(<id>-r.png)이 있으면 그걸, 없으면 원래 그림을 좌우로 뒤집어(mirror) 쓴다.
+// 그림이 하나도 없으면 null이고, 그때는 임시 모양을 보여 준다. 방 그림을 파일로 만들 때(room-image.js)도 이 규칙을 그대로 쓴다.
+export async function imageFor(id, r = 0) {
+  if (r) {
+    if (await hasImage(`${id}-r`)) return { name: `${id}-r`, mirror: false };
+    return (await hasImage(id)) ? { name: id, mirror: true } : null;
+  }
+  return (await hasImage(id)) ? { name: id, mirror: false } : null;
+}
+
 // 그림의 칠해진 모양(클릭을 받을 곳). 그림을 OUTLINE_BANDS개의 가로 띠로 나눠, 띠마다 칠해진 왼쪽 끝과 오른쪽 끝을
 // 계단처럼 이은 다각형이다(그림 px). 칠해진 곳은 모두 들어가고, 다리 사이처럼 안쪽에 난 빈틈은 그대로 둔다.
 const OUTLINE_BANDS = 40;
@@ -62,7 +72,7 @@ function outlineOf(name) {
 }
 
 // 가구 한 개의 겉모습. assets/furniture/<id>.png 가 있으면 그림을, 없으면 임시 모양을 보여 준다.
-// r: 돌려 놓았으면 1. 돌린 그림(<id>-r.png)이 있으면 그걸 쓰고, 없으면 원래 그림을 좌우로 뒤집는다.
+// r: 돌려 놓았으면 1. 어떤 그림 파일을 쓸지는 imageFor가 정한다.
 export function furnitureEl(id, r = 0) {
   const def = BY_ID[id];
   const el = document.createElement('div');
@@ -90,14 +100,7 @@ export function furnitureEl(id, r = 0) {
       hit.style.clipPath = `polygon(${o.pts.map(([x, y]) => `${(dx + x * s).toFixed(1)}px ${(dy + y * s).toFixed(1)}px`).join(', ')})`;
     });
   };
-  if (r) {
-    hasImage(`${id}-r`).then(ok => {
-      if (ok) show(`${id}-r`, false);
-      else hasImage(id).then(base => { if (base) show(id, true); });
-    });
-  } else {
-    hasImage(id).then(ok => { if (ok) show(id, false); });
-  }
+  imageFor(id, r).then(src => { if (src) show(src.name, src.mirror); });
   return el;
 }
 

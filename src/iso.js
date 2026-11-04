@@ -43,22 +43,26 @@ export const depthOf = item => {
   return item.x + w / 2 + item.y + d / 2;
 };
 
-// el(가구 그림)을 방 안 제자리에 놓는다. elev: 책상 위에 올라가 있으면 책상 높이.
-export function placeEl(el, item, elev = 0) {
+// 가구 한 개가 놓이는 자리: 가구 상자의 왼쪽 위(무대 px)와, 벽 가구를 벽에 눕히는 기울기(skewY 도, 바닥 가구는 0).
+// elev: 책상 위에 올라가 있으면 책상 높이. 방 그림을 파일로 만들 때(room-image.js)도 이 값으로 그린다.
+export function placementOf(item, elev = 0) {
   const def = BY_ID[item.id];
   if (def.zone === 'wall') {
     const [w, h] = def.size;
     const left = item.wall === 'R' ? item.x : item.x + w; // 화면에서 왼쪽 끝이 되는 쪽
     const p = wallPoint(item.wall, left, item.y + h);
-    el.style.left = p.x + 'px';
-    el.style.top = p.y + 'px';
-    el.style.transform = `skewY(${item.wall === 'R' ? SKEW : -SKEW}deg)`;
-    return;
+    return { left: p.x, top: p.y, skew: item.wall === 'R' ? SKEW : -SKEW };
   }
   const p = tile(item.x, item.y);
-  el.style.left = p.x - (dims(item)[1] * TW) / 2 + 'px';
-  el.style.top = p.y - def.height - elev + 'px';
-  el.style.transform = '';
+  return { left: p.x - (dims(item)[1] * TW) / 2, top: p.y - def.height - elev, skew: 0 };
+}
+
+// el(가구 그림)을 방 안 제자리에 놓는다. elev: 책상 위에 올라가 있으면 책상 높이.
+export function placeEl(el, item, elev = 0) {
+  const { left, top, skew } = placementOf(item, elev);
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+  el.style.transform = skew ? `skewY(${skew}deg)` : '';
 }
 
 const pts = list => list.map(p => `${p.x},${p.y}`).join(' ');

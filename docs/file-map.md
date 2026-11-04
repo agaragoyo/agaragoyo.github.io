@@ -36,6 +36,7 @@
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 공유 링크 형식 | `src/share.js`의 `encodeHome`, `decodeHome` |
+| 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
 | 예전에 겪은 함정 | `known-issues.md` |
@@ -78,10 +79,11 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구와 놀이터 문을 두 번 누르면 쓰기) | `furnitureEl`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구와 놀이터 문을 두 번 누르면 쓰기) | `furnitureEl`, `imageFor`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그린다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
 | `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 놀이터 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
-| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기, 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placeEl`, `sceneSVG` 등 |
+| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
 
@@ -94,7 +96,7 @@
 | `src/apps/index.js` | 기본 앱 등록부(`BUILTIN_APPS`). 새 기본 앱은 여기에 한 줄 더한다 |
 | `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바로 가기나 창문으로 열면 그 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
-| `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들고 복사한다 |
+| `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
 | `src/apps/mouse-app.js` | 마우스. 커서 색과 크기, 32×32칸 직접 그리기 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임) |
@@ -130,7 +132,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다 |
-| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 자바스크립트 문법, 이 파일 지도 |
+| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙인다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 
 ## docs/: 설명 문서
@@ -169,7 +171,8 @@ index.html
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
-         ├─ folder-app.js, share-app.js, mouse-app.js(cursors.js)
+         ├─ share-app.js ── room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js
+         ├─ folder-app.js, mouse-app.js(cursors.js)
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
 ```

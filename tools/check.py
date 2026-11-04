@@ -195,6 +195,22 @@ def check_secrets():
             err(p.relative_to(ROOT).as_posix(), '토큰이나 키처럼 보이는 값이 있다. 레포는 공개라 넣으면 안 된다')
 
 
+# ---------- 방 그림(PNG) 바탕 색 ----------
+# 공유하기의 PNG(src/room-image.js)는 .room의 바탕 그라디언트를 캔버스에 따로 그린다. CSS 그라디언트는 JS로 값을 읽어 올 수 없어서
+# 두 곳에 같은 값을 적어 두므로, style.css의 배경이 BACKDROP과 다르면 오류로 알린다(known-issues 33).
+def check_room_image():
+    js = read('src/room-image.js')
+    css = read('style.css').lower()
+    m = re.search(r"indoor:\s*\['(#\w+)',\s*'(#\w+)'\],\s*outdoor:\s*\['(#\w+)',\s*'(#\w+)'\]", js)
+    if not m:
+        err('src/room-image.js', 'BACKDROP(indoor, outdoor 색)을 찾지 못했다. 이 모양을 바꿨다면 tools/check.py의 check_room_image도 고친다')
+        return
+    a, b, c, d = (x.lower() for x in m.groups())
+    for want in (f'radial-gradient(ellipse at 50% 45%, {a}, {b} 75%)', f'linear-gradient({c}, {d} 60%)'):
+        if want not in css:
+            err('style.css', f'.room의 바탕이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
+
+
 # ---------- 파일 지도 ----------
 # docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
 def check_file_map():
@@ -253,6 +269,7 @@ def main():
     check_storage_keys()
     check_imports()
     check_secrets()
+    check_room_image()
     check_file_map()
     check_js_syntax()
     for w in warnings:
