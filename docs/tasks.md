@@ -53,4 +53,5 @@ F로 시작하는 번호는 `docs/requirements.md`의 요구 사항 번호이고
 | --- | --- | --- |
 | See you on the other side 창이 흰 화면으로 바뀌었다는 제보의 원인 찾기 (`known-issues.md` 16번) | Admin | 기다림 |
 | 미니게임 창을 최소화해도 게임이 계속 도는지 확인하기 | Admin | 할 일 |
+| 맥 사파리에서 `?era=1998&warp=on`으로 볼록 화면이 다 그려지는지, 다른 사이트 게임 창의 클릭이 맞는지 확인한 뒤 사파리에서도 기본으로 켜기 (`known-issues.md` 30번) | Admin | 기다림 |
 | `apps/README.md`와 `worklog/README.md`의 말투를 README에 맞추기 | Admin | 할 일 |
