@@ -55,8 +55,16 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
 
+  // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
+  // 밤은 방의 불을 끈 상태라 바탕화면에서만 쓴다. 부팅과 로그인 화면은 늘 낮 색이다(known-issues 38).
+  function syncTheme() {
+    stage.dataset.theme = settings.get('night') && !el.desktop.hidden ? 'night' : 'day';
+  }
+  settings.subscribe(syncTheme);
+
   function show(...names) {
     for (const k of ['boot', 'login', 'desktop', 'taskbar']) el[k].hidden = !names.includes(k);
+    syncTheme();
     el.startMenu.hidden = true;
     if (!names.includes('desktop')) {
       walker?.destroy();

@@ -1566,6 +1566,7 @@ body[data-era="2010"] .taskbar {
   backdrop-filter: blur(8px) saturate(1.4);
 }
 body[data-era="2010"] .start-btn {
+  gap: 0; /* "시작" 글자는 크기 0으로 숨겼지만 gap은 남아서 집 그림을 왼쪽으로 3px 민다 */
   width: 40px;
   height: 40px;
   padding: 0;
@@ -1578,7 +1579,9 @@ body[data-era="2010"] .start-btn {
   color: transparent;
 }
 body[data-era="2010"] .start-btn:active { background: radial-gradient(circle at 50% 30%, #7fbcf5, #1f5aa6 55%, #0e2f61); }
-body[data-era="2010"] .start-logo { width: 22px; height: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%232b6fc2'/%3E%3C/svg%3E"); }
+/* 집은 위가 뾰족하고 아래가 넓어서 그림 상자의 가운데에 두면 둥근 단추 안에서 아래로 처져 보인다(known-issues 39).
+   집을 감싸는 원의 중심은 1.8px, 무게 중심은 1.3px 아래에 있어서 그 사이인 1.5px을 올린다. */
+body[data-era="2010"] .start-logo { width: 22px; height: 22px; transform: translateY(-1.5px); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%232b6fc2'/%3E%3C/svg%3E"); }
 body[data-era="2010"] .task {
   width: 160px;
   height: 34px;

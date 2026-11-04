@@ -117,8 +117,6 @@ function applySettings() {
     document.body.classList.toggle(key, !!settings.get(key));
     $(`[data-toggle="${key}"]`).setAttribute('aria-pressed', String(!!settings.get(key)));
   }
-  // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
-  stage.dataset.theme = settings.get('night') ? 'night' : 'day';
   document.body.dataset.era = settings.get('era');
   for (const b of document.querySelectorAll('[data-era-pick]')) b.setAttribute('aria-pressed', String(b.dataset.eraPick === settings.get('era')));
   crt.setStrength(era().warp);
