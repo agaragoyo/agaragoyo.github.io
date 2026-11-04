@@ -16,7 +16,7 @@
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
 | 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
-| 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다 |
+| 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(놀이터에서는 `집으로`가 보인다) |
 | 바탕화면의 공간 옮기기(창문, 놀이터 아이콘, 놀이터 문) | `src/os.js`의 `goScene`, `useGate`, 문 그림은 `src/iso.js`의 `outdoorSVG` |
 | 바탕화면에서 가구 두 번 누르기(아바타가 다가가 기믹) | `src/room.js`의 `renderStatic`, `src/os.js`의 `useFurniture`, `src/avatar.js`의 `approach` |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
@@ -69,7 +69,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림 | `createOS` |
-| `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다 | `createWM` |
+| `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
 | `src/crt.js` | 볼록 화면(SVG 필터), 휜 화면의 입력을 바로잡는 보정 층, iframe 안으로 입력 넣기, 그레인 노이즈 그림 | `initCRT` |
@@ -125,6 +125,7 @@
 
 | 경로 | 하는 일 |
 | --- | --- |
+| `assets/favicon.png` | 브라우저 탭 아이콘. 32×32px 작은 집 |
 | `assets/furniture/` | 가구 그림. `<가구 id>.png`, 돌려 놓은 모습은 `<가구 id>-r.png`(없으면 좌우로 뒤집어 쓴다). 첫 그림은 식탁(`dining-table.png`)이다 |
 
 ## tools/: 도구

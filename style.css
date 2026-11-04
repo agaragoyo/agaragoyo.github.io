@@ -24,7 +24,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+/* 맥 트랙패드를 두 손가락으로 쓸어 넘겨도 이전 페이지로 나가지 않게 한다(나가면 전원부터 다시 켜야 한다) */
+html, body { margin: 0; height: 100%; overscroll-behavior: none; }
 body {
   display: grid;
   place-items: center;
@@ -1073,6 +1074,22 @@ body:not(.curve) .fx-curve { display: none; }
   pointer-events: none;
 }
 [data-mode="visit"] .rotate-tip { display: none; }
+/* 빈 방 안내. 창 안에 있어서 창을 최소화하거나 다른 창으로 가리면 같이 보이지 않는다 */
+.room-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 170px;
+  z-index: 5;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: #000c;
+  font-size: 17px;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
 
 /* =====================================================================
    시대 비교 (body[data-era]). 팀 의견을 들은 뒤 하나로 정하면 나머지는 지운다.
@@ -1351,6 +1368,10 @@ body[data-era="2005"] .welcome { background: radial-gradient(ellipse at 25% 35%,
   cursor: var(--cur-hand);
 }
 .reset-link:hover { opacity: 1; }
+/* 초기화를 누르면 같은 자리에 지울 것과 결과를 말하는 단추가 나온다 */
+.reset-box { display: contents; }
+.reset-box p { margin: 6px 0 0; font-size: 13px; }
+.reset-row { display: flex; gap: 8px; }
 body[data-era="1998"] .reset-link { justify-self: end; }
 
 /* ---------- 2010: 검은 광택 와이드 LCD (CRT 효과 없음) ---------- */

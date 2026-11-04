@@ -196,6 +196,7 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
   let hovered = null;
   let hoverTarget = null; // 커서 모양은 가리키는 요소가 바뀔 때만 다시 읽는다(getComputedStyle은 매번 부르기엔 무겁다)
   let activeFrame = null;
+  let pressed = null; // 마지막으로 누른 요소. click을 어디로 보낼지 정할 때 쓴다
   const setHover = el => {
     const item = el?.closest('.item') || null;
     if (item === hovered) return;
@@ -209,6 +210,7 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
     const [x, y] = fix(e.clientX, e.clientY);
     const target = under(x, y);
     if (e.type === 'pointerdown') {
+      pressed = target;
       e.preventDefault();
       input.setPointerCapture(e.pointerId);
       const field = target?.closest('input, textarea, select');
@@ -244,26 +246,47 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
     input.addEventListener(type, forwardPointer);
   }
   input.addEventListener('pointerleave', () => setHover(null));
+  // 두 요소를 모두 품은 가장 가까운 요소
+  const commonOf = (a, b) => {
+    while (a && !a.contains(b)) a = a.parentElement;
+    return a;
+  };
   input.addEventListener('click', e => {
     e.stopPropagation();
     const [x, y] = fix(e.clientX, e.clientY);
-    const target = under(x, y);
+    const released = under(x, y);
+    // 브라우저는 누른 요소와 뗀 요소가 다르면 둘을 모두 품은 요소에 click을 준다. 보정 층은 누른 곳과 뗀 곳이 언제나 자기 자신이라
+    // 뗀 자리로 그대로 넘기면, 끌던 가구를 버튼 위에 놓을 때 그 버튼까지 눌린다(known-issues 5).
+    const target = pressed && released ? commonOf(pressed, released) : null;
+    pressed = null;
     if (target?.tagName === 'IFRAME' && intoFrame(target, 'click', x, y, e)) return;
     const clickable = target?.closest('button, a, label');
     if (clickable) clickable.click();
     // 버튼이 아닌 요소(바탕화면 가구, 아바타 등)도 평평한 화면처럼 click을 받게 같은 자리로 click 이벤트를 보낸다(known-issues 5).
     else target?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: e.button }));
   });
+  // 스크립트로 보낸 wheel 이벤트로는 브라우저가 스크롤하지 않으므로, 스크롤되는 가장 가까운 요소를 직접 돌린다.
+  const scrollNearest = (el, e) => {
+    for (; el && el !== screen; el = el.parentElement) {
+      const o = getComputedStyle(el).overflowY;
+      if ((o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight) {
+        el.scrollTop += e.deltaY;
+        return;
+      }
+    }
+  };
   input.addEventListener('wheel', e => {
+    if (e.ctrlKey) return; // Ctrl+휠과 트랙패드 핀치는 브라우저의 확대라서 막지 않는다
     e.preventDefault();
     e.stopPropagation();
     const [x, y] = fix(e.clientX, e.clientY);
     const target = under(x, y);
     if (target?.tagName === 'IFRAME' && intoFrame(target, 'wheel', x, y, e)) return;
-    target?.dispatchEvent(new WheelEvent('wheel', {
+    const passed = target?.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true, cancelable: true, clientX: x, clientY: y,
       deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,
     }));
+    if (passed) scrollNearest(target, e);
   }, { passive: false });
   // 오른쪽 클릭 메뉴: 화면 안 요소에 같은 이벤트를 넘기고, 그 요소가 막으면(preventDefault) 브라우저 메뉴도 띄우지 않는다.
   // (마우스 앱 그리기 판처럼 오른쪽 버튼으로 칠하는 곳에서 메뉴가 뜨지 않게.) iframe 앱 안으로는 넘기지 않는다.

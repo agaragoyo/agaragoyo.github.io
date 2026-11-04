@@ -340,6 +340,12 @@ export function mountAvatar(host, avatarId = 'basic') {
   }
 
   function onKeyDown(e) {
+    // Cmd+S, Ctrl+D, Alt+←처럼 조합 키를 누른 것은 브라우저 단축키이므로 건드리지 않는다.
+    // 맥은 Cmd를 누른 동안 다른 키의 keyup을 보내지 않아서, 누르고 있던 키도 뗀 것으로 본다(known-issues 37).
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      held.length = 0;
+      return;
+    }
     if (!active() || isField(e.target)) return;
     if (KEYS[e.code]) {
       e.preventDefault();

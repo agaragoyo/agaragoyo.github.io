@@ -152,18 +152,24 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   // 우리 키: 'agarago.'로 시작하는 것과, apps/ 안 앱이 자기 id로 시작하게 만든 것('tidy-up.best').
   const ownApps = APPS.filter(a => a.src?.startsWith('apps/')).map(a => a.id + '.');
   const ownKey = key => key.startsWith('agarago.') || ownApps.some(p => key.startsWith(p));
+  // 되돌릴 수 없는 일이라 바로 지우지 않고, 지울 것을 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
   function resetButton() {
-    return h('button', {
-      type: 'button',
-      className: 'reset-link',
-      onclick: () => {
-        if (!confirm('이 컴퓨터에 저장된 집과 게임 기록을 모두 지울까요? 되돌릴 수 없습니다.')) return;
-        try {
-          for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);
-        } catch { /* 저장소를 못 쓰는 환경 */ }
-        showLogin();
-      },
-    }, '이 컴퓨터 초기화');
+    const box = h('div', { className: 'reset-box' });
+    const wipe = () => {
+      try {
+        for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);
+      } catch { /* 저장소를 못 쓰는 환경 */ }
+      showLogin();
+    };
+    const ask = () => box.replaceChildren(
+      h('p', {}, '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
+      h('div', { className: 'reset-row' },
+        h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),
+        h('button', { type: 'button', className: 'btn', onclick: idle }, '그대로 두기')),
+    );
+    const idle = () => box.replaceChildren(h('button', { type: 'button', className: 'reset-link', onclick: ask }, '이 컴퓨터 초기화'));
+    idle();
+    return box;
   }
 
   const avatar = name => h('span', { className: 'avatar' }, [...name][0] || '?');
@@ -239,12 +245,15 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       walkTipShown = true;
       toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말해요', 5000);
     }
-    os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
+    renderDesktopIcons();
     tick();
   }
 
-  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다.
-  os.canSee = app => !(app.editOnly && os.mode === 'visit');
+  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다. 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
+  os.canSee = app => !(app.editOnly && os.mode === 'visit') && app.scene !== os.place;
+  function renderDesktopIcons() {
+    os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
+  }
 
   // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
@@ -262,6 +271,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     os.place = id;
     walker?.moveTo(scene.gate ? { x: scene.gate.x, y: 1 } : undefined);
     renderWallpaper();
+    renderDesktopIcons();
   };
 
   // 놀이터 문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 내 방으로 돌아간다.
@@ -300,7 +310,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
             last = { id: app.id, t: now };
           }
         },
-        onkeydown: e => { if (e.key === 'Enter') os.openApp(app.id); },
+        onkeydown: e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          e.stopPropagation(); // 고른 아이콘의 Enter는 아이콘을 여는 것이다. 아바타 말하기까지 같이 열리지 않게 한다
+          os.openApp(app.id);
+        },
       }, iconEl(app, 48), h('span', {}, app.title));
       container.append(b);
     }
@@ -383,20 +398,16 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
 
   // ---------- 알림 ----------
   let toastTimer = 0;
-  let toastSticky = false;
   function toast(msg, ms = 2400) {
     el.toast.textContent = msg;
     el.toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastSticky = ms === 0;
-    if (ms) toastTimer = setTimeout(hideToast, ms);
+    toastTimer = setTimeout(hideToast, ms);
   }
   function hideToast() {
-    toastSticky = false;
     el.toast.classList.remove('show');
   }
   os.toast = toast;
-  os.hideStickyToast = () => { if (toastSticky) hideToast(); };
 
   return os;
 }

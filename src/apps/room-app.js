@@ -48,6 +48,7 @@ export function openRoomApp(os, appInfo) {
             <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 바탕화면에서 가구를 두 번 누르면 써 볼 수 있습니다.</p>
           </div>
           <p class="rotate-tip">가구를 끄는 동안 R 키나 마우스 휠로 돌릴 수 있어요</p>
+          <p class="room-hint" hidden></p>
           <div class="hud">
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>
@@ -114,8 +115,10 @@ export function openRoomApp(os, appInfo) {
         root.querySelector('.owner').textContent = visiting ? `${os.home.owner}의 집에 놀러 왔습니다` : `${os.home.owner}의 집`;
         const empty = !visiting && ctx.room.items.length === 0;
         root.querySelector('.shelf').classList.toggle('hint', empty);
-        if (empty) os.toast(`아래 선반에서 가구를 끌어 ${scene.name}에 놓아 보세요.`, 0);
-        else os.hideStickyToast();
+        // 안내는 창 안에 둔다. 창을 최소화하거나 다른 창으로 가리면 같이 보이지 않아야 한다.
+        const hint = root.querySelector('.room-hint');
+        hint.hidden = !empty;
+        hint.textContent = `아래 선반에서 가구를 끌어 ${scene.name}에 놓아 보세요.`;
       }
 
       // 창 크기가 바뀌면 공간을 다시 맞춘다.
@@ -135,7 +138,6 @@ export function openRoomApp(os, appInfo) {
       showScene(os.place);
       return () => {
         ro.disconnect();
-        os.hideStickyToast();
       };
     },
   });

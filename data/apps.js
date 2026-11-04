@@ -15,7 +15,8 @@
 //   folder   'games' 이면 바탕화면 대신 미니게임 폴더 안에 나온다
 //            'furniture' 이면 어디에도 아이콘이 없고, 가구의 gimmick: 'app:<id>' 로만 열린다
 //   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, mouse). 팀원은 쓰지 않는다
-//   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다
+//   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다.
+//            지금 바탕화면에 보이는 공간의 바로 가기는 나오지 않는다(놀이터에서는 놀이터 대신 집으로가 보인다)
 //   href     창 대신 새 탭으로 여는 바깥 주소(https). 다른 사이트의 창(iframe) 안에서는 돌지 않는 남의 게임에 쓴다.
 //            열기 전에 새 탭에서 열린다는 것과 열리는 주소를 보여 준다(src/apps/link-app.js). builtin, src 없이 쓴다
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
@@ -24,6 +25,7 @@ const SITE = 'https://soomin007.github.io';
 export const APPS = [
   { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room' },
   { id: 'playground', title: '놀이터', icon: 'builtin:playground', scene: 'playground' },
+  { id: 'go-home', title: '집으로', icon: 'builtin:home', scene: 'room' },
   { id: 'games', title: '미니게임', icon: 'builtin:folder', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'mouse', title: '마우스', icon: 'builtin:mouse', builtin: 'mouse' },

@@ -1,7 +1,7 @@
 // 방 그리기와 가구 끌어 놓기.
 import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { canPlace, supportOf, elevOf, isWall } from './rules.js';
+import { canPlace, dims, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 import { clamp } from './util.js';
 
@@ -272,7 +272,7 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
       // 책상 윗면을 가리키면 그 위에 얹는다. 앞쪽 책상부터 본다.
       const surfaces = others.filter(o => !isWall(o) && BY_ID[o.id].surface).sort((a, b) => depthOf(b) - depthOf(a));
       for (const s of surfaces) {
-        const [sw, sd] = BY_ID[s.id].size;
+        const [sw, sd] = dims(s); // 돌려 놓은 책상은 가로와 세로가 바뀐다
         const t = toTile(p.x, p.y, BY_ID[s.id].height + grab.elev);
         if (t.x < s.x - 0.3 || t.x > s.x + sw + 0.3 || t.y < s.y - 0.3 || t.y > s.y + sd + 0.3) continue;
         x = clamp(Math.round(t.x - grab.x), s.x, s.x + sw - w);

@@ -16,18 +16,29 @@ function saveFile(blob, name) {
 }
 
 export function openShareApp(os, app) {
-  const link = `${location.origin}${location.pathname}#room=${encodeHome(os.home)}`;
-  return os.wm.open({
+  const linkNow = () => `${location.origin}${location.pathname}#room=${encodeHome(os.home)}`;
+  const win = os.wm.open({
     key: app.id,
     app,
     title: '공유하기',
     width: 540,
     height: 244,
-    build(body) {
-      const input = h('input', { type: 'text', readOnly: true, value: link, 'aria-label': '공유 링크' });
+    build(body, w) {
+      const input = h('input', { type: 'text', readOnly: true, value: linkNow(), 'aria-label': '공유 링크' });
+      // 창을 열어 둔 사이에 방을 고칠 수 있으므로 링크는 창을 다시 부를 때와 복사할 때마다 새로 만든다.
+      w.refreshLink = () => { input.value = linkNow(); };
       const copy = async () => {
-        try { await navigator.clipboard.writeText(link); } catch { input.select(); document.execCommand('copy'); }
-        os.toast('링크를 복사했습니다.');
+        w.refreshLink();
+        let ok = true;
+        try {
+          await navigator.clipboard.writeText(input.value);
+        } catch {
+          input.focus();
+          input.select();
+          ok = document.execCommand('copy');
+        }
+        if (ok) os.toast('링크를 복사했습니다.');
+        else os.toast('복사하지 못했습니다. 링크가 선택되어 있으니 Ctrl+C(맥은 Cmd+C)로 복사해 주세요.', 7000);
       };
 
       // 공간마다 그림이 한 장씩이다. 그림은 누르는 순간의 방으로 만든다(창을 열어 둔 사이에 방을 고쳐도 최신이다).
@@ -67,4 +78,6 @@ export function openShareApp(os, app) {
       );
     },
   });
+  win.refreshLink();
+  return win;
 }
