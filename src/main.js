@@ -88,19 +88,22 @@ PORTRAIT_PHONE.addEventListener('change', fit);
 
 // ---------- 화면 효과 ----------
 // 화면을 실제로 휘는 볼록 효과는 마우스를 쓰는 PC의 크롬 계열 브라우저(크롬, 엣지, 웨일, 삼성 인터넷)에서만 켠다.
-// 사파리(WebKit)는 HTML에 건 SVG 변위 필터를 제대로 그리지 못해서, 접속만 해도 화면 왼쪽 위만 휘어 그려지고 나머지는 검게 남았다
-// (known-issues 30). 아이폰과 아이패드의 크롬도 엔진이 WebKit이다. 파이어폭스는 확인하지 못해서 같이 끄고 평평하게 보여 준다.
+// 사파리(WebKit)는 필터를 건 층을 화면의 60~80%만 그려서, 접속만 해도 화면 왼쪽 위만 휘어 그려지고 나머지는 검게 남았다.
+// 원인과 고친 방법은 known-issues 30에 있다(crt.js가 필터와 함께 3D 변형을 준다). Windows용 WebKit에서는 크롬과 같게 그려졌지만
+// 맥 사파리에서 확인한 사람이 아직 없어서 기본은 꺼 둔다. 주소 뒤에 ?warp=on을 붙이면 크롬 계열이 아닌 브라우저에서도 켜서 볼 수 있다.
+// 아이폰과 아이패드의 크롬도 엔진이 WebKit이다. 파이어폭스는 확인하지 못해서 같이 끄고 평평하게 보여 준다.
 // 트랙패드나 터치패드로 화면을 키운(핀치 줌) 동안에도 끈다. 브라우저가 필터를 확대 배율로 다시 그려야 하고,
 // 키워서 보는 동안에는 평평한 화면이 글자도 또렷하다(known-issues 29).
 const HAS_MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
 const CHROMIUM = /Chrome\/|Chromium\//.test(navigator.userAgent);
+const FORCE_WARP = new URLSearchParams(location.search).get('warp') === 'on';
 const pinched = () => (window.visualViewport?.scale ?? 1) > 1.01;
 const crt = initCRT({
   screen: $('#screen'),
   warpEl: $('#crt'),
   input: $('#crt-input'),
   grain: $('#grain'),
-  isWarpOn: () => settings.get('curve') && HAS_MOUSE.matches && !mon.rotated && era().warp > 0 && CHROMIUM && !pinched(),
+  isWarpOn: () => settings.get('curve') && HAS_MOUSE.matches && !mon.rotated && era().warp > 0 && (CHROMIUM || FORCE_WARP) && !pinched(),
 });
 // 핀치 줌은 창 크기(resize) 이벤트를 보내지 않으므로 visualViewport의 resize를 따로 듣는다.
 // 손가락을 움직이는 동안 연달아 오므로 한 화면에 한 번만 다시 정한다.

@@ -89,6 +89,8 @@ export function initCRT({ screen, warpEl, input, grain, isWarpOn }) {
       else build();
     }
     warpEl.style.filter = on ? 'url(#crt-warp)' : '';
+    // 3D 변형을 같이 주어 이 층을 따로 띄운다. 변형이 없으면 WebKit(사파리)은 필터를 건 층을 화면의 60~80%만 그린다(known-issues 30).
+    warpEl.style.transform = on ? 'translateZ(0)' : '';
     input.hidden = !on;
     window.__agaWarpOn = on; // 같은 사이트 앱(iframe)이 포인터 캡처를 흉내 낼지 정할 때 본다
     updateHoles();
