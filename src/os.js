@@ -14,6 +14,7 @@ import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
 import { createTutorial } from './tutorial.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
+import { play, setPlace, roomMusic, ROOM_MUSIC } from './sound.js';
 
 // 볼록 화면(1998)은 가장자리가 휘어 들어가고 어두워서, 그 자리에 놓인 창의 제목 줄 단추가 보이지 않는다.
 // 방송 화면의 자막 안전 영역(가운데 90%)처럼 위와 양옆을 5%씩(무대 840의 5%, 1280의 5%) 비우고 그 안에만 창을 둔다.
@@ -71,6 +72,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       walker?.destroy();
       walker = null;
       os.tutorial.hide();
+      setPlace(null); // 배경음악은 바탕화면에서만 튼다
     }
   }
 
@@ -209,6 +211,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     if (my !== run) return;
     os.mode = mode;
     os.home = home;
+    play('keyboard');
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
@@ -232,6 +235,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
     os.place = SCENES[0].id;
+    setPlace(os.place);
     walker?.destroy();
     walker = mountAvatar({
       layer: el.wallpaper,
@@ -277,6 +281,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     const scene = SCENES.find(s => s.id === id);
     if (!scene || id === os.place) return;
     os.place = id;
+    play('enter'); // 방과 놀이터를 오갈 때 같은 소리를 낸다
+    setPlace(id);
     walker?.moveTo(scene.gate ? { x: scene.gate.x, y: 1 } : undefined);
     renderWallpaper();
     renderDesktopIcons();
@@ -318,7 +324,10 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   });
 
   // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
-  os.toggleNight = () => settings.set({ night: !settings.get('night') });
+  os.toggleNight = () => {
+    play('light');
+    settings.set({ night: !settings.get('night') });
+  };
 
   // 아이콘 묶음(바탕화면, 폴더 창). 한 번 누르면 고르고, 두 번 누르면 연다.
   os.renderIcons = (container, apps) => {
@@ -374,11 +383,25 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
       item({ title: '밤', color: '#2c2a6b' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
+      item({ title: '소리', color: '#3d7a72' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
+      ...(settings.get('sound') ? [musicItem()] : []),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
       item({ title: '로그아웃', color: '#6b6f8f' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
       item({ title: '끄기', color: '#b5483f' }, '컴퓨터 끄기', requestPowerOff),
     );
     menu.hidden = false;
+
+    // 내 방 배경음악을 다음 곡으로 바꾼다. 누르기 전에 무엇으로 바뀌는지 알 수 있게 지금 곡과 다음 곡을 같이 적는다.
+    // 놀이터나 방 꾸미기 창에서는 다른 음악이 나오므로, 바뀐 곡을 바로 들을 수 없을 때만 알려 준다.
+    function musicItem() {
+      const now = roomMusic();
+      const next = ROOM_MUSIC[(ROOM_MUSIC.indexOf(now) + 1) % ROOM_MUSIC.length];
+      return item({ title: '음악', color: '#8a4f7d' }, `방 배경음악: ${now.name} → ${next.name}`, () => {
+        settings.set({ music: next.id });
+        const hearing = os.place === SCENES[0].id && !(os.mode === 'edit' && os.wm.get('room'));
+        if (!hearing) toast(`내 방에서는 이제 ${next.name}${batchim(next.name) ? '이' : '가'} 나와요`, 4000);
+      });
+    }
   }
 
   function tick() {

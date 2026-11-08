@@ -3,6 +3,7 @@
 import { ROOM_W, STAGE_H, SCENES } from '../config.js';
 import { renderItems, setSceneBg } from '../room.js';
 import { mountShelf, filterShelf } from '../shelf.js';
+import { setDecorating } from '../sound.js';
 
 const ROOT_H = STAGE_H; // 공간 720 + 선반 120
 
@@ -136,8 +137,10 @@ export function openRoomApp(os, appInfo) {
 
       mountShelf(ctx);
       showScene(os.place);
+      setDecorating(os.mode === 'edit'); // 내 집을 꾸미는 동안은 방 꾸미기 음악(친구 집 구경은 바탕화면 음악 그대로)
       return () => {
         ro.disconnect();
+        setDecorating(false);
       };
     },
   });

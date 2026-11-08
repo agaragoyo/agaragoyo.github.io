@@ -4,6 +4,7 @@ import { BY_ID } from '../data/furniture.js';
 import { canPlace, dims, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 import { clamp } from './util.js';
+import { play } from './sound.js';
 
 // 가구 id마다 이미지가 있는지 한 번만 물어본다. 없으면 콘솔에 404가 가구당 한 줄 찍히는데 정상이다.
 const probes = new Map();
@@ -346,6 +347,7 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     if (commit && result?.action === 'remove') {
       app.room.items = app.room.items.filter(o => !group.includes(o));
     } else if (commit && result?.action === 'place') {
+      play('furniture');
       if (item) {
         group.forEach((g, i) => {
           Object.assign(g, result.moved[i]);

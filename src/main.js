@@ -5,6 +5,7 @@ import { reduceMotion } from './util.js';
 import { initCRT } from './crt.js';
 import { initCursors } from './cursors.js';
 import { createOS } from './os.js';
+import { play, setPlace } from './sound.js';
 
 const $ = sel => document.querySelector(sel);
 const stage = $('#stage');
@@ -120,6 +121,7 @@ function applySettings() {
     document.body.classList.toggle(key, !!settings.get(key));
     $(`[data-toggle="${key}"]`).setAttribute('aria-pressed', String(!!settings.get(key)));
   }
+  $('#sound-key').setAttribute('aria-pressed', String(!!settings.get('sound')));
   document.body.dataset.era = settings.get('era');
   for (const b of document.querySelectorAll('[data-era-pick]')) b.setAttribute('aria-pressed', String(b.dataset.eraPick === settings.get('era')));
   crt.setStrength(era().warp);
@@ -137,6 +139,7 @@ document.querySelectorAll('.phys, [data-era-pick]').forEach(btn => {
 document.querySelectorAll('[data-toggle]').forEach(btn => {
   btn.addEventListener('click', () => settings.set({ [btn.dataset.toggle]: !settings.get(btn.dataset.toggle) }));
 });
+$('#sound-key').addEventListener('click', () => settings.set({ sound: !settings.get('sound') }));
 document.querySelectorAll('[data-era-pick]').forEach(btn => {
   btn.addEventListener('click', () => {
     const url = new URL(location.href);
@@ -147,8 +150,8 @@ document.querySelectorAll('[data-era-pick]').forEach(btn => {
 });
 
 // ---------- 전원 ----------
-// 소리를 나중에 넣을 때를 생각해, 사용자가 전원 버튼을 직접 누르게 해서 켠다.
-// (브라우저는 첫 클릭 전까지 소리 재생을 막는다.) 끄면 실제 컴퓨터처럼 열린 창이 모두 사라진다.
+// 사용자가 전원 버튼을 직접 누르게 해서 켠다. 브라우저는 첫 클릭 전까지 소리 재생을 막으므로, 이 클릭 뒤부터 소리가 난다.
+// 끄면 실제 컴퓨터처럼 열린 창이 모두 사라지고 배경음악도 바로 멈춘다.
 const powerFx = $('#power-fx');
 const powerBtn = $('#power');
 let powered = false;
@@ -169,6 +172,8 @@ function setPower(on) {
   if (on === powered) return;
   powered = on;
   powerBtn.setAttribute('aria-pressed', String(powered));
+  play('button');
+  if (!powered) setPlace(null);
   if (reduceMotion) {
     setPowerState(powered ? 'on' : 'off');
     if (!powered) os.reset();
@@ -188,3 +193,9 @@ const os = createOS({
   settings,
 });
 powerBtn.addEventListener('click', () => setPower(!powered));
+
+// 켜진 화면 안을 누르면 마우스 딸깍 소리. 볼록 화면의 보정 층이 넘기는 가짜 이벤트(isTrusted가 거짓)는 세지 않아서 한 번만 난다.
+// 모니터 바깥 버튼(전원, 소리, 시대)은 화면 밖이라 나지 않는다. iframe 앱 안의 클릭은 부모 문서까지 오지 않는다.
+document.addEventListener('pointerdown', e => {
+  if (e.isTrusted && e.button === 0 && powered && e.target.closest?.('#screen')) play('mouse');
+}, true);
