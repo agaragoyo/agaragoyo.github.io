@@ -63,7 +63,8 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 볼록 효과를 켤지 정하기(핀치 줌 중에는 끄고, 주소의 `?warp=on`은 크롬 계열이 아닌 브라우저에서도 켠다), 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다 | 없음 |
-| `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서) 저장소. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
+| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 방 꾸미기 창(`setDecorating`)에 맞는 곡 하나를 튼다. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `setDecorating`, `roomMusic`, `ROOM_MUSIC` |
+| `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서, 소리, 방 배경음악) 저장소. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
@@ -130,6 +131,7 @@
 | 경로 | 하는 일 |
 | --- | --- |
 | `assets/favicon.png` | 브라우저 탭 아이콘. 32×32px 작은 집 |
+| `assets/sounds/` | 효과음과 배경음악 mp3. 팀 드라이브의 원본을 줄이고 잘라 넣었다(어디서 무엇을 잘랐는지는 `docs/requirements.md`의 "소리"). 배경음악은 `bgm-`로 시작한다 |
 | `assets/furniture/` | 가구 그림. `<가구 id>.png`, 돌려 놓은 모습은 `<가구 id>-r.png`(없으면 좌우로 뒤집어 쓴다). 첫 그림은 식탁(`dining-table.png`)이다 |
 
 ## tools/: 도구

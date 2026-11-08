@@ -102,6 +102,8 @@
         <span class="grille" aria-hidden="true"></span>
         <button type="button" class="phys" data-toggle="grain" aria-pressed="true"><i class="led"></i>그레인</button>
         <button type="button" class="phys" data-toggle="curve" aria-pressed="true"><i class="led"></i>볼록</button>
+        <!-- 소리는 전원을 켜기 전에도 보이게 둔다(불이 켜져 있으면 전원을 누를 때부터 소리가 난다). 2010에서도 숨기지 않으려고 data-toggle을 쓰지 않는다 -->
+        <button type="button" class="phys sound-key" id="sound-key" aria-pressed="true" title="효과음과 배경음악을 켜고 끕니다"><i class="led"></i>소리</button>
         <button type="button" class="phys power" id="power" aria-pressed="false"><i class="led"></i>전원</button>
       </div>
     </div>

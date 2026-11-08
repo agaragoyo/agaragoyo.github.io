@@ -234,6 +234,20 @@ def check_room_image():
             err('style.css', f'.room의 바탕이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
 
 
+# ---------- 소리 ----------
+# src/sound.js 가 부르는 파일이 assets/sounds/ 에 있는지, 넣어 둔 mp3를 아무도 안 부르지 않는지 본다(이름을 바꾸면 소리가 조용히 안 난다).
+def check_sounds():
+    named = set(re.findall(r"'([a-z0-9-]+\.mp3)'", read('src/sound.js')))
+    files = {p.name for p in (ROOT / 'assets/sounds').glob('*')} if (ROOT / 'assets/sounds').is_dir() else set()
+    for n in sorted(named - files):
+        err('src/sound.js', f"소리 파일 '{n}' 이 assets/sounds/ 에 없다")
+    for n in sorted(files - named):
+        warn('assets/sounds/', f"'{n}' 을 부르는 곳이 src/sound.js 에 없다(지울 파일이면 지운다)")
+    for n in sorted(files):
+        if not n.endswith('.mp3'):
+            err('assets/sounds/', f"'{n}' 은 mp3가 아니다. 소리는 mp3로 줄여 넣는다(docs/checklists.md)")
+
+
 # ---------- 파일 지도 ----------
 # docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
 def check_file_map():
@@ -294,6 +308,7 @@ def main():
     check_imports()
     check_secrets()
     check_room_image()
+    check_sounds()
     check_file_map()
     check_js_syntax()
     for w in warnings:

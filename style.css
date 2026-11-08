@@ -1490,6 +1490,23 @@ body[data-era="2010"] .phys.power:hover { color: #c9d4e3; background: none; }
 body[data-era="2010"] .phys.power:active { transform: none; box-shadow: none; }
 body[data-era="2010"] .power[aria-pressed="true"] .led { background: #e8f4ff; box-shadow: 0 0 calc(8 * var(--u)) #8fd0ff; }
 body[data-era="2010"] .power[aria-pressed="false"] .led { background: #ffb347; box-shadow: 0 0 calc(6 * var(--u)) #ffb347; }
+/* 소리 키도 전원처럼 글자와 불빛만 있는 작은 터치 버튼으로, 전원 바로 왼쪽에 둔다 */
+body[data-era="2010"] .phys.sound-key {
+  margin-left: auto;
+  padding: calc(4 * var(--u)) calc(8 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  font-size: calc(12 * var(--u));
+  font-weight: 400;
+  color: #6f757e;
+  text-shadow: none;
+}
+body[data-era="2010"] .phys.sound-key + .phys.power { margin-left: 0; }
+body[data-era="2010"] .phys.sound-key:hover { color: #c9d4e3; background: none; }
+body[data-era="2010"] .phys.sound-key:active { transform: none; box-shadow: none; }
+body[data-era="2010"] .sound-key[aria-pressed="true"] .led { background: #e8f4ff; box-shadow: 0 0 calc(8 * var(--u)) #8fd0ff; }
 
 /* ---------- 2010: 반투명 유리 창과 작업 표시줄 (모양새만 따르고 로고나 이름은 쓰지 않는다) ---------- */
 body[data-era="2010"] .stage {
