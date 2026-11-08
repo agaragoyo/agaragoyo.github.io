@@ -18,7 +18,7 @@ export const FURNITURE = [
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 40, color: '#8fa9d6' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 124, color: '#9a6b44' },
-  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 140, color: '#d8c3a0' },
+  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 114, color: '#d8c3a0' },
   { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66' },
   { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#6fae6a' },
   // 내 방: 책상 위 (바닥에도 놓을 수 있다)
