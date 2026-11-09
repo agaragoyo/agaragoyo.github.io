@@ -558,7 +558,6 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
   cursor: var(--cur-hand);
 }
 .win-btn:active { border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo); }
-.win-close { margin-left: 4px; }
 .win-body {
   flex: 1;
   min-height: 0;
@@ -1653,7 +1652,6 @@ body[data-era="2010"] .win-btn {
 body[data-era="2010"] .win-min { border-radius: 0 0 0 5px; }
 body[data-era="2010"] .win-close {
   width: 46px;
-  margin-left: 0;
   border-radius: 0 0 5px 0;
   background: linear-gradient(#f3a08c, #d9583b 50%, #c43a1c 51%, #e07b5c);
   font-weight: 700;
