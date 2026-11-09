@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>아가라고요</title>
   <link rel="icon" type="image/png" href="assets/favicon.png">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
-  <link rel="stylesheet" href="style.css?v=4f320ec8">
-  <!-- 아래 import map과 ?v= 지문은 tools/stamp.py 가 채운다. 손으로 고치지 않는다. -->
+  <!-- 아래 import map, 미리 받을 모듈 줄, ?v= 지문은 배포할 때 tools/stamp.py 가 채운다. 손으로 고치지 않는다(known-issues 15). -->
   <script type="importmap">
 {
   "imports": {
@@ -27,6 +25,16 @@
   }
 }
   </script>
+  <!-- 모듈 미리 받기: main.js가 import로 부르는 모듈을 HTML을 읽자마자 한꺼번에 받는다. 크롬 계열에서만 template 안의 줄을 꺼내 붙인다.
+       사파리(WebKit)는 미리 받다 실패한 모듈을 새로 고침해도 다시 받지 않아 가림막이 걷히지 않는다(known-issues 43).
+       스타일시트보다 앞에 둔다. 뒤에 두면 아래 스크립트가 CSS를 다 받을 때까지 기다린다. -->
+  <template id="modulepreload"></template>
+  <script>
+    // 크롬 계열 판별은 src/main.js의 CHROMIUM과 같은 식이다. 한쪽을 고치면 다른 쪽도 같이 고친다.
+    if (/Chrome\/|Chromium\//.test(navigator.userAgent)) document.head.append(document.getElementById('modulepreload').content);
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+  <link rel="stylesheet" href="style.css?v=4f320ec8">
 </head>
 <body>
   <!-- 첫 화면 가림막. main.js가 모니터를 다 그리고 글꼴을 받을 때까지 화면 전체를 덮는다(style.css의 "첫 화면 가림막", known-issues 42).

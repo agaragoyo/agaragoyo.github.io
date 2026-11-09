@@ -96,6 +96,7 @@ PORTRAIT_PHONE.addEventListener('change', fit);
 // 트랙패드나 터치패드로 화면을 키운(핀치 줌) 동안에도 끈다. 브라우저가 필터를 확대 배율로 다시 그려야 하고,
 // 키워서 보는 동안에는 평평한 화면이 글자도 또렷하다(known-issues 29).
 const HAS_MOUSE = matchMedia('(hover: hover) and (pointer: fine)');
+// index.html의 모듈 미리 받기 스크립트도 같은 식으로 크롬 계열을 가린다(known-issues 43). 한쪽을 고치면 다른 쪽도 같이 고친다.
 const CHROMIUM = /Chrome\/|Chromium\//.test(navigator.userAgent);
 const FORCE_WARP = new URLSearchParams(location.search).get('warp') === 'on';
 const pinched = () => (window.visualViewport?.scale ?? 1) > 1.01;

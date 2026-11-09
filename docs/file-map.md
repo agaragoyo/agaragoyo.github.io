@@ -36,6 +36,7 @@
 | 시대마다 다른 모니터와 창 모양 | `style.css` 끝의 "시대 비교" 덩어리, `src/main.js`의 `ERAS` |
 | 볼록 화면이 휘는 정도 | `src/main.js`의 `ERAS`(`warp`), 공식은 `src/crt.js`의 `warp` |
 | 처음 접속해서 모니터가 그려지기 전의 화면(가림막, 점 세 개, 새로 고침 안내) | `index.html`의 `#page-loader`, `style.css`의 "첫 화면 가림막" 절. 걷는 곳은 `src/main.js` 맨 끝 |
+| 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
 | 커서 그림과 색 | `src/cursors.js`, 마우스 앱은 `src/apps/mouse-app.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
@@ -49,7 +50,7 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 그레인, 볼록 보정 층), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map과 `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다 |
+| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 그레인, 볼록 보정 층), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
 | `style.css` | 모든 모양. 아래 "style.css 안의 순서"에 절 목록이 있다 |
 | `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 새 기능을 붙이는 곳, 지켜야 할 것 |
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
@@ -139,9 +140,9 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다 |
-| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도 |
-| `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙인다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
+| `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었다 |
+| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리 |
+| `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 
 ## docs/: 설명 문서
 
