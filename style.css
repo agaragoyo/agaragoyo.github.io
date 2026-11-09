@@ -14,6 +14,7 @@
   --win-paper: #f7f3e8;
   --win-bar-a: #6b2d5c;
   --win-bar-b: #c56c96;
+  --page-bg: radial-gradient(ellipse at 50% 35%, #3a3540, var(--page) 70%); /* 페이지 바탕. 첫 화면 가림막도 같이 쓴다 */
   --font-base: "Galmuri11", "Galmuri9", system-ui, sans-serif;
   --font: var(--font-base);
   --win-text: var(--ink);
@@ -30,7 +31,7 @@ body {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: radial-gradient(ellipse at 50% 35%, #3a3540, var(--page) 70%);
+  background: var(--page-bg);
   font-family: var(--font);
   color: var(--ink);
 }
@@ -39,6 +40,63 @@ body {
 .screen { cursor: var(--cur-arrow); }
 body.grabbing, body.grabbing * { cursor: var(--cur-grabbing) !important; }
 button { font-family: inherit; }
+
+/* ---------- 첫 화면 가림막 (index.html의 #page-loader) ---------- */
+/* 모니터 크기(--u)와 시대는 main.js가 정한다. 느린 연결에서는 main.js가 모듈 스물몇 개를 다 받기까지 몇 초가 걸리고,
+   그동안 모니터 없이 글씨만 가운데에 뭉쳐 보였다(known-issues 42). 그래서 처음에는 페이지와 같은 바탕으로 화면 전체를 덮고,
+   main.js가 준비를 마치면 done을 붙여 걷는다. 금방 끝나는 연결에서는 어두운 바탕 말고 아무것도 보이지 않도록
+   점 세 개는 1초 뒤에, 새로 고침 안내는 10초 뒤에 나타난다. */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* 시대 스위치(z-index 10)보다 위 */
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  background: var(--page-bg);
+  font-family: var(--font-base);
+  font-size: 13px;
+  color: #cfc9da;
+}
+.page-loader.done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease-out, visibility 0s 0.25s;
+}
+.page-loader p { margin: 0; }
+.page-loader-dots { display: flex; gap: 8px; animation: page-loader-in 0.3s 1s both; }
+.page-loader-dots i { width: 8px; height: 8px; background: #f2ebda; opacity: 0.25; animation: page-loader-dot 0.9s steps(1) infinite; }
+.page-loader-dots i:nth-child(2) { animation-delay: 0.3s; }
+.page-loader-dots i:nth-child(3) { animation-delay: 0.6s; }
+/* "불러오는 중"은 화면 읽기 프로그램에만 들린다 */
+.page-loader-dots span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.page-loader-slow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 12px;
+  animation: page-loader-in 0.3s 10s both;
+}
+.page-loader-slow span { white-space: nowrap; }
+.page-loader-slow button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2ebda;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+@keyframes page-loader-in { from { opacity: 0; visibility: hidden; } }
+@keyframes page-loader-dot { 0% { opacity: 1; } 33.3% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-dots i { animation: none; opacity: 0.6; }
+  .page-loader.done { transition: none; }
+}
 
 /* ---------- 모니터 ---------- */
 .viewport {

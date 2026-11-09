@@ -29,6 +29,12 @@
   </script>
 </head>
 <body>
+  <!-- 첫 화면 가림막. main.js가 모니터를 다 그리고 글꼴을 받을 때까지 화면 전체를 덮는다(style.css의 "첫 화면 가림막", known-issues 42).
+       새로 고침 단추는 모듈을 받지 못했을 때도 눌려야 하므로 main.js가 아니라 여기서 바로 잇는다. -->
+  <div class="page-loader" id="page-loader">
+    <p class="page-loader-dots" role="status"><i></i><i></i><i></i><span>불러오는 중</span></p>
+    <p class="page-loader-slow"><span>불러오는 데 오래 걸리고 있습니다.</span><button type="button" onclick="location.reload()">새로 고침</button></p>
+  </div>
   <!-- 시대 비교 스위치 (모니터 바깥). 팀 의견을 들은 뒤 하나로 정하면 없앤다. -->
   <div class="era-switch" role="group" aria-label="시대">
     <span>시대</span>
