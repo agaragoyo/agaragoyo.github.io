@@ -9,6 +9,7 @@ import { dims, isWall, supportOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
 import { h } from './util.js';
+import { play } from './sound.js';
 
 const FW = 64;        // 그림 한 칸 가로 (px)
 const FH = 104;       // 그림 한 칸 세로 (px)
@@ -277,6 +278,7 @@ export function mountAvatar(host, avatarId = 'basic') {
     const to = path.shift();
     facing = FACING[key(to.x - from.x, to.y - from.y)];
     col = steps++ % 2 ? 2 : 1;
+    if (col === 1) play('step'); // 한 칸이 0.2초라 두 칸마다(왼발) 한 번 낸다. 사람 걸음과 비슷한 0.4초 간격
     // 걷는 동안 앞뒤 순서는 두 칸 가운데 앞쪽(화면 아래) 칸으로 정해 두어 깜빡이지 않게 한다.
     const front = to.x + to.y > from.x + from.y ? to : from;
     me.x = to.x;

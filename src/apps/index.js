@@ -5,12 +5,14 @@ import { openRoomApp } from './room-app.js';
 import { openFolderApp } from './folder-app.js';
 import { openShareApp } from './share-app.js';
 import { openMouseApp } from './mouse-app.js';
+import { openMusicApp } from './music-app.js';
 
 export const BUILTIN_APPS = {
   room: openRoomApp,
   folder: openFolderApp,
   share: openShareApp,
   mouse: openMouseApp,
+  music: openMusicApp,
 };
 
 export { openFrameApp } from './frame-app.js';

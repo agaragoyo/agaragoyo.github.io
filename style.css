@@ -602,6 +602,20 @@ body.moving-window iframe { pointer-events: none; }
 .frame-lost .btn { margin-top: 12px; }
 
 /* 마우스 앱 (src/apps/mouse-app.js). 그 시절 대화상자처럼 제목 붙은 묶음(fieldset)으로 나누고, 그림판처럼 도구를 세로로 둔다. */
+/* 배경음악 앱: 마우스 앱과 같은 제목 붙은 묶음(fieldset) 모양 */
+.music-app { display: flex; flex-direction: column; gap: 8px; }
+.music-app .meta { margin: 0; font-size: 13px; }
+.music-group {
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--bev-mid);
+  box-shadow: inset 1px 1px 0 var(--bev-hi), 1px 1px 0 var(--bev-hi);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.music-group legend { padding: 0 4px; font-size: 14px; }
+.music-pick { display: flex; align-items: center; gap: 8px; font-size: 15px; cursor: pointer; }
 .mouse-app { display: flex; flex-direction: column; gap: 6px; }
 .mouse-app .meta { margin: 0; font-size: 13px; }
 .mouse-group {

@@ -257,6 +257,11 @@ def check_sounds():
     for n in sorted(files):
         if not n.endswith('.mp3'):
             err('assets/sounds/', f"'{n}' 은 mp3가 아니다. 소리는 mp3로 줄여 넣는다(docs/checklists.md)")
+    # data/apps.js 의 music 은 src/sound.js 의 MUSIC 이름이거나 'own'(게임 안 음악), 'room'(내 방 곡)이다
+    music = set(re.findall(r"^\s*'?([a-z0-9-]+)'?: \{ file:", read('src/sound.js'), re.M)) | {'own', 'room'}
+    for a in entries(read('data/apps.js')):
+        if a.get('music') and a['music'] not in music:
+            err(f"data/apps.js '{a['id']}'", f"music '{a['music']}' 은 src/sound.js 의 MUSIC 에 없다(게임 안에 음악이 있으면 'own')")
 
 
 # ---------- 파일 지도 ----------
