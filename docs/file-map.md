@@ -37,6 +37,7 @@
 | 볼록 화면이 휘는 정도 | `src/main.js`의 `ERAS`(`warp`), 공식은 `src/crt.js`의 `warp` |
 | 처음 접속해서 모니터가 그려지기 전의 화면(가림막, 점 세 개, 새로 고침 안내) | `index.html`의 `#page-loader`, `style.css`의 "첫 화면 가림막" 절. 걷는 곳은 `src/main.js` 맨 끝 |
 | 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
+| 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
 | 커서 그림과 색 | `src/cursors.js`, 마우스 앱은 `src/apps/mouse-app.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
@@ -136,14 +137,16 @@
 | `assets/favicon.png` | 브라우저 탭 아이콘. 32×32px 작은 집 |
 | `assets/sounds/` | 효과음과 배경음악 mp3. 팀 드라이브의 원본을 줄이고 잘라 넣었다(어디서 무엇을 잘랐는지는 `docs/requirements.md`의 "소리"). 배경음악은 `bgm-`로 시작한다 |
 | `assets/furniture/` | 가구 그림. `<가구 id>.png`, 돌려 놓은 모습은 `<가구 id>-r.png`(없으면 좌우로 뒤집어 쓴다). 첫 그림은 식탁(`dining-table.png`)이다 |
+| `assets/fonts/` | 사이트가 쓰는 글자만 남긴 작은 글꼴 AgaUI(보통 `aga-ui.woff2`, 굵게 `aga-ui-bold.woff2`), 들어 있는 글자 목록(`aga-ui.txt`), 갈무리 라이선스(`OFL.txt`). `tools/ui_font.py`가 만든다. 이름을 바꾼 까닭과 다시 만드는 법은 `assets/fonts/README.md` |
 
 ## tools/: 도구
 
 | 파일 | 하는 일 |
 | --- | --- |
 | `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었다 |
-| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리 |
+| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
+| `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
 
 ## docs/: 설명 문서
 
@@ -191,7 +194,7 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 
 위에서부터 이 순서로 놓여 있습니다. 찾을 때는 절 제목(`/* ---------- 창 ---------- */` 같은 줄)으로 검색합니다.
 
-1. 색과 글꼴 변수(`:root`), 화면 안 커서, 첫 화면 가림막
+1. 글꼴(`@font-face`), 색과 글꼴 변수(`:root`), 화면 안 커서, 첫 화면 가림막
 2. 모니터: 몸체, 화면 둘레, 이름표, 스피커, 물리 버튼
 3. 방: 방 색, 밤 그늘, 드래그 중 격자, 가구 상자
 4. 가구 선반, 위쪽 이름표와 버튼
