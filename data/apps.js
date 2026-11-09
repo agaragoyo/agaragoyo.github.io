@@ -37,7 +37,7 @@ export const APPS = [
   // 레포 밖 게임 다섯 개는 게임 안에 배경음악이 있어서 music: 'own' 이다.
 // 새 앱을 만들 때는 apps/tidy-up 을 예시로 본다.
   { id: 'tidy-up', title: '짐 정리', icon: 'apps/tidy-up/icon.svg', src: 'apps/tidy-up/index.html', size: [440, 640], folder: 'games', music: 'tidy-up' },
-  { id: 'file-ten', title: '파일 정리 10', icon: 'apps/file-ten/icon.svg', src: 'apps/file-ten/index.html', size: [720, 470], folder: 'games', music: 'file-ten' },
+  { id: 'file-ten', title: '파일 정리 10', icon: 'apps/file-ten/icon.svg', src: 'apps/file-ten/index.html', size: [720, 500], folder: 'games', music: 'file-ten' },
   { id: 'be-the-bee', title: 'Be the Bee', icon: `${SITE}/assets/be-the-bee.webp`, src: `${SITE}/be-the-bee/`, size: [1040, 660], folder: 'games', music: 'own' },
   { id: 'enigma', title: 'ENIGMA', icon: `${SITE}/assets/enigma.webp`, src: `${SITE}/Enigma/`, size: [1120, 700], folder: 'games', music: 'own' },
   { id: 'otherside', title: 'See you on the other side', icon: `${SITE}/assets/otherside.webp`, src: `${SITE}/Otherside/`, size: [1040, 660], folder: 'games', music: 'own' },
