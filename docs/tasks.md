@@ -61,3 +61,6 @@ F로 시작하는 번호는 `docs/requirements.md`의 요구 사항 번호이고
 | 맥 사파리에서 `?era=1998&warp=on`으로 볼록 화면이 다 그려지는지, 다른 사이트 게임 창의 클릭이 맞는지 확인한 뒤 사파리에서도 기본으로 켜기 (`known-issues.md` 30번) | Admin | 기다림 |
 | `apps/README.md`와 `worklog/README.md`의 말투를 README에 맞추기 | Admin | 할 일 |
 | 처음 접속했을 때 모니터 없이 글씨만 먼저 보이던 것을 가림막으로 덮기 (`known-issues.md` 42번) | Admin | 끝 |
+| 느린 연결에서 모듈을 여섯 단계에 걸쳐 받던 것을 크롬 계열에서는 한꺼번에 받게 하기 (`tools/stamp.py`, `known-issues.md` 15번) | Admin | 끝 |
+| 사파리에 WebKit 버그 270357을 고친 버전이 나오면, 모듈 하나를 막은 뒤 새로 고침으로 가림막이 걷히는지 확인하고 모듈 미리 받기를 모든 브라우저로 넓히기 (`known-issues.md` 43번) | Admin | 기다림 |
+| 로컬 서버가 한꺼번에 오는 연결을 거부해 가끔 가림막이 걷히지 않던 것을 고치기 (`known-issues.md` 44번) | Admin | 끝 |

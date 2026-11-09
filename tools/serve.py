@@ -13,5 +13,10 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+class Server(http.server.ThreadingHTTPServer):
+    # 기본 대기열(5)로는 stamp.py가 채운 modulepreload처럼 요청 수십 개가 한꺼번에 오면 윈도우에서 일부를 거부한다
+    request_queue_size = 64
+
+
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-http.server.ThreadingHTTPServer(('', PORT), NoCache).serve_forever()
+Server(('', PORT), NoCache).serve_forever()

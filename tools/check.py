@@ -208,6 +208,17 @@ def check_imports():
                 err(p.relative_to(ROOT).as_posix(), f"import '{spec}' 파일이 없다")
 
 
+# ---------- 배포할 때 채울 자리 ----------
+def check_stamp():
+    """배포할 때 tools/stamp.py가 index.html에 import map, modulepreload 줄, 지문을 채울 수 있는지 미리 돌려 본다(known-issues 15)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import stamp
+    try:
+        stamp.stamp(read('index.html'))
+    except stamp.StampError as e:
+        err('tools/stamp.py', f'배포할 때 index.html을 채우지 못한다: {e}')
+
+
 # ---------- 비밀 값 ----------
 def check_secrets():
     pattern = re.compile(r'(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})')
@@ -306,6 +317,7 @@ def main():
     check_avatars()
     check_storage_keys()
     check_imports()
+    check_stamp()
     check_secrets()
     check_room_image()
     check_sounds()
