@@ -1,6 +1,7 @@
 // 팀원 앱(apps/ 폴더의 웹 페이지)을 창 안의 iframe으로 띄운다. data/apps.js에서 src가 있는 앱은 모두 이걸로 열린다.
 // 앱은 apps/aga-sdk.js로 창을 닫거나 제목을 바꿀 수 있다(주고받는 메시지는 src/sdk-host.js).
 import { h } from '../util.js';
+import { holdMusic } from '../sound.js';
 
 // iframe이 앱 폴더 밖으로 나갔는지. 앱 안에서 페이지를 옮기는 것은 괜찮다(같은 폴더 아래면 앱으로 본다).
 // 다른 사이트의 앱은 안을 볼 수 없으므로 판단하지 않는다.
@@ -48,6 +49,9 @@ export function openFrameApp(os, app) {
       frame.src = app.src;
       win.iframe = frame;
       body.append(frame, lost);
+      // data/apps.js의 music: 창이 열려 있는 동안 그 게임의 배경음악을 틀거나('own'이면 게임 안 음악과 겹치지 않게) 사이트 음악을 멈춘다
+      const releaseMusic = app.music ? holdMusic(`app:${app.id}`, app.music) : null;
+      return () => releaseMusic?.();
     },
   });
 }

@@ -66,7 +66,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 볼록 효과를 켤지 정하기(핀치 줌 중에는 끄고, 주소의 `?warp=on`은 크롬 계열이 아닌 브라우저에서도 켠다), 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
-| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 방 꾸미기 창(`setDecorating`)에 맞는 곡 하나를 튼다. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `setDecorating`, `roomMusic`, `ROOM_MUSIC` |
+| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서, 소리, 방 배경음악) 저장소. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
@@ -106,6 +106,7 @@
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
 | `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
 | `src/apps/mouse-app.js` | 마우스. 커서 색과 크기, 32×32칸 직접 그리기 |
+| `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임) |
 

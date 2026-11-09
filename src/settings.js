@@ -8,8 +8,8 @@ import { STORAGE_SETTINGS } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
 // cursor: 마우스 앱에서 고른 커서 색, 크기, 직접 그린 그림(자세한 모양은 src/cursors.js 맨 위)
-// sound: 효과음과 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
-const DEFAULTS = { grain: true, curve: true, night: false, era: '1998', sound: true, music: 'kpop', cursor: { line: null, fill: null, size: 1, custom: {} } };
+// sound: 효과음과 배경음악을 틀지, musicOn: 그 가운데 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
+const DEFAULTS = { grain: true, curve: true, night: false, era: '1998', sound: true, musicOn: true, music: 'kpop', cursor: { line: null, fill: null, size: 1, custom: {} } };
 const state = { ...DEFAULTS, ...loadJSON(STORAGE_SETTINGS) };
 const listeners = new Set();
 let held = null; // 잠시 다른 값으로 쓰는 설정. 저장하지 않으므로 새로 고침을 하면 저장된 값으로 돌아온다

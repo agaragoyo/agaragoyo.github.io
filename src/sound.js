@@ -1,35 +1,42 @@
 // 소리: 효과음과 배경음악. 파일은 assets/sounds/에 있고, 무엇을 언제 트는지는 docs/requirements.md의 "소리" 표를 따른다.
-// 효과음은 play('이름')으로 튼다. 배경음악은 지금 상황에 맞는 곡 하나만 틀고, 화면 쪽에서는 setPlace와 setDecorating으로 상황만 알린다.
-// 설정의 sound가 꺼져 있으면 아무것도 틀지 않는다. 브라우저는 사용자가 한 번 누르기 전까지 재생을 막는데,
-// 이 사이트는 전원 버튼을 눌러야 켜지므로 첫 소리는 늘 그 뒤에 난다.
+// 효과음은 play('이름')으로 튼다. 배경음악은 지금 상황에 맞는 곡 하나만 튼다. 화면 쪽에서는 바탕화면의 공간(setPlace)과
+// 창이 열려 있는 동안 바꿀 음악(holdMusic)만 알린다. 설정의 sound가 꺼지면 모든 소리가, musicOn이 꺼지면 배경음악만 멈춘다.
+// 브라우저는 사용자가 한 번 누르기 전까지 재생을 막는데, 이 사이트는 전원 버튼을 눌러야 켜지므로 첫 소리는 늘 그 뒤에 난다.
 import { settings } from './settings.js';
 
 const DIR = 'assets/sounds/';
 
 // vol은 0~1. 파일마다 다른 크기를 비슷하게 맞춘 값이다. 여러 파일이 있으면 그 가운데 하나를 고른다.
 const EFFECTS = {
-  button: { files: ['button.mp3'], vol: 0.5 },     // 모니터의 전원 버튼
-  keyboard: { files: ['keyboard.mp3'], vol: 0.6 }, // 로그인
-  mouse: { files: ['mouse.mp3'], vol: 0.35 },      // 화면 안을 누를 때
-  light: { files: ['light.mp3'], vol: 0.6 },       // 불 끄고 켜기
-  enter: { files: ['enter.mp3'], vol: 0.5 },       // 방과 놀이터 사이를 오갈 때
+  button: { files: ['button.mp3'], vol: 0.5 },                         // 모니터의 전원 버튼
+  key: { files: ['key-1.mp3', 'key-2.mp3', 'key-3.mp3'], vol: 0.5 },   // 로그인 화면에서 아이디를 칠 때 한 글자마다
+  mouse: { files: ['mouse.mp3'], vol: 0.35 },                          // 화면 안을 누를 때
+  step: { files: ['step-1.mp3', 'step-2.mp3', 'step-3.mp3'], vol: 0.4 }, // 아바타가 걸을 때 두 칸마다
+  light: { files: ['light.mp3'], vol: 0.6 },                           // 불 끄고 켜기
+  enter: { files: ['enter.mp3'], vol: 0.5 },                           // 방과 놀이터 사이를 오갈 때(문 닫히는 소리)
   furniture: { files: ['furniture-1.mp3', 'furniture-2.mp3', 'furniture-3.mp3'], vol: 0.45 }, // 가구를 놓을 때
 };
 
-// 바탕화면 내 방의 배경음악. 시작 메뉴에서 차례로 바꿔 들어 볼 수 있다(주인이 고르게 할지는 팀에서 정하는 중).
+// 바탕화면 내 방의 배경음악. 주인이 배경음악 앱(src/apps/music-app.js)에서 고른다.
 export const ROOM_MUSIC = [
   { id: 'kpop', name: '케이팝', file: 'bgm-kpop.mp3' },
   { id: 'upbeat', name: '신나는 곡', file: 'bgm-upbeat.mp3' },
   { id: 'calm', name: '차분한 곡', file: 'bgm-calm.mp3' },
   { id: 'country', name: '컨트리', file: 'bgm-country.mp3' },
 ];
-const ROOM_VOL = 0.28; // 내 방 네 곡은 아래 두 곡보다 약 10dB 크게 만들어져 있다
+const LOUD_VOL = 0.28; // 내 방 네 곡과 미니게임 두 곡은 방 꾸미기, 놀이터 곡보다 약 10dB 크게 만들어져 있다
+// 공간과 창에 붙는 음악. 이름은 공간 id(놀이터)와 data/apps.js의 music 값으로 쓴다.
+// data/apps.js에서 music: 'own'인 게임은 게임 안에 음악이 있어서, 그 창이 열려 있는 동안 사이트 음악을 멈춘다.
 const MUSIC = {
-  office: { file: 'bgm-office.mp3', vol: 0.8 },          // 방 꾸미기 창이 열려 있을 때
-  playground: { file: 'bgm-playground.mp3', vol: 0.65 }, // 바탕화면이 놀이터일 때(공간 id와 같은 이름)
+  office: { file: 'bgm-office.mp3', vol: 0.8 },          // 방 꾸미기 창(내 집을 꾸밀 때)
+  playground: { file: 'bgm-playground.mp3', vol: 0.65 }, // 바탕화면이 놀이터일 때
+  'tidy-up': { file: 'bgm-tidy-up.mp3', vol: LOUD_VOL },   // 짐 정리 창
+  'file-ten': { file: 'bgm-file-ten.mp3', vol: LOUD_VOL }, // 파일 정리 10 창
 };
+export const MUSIC_NAMES = [...Object.keys(MUSIC), 'room', 'own'];
 
-const state = { place: null, decorating: false };
+let place = null;
+const holds = []; // 창이 열려 있는 동안 바꿀 음악. 나중에 연 창이 이긴다. { id, name }
 const players = new Map(); // 파일 이름 → 되풀이해 트는 Audio
 let current = null; // 지금 트는 배경음악 { key, file, vol, audio }
 let fadeTimer = 0;
@@ -49,23 +56,30 @@ export function roomMusic() {
 }
 
 // 바탕화면의 공간('room', 'playground'). 바탕화면을 떠나면(로그인, 부팅, 전원 끄기) null.
-export function setPlace(place) {
-  state.place = place;
+export function setPlace(id) {
+  place = id;
   update();
 }
 
-// 방 꾸미기 창이 열려 있는 동안은 공간과 상관없이 방 꾸미기 음악을 튼다.
-export function setDecorating(on) {
-  state.decorating = on;
+// 창이 열려 있는 동안 배경음악을 바꾼다. name은 MUSIC의 이름, 'room'(내 방 곡), 'own'(멈춤).
+// 돌려준 함수를 창을 닫을 때 부르면 원래 음악으로 돌아간다.
+export function holdMusic(id, name) {
+  holds.push({ id, name });
   update();
+  return () => {
+    const i = holds.findIndex(x => x.id === id);
+    if (i >= 0) holds.splice(i, 1);
+    update();
+  };
 }
 
 function wanted() {
-  if (!soundOn() || !state.place) return null;
-  if (state.decorating) return { key: 'office', ...MUSIC.office };
-  if (MUSIC[state.place]) return { key: state.place, ...MUSIC[state.place] };
+  if (!soundOn() || !settings.get('musicOn') || !place) return null;
+  const name = holds.length ? holds[holds.length - 1].name : place;
+  if (name === 'own') return null;
+  if (MUSIC[name]) return { key: name, ...MUSIC[name] };
   const m = roomMusic();
-  return { key: m.id, file: m.file, vol: ROOM_VOL };
+  return { key: m.id, file: m.file, vol: LOUD_VOL };
 }
 
 function player(file) {
@@ -111,5 +125,5 @@ function crossfade(prev, next) {
 }
 
 settings.subscribe(patch => {
-  if ('sound' in patch || 'music' in patch) update();
+  if ('sound' in patch || 'music' in patch || 'musicOn' in patch) update();
 });
