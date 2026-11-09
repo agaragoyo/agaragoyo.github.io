@@ -39,7 +39,7 @@ export function openMusicApp(os, app) {
         picks.forEach((label, i) => { label.querySelector('input').checked = ROOM_MUSIC[i].id === now; });
         note.textContent = settings.get('sound')
           ? '놀이터와 방 꾸미기, 미니게임에서는 그곳 음악이 나옵니다.'
-          : '모니터 아래 소리 버튼이 꺼져 있어서 지금은 아무 소리도 나지 않습니다.';
+          : '지금은 소리가 나지 않습니다. 모니터 아래 소리 버튼을 누르면 다시 나옵니다.';
       };
       render();
       const stopListening = settings.subscribe(render);
