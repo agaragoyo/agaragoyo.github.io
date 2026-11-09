@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>파일 정리 10</title>
-  <!-- 파일 정리 10: 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지운다. -->
+  <!-- 파일 정리 10: 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지운다.
+       보통 모드는 100초 동안 무작위 판을 쓰고, 더 지울 묶음이 없으면 새 판을 깐다.
+       캐주얼 모드는 시간 제한 없이, 끝까지 다 지울 수 있는 판을 준다. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
   <style>
     /* 스크롤바가 생기면 폭이 줄어 캔버스를 다시 맞추고, 그러면 스크롤바가 사라지는 일이 끝없이 반복된다. 아예 막는다. */
@@ -17,13 +19,18 @@
       color: #fff;
       user-select: none;
     }
-    /* 점수나 다음 물건 이름이 길어져도 한 줄을 지킨다(두 줄이 되면 아래 게임판이 밀린다). */
-    header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; white-space: nowrap; overflow: hidden; background: #1f4d4a; font-size: 14px; }
-    header > * { flex: none; }
+    /* 머리줄과 아랫줄은 점수나 안내 글이 길어져도 한 줄을 지킨다(두 줄이 되면 게임판이 밀린다). */
+    header, footer { display: flex; align-items: center; gap: 12px; padding: 8px 12px; white-space: nowrap; overflow: hidden; background: #1f4d4a; font-size: 14px; }
+    header > *, footer > * { flex: none; }
     header .grow { flex: 1; }
+    footer { padding: 6px 12px; font-size: 13px; }
+    footer #msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    footer #hint { color: #f6cf6a; }
     #timebar { width: 160px; height: 10px; border: 2px solid #fff; }
     #timebar i { display: block; height: 100%; background: #f6cf6a; }
     button { font: inherit; font-size: 13px; padding: 4px 10px; cursor: var(--aga-hand, pointer); }
+    .modes { display: flex; }
+    .modes button[aria-pressed="true"] { background: #f6cf6a; color: #1f2b2a; }
     #wrap { flex: 1; display: grid; place-items: center; min-height: 0; }
     canvas { display: block; touch-action: none; }
   </style>
@@ -31,13 +38,20 @@
 <body>
   <header>
     <span>지운 파일 <b id="score">0</b></span>
-    <span>최고 <b id="best">0</b></span>
+    <span id="best-box">최고 <b id="best">0</b></span>
+    <span id="clears-box" hidden>다 정리 <b id="clears">0</b>번</span>
     <span class="grow"></span>
     <span id="timebar"><i></i></span>
+    <span id="remain-box" hidden>남은 파일 <b id="remain">0</b></span>
+    <span class="modes" role="group" aria-label="모드">
+      <button type="button" data-mode="normal">보통</button>
+      <button type="button" data-mode="casual">캐주얼</button>
+    </span>
     <button id="restart">다시</button>
     <button id="quit">끝내기</button>
   </header>
   <div id="wrap"><canvas id="cv"></canvas></div>
+  <footer aria-live="polite"><span id="msg"></span><span id="hint"></span></footer>
 
   <script src="../aga-sdk.js"></script>
   <script>
@@ -47,27 +61,220 @@
     const PAD = 10;
     const W = COLS * CELL + PAD * 2;
     const H = ROWS * CELL + PAD * 2;
-    const TIME = 100; // 초
+    const ALL = COLS * ROWS;
+    const TIME = 100; // 보통 모드의 제한 시간(초)
+    const END_LOCK = 800; // 끝난 직후 이만큼(ms)은 판을 눌러도 다시 시작하지 않는다. 끌던 손을 떼다가 결과를 놓치지 않게
+    const SWAP_AFTER = 900; // 보통 모드에서 막힌 판을 보여 준 뒤 새 판으로 바꾸기까지(ms)
+    const BANNER = 2000; // 새 판을 깐다는 알림이 떠 있는 시간(ms)
+    const RESULT = 1400; // 끝난 결과를 판 위에 크게 보여 주는 시간(ms). 그 뒤 0.4초 동안 흐려지며 판이 드러난다
     // 숫자마다 파일 색 (1~9)
     const COLORS = ['', '#f6cf6a', '#e8a33d', '#e07a5f', '#c56c96', '#8b7fd6', '#5b8def', '#6fae8f', '#9fd36a', '#d8c3a0'];
 
     const cv = document.getElementById('cv');
     const ctx = cv.getContext('2d');
     const $ = id => document.getElementById(id);
-    let best = AGA.load('best', 0); // localStorage 'file-ten.best'
+    const rnd = n => Math.floor(Math.random() * n);
+    let mode = AGA.load('mode', 'normal') === 'casual' ? 'casual' : 'normal'; // localStorage 'file-ten.mode'
+    let best = AGA.load('best', 0); // 'file-ten.best': 보통 모드의 최고 기록
+    let clears = AGA.load('clears', 0); // 'file-ten.clears': 캐주얼 모드에서 판을 끝까지 다 지운 횟수
     $('best').textContent = best;
+    $('clears').textContent = clears;
 
-    let grid, score, left, started, sel, over, flash;
+    // end: 끝났을 때 { at, kind: 'time' | 'clear' | 'stuck', title, groups, cells }
+    // swapAt: 보통 모드에서 막혀 새 판을 기다리기 시작한 시각, banner: 판 가운데 알림 { text, at }
+    let grid, score, timeLeft, started, sel, over, flash, end, swapAt, banner;
+
+    // ---------- 지울 수 있는 묶음 찾기 ----------
+    // 네모 안의 합을 한 번에 구하는 누적 합. f로 칸 값을 바꿔 셀 수 있다.
+    function prefixSum(g, f = v => v) {
+      const S = Array.from({ length: ROWS + 1 }, () => new Array(COLS + 1).fill(0));
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) S[r + 1][c + 1] = f(g[r][c]) + S[r][c + 1] + S[r + 1][c] - S[r][c];
+      }
+      return (r0, c0, r1, c1) => S[r1 + 1][c1 + 1] - S[r0][c1 + 1] - S[r1 + 1][c0] + S[r0][c0];
+    }
+
+    // 지금 판에서 바로 지울 수 있는 묶음(합이 10인 네모)을 모두 [r0, c0, r1, c1]로 돌려준다.
+    // 네 변에 모두 파일이 걸친 네모만 세서 같은 파일 묶음을 두 번 세지 않는다. 네모는 5,400개라 한 번에 1ms도 걸리지 않는다.
+    function findGroups(g) {
+      const sum = prefixSum(g);
+      const out = [];
+      for (let r0 = 0; r0 < ROWS; r0++) {
+        for (let r1 = r0; r1 < ROWS; r1++) {
+          for (let c0 = 0; c0 < COLS; c0++) {
+            for (let c1 = c0; c1 < COLS; c1++) {
+              const s = sum(r0, c0, r1, c1);
+              if (s > 10) break; // 오른쪽으로 넓힐수록 합은 커지기만 한다
+              if (s === 10 && sum(r0, c0, r0, c1) && sum(r1, c0, r1, c1) && sum(r0, c0, r1, c0) && sum(r0, c1, r1, c1)) {
+                out.push([r0, c0, r1, c1]);
+              }
+            }
+          }
+        }
+      }
+      return out;
+    }
+
+    // 네모 안에 있는 파일 칸들
+    function cellsIn([r0, c0, r1, c1]) {
+      const out = [];
+      for (let r = r0; r <= r1; r++) {
+        for (let c = c0; c <= c1; c++) if (grid[r][c]) out.push([r, c]);
+      }
+      return out;
+    }
+
+    // ---------- 판 만들기 ----------
+    // 보통 모드: 칸마다 1~9를 따로 뽑는다. 지울 묶음이 하나도 없는 판은 버린다(사실상 나오지 않는다).
+    function randomGrid() {
+      for (;;) {
+        const g = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => 1 + rnd(9)));
+        if (findGroups(g).length) return g;
+      }
+    }
+
+    // 캐주얼 모드: 끝까지 다 지울 수 있는 판. 마작 솔리테어가 쓰는 방법처럼 빈 판에 거꾸로 쌓는다.
+    // 그 순간 두 칸을 이은 네모 안이 비어 있는 자리에 합이 10인 짝을 놓아 판을 채우면,
+    // 놓은 순서의 반대로 지울 때 짝의 네모 안에는 늘 그 짝만 남아 있으므로 판 전체가 지워진다.
+    // 칸 수(135)가 홀수라 세 칸 묶음 하나를 맨 먼저 놓는다(지울 때는 맨 마지막).
+    let solution = []; // 지금 판을 다 지우는 순서(칸 묶음 목록). 캐주얼 판에만 있고, 시험할 때와 나중에 힌트를 만들 때 쓴다
+    function solvableGrid() {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const g = Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+        const three = [];
+        while (three.length < 3) {
+          const cell = [rnd(ROWS), rnd(COLS)];
+          if (!three.some(([r, c]) => r === cell[0] && c === cell[1])) three.push(cell);
+        }
+        let a;
+        let b;
+        do { a = 1 + rnd(8); b = 1 + rnd(8); } while (a + b > 9);
+        [a, b, 10 - a - b].forEach((v, i) => { g[three[i][0]][three[i][1]] = v; });
+        const order = [three];
+        if (fillPairs(g, order)) {
+          solution = order.reverse();
+          return g;
+        }
+      }
+      solution = [];
+      return randomGrid(); // 200번 모두 막히는 일은 사실상 없다. 그래도 게임은 이어지게 무작위 판을 준다
+    }
+
+    const NEAR = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    // 그 칸의 위아래 양옆 가운데 비어 있는 칸 수
+    function openSides(g, r, c) {
+      let n = 0;
+      for (const [dr, dc] of NEAR) {
+        const y = r + dr;
+        const x = c + dc;
+        if (y >= 0 && y < ROWS && x >= 0 && x < COLS && !g[y][x]) n++;
+      }
+      return n;
+    }
+
+    // p와 q를 채우면 그 이웃 가운데 사방이 막히는 빈칸(외톨이 칸)이 생기는지
+    function strands(g, p, q) {
+      g[p[0]][p[1]] = g[q[0]][q[1]] = 1;
+      let bad = false;
+      for (const [r, c] of [p, q]) {
+        for (const [dr, dc] of NEAR) {
+          const y = r + dr;
+          const x = c + dc;
+          if (y >= 0 && y < ROWS && x >= 0 && x < COLS && !g[y][x] && !openSides(g, y, x)) bad = true;
+        }
+      }
+      g[p[0]][p[1]] = g[q[0]][q[1]] = 0;
+      return bad;
+    }
+
+    // 빈칸이 없어질 때까지 합이 10인 짝을 놓는다. 외톨이 칸이 생기면 false를 돌려주고, 판을 처음부터 다시 만든다.
+    function fillPairs(g, order) {
+      for (;;) {
+        // 갇히기 쉬운 칸(빈 이웃이 가장 적은 칸)부터 짝을 지어 준다. 아무 칸이나 고르면 외톨이 칸이 생겨 거의 늘 실패한다.
+        const empty = [];
+        let fewest = 5;
+        let tight = [];
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (g[r][c]) continue;
+            empty.push([r, c]);
+            const n = openSides(g, r, c);
+            if (n < fewest) { fewest = n; tight = [[r, c]]; } else if (n === fewest) tight.push([r, c]);
+          }
+        }
+        if (!empty.length) return true;
+        if (fewest === 0) return false;
+        const p = tight[rnd(tight.length)];
+        // 짝이 될 수 있는 칸: p와 이은 네모 안이 모두 비어 있다
+        const used = prefixSum(g, v => (v ? 1 : 0));
+        const partners = empty.filter(q => (q[0] !== p[0] || q[1] !== p[1])
+          && !used(Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])));
+        // 외톨이 칸을 만들지 않는 칸 가운데 가장 먼 칸과 잇는다. 가까운 칸끼리만 이으면 판이 지나치게 쉬워진다.
+        const safe = partners.filter(q => !strands(g, p, q));
+        const pool = safe.length ? safe : partners;
+        const dist = q => Math.abs(q[0] - p[0]) + Math.abs(q[1] - p[1]);
+        const most = Math.max(...pool.map(dist));
+        const ends = pool.filter(q => dist(q) === most);
+        const q = ends[rnd(ends.length)];
+        const v = 1 + rnd(9);
+        g[p[0]][p[1]] = v;
+        g[q[0]][q[1]] = 10 - v;
+        order.push([p, q]);
+      }
+    }
+
+    function deal() {
+      if (mode === 'casual') {
+        grid = solvableGrid();
+      } else {
+        grid = randomGrid();
+        solution = [];
+      }
+      countRemain();
+    }
 
     function reset() {
-      grid = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => 1 + Math.floor(Math.random() * 9)));
+      deal();
       score = 0;
-      left = TIME;
+      timeLeft = TIME;
       started = performance.now();
       sel = null;
       over = false;
+      end = null;
+      swapAt = 0;
+      banner = null;
       flash = [];
       $('score').textContent = 0;
+      showMode();
+    }
+
+    // ---------- 머리줄과 아랫줄 ----------
+    const say = (msg, hint = '') => {
+      $('msg').textContent = msg;
+      $('hint').textContent = hint;
+    };
+    const remaining = () => grid.reduce((n, row) => n + row.filter(Boolean).length, 0);
+    const countRemain = () => { $('remain').textContent = remaining(); };
+
+    // 머리줄과 아랫줄을 지금 모드에 맞춘다
+    function showMode() {
+      const casual = mode === 'casual';
+      $('best-box').hidden = casual;
+      $('timebar').hidden = casual;
+      $('clears-box').hidden = !casual;
+      $('remain-box').hidden = !casual;
+      for (const b of document.querySelectorAll('.modes button')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+      say(casual ? '시간 제한이 없고, 끝까지 다 지울 수 있는 판이에요.' : '끌어서 고른 파일의 합이 10이면 지워져요. 100초 동안 많이 지워 보세요.');
+    }
+
+    // 모드를 바꾸면 그 모드의 새 판으로 시작한다. 고른 모드는 다음에 열 때도 그대로다.
+    for (const b of document.querySelectorAll('.modes button')) {
+      b.addEventListener('click', () => {
+        if (b.dataset.mode === mode) return;
+        mode = b.dataset.mode;
+        AGA.save('mode', mode);
+        reset();
+      });
     }
 
     // ---------- 화면 크기 ----------
@@ -98,7 +305,11 @@
     const sumOf = cells => cells.reduce((s, [r, c]) => s + grid[r][c], 0);
 
     cv.addEventListener('pointerdown', e => {
-      if (over) { reset(); return; }
+      if (over) {
+        if (performance.now() - end.at > END_LOCK) reset();
+        return;
+      }
+      if (swapAt) return; // 막힌 판을 새 판으로 바꾸는 중
       const p = toGame(e);
       sel = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
     });
@@ -111,23 +322,64 @@
     window.addEventListener('pointerup', () => {
       if (!sel) return;
       const cells = picked();
-      if (cells.length && sumOf(cells) === 10) {
-        for (const [r, c] of cells) {
-          flash.push({ r, c, v: grid[r][c], t: performance.now() });
-          grid[r][c] = 0;
-        }
-        score += cells.length;
-        $('score').textContent = score;
-        if (score > best) {
-          best = score;
-          $('best').textContent = best;
-          AGA.save('best', best);
-        }
-      }
       sel = null;
+      if (!cells.length || sumOf(cells) !== 10) return;
+      const now = performance.now();
+      for (const [r, c] of cells) {
+        flash.push({ r, c, v: grid[r][c], t: now });
+        grid[r][c] = 0;
+      }
+      score += cells.length;
+      $('score').textContent = score;
+      if (mode === 'normal' && score > best) {
+        best = score;
+        $('best').textContent = best;
+        AGA.save('best', best);
+      }
+      countRemain();
+      afterMove(now);
     });
     $('restart').addEventListener('click', reset);
     $('quit').addEventListener('click', () => AGA.close());
+
+    // 지운 뒤 판에 더 지울 묶음이 남았는지 본다
+    function afterMove(now) {
+      if (findGroups(grid).length) return;
+      const cleared = remaining() === 0;
+      if (mode === 'casual') {
+        if (cleared) {
+          clears++;
+          $('clears').textContent = clears;
+          AGA.save('clears', clears);
+        }
+        finish(cleared ? 'clear' : 'stuck', now);
+        return;
+      }
+      // 보통 모드: 남은 시간을 이어서 쓰도록 판만 새로 깐다. 막힌 판을 잠깐 보여 준 뒤 바꾼다.
+      swapAt = now;
+      banner = { text: cleared ? '판을 다 정리했어요! 새 판을 깔아요' : '더 지울 묶음이 없어서 새 판을 깔아요', at: now };
+    }
+
+    function finish(kind, now) {
+      over = true;
+      sel = null;
+      swapAt = 0;
+      banner = null;
+      const groups = kind === 'time' ? findGroups(grid) : [];
+      const cells = new Set(groups.flatMap(g => cellsIn(g).map(([r, c]) => r * COLS + c)));
+      const title = kind === 'time' ? `파일 ${score}개를 정리했어요`
+        : kind === 'clear' ? `파일 ${ALL}개를 다 정리했어요!` : '더 지울 묶음이 없어요';
+      end = { at: now, kind, title, groups, cells };
+      if (kind === 'time') {
+        AGA.setTitle(`파일 정리 10 (최고 ${best}개)`);
+        say(groups.length ? `노란 네모 ${groups.length}개는 이 화면에서 바로 지울 수 있던 묶음이에요.` : '이 화면에는 바로 지울 수 있는 묶음이 없었어요.', '판을 누르면 다시 시작');
+      } else if (kind === 'clear') {
+        AGA.setTitle(`파일 정리 10 (다 정리 ${clears}번)`);
+        say(`지금까지 판을 ${clears}번 다 정리했어요.`, '판을 누르면 다시 시작');
+      } else {
+        say(`파일 ${remaining()}개가 남았어요. 지우는 순서를 바꾸면 다 지울 수 있는 판이었어요.`, '판을 누르면 다시 시작');
+      }
+    }
 
     // ---------- 그리기 ----------
     function drawFile(x, y, v, alpha = 1) {
@@ -157,10 +409,33 @@
       ctx.globalAlpha = 1;
     }
 
+    // 판 가운데에 잠깐 띄우는 알림
+    function drawBanner(text, alpha) {
+      ctx.globalAlpha = alpha;
+      ctx.font = '18px Galmuri11, sans-serif';
+      const w = ctx.measureText(text).width + 48;
+      const h = 48;
+      ctx.fillStyle = '#1f4d4aee';
+      ctx.fillRect((W - w) / 2, (H - h) / 2, w, h);
+      ctx.strokeStyle = '#f6cf6a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect((W - w) / 2, (H - h) / 2, w, h);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, W / 2, H / 2);
+      ctx.globalAlpha = 1;
+    }
+
+    const clamp01 = k => Math.max(0, Math.min(1, k));
+
     function draw() {
+      const now = performance.now();
       ctx.fillStyle = '#3a807b';
       ctx.fillRect(0, 0, W, H);
       const chosen = new Set(picked().map(([r, c]) => r * COLS + c));
+      // 시간이 다 되면 바로 지울 수 있던 묶음을 노란 네모로 두르고, 묶음에 들지 않는 파일은 흐리게 그린다
+      const review = over && end.kind === 'time' && end.groups.length > 0;
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const x = PAD + c * CELL + 5;
@@ -169,14 +444,20 @@
             ctx.fillStyle = '#ffffff40';
             ctx.fillRect(x - 3, y - 2, CELL - 4, CELL - 2);
           }
-          if (grid[r][c]) drawFile(x, y, grid[r][c]);
+          if (grid[r][c]) drawFile(x, y, grid[r][c], review && !end.cells.has(r * COLS + c) ? 0.3 : 1);
+        }
+      }
+      if (review) {
+        ctx.strokeStyle = '#f6cf6a';
+        ctx.lineWidth = 2;
+        for (const [r0, c0, r1, c1] of end.groups) {
+          ctx.strokeRect(PAD + c0 * CELL + 2, PAD + r0 * CELL + 1, (c1 - c0 + 1) * CELL - 4, (r1 - r0 + 1) * CELL - 2);
         }
       }
       // 지워지는 파일: 위로 떠오르며 흐려진다
-      const now = performance.now();
       flash = flash.filter(f => now - f.t < 400);
       for (const f of flash) {
-        const k = (now - f.t) / 400;
+        const k = clamp01((now - f.t) / 400);
         drawFile(PAD + f.c * CELL + 5, PAD + f.r * CELL + 3 - k * 14, f.v, 1 - k);
       }
       if (sel) {
@@ -197,28 +478,38 @@
         ctx.textAlign = 'left';
         ctx.fillText(`합 ${s}`, sel.x1 + 10, sel.y1 + 14);
       }
+      if (banner) {
+        const t = now - banner.at;
+        if (t > BANNER) banner = null;
+        else drawBanner(banner.text, clamp01((BANNER - t) / 400));
+      }
       if (over) {
-        ctx.fillStyle = '#000a';
-        ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.font = '28px Galmuri11, sans-serif';
-        ctx.fillText(`파일 ${score}개를 정리했어요`, W / 2, H / 2 - 18);
-        ctx.font = '18px Galmuri11, sans-serif';
-        ctx.fillText('누르면 다시 시작', W / 2, H / 2 + 20);
+        // 결과를 잠깐 크게 보여 준 뒤 흐려져 판이 드러난다. 다 지운 판은 볼 것이 없으므로 결과를 그대로 둔다.
+        const alpha = end.kind === 'clear' ? 1 : clamp01(1 - (now - end.at - RESULT) / 400);
+        if (alpha > 0) {
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = '#000a';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '28px Galmuri11, sans-serif';
+          ctx.fillText(end.title, W / 2, H / 2);
+          ctx.globalAlpha = 1;
+        }
       }
     }
 
     function loop(now) {
-      if (!over) {
-        left = Math.max(0, TIME - (now - started) / 1000);
-        if (left === 0) {
-          over = true;
-          sel = null;
-          AGA.setTitle(`파일 정리 10 (최고 ${best}개)`);
-        }
+      if (!over && mode === 'normal') {
+        timeLeft = Math.max(0, TIME - (now - started) / 1000);
+        if (timeLeft === 0) finish('time', performance.now());
       }
-      $('timebar').firstElementChild.style.width = (left / TIME) * 100 + '%';
+      if (swapAt && performance.now() - swapAt > SWAP_AFTER) {
+        swapAt = 0;
+        deal();
+      }
+      if (mode === 'normal') $('timebar').firstElementChild.style.width = (timeLeft / TIME) * 100 + '%';
       draw();
       requestAnimationFrame(loop);
     }
