@@ -204,9 +204,13 @@ document.addEventListener('pointerdown', e => {
 // ---------- 첫 화면 ----------
 // 여기까지 오면 모니터가 다 그려지고 버튼도 이어졌으므로 index.html의 가림막을 걷는다.
 // 가림막이 없을 때는 이 파일이 돌기 전까지 모니터 없이 글씨만 먼저 보였다(known-issues 42).
-// 첫 화면의 글자는 갈무리 보통과 굵게 두 벌이다. 둘을 받을 때까지 기다리되, 3초가 넘으면 먼저 걷는다.
-// 3초는 브라우저가 웹 글꼴을 기다리며 글자를 숨기는 기본 시간이다. 그 뒤에는 기본 글꼴로 보이다가 글꼴이 오는 대로 바뀐다.
-const FIRST_FONTS = ['12px Galmuri11', 'bold 12px Galmuri11'];
+// 첫 화면의 글자는 사이트 글자만 담은 작은 글꼴(AgaUI) 보통과 굵게 두 벌로 그린다(style.css의 "글꼴", known-issues 45).
+// 둘을 받을 때까지 기다리되, 3초가 넘으면 먼저 걷는다. 3초는 브라우저가 웹 글꼴을 기다리며 글자를 숨기는 기본 시간이다.
+// 그 뒤에는 기본 글꼴로 보이다가 글꼴이 오는 대로 바뀐다.
+const FIRST_FONTS = ['12px AgaUI', 'bold 12px AgaUI'];
+// 작은 글꼴에 없는 글자(사용자가 치는 닉네임과 말풍선)는 갈무리11 전체가 그린다. 첫 화면을 다 그린 뒤에 이어 받아 두어,
+// 느린 연결에서 첫 화면의 짐을 나눠 지지 않으면서도 로그인 화면에서 닉네임을 칠 무렵에는 와 있게 한다.
+const FULL_FONTS = ['12px Galmuri11', 'bold 12px Galmuri11'];
 const loader = $('#page-loader');
 Promise.race([
   Promise.all(FIRST_FONTS.map(f => document.fonts.load(f))).catch(() => {}),
@@ -214,4 +218,5 @@ Promise.race([
 ]).then(() => {
   loader.classList.add('done');
   setTimeout(() => loader.remove(), 400); // 사라지는 데 0.25초. 다 사라진 뒤 점 깜빡임까지 멈추게 뺀다
+  for (const f of FULL_FONTS) document.fonts.load(f).catch(() => {});
 });

@@ -1,5 +1,26 @@
 /* 크기 단위 안내: .stage 안쪽은 1280×840 고정 좌표이고 JS가 통째로 확대/축소한다.
    그래서 .stage 안의 px 값은 실제 화면 px이 아니라 무대 px이다. */
+
+/* ---------- 글꼴 ---------- */
+/* AgaUI는 갈무리11에서 사이트가 스스로 쓰는 글자만 남긴 작은 글꼴이다(tools/ui_font.py가 만든다).
+   첫 화면 가림막은 이것만 기다리고(index.html에서 미리 받는다), 여기에 없는 글자(사용자가 치는 닉네임과 말풍선)는
+   그다음에 적힌 갈무리11 전체가 그린다. 갈무리 전체는 가림막이 걷힌 뒤 main.js가 이어 받아 둔다(known-issues 45).
+   갈무리11 주소는 팀 앱이 부르는 jsdelivr의 galmuri.css와 같아서 브라우저 캐시를 같이 쓴다. */
+@font-face { font-family: "AgaUI"; font-weight: 400; font-display: swap; src: url("assets/fonts/aga-ui.woff2") format("woff2"); }
+@font-face { font-family: "AgaUI"; font-weight: 700; font-display: swap; src: url("assets/fonts/aga-ui-bold.woff2") format("woff2"); }
+@font-face {
+  font-family: "Galmuri11";
+  font-weight: 400;
+  font-display: swap;
+  src: local("Galmuri11 Regular"), url("https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/Galmuri11.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Galmuri11";
+  font-weight: 700;
+  font-display: swap;
+  src: local("Galmuri11 Bold"), url("https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/Galmuri11-Bold.woff2") format("woff2");
+}
+
 :root {
   --page: #17151b;
   --plastic-hi: #e6dfcd;
@@ -15,7 +36,7 @@
   --win-bar-a: #6b2d5c;
   --win-bar-b: #c56c96;
   --page-bg: radial-gradient(ellipse at 50% 35%, #3a3540, var(--page) 70%); /* 페이지 바탕. 첫 화면 가림막도 같이 쓴다 */
-  --font-base: "Galmuri11", "Galmuri9", system-ui, sans-serif;
+  --font-base: "AgaUI", "Galmuri11", system-ui, sans-serif;
   --font: var(--font-base);
   --win-text: var(--ink);
   --win-check: #ebe7dc;

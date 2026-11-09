@@ -33,7 +33,12 @@
     // 크롬 계열 판별은 src/main.js의 CHROMIUM과 같은 식이다. 한쪽을 고치면 다른 쪽도 같이 고친다.
     if (/Chrome\/|Chromium\//.test(navigator.userAgent)) document.head.append(document.getElementById('modulepreload').content);
   </script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+  <!-- 글꼴: 첫 화면은 사이트 글자만 담은 작은 글꼴(AgaUI, 두 벌 합쳐 약 21KB)로 그리므로 HTML을 읽자마자 받는다.
+       주소는 style.css의 @font-face와 글자까지 같아야 한 번만 받는다(tools/check.py가 본다). 갈무리11 전체는 가림막이 걷힌 뒤
+       main.js가 jsdelivr에서 이어 받으므로, 그때 연결을 새로 맺지 않게 미리 이어 둔다(known-issues 45). -->
+  <link rel="preload" href="assets/fonts/aga-ui.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/aga-ui-bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="style.css?v=4f320ec8">
 </head>
 <body>

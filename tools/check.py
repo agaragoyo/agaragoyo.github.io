@@ -219,6 +219,36 @@ def check_stamp():
         err('tools/stamp.py', f'배포할 때 index.html을 채우지 못한다: {e}')
 
 
+# ---------- 작은 글꼴(AgaUI) ----------
+# 첫 화면은 사이트가 쓰는 글자만 담은 작은 글꼴로 그린다(known-issues 45). 사이트에 새 글자를 넣었는데 작은 글꼴에 없으면
+# 그 글자만 갈무리 전체가 올 때까지 기본 글꼴로 보이므로 경고로 알린다. 미리 받는 주소가 style.css의 주소와 다르면 같은 글꼴을 두 번 받으므로 오류.
+def check_ui_font():
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import ui_font
+    for name in [*ui_font.FILES.values(), ui_font.LIST.name, 'OFL.txt']:
+        if not (ui_font.OUT / name).exists():
+            err(f'assets/fonts/{name}', '작은 글꼴 파일이 없다. python tools/ui_font.py 로 만든다')
+            return
+    covered, absent = ui_font.read_list()
+    missing = sorted(ui_font.site_chars() - covered - absent)
+    if missing:
+        warn('assets/fonts/aga-ui.woff2', f'작은 글꼴에 없는 사이트 글자 {len(missing)}개({"".join(missing[:40])}). '
+             '갈무리 전체가 올 때까지 기본 글꼴로 보인다. pip install fonttools brotli 뒤 python tools/ui_font.py 로 다시 만든다')
+    want = {f'assets/fonts/{n}' for n in ui_font.FILES.values()}
+    faces = set(re.findall(r'font-family:\s*"AgaUI";[^}]*?url\("([^"]+)"\)', read('style.css')))
+    if faces != want:
+        err('style.css', f'AgaUI @font-face 주소가 {sorted(want)}와 다르다: {sorted(faces)}')
+    preloads = {}
+    for tag in re.findall(r'<link\s[^>]*rel="preload"[^>]*>', read('index.html')):
+        if 'as="font"' in tag:
+            preloads[re.search(r'href="([^"]+)"', tag).group(1)] = tag
+    if set(preloads) != faces:
+        err('index.html', f'글꼴을 미리 받는 주소({sorted(preloads)})가 style.css의 AgaUI 주소({sorted(faces)})와 달라 같은 글꼴을 두 번 받는다')
+    for href, tag in preloads.items():
+        if not re.search(r'\scrossorigin[\s>]', tag):
+            err('index.html', f'글꼴 미리 받기 줄({href})에 crossorigin이 없으면 미리 받은 파일을 쓰지 못하고 다시 받는다')
+
+
 # ---------- 비밀 값 ----------
 def check_secrets():
     pattern = re.compile(r'(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})')
@@ -318,6 +348,7 @@ def main():
     check_storage_keys()
     check_imports()
     check_stamp()
+    check_ui_font()
     check_secrets()
     check_room_image()
     check_sounds()
