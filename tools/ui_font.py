@@ -170,7 +170,7 @@ def site_chars(root=ROOT):
 
 def read_list(path=LIST):
     """aga-ui.txt를 (작은 글꼴에 든 글자, 갈무리에도 없어 넣지 못한 글자)로 읽는다."""
-    lines = path.read_text(encoding='utf-8').split('\n')
+    lines = path.read_text(encoding='utf-8').splitlines()  # 윈도우에서 받은 레포는 줄 끝이 CRLF일 수 있다
     field = lambda key: next((l[len(key):] for l in lines if l.startswith(key)), '')
     return set(field('글자: ')), set(field('갈무리에 없음: '))
 
@@ -242,7 +242,7 @@ def build():
     LIST.write_text(
         f'# tools/ui_font.py가 만든다. 손으로 고치지 않는다. 원본: 갈무리11 {version}. check.py가 사이트 글자와 비교한다.\n'
         f'글자: {"".join(sorted(covered))}\n'
-        f'갈무리에 없음: {"".join(sorted(absent))}\n', encoding='utf-8')
+        f'갈무리에 없음: {"".join(sorted(absent))}\n', encoding='utf-8', newline='\n')
     print('\n'.join(report))
     print(f'사이트 글자 {len(wanted)}개 가운데 {len(covered)}개를 넣었다.' + (f' 갈무리에도 없는 글자: {"".join(sorted(absent))}' if absent else ''))
 
