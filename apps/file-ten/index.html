@@ -264,7 +264,7 @@
       $('clears-box').hidden = !casual;
       $('remain-box').hidden = !casual;
       for (const b of document.querySelectorAll('.modes button')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
-      say(casual ? '시간 제한이 없고, 끝까지 다 지울 수 있는 판이에요.' : '끌어서 고른 파일의 합이 10이면 지워져요. 100초 동안 많이 지워 보세요.');
+      say(casual ? '시간 제한 없이, 끝까지 다 지울 수 있는 판이에요.' : '합이 10이 되게 끌어서 지워 보세요.');
     }
 
     // 모드를 바꾸면 그 모드의 새 판으로 시작한다. 고른 모드는 다음에 열 때도 그대로다.
@@ -356,8 +356,9 @@
         return;
       }
       // 보통 모드: 남은 시간을 이어서 쓰도록 판만 새로 깐다. 막힌 판을 잠깐 보여 준 뒤 바꾼다.
+      // 알림은 원인만 말한다. 판이 바뀌는 것은 화면이 보여 준다(AGENTS.md "말투").
       swapAt = now;
-      banner = { text: cleared ? '판을 다 정리했어요! 새 판을 깔아요' : '더 지울 묶음이 없어서 새 판을 깔아요', at: now };
+      banner = { text: cleared ? '다 정리했어요!' : '더 지울 묶음이 없어요', at: now };
     }
 
     function finish(kind, now) {
@@ -367,17 +368,18 @@
       banner = null;
       const groups = kind === 'time' ? findGroups(grid) : [];
       const cells = new Set(groups.flatMap(g => cellsIn(g).map(([r, c]) => r * COLS + c)));
-      const title = kind === 'time' ? `파일 ${score}개를 정리했어요`
-        : kind === 'clear' ? `파일 ${ALL}개를 다 정리했어요!` : '더 지울 묶음이 없어요';
-      end = { at: now, kind, title, groups, cells };
+      // 판 위에는 원인 한마디(title)와 숫자(sub)를, 아랫줄에는 판이 보여 주지 않는 것만 쓴다
+      const title = kind === 'time' ? '시간이 다 됐어요' : kind === 'clear' ? '다 정리했어요!' : '막혔어요';
+      const sub = kind === 'time' ? `파일 ${score}개 정리` : kind === 'clear' ? `다 정리 ${clears}번` : `남은 파일 ${remaining()}개`;
+      end = { at: now, kind, title, sub, groups, cells };
       if (kind === 'time') {
         AGA.setTitle(`파일 정리 10 (최고 ${best}개)`);
-        say(groups.length ? `노란 네모 ${groups.length}개는 이 화면에서 바로 지울 수 있던 묶음이에요.` : '이 화면에는 바로 지울 수 있는 묶음이 없었어요.', '판을 누르면 다시 시작');
+        say(groups.length ? `놓친 묶음 ${groups.length}개` : '놓친 묶음 없음', '판을 누르면 다시 시작');
       } else if (kind === 'clear') {
         AGA.setTitle(`파일 정리 10 (다 정리 ${clears}번)`);
-        say(`지금까지 판을 ${clears}번 다 정리했어요.`, '판을 누르면 다시 시작');
+        say('', '판을 누르면 다시 시작');
       } else {
-        say(`파일 ${remaining()}개가 남았어요. 지우는 순서를 바꾸면 다 지울 수 있는 판이었어요.`, '판을 누르면 다시 시작');
+        say('순서를 바꾸면 다 지울 수 있는 판이에요.', '판을 누르면 다시 시작');
       }
     }
 
@@ -494,7 +496,9 @@
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.font = '28px Galmuri11, sans-serif';
-          ctx.fillText(end.title, W / 2, H / 2);
+          ctx.fillText(end.title, W / 2, H / 2 - 16);
+          ctx.font = '18px Galmuri11, sans-serif';
+          ctx.fillText(end.sub, W / 2, H / 2 + 22);
           ctx.globalAlpha = 1;
         }
       }

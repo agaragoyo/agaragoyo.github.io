@@ -135,7 +135,7 @@ function placeAt(el, pos, facing, col) {
 // 돌려주는 것: attach(다시 그린 뒤), openSay, destroy
 export function mountAvatar(host, avatarId = 'basic') {
   const el = avatarEl(avatarId);
-  el.title = '누르면 말할 수 있어요';
+  el.title = '눌러서 말하기';
   const bubble = h('div', { className: 'room-avatar-say', hidden: true });
   const input = h('input', {
     className: 'say-input', type: 'text', maxLength: 40, hidden: true,

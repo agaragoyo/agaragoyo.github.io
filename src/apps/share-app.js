@@ -60,7 +60,7 @@ export function openShareApp(os, app) {
             os.toast(`${scene.name} 그림을 ${file}로 내려받았습니다.`);
           } catch (err) {
             console.error(err);
-            os.toast('그림 파일을 만들지 못했습니다. 한 번 더 눌러 보시고, 계속 안 되면 페이지를 새로 고친 뒤 다시 해 주세요.', 7000);
+            os.toast('그림 파일을 만들지 못했습니다. 페이지를 새로고침한 뒤 다시 눌러 주세요.', 7000);
           } finally {
             button.textContent = label;
             button.style.minWidth = '';
