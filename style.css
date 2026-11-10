@@ -598,6 +598,28 @@ button { font-family: inherit; }
 .like-error { font-size: 14px; color: #b3261e; }
 .like-error[hidden] { display: none; }
 .like-form .link-row { margin-top: 4px; }
+.like-field.tall { grid-template-columns: 1fr; align-items: start; gap: 4px; }
+.like-field textarea {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 2px solid;
+  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
+  font: 15px/1.5 var(--font);
+  resize: none;
+}
+/* 가까이 보기 화면 안의 넣는 칸: 밤에도 밝은 종이 카드라 글자색을 같이 고정한다 */
+.like-card {
+  width: 560px;
+  padding: 20px 22px;
+  border: 3px solid #2f231b;
+  border-radius: 10px;
+  background: #fffaf0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.like-card p { margin: 0; }
+.like-card .like-card-head { font-size: 18px; font-weight: 700; }
 .share-row input, .new-row input {
   flex: 1;
   min-width: 0;
@@ -1112,7 +1134,7 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .item.light { filter: brightness(1.3) drop-shadow(0 0 10px #ffd76a) drop-shadow(0 0 24px #ffb84a99); }
 .stage[data-theme="night"] .win-body input { background: #1a1922; color: var(--win-text); }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
-.stage[data-theme="night"] .like-error { color: #ffb4a8; }
+.stage[data-theme="night"] .win-body .like-error { color: #ffb4a8; } /* 창 바탕만 밤에 어두워진다. 가까이 보기의 종이 카드는 밤에도 밝다 */
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
 
 /* 방 꾸미기: 돌리기 안내 */
@@ -1373,6 +1395,114 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .console-ask p { margin: 0 0 6px; }
 .console-ask .meta { font-size: 14px; color: #6c6457; }
 .console-ask-title { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 700; }
+
+/* 책장: 짙은 나무 책장 안에 고른 책의 표지와 남긴 말, 아래 선반에 책등 */
+.shelf-closeup {
+  width: 900px;
+  padding: 26px 30px 16px;
+  border: 10px solid #4a3528;
+  border-radius: 10px;
+  background: linear-gradient(#6b4f3d, #5d4434);
+  box-shadow: 0 16px 0 #0005;
+  color: #f6ecdc;
+}
+.shelf-closeup .like-card { margin: 0 auto; }
+.shelf-stage { display: grid; grid-template-columns: 260px 1fr; gap: 34px; align-items: center; min-height: 364px; }
+/* 표지: 모든 책이 같은 디자인이고 색(--book)과 글자만 다르다. 제목과 작가는 이름표 자리에만 들어간다 */
+.book-cover {
+  position: relative;
+  width: 260px;
+  height: 364px;
+  border: 4px solid #2f231b;
+  border-radius: 4px 12px 12px 4px;
+  background: var(--book);
+  box-shadow: inset 16px 0 0 #00000026, inset 20px 0 0 #ffffff1f, 8px 10px 0 #0006;
+}
+.book-band { position: absolute; left: 34px; right: 16px; height: 8px; background: #fbf4e4b3; }
+.book-band.top { top: 38px; }
+.book-band.bottom { bottom: 38px; }
+.book-label {
+  position: absolute;
+  left: 38px;
+  right: 22px;
+  top: 80px;
+  height: 176px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  overflow: hidden;
+  border: 3px solid #2f231b;
+  background: #fbf4e4;
+  text-align: center;
+  color: #2a1f18;
+}
+.book-title { font-size: 22px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.book-title.long { font-size: 18px; }
+.book-author { font-size: 15px; color: #5a4a3c; }
+.shelf-info { display: flex; flex-direction: column; gap: 14px; }
+.shelf-note { min-height: 180px; padding: 16px 18px; border: 3px solid #2f231b; border-radius: 8px; background: #fbf4e4; color: #2a1f18; }
+.shelf-note p { margin: 0; }
+.shelf-note .shelf-note-head { margin-bottom: 8px; font-size: 14px; font-weight: 700; color: #5f4e3e; }
+.shelf-note-text { font-size: 19px; line-height: 1.7; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.shelf-note .shelf-note-none { color: #6c6457; }
+.shelf-tools { display: flex; gap: 8px; }
+.shelf-empty { min-height: 364px; display: grid; place-content: center; justify-items: center; gap: 14px; font-size: 18px; }
+.shelf-empty p { margin: 0; }
+.shelf-count { display: flex; justify-content: center; gap: 10px; margin: 12px 0 0; font-size: 14px; }
+.shelf-row { display: flex; align-items: flex-end; justify-content: center; gap: 14px; margin-top: 6px; }
+.shelf-board {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  min-width: 320px;
+  height: 150px;
+  padding: 0 18px;
+  border-bottom: 14px solid #3b2a20;
+}
+.book-spine {
+  position: relative;
+  width: 42px;
+  height: 128px;
+  padding: 0;
+  border: 3px solid #2f231b;
+  border-radius: 3px;
+  background: var(--book);
+  cursor: var(--cur-hand);
+  transition: transform 0.12s;
+}
+.book-spine span {
+  position: absolute;
+  inset: 16px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fbf4e4;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #2a1f18;
+}
+.book-spine.on { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffd76a; }
+.book-spine.add { border: 3px dashed #f6ecdc; background: none; font-size: 24px; color: #f6ecdc; }
+.shelf-arrow {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 22px;
+  padding: 0;
+  border: 3px solid #2f231b;
+  border-radius: 50%;
+  background: #fbf4e4;
+  font-size: 15px;
+  color: #2a1f18;
+  cursor: var(--cur-hand);
+}
+.shelf-arrow:disabled { opacity: 0.4; cursor: var(--cur-arrow); }
+@media (prefers-reduced-motion: reduce) { .book-spine { transition: none; } }
 
 /* =====================================================================
    2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
