@@ -7,6 +7,7 @@ import { openShareApp } from './share-app.js';
 import { openMusicApp } from './music-app.js';
 import { openMineApp } from './mine-app.js';
 import { openComputerApp } from './computer-app.js';
+import { openConsoleApp } from './console-app.js';
 
 export const BUILTIN_APPS = {
   room: openRoomApp,
@@ -16,6 +17,7 @@ export const BUILTIN_APPS = {
   mine: openMineApp,
   // 가구 기믹(data/apps.js의 folder: 'furniture'). 주인이 가구에 담아 둔 것(src/likes.js)을 보여 준다
   computer: openComputerApp,
+  console: openConsoleApp,
 };
 
 export { openFrameApp } from './frame-app.js';
