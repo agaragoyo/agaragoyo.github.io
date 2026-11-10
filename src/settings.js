@@ -1,4 +1,4 @@
-// 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서 ...)을 한곳에 둔다. 값이 바뀌면 구독한 쪽에 알린다.
+// 이 컴퓨터의 설정(밤, 소리, 배경음악 ...)을 한곳에 둔다. 값이 바뀌면 구독한 쪽에 알린다.
 //   settings.get('night')                  값 읽기
 //   settings.set({ night: true })          바꾸고 저장한 뒤 구독자에게 알린다
 //   settings.subscribe((patch, all) => {}) 바뀔 때마다 부른다. 그만 들을 때 부를 함수를 돌려준다
@@ -7,10 +7,12 @@
 import { STORAGE_SETTINGS } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
-// cursor: 마우스 앱에서 고른 커서 색, 크기, 직접 그린 그림(자세한 모양은 src/cursors.js 맨 위)
 // sound: 효과음과 배경음악을 틀지, musicOn: 그 가운데 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
-const DEFAULTS = { grain: true, curve: true, night: false, era: '1998', sound: true, musicOn: true, music: 'kpop', cursor: { line: null, fill: null, size: 1, custom: {} } };
+const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop' };
+// 2026-11-10에 뺀 설정(그레인, 볼록, 시대, 마우스 앱의 커서). 예전에 저장된 값은 읽을 때 버린다.
+const DROPPED = ['grain', 'curve', 'era', 'cursor'];
 const state = { ...DEFAULTS, ...loadJSON(STORAGE_SETTINGS) };
+for (const key of DROPPED) delete state[key];
 const listeners = new Set();
 let held = null; // 잠시 다른 값으로 쓰는 설정. 저장하지 않으므로 새로 고침을 하면 저장된 값으로 돌아온다
 const isHeld = key => !!held && key in held;

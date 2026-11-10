@@ -16,12 +16,7 @@ import { createTutorial } from './tutorial.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
 import { play, setPlace } from './sound.js';
 
-// 볼록 화면(1998)은 가장자리가 휘어 들어가고 어두워서, 그 자리에 놓인 창의 제목 줄 단추가 보이지 않는다.
-// 방송 화면의 자막 안전 영역(가운데 90%)처럼 위와 양옆을 5%씩(무대 840의 5%, 1280의 5%) 비우고 그 안에만 창을 둔다.
-// 아래는 작업 표시줄이 원래 자리를 지키므로 비우지 않는다(known-issues 21).
-const CURVE_INSET = { top: 42, right: 64, bottom: 0, left: 64 };
-
-export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
+export function createOS({ stage, toStage, requestPowerOff, settings }) {
   const $ = sel => stage.querySelector(sel);
   const el = {
     boot: $('#boot'),
@@ -38,7 +33,6 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   const os = {
     stage,
     toStage,
-    crt,
     settings,
     home: null,
     realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
@@ -48,11 +42,8 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
       layer: $('#windows'),
       tasks: $('#tasks'),
       toLocal: toStage,
-      onChange: () => crt.updateHoles(),
-      inset: () => (crt.isWarpOn() ? CURVE_INSET : null),
     }),
   };
-  settings.subscribe(() => os.wm.fit());
   os.tutorial = createTutorial(os);
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
@@ -77,39 +68,12 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
   }
 
   // ---------- 부팅 ----------
-  const BIOS = [
-    'AGA BIOS v1.02    (C) 2026 아가라고요 팀',
-    '',
-    'CPU : 아가 486DX2-66',
-    '메모리 검사 : 640K OK',
-    '마우스 . . . . . . 찾음',
-    '모니터 . . . . . . AGA-15 볼록 화면',
-    '',
-    '아가라고요 OS를 불러오는 중',
-  ];
+  // 2005년식 부팅: 검은 화면에 로고와 진행 막대를 2초 보여 준다. 움직임 줄이기를 켠 사람에게는 바로 로그인 화면을 보여 준다.
   os.boot = async () => {
     const my = ++run;
     show('boot');
-    const text = el.boot.querySelector('.boot-text');
-    const logo = el.boot.querySelector('.boot-logo');
-    text.textContent = '';
-    logo.hidden = true;
-    let skip = reduceMotion;
-    // 1998년식만 BIOS 글자가 지나가고, 2005, 2010년식은 로고와 진행 표시만 보여 준다.
-    const textBoot = settings.get('era') === '1998';
-    const onSkip = () => { skip = true; };
-    el.boot.addEventListener('pointerdown', onSkip);
-    for (const line of textBoot ? BIOS : []) {
-      if (skip || my !== run) break;
-      text.textContent += line + '\n';
-      await wait(110);
-    }
-    if (!skip && my === run) {
-      text.textContent = '';
-      logo.hidden = false;
-      await wait(textBoot ? 1100 : 2000);
-    }
-    el.boot.removeEventListener('pointerdown', onSkip);
+    el.boot.querySelector('.boot-logo').hidden = reduceMotion;
+    if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
   };
 
@@ -155,7 +119,7 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     }
   }
 
-  // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 모니터 설정(시대, 그레인, 볼록, 밤)은 남긴다.
+  // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 이 컴퓨터의 설정(밤, 소리, 배경음악)은 남긴다.
   // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다.
   // 배포 주소에 따라 다른 사이트와 저장소를 같이 쓸 수 있으므로, 우리 키만 골라 지운다.
   // 우리 키: 'agarago.'로 시작하는 것과, apps/ 안 앱이 자기 id로 시작하게 만든 것('tidy-up.best').
@@ -195,18 +159,30 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     input.addEventListener('keydown', e => {
       if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || ['Backspace', 'Delete', 'Process'].includes(e.key))) play('key');
     });
+    // 빈 칸으로 확인을 누르면 입력칸을 빨갛게 두르고 그 아래에 풍선 안내를 띄운다. 글자를 치면 거둔다.
+    const tip = h('p', { className: 'name-tip', id: 'name-tip', role: 'alert', hidden: true }, '닉네임을 입력해 주세요.');
+    const showTip = on => {
+      tip.hidden = !on;
+      if (on) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    };
+    input.setAttribute('aria-describedby', 'name-tip');
+    input.addEventListener('input', () => { if (input.value.trim()) showTip(false); });
     const form = h('form', {
       className: 'user new',
       onsubmit: e => {
         e.preventDefault();
         const name = input.value.trim().slice(0, 12);
         if (name) onCreate(name);
-        else input.focus();
+        else {
+          showTip(true);
+          input.focus();
+        }
       },
     },
     h('span', { className: 'avatar' }, '+'),
     h('span', { className: 'user-name' }, '새 사용자 만들기',
-      h('span', { className: 'new-row' }, input, h('button', { type: 'submit', className: 'btn' }, '확인'))));
+      h('span', { className: 'new-row' }, input, h('button', { type: 'submit', className: 'btn' }, '확인'), tip)));
     setTimeout(() => input.focus(), 50);
     return form;
   }
@@ -264,8 +240,9 @@ export function createOS({ stage, toStage, requestPowerOff, crt, settings }) {
     if (os.mode === 'edit') os.tutorial.resume();
   }
 
-  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨긴다. 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
-  os.canSee = app => !(app.editOnly && os.mode === 'visit') && app.scene !== os.place;
+  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기)은 그때만 보인다.
+  // 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
+  os.canSee = app => (os.mode === 'visit' ? !app.editOnly : !app.visitOnly) && app.scene !== os.place;
   function renderDesktopIcons() {
     os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
   }

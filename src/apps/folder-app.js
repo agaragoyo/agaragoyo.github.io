@@ -5,7 +5,7 @@ import { h } from '../util.js';
 export function openFolderApp(os, app) {
   const inside = APPS.filter(a => a.folder === app.opens && os.canSee(a));
   // 창 폭 560에 아이콘이 한 줄에 다섯 개 들어간다. 줄이 늘면 창을 그만큼 키우고, 그래도 넘치면 아이콘 칸만 스크롤한다.
-  // 80은 창 안쪽 여백과 안내 글 자리에, 마지막 줄의 긴 이름과 시대마다 다른 창 테두리 두께를 감안한 여유다.
+  // 80은 창 안쪽 여백과 안내 글 자리에, 마지막 줄의 긴 이름과 창 테두리 두께를 감안한 여유다.
   const rows = Math.ceil(inside.length / 5);
   return os.wm.open({
     key: app.id,

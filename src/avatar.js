@@ -357,7 +357,7 @@ export function mountAvatar(host, avatarId = 'basic') {
       if (!walking) nextStep();
     } else if (e.key === 'Enter' && !e.isComposing) {
       // 바탕화면이 앞에 있을 때 Enter는 늘 말하기다. 초점이 남은 버튼(전원 등)이 대신 눌리지 않게 기본 동작을 막는다.
-      // 볼록 화면의 보정 층으로 누르면 초점이 옮겨 가지 않아, 전원 버튼에 초점이 남아 있을 수 있다(known-issues 26).
+      // 예전 볼록 화면의 보정 층으로 누르면 초점이 옮겨 가지 않아, 전원 버튼에 초점이 남은 채 Enter가 전원을 껐다(known-issues 26).
       e.preventDefault();
       openSay();
     }

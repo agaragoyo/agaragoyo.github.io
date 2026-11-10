@@ -5,25 +5,21 @@ import { iconEl } from './icons.js';
 // 창 안쪽(body) 크기에 더하면 바깥 크기가 되는 테두리, 제목 줄 몫 (style.css의 .win과 맞춘다)
 export const CHROME_W = 14;
 export const CHROME_H = 47;
-const NO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// inset: 바탕화면 가장자리에서 창을 두지 않을 여백을 돌려주는 함수. 볼록 화면처럼 가장자리가 잘 안 보일 때 os.js가 준다.
-export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = () => NO_INSET }) {
+export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
   const wins = new Map(); // key -> win
   let topZ = 1;
   let cascade = 0;
   let focused = null;
-  let lastInset = '';
 
-  // 창을 놓을 수 있는 곳: 바탕화면에서 여백을 뺀 영역
+  // 창을 놓을 수 있는 곳: 바탕화면 전체
   function area() {
-    const i = inset() || NO_INSET;
-    return { x: i.left, y: i.top, w: DESK_W - i.left - i.right, h: DESK_H - i.top - i.bottom };
+    return { x: 0, y: 0, w: DESK_W, h: DESK_H };
   }
 
   // 앞서 쓰던 앱(iframe)의 키보드 초점을 거둔다. win을 주면 그 창 안의 앱은 그대로 둔다.
-  // 제목 줄 끌기와 볼록 화면의 보정 층은 브라우저의 초점 이동을 막아서, 다른 곳을 눌러도 키가 앱으로 계속 들어간다(known-issues 36).
+  // 제목 줄 끌기는 브라우저의 초점 이동을 막아서, 다른 곳을 눌러도 키가 앱으로 계속 들어간다(known-issues 36).
   function releaseFrame(win) {
     const a = document.activeElement;
     if (a?.tagName === 'IFRAME' && !win?.el.contains(a)) a.blur();
@@ -82,27 +78,6 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     Object.assign(win.el.style, { left: a.x + 'px', top: a.y + 'px', width: a.w + 'px', height: a.h + 'px' });
   }
 
-  // 여백이 바뀌면(볼록 효과를 켜고 끌 때) 열린 창을 영역 안으로 다시 넣는다. 여백이 그대로면 아무것도 하지 않는다.
-  function fit() {
-    const key = JSON.stringify(inset() || NO_INSET);
-    if (key === lastInset) return;
-    lastInset = key;
-    const a = area();
-    for (const win of wins.values()) {
-      if (win.maximized) { fill(win); continue; }
-      const s = win.el.style;
-      const w = Math.min(parseFloat(s.width), a.w);
-      const h = Math.min(parseFloat(s.height), a.h);
-      Object.assign(s, {
-        width: w + 'px',
-        height: h + 'px',
-        left: clamp(parseFloat(s.left), a.x, a.x + a.w - w) + 'px',
-        top: clamp(parseFloat(s.top), a.y, a.y + a.h - h) + 'px',
-      });
-    }
-    onChange();
-  }
-
   function close(win) {
     if (typeof win.cleanup === 'function') win.cleanup();
     win.onClose?.();
@@ -154,7 +129,6 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
     el.append(bar, body);
 
     const a = area();
-    lastInset = JSON.stringify(inset() || NO_INSET);
     const w = Math.min(width + CHROME_W, a.w);
     const h = Math.min(height + CHROME_H, a.h);
     const offset = (cascade++ % 6) * 28;
@@ -239,7 +213,6 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, inset = (
 
   return {
     open,
-    fit,
     blur,
     focusedWin: () => focused,
     get: key => wins.get(key),

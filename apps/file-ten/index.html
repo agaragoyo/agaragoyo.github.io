@@ -6,7 +6,7 @@
   <title>파일 정리 10</title>
   <!-- 파일 정리 10: 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지운다.
        보통 모드는 100초 동안 무작위 판을 쓰고, 더 지울 묶음이 없으면 새 판을 깐다.
-       캐주얼 모드는 시간 제한 없이, 끝까지 다 지울 수 있는 판을 준다. -->
+       캐주얼 모드(단추 이름은 "시간 제한 없음")는 시간 제한 없이, 끝까지 다 지울 수 있는 판을 준다. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
   <style>
     /* 스크롤바가 생기면 폭이 줄어 캔버스를 다시 맞추고, 그러면 스크롤바가 사라지는 일이 끝없이 반복된다. 아예 막는다. */
@@ -45,7 +45,7 @@
     <span id="remain-box" hidden>남은 파일 <b id="remain">0</b></span>
     <span class="modes" role="group" aria-label="모드">
       <button type="button" data-mode="normal">보통</button>
-      <button type="button" data-mode="casual">캐주얼</button>
+      <button type="button" data-mode="casual">시간 제한 없음</button>
     </span>
     <button id="restart">다시</button>
     <button id="quit">끝내기</button>

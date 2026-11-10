@@ -8,8 +8,8 @@
 // 크롬을 찾지 못하면 환경 변수 CHROME에, 파이썬을 찾지 못하면 PYTHON에 실행 파일 경로를 넣는다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
-// 창 다섯 개(미니게임, 방 꾸미기, 마우스, 배경음악, 새 탭 확인 창)와 시작 메뉴를 연 채로 settings.set({ era, night })로
-// 세 시대의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
+// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 시작 메뉴를 연 채로 settings.set({ night })로
+// 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
@@ -23,19 +23,15 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
-const ERAS = ['1998', '2005', '2010'];
+// 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다.
+const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 미니게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
-const OPEN = ['games', 'room', 'mouse', 'music', 'shu-ramen'];
+const OPEN = ['games', 'room', 'share', 'music', 'shu-ramen'];
 // 원래 있고 화면에서 읽히는 낮은 대비는 여기에 이유와 함께 적는다. 재는 값이 min 아래로 더 떨어지면 다시 실패로 센다.
-const EXCEPTIONS = [
-  {
-    era: '2010',
-    selector: '.win:not(.inactive) .win-title',
-    min: 3,
-    why: '앞쪽 창 제목. 반투명 유리 창 뒤가 밤에 어두워져 낮게 재지지만 흰 번짐 그림자가 있어 화면에서 읽힌다',
-  },
-];
+// 적는 모양: { era: '2005', selector: '.win:not(.inactive) .win-title', min: 3, why: '화면에서 읽히는 이유' }
+// (2010 앞쪽 창 제목의 예외는 시대를 2005로 정하면서 지웠다.)
+const EXCEPTIONS = [];
 
 const args = process.argv.slice(2);
 const option = name => {
@@ -213,9 +209,10 @@ function openIcon(id) {
   return true;
 }
 
-async function setEra(era) {
+// 낮으로 돌려놓고 지금 시대(body의 data-era, 2005로 고정)를 돌려준다.
+async function setDay() {
   const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
-  settings.set({ era, night: false });
+  settings.set({ night: false });
   return document.body.dataset.era;
 }
 
@@ -379,7 +376,7 @@ async function main() {
   await page.send('Page.enable');
   await page.send('Runtime.enable');
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 1000, deviceScaleFactor: 1, mobile: false });
-  // 움직임 줄이기를 켜서 부팅 글자 연출을 건너뛴다(src/os.js의 reduceMotion). 글자색과 바탕색은 바뀌지 않는다
+  // 움직임 줄이기를 켜서 부팅 로고 연출을 건너뛴다(src/os.js의 reduceMotion). 글자색과 바탕색은 바뀌지 않는다
   await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   const nav = await page.send('Page.navigate', { url: base });
   if (nav.errorText) throw new Stop(`${base} 주소를 열지 못했다(${nav.errorText}).`);
@@ -405,8 +402,8 @@ async function main() {
 
   const results = [];
   for (const era of ERAS) {
-    if ((await page.run(setEra, era)) !== era) throw new Stop(`시대를 ${era}로 바꾸지 못했다.`);
-    await sleep(600); // 시대를 바꾼 뒤 아이콘과 창을 다시 그리는 것이 끝나기를 기다린다
+    if ((await page.run(setDay)) !== era) throw new Stop(`화면이 ${era} 모습이 아니다(index.html body의 data-era를 본다).`);
+    await sleep(600); // 낮으로 돌린 뒤 아이콘과 창을 다시 그리는 것이 끝나기를 기다린다
     if (!(await page.run(openStartMenu))) throw new Stop('시작 메뉴가 열리지 않았다.');
     const r = await page.run(dayAndNight, EXCEPTIONS.filter(e => e.era === era).map(e => e.selector));
     if (r.era !== era || r.dayTheme !== 'day' || r.nightTheme !== 'night') {

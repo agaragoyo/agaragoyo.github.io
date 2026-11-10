@@ -39,8 +39,6 @@ export function openFrameApp(os, app) {
         h('p', { className: 'meta' }, '다시 열기를 누르면 처음 화면부터 다시 불러옵니다.'),
         h('button', { className: 'btn', type: 'button', onclick: reopen }, '다시 열기'));
       frame.addEventListener('load', () => {
-        os.crt.prepareFrame(frame);
-        os.crt.updateHoles();
         if (leftApp(frame, app.src)) {
           lost.hidden = false;
           frame.style.visibility = 'hidden';

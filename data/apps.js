@@ -14,7 +14,7 @@
 //   size     창 안쪽 크기 [가로, 세로] (px). 바탕화면은 1280×800이다
 //   folder   'games' 이면 바탕화면 대신 미니게임 폴더 안에 나온다
 //            'furniture' 이면 어디에도 아이콘이 없고, 가구의 gimmick: 'app:<id>' 로만 열린다
-//   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, mouse, music). 팀원은 쓰지 않는다
+//   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, music, mine). 팀원은 쓰지 않는다
 //   music    창이 열려 있는 동안 틀 배경음악 이름(src/sound.js 의 MUSIC). 게임 안에 음악이 이미 있으면 'own' 으로 적어
 //            그 창이 열려 있는 동안 사이트 음악을 멈춘다(두 음악이 겹치지 않게). 없으면 바탕화면 음악이 그대로 나온다
 //   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다.
@@ -24,15 +24,16 @@
 //   links    href 앱의 주소가 여럿일 때 [{ label, href }]. 여는 창에 label이 단추로 하나씩 나온다(예: '초급으로 열기'). href에는 첫 주소를 같이 적는다
 //   noun     href 앱의 여는 창에서 "이 게임은" 대신 쓸 말(예: '영상')
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
+//   visitOnly true 이면 친구 컴퓨터를 구경할 때만 보인다(손님에게 자기 컴퓨터를 만드는 길을 보여 준다)
 const SITE = 'https://soomin007.github.io';
 
 export const APPS = [
-  { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room' },
+  { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room', editOnly: true },
+  { id: 'make-mine', title: '나도 만들기', icon: 'builtin:room', builtin: 'mine', visitOnly: true },
   { id: 'playground', title: '놀이터', icon: 'builtin:playground', scene: 'playground' },
   { id: 'go-home', title: '집으로', icon: 'builtin:home', scene: 'room' },
   { id: 'games', title: '미니게임', icon: 'builtin:folder', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
-  { id: 'mouse', title: '마우스', icon: 'builtin:mouse', builtin: 'mouse' },
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },
 
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.

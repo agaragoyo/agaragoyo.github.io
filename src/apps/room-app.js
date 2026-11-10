@@ -46,7 +46,6 @@ export function openRoomApp(os, appInfo) {
             <button type="button" class="shelf-arrow" aria-label="앞 가구">◀</button>
             <div class="shelf-track"></div>
             <button type="button" class="shelf-arrow" aria-label="뒤 가구">▶</button>
-            <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 바탕화면에서 가구를 두 번 눌러 사용해 보세요.</p>
           </div>
           <p class="rotate-tip">가구를 옮기는 동안 R 키나 마우스 휠로 돌릴 수 있습니다</p>
           <p class="room-hint" hidden></p>
@@ -54,7 +53,6 @@ export function openRoomApp(os, appInfo) {
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>
             <button type="button" class="btn edit-only" data-act="share">공유 링크</button>
-            <button type="button" class="btn visit-only" data-act="mine">나도 만들기</button>
           </div>
         </div>`;
       const root = body.querySelector('.room-root');
@@ -133,7 +131,6 @@ export function openRoomApp(os, appInfo) {
       ro.observe(body);
 
       root.querySelector('[data-act="share"]').addEventListener('click', () => os.openApp('share'));
-      root.querySelector('[data-act="mine"]').addEventListener('click', () => os.goHome());
 
       mountShelf(ctx);
       showScene(os.place);

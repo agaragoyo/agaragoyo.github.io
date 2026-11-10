@@ -30,8 +30,6 @@ export function createSdkHost(os) {
   const broadcast = msg => {
     for (const w of os.wm.all()) w.iframe?.contentWindow?.postMessage({ aga: 1, ...msg }, '*');
   };
-  // 시대나 커서 설정이 바뀌면 커서도 바뀌므로 열린 앱에 다시 보낸다.
-  os.settings.subscribe(patch => { if ('era' in patch || 'cursor' in patch) broadcast({ type: 'cursor', cursor: cursorSet() }); });
 
   return { broadcast };
 }
