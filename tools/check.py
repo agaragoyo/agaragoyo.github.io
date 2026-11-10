@@ -82,6 +82,15 @@ def check_apps():
                 err(where, 'href(새 탭으로 여는 주소)는 src 와 같이 쓰지 않는다')
             if not a['href'].startswith('https://'):
                 err(where, 'href 는 https:// 로 시작하는 바깥 주소다')
+            if 'links' in a:
+                urls = re.findall(r"href:\s*'([^']*)'", a['links'])
+                labels = re.findall(r"label:\s*'([^']*)'", a['links'])
+                if not urls or len(urls) != len(labels):
+                    err(where, "links 는 [{ label: '...', href: 'https://...' }, ...] 모양으로 한 줄에 적는다")
+                if any(not u.startswith('https://') for u in urls):
+                    err(where, 'links 의 href 도 https:// 로 시작하는 바깥 주소다')
+                if urls and urls[0] != a['href']:
+                    err(where, 'href 에는 links 의 첫 주소를 같이 적는다(아이콘의 새 탭 표시와 툴팁이 href 를 읽는다)')
         elif 'src' not in a:
             err(where, 'src(창에 띄울 주소)나 href(새 탭 주소)가 없다')
         src = a.get('src', '')
