@@ -6,9 +6,25 @@
 // label도 누른 결과를 말하게 적는다(예: '초급으로 열기'). noun을 적으면 "이 게임은" 대신 그 말을 쓴다(예: '영상').
 import { h } from '../util.js';
 
+// 새 탭으로 여는 안내와 단추. 이 창과 옛날 컴퓨터(computer-app.js)가 같이 쓴다.
+//   text      첫 줄(무엇이 새 탭에서 열리는지)
+//   links     [{ label, href }]. 단추마다 진짜 링크(target="_blank")라서 사람이 누르면 팝업 차단에 걸리지 않고, 마우스를 올리면 브라우저가 주소도 보여 준다
+//   rel       주인이 넣은 링크처럼 우리 주소를 알릴 까닭이 없는 곳은 'noopener noreferrer'
+//   onOpen    링크가 열린 뒤 부른다. 누르는 도중에 링크를 화면에서 빼면 브라우저가 링크를 따라가지 않으므로 한 박자 늦게 부른다
+//   onCancel  취소를 누르면 부른다
+export function linkPrompt({ text, links, rel = 'noopener', onOpen, onCancel }) {
+  const host = new URL(links[0].href).host;
+  return [
+    h('p', {}, text),
+    h('p', { className: 'meta' }, `열리는 곳: ${host}`),
+    h('div', { className: 'link-row' },
+      ...links.map(l => h('a', { className: 'btn', href: l.href, target: '_blank', rel, onclick: () => setTimeout(onOpen) }, l.label)),
+      h('button', { className: 'btn', type: 'button', onclick: onCancel }, '취소')),
+  ];
+}
+
 export function openLinkApp(os, app) {
   const links = app.links || [{ label: '새 탭에서 열기', href: app.href }];
-  const host = new URL(links[0].href).host;
   return os.wm.open({
     key: app.id,
     app,
@@ -16,16 +32,12 @@ export function openLinkApp(os, app) {
     width: 360 + (links.length - 1) * 110, // 단추 셋과 취소가 한 줄에 들어가는 폭(예전에 가장 넓던 2010 단추 약 132px 기준이라 2005에서는 조금 넉넉하다)
     height: 190,
     build(body, win) {
-      // 새 탭은 진짜 링크(target="_blank")로 연다. 사람이 누른 링크는 팝업 차단에 걸리지 않고, 마우스를 올리면 브라우저가 주소도 보여 준다.
-      // 창은 링크가 열린 다음에 닫는다. 누르는 도중에 링크를 화면에서 빼면 브라우저가 링크를 따라가지 않는다.
-      const opens = links.map(l => h('a', { className: 'btn', href: l.href, target: '_blank', rel: 'noopener', onclick: () => setTimeout(() => win.close()) }, l.label));
-      body.append(
-        h('p', {}, `이 ${app.noun || '게임'}은 원작 사이트의 새 탭에서 열립니다.`),
-        h('p', { className: 'meta' }, `열리는 곳: ${host}`),
-        h('div', { className: 'link-row' },
-          ...opens,
-          h('button', { className: 'btn', type: 'button', onclick: () => win.close() }, '취소')),
-      );
+      body.append(...linkPrompt({
+        text: `이 ${app.noun || '게임'}은 원작 사이트의 새 탭에서 열립니다.`,
+        links,
+        onOpen: () => win.close(),
+        onCancel: () => win.close(),
+      }));
     },
   });
 }

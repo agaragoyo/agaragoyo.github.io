@@ -36,6 +36,9 @@ export const APPS = [
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },
 
+  // 가구 기믹. 아이콘 없이 data/furniture.js의 gimmick: 'app:<id>'로만 열린다. 주인이 가구에 담아 둔 것을 보여 준다(src/likes.js)
+  { id: 'computer', title: '컴퓨터', color: '#8f8a7c', builtin: 'computer', folder: 'furniture' },
+
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.
   // 레포 밖 게임 다섯 개는 게임 안에 배경음악이 있어서 music: 'own' 이다.
 // 새 앱을 만들 때는 apps/tidy-up 을 예시로 본다.
