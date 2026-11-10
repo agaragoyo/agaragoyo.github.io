@@ -1625,6 +1625,108 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   .cd-pick { transition: none; }
 }
 
+/* TV: 가구 그림(assets/furniture/tv.png)처럼 안테나가 달린 초록 TV를 앞에서 본 모습. 화면 안은 넷플릭스 추천 줄처럼 어둡다 */
+.tv-closeup { display: flex; flex-direction: column; align-items: center; }
+.tv-antenna { position: relative; width: 300px; height: 74px; }
+.tv-antenna i { position: absolute; left: 150px; bottom: -6px; width: 6px; height: 96px; border-radius: 3px; background: #4e5547; transform-origin: 50% 100%; }
+.tv-antenna i:first-child { transform: rotate(-32deg); }
+.tv-antenna i:last-child { transform: rotate(28deg); }
+.tv-antenna i::before { content: ''; position: absolute; left: -4px; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: #4e5547; }
+.tv-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 800px 1fr;
+  align-items: center;
+  gap: 20px;
+  width: 1020px;
+  height: 540px;
+  padding: 20px 24px;
+  border: 4px solid #4e5547;
+  border-radius: 40px;
+  background: linear-gradient(#b8c2ab, #9ca78f);
+  box-shadow: inset -8px -10px 0 #8a957d, 0 14px 0 #0005;
+}
+.tv-bezel { width: 800px; height: 492px; padding: 16px; border: 4px solid #3a4035; border-radius: 30px; background: #2e332b; }
+.tv-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 760px;
+  height: 452px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #141414;
+  color: #f2f2f2;
+}
+.tv-side { display: grid; justify-items: center; gap: 22px; }
+.tv-dial { position: relative; width: 74px; height: 74px; border: 4px solid #3a4035; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f3f1e8, #cfcab9); }
+.tv-dial i { position: absolute; left: 50%; top: 8px; width: 6px; height: 26px; margin-left: -3px; border-radius: 3px; background: #3a4035; }
+.tv-dial + .tv-dial i { transform: rotate(120deg); transform-origin: 50% 26px; }
+.tv-grille { width: 86px; height: 92px; background: repeating-linear-gradient(#3a4035 0 4px, transparent 4px 12px); }
+.tv-legs { display: flex; justify-content: space-between; width: 760px; height: 18px; }
+.tv-legs i { width: 60px; border: 4px solid #4e5547; border-top: 0; border-radius: 0 0 10px 10px; background: #8a957d; }
+.tv-tools { display: flex; gap: 8px; min-height: 34px; margin-top: 14px; }
+.tv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 20px 6px; }
+.tv-head b { font-size: 19px; }
+.tv-head span { font-size: 13px; color: #c9c9c9; }
+.tv-row {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 12px;
+  padding: 10px 20px 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+.tv-pick { flex: none; padding: 0; border: 0; background: none; cursor: var(--cur-hand); transition: transform 0.12s; }
+.tv-pick.on { transform: scale(1.06); }
+.tv-pick.on .tv-poster { box-shadow: 0 0 0 3px #f2f2f2; }
+/* 포스터: 그림이 없으면 책 표지처럼 색(--book) 카드의 이름표 자리에 제목과 연도를 쓴다. 그림이 있으면 카드 위에 덮는다 */
+.tv-poster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 124px;
+  height: 182px;
+  padding: 10px 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--book);
+  box-shadow: inset 0 0 0 3px #0003;
+}
+.tv-poster-label { display: flex; flex-direction: column; gap: 4px; max-height: 120px; padding: 8px 6px; overflow: hidden; border: 2px solid #2f231b; background: #fbf4e4; color: #2a1f18; text-align: center; }
+.tv-poster-label b { font-size: 15px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.tv-poster-label span { font-size: 12px; color: #5a4a3c; }
+.tv-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #141414; } /* 바탕이 투명한 그림이어도 아래 제목 카드가 비치지 않게 */
+.tv-detail { padding: 2px 20px 14px; overflow: hidden; }
+.tv-detail p { margin: 0 0 6px; }
+.tv-title { font-size: 20px; font-weight: 700; }
+.tv-title span { font-weight: 400; color: #c9c9c9; }
+.tv-by { font-size: 14px; color: #c9c9c9; }
+.tv-why { font-size: 16px; line-height: 1.6; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.tv-link { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c9c9c9; }
+.tv-link a.btn { display: inline-block; text-decoration: none; }
+.tv-none { margin: auto; font-size: 16px; color: #c9c9c9; }
+/* 넣는 칸(종이 카드)을 화면 가운데에 띄운다 */
+.tv-card { width: 620px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; }
+.tv-card.like-form { gap: 6px; }
+.tv-find { display: flex; gap: 8px; align-items: center; }
+.tv-find .like-field { flex: 1; }
+.tv-hits { display: flex; flex-direction: column; gap: 4px; max-height: 196px; overflow-y: auto; }
+.tv-hits p { margin: 0; color: #6c6457; }
+.tv-hit { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 10px; border: 1px solid #d9d2c3; border-radius: 6px; background: #fff; font: 15px var(--font); color: var(--ink); text-align: left; cursor: var(--cur-hand); }
+.tv-hit:hover, .tv-hit:focus { border-color: #b98a2c; background: #fff6df; outline: none; }
+.tv-hit span { font-size: 13px; color: #6c6457; }
+.like-card .tv-tip { font-size: 13px; color: #6c6457; }
+@media (prefers-reduced-motion: reduce) {
+  .tv-pick { transition: none; }
+  .tv-row { scroll-behavior: auto; }
+}
+
 /* =====================================================================
    2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
    세 시대를 비교하던 규칙에서 2005 것만 남겨서, 앞의 기본 모양을 body[data-era="2005"]로 덮어쓴다

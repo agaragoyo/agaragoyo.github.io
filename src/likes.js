@@ -6,8 +6,10 @@
 //   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
 //              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
 //   radio      [{ url }]        CD 6장까지. 스포티파이, 애플 뮤직의 앨범이나 플레이리스트 링크(parseMusic이 알아보는 것만)
+//   tv         [{ title, year, by, link, poster, why, color }]   영화나 TV 시리즈 6편까지. by는 감독, link는 보러 갈 곳,
+//              poster는 포스터 그림 주소(https), why는 추천 이유. 포스터가 없으면 color 색의 제목 카드를 건다
 //
-// 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink를 거친 것만 쓴다.
+// 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink, safeImage, parseMusic을 거친 것만 쓴다.
 // 그래서 주인이 넣은 글이나 링크(javascript: 주소 같은 것)로 손님 화면에서 스크립트가 돌지 않는다.
 // 공유 링크가 너무 길어지지 않게 가구마다 개수와 글자 수를 LIMIT로 줄여 둔다.
 import { APP_BY_ID } from '../data/apps.js';
@@ -19,8 +21,13 @@ export const LIMIT = {
   bookTitle: 30,
   bookAuthor: 20,
   bookNote: 120, // 좋아하는 구절이나 고른 이유
-  bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다)
+  bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다). TV의 제목 카드도 같은 색을 쓴다
   cds: 6,        // 라디오의 CD 장수
+  works: 6,      // TV의 작품 수
+  workTitle: 40,
+  workYear: 9,   // 2019, 2015~2016
+  workBy: 30,    // 감독
+  workWhy: 80,   // 추천 이유
 };
 
 // 한 줄 글. 글자가 아닌 값은 빈 글로, 줄바꿈과 제어 문자는 띄어쓰기로 바꾸고 max 글자까지만 남긴다(이모지를 반으로 자르지 않게 글자 단위로 센다).
@@ -46,6 +53,12 @@ export function safeLink(value) {
   } catch {
     return '';
   }
+}
+
+// 그림 주소(TV 포스터). 사이트가 https라서 https 그림만 받는다(http 그림은 브라우저가 막거나 경고한다).
+export function safeImage(value) {
+  const href = safeLink(value);
+  return href.startsWith('https:') ? href : '';
 }
 
 // 라디오 CD 링크. 스포티파이와 애플 뮤직의 앨범, 플레이리스트만 알아보고 { service, kind, id, link, embed }를 돌려준다.
@@ -97,6 +110,23 @@ const SANITIZE = {
     if (!Array.isArray(raw)) return null;
     const links = [...new Set(raw.map(c => parseMusic(c?.url)?.link).filter(Boolean))].slice(0, LIMIT.cds);
     return links.length ? links.map(url => ({ url })) : null;
+  },
+  tv(raw) {
+    if (!Array.isArray(raw)) return null;
+    const works = raw.slice(0, LIMIT.works).map(w => {
+      const work = { title: line(w?.title, LIMIT.workTitle) };
+      const extra = {
+        year: line(w?.year, LIMIT.workYear),
+        by: line(w?.by, LIMIT.workBy),
+        link: safeLink(w?.link),
+        poster: safeImage(w?.poster),
+        why: para(w?.why, LIMIT.workWhy),
+      };
+      for (const [k, v] of Object.entries(extra)) if (v) work[k] = v;
+      work.color = Number.isInteger(w?.color) && w.color >= 0 && w.color < LIMIT.bookColors ? w.color : 0;
+      return work;
+    }).filter(w => w.title);
+    return works.length ? works : null;
   },
 };
 
