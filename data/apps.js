@@ -40,6 +40,7 @@ export const APPS = [
   { id: 'computer', title: '컴퓨터', color: '#8f8a7c', builtin: 'computer', folder: 'furniture' },
   { id: 'console', title: '게임기', color: '#c97b8a', builtin: 'console', folder: 'furniture' },
   { id: 'bookshelf', title: '책장', color: '#685447', builtin: 'bookshelf', folder: 'furniture' },
+  { id: 'radio', title: '라디오', color: '#8a7f63', builtin: 'radio', folder: 'furniture' },
 
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.
   // 레포 밖 게임 다섯 개는 게임 안에 배경음악이 있어서 music: 'own' 이다.

@@ -36,7 +36,7 @@ export const FURNITURE = [
   { id: 'plant',     scene: 'room', name: '작은 화분', zone: 'top', size: [1, 1], height: 34, color: '#8cc084' },
   { id: 'books',     scene: 'room', name: '책 더미',  zone: 'top', size: [1, 1], height: 11, color: '#b4b8a1' },
   { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 30, color: '#e07a5f' },
-  { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc' },
+  { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
   { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8' },
   // 내 방: 벽
   { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', gimmick: 'scene:playground' },

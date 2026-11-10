@@ -9,6 +9,7 @@ import { openMineApp } from './mine-app.js';
 import { openComputerApp } from './computer-app.js';
 import { openConsoleApp } from './console-app.js';
 import { openBookshelfApp } from './bookshelf-app.js';
+import { openRadioApp } from './radio-app.js';
 
 export const BUILTIN_APPS = {
   room: openRoomApp,
@@ -20,6 +21,7 @@ export const BUILTIN_APPS = {
   computer: openComputerApp,
   console: openConsoleApp,
   bookshelf: openBookshelfApp,
+  radio: openRadioApp,
 };
 
 export { openFrameApp } from './frame-app.js';
