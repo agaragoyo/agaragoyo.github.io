@@ -311,7 +311,7 @@ def check_file_map():
         err('docs/file-map.md', '파일 지도가 없다')
         return
     mentioned = set(re.findall(r'`([^`\s<>*]+)`', path.read_text(encoding='utf-8')))
-    must = [*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.py'), *ROOT.glob('docs/*.md'),
+    must = [*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.py'), *ROOT.glob('tools/*.mjs'), *ROOT.glob('docs/*.md'),
             *ROOT.glob('.github/**/*.yml'), *ROOT.glob('.github/*.md')]
     must += [ROOT / n for n in ('index.html', 'style.css', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'known-issues.md')]
     for p in sorted(set(must)):
@@ -334,7 +334,7 @@ def check_js_syntax():
         return
     with tempfile.TemporaryDirectory() as tmp:
         jobs = []
-        for p in sorted([*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js')]):
+        for p in sorted([*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.mjs')]):
             jobs.append((p, '.mjs', p.read_text(encoding='utf-8')))
         for p in sorted(ROOT.glob('apps/**/*')):
             if p.suffix == '.js':
