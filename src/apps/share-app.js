@@ -2,6 +2,7 @@
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
+import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
 import { h } from '../util.js';
 
@@ -23,9 +24,19 @@ export function openShareApp(os, app) {
     app,
     title: '공유하기',
     width: 540,
-    height: 244,
+    height: 330,
     build(body, w) {
       const input = h('input', { type: 'text', readOnly: true, value: linkNow(), 'aria-label': '공유 링크' });
+      // 화면 보호기 인사말(src/screensaver.js). 링크에 같이 담겨 친구 화면의 화면 보호기에도 흘러간다. 연습 방에서는 고치지 않는다.
+      const greet = h('input', {
+        type: 'text', maxLength: 30, value: home().greeting || '', placeholder: `${home().owner}의 컴퓨터`,
+        'aria-label': '화면 보호기 인사말', disabled: !!os.realHome,
+      });
+      greet.addEventListener('input', () => {
+        os.home.greeting = line(greet.value, 30);
+        os.saveHome(false);
+        w.refreshLink();
+      });
       // 창을 열어 둔 사이에 방을 고칠 수 있으므로 링크는 창을 다시 부를 때와 복사할 때마다 새로 만든다.
       w.refreshLink = () => { input.value = linkNow(); };
       const copy = async () => {
@@ -75,6 +86,8 @@ export function openShareApp(os, app) {
           ? h('p', {}, '연습 방은 공유되지 않습니다. 링크와 그림에는 저장된 내 방이 담깁니다.')
           : h('p', {}, '이 링크를 받은 친구는 내 컴퓨터에 손님으로 들어와 지금 모습 그대로 방을 구경할 수 있습니다. ',
             '방을 고친 뒤에는 링크를 다시 복사해서 보내 주세요.'),
+        h('p', { className: 'share-save-tip' }, '바탕화면을 2분 동안 그냥 두면 화면 보호기에 인사말이 흘러갑니다. 링크를 받은 친구의 화면에도 나옵니다.'),
+        h('div', { className: 'share-row' }, greet, h('button', { type: 'button', className: 'btn', onclick: () => os.saver.show(true) }, '미리 보기')),
         h('div', { className: 'share-row' }, input, h('button', { type: 'button', className: 'btn', onclick: copy }, '복사')),
         h('p', { className: 'share-save-tip' }, '그림 한 장으로 보내려면 PNG 파일로 내려받으세요.'),
         h('div', { className: 'share-row share-save' }, ...SCENES.map(saveButton)),

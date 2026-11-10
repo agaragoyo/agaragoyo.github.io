@@ -55,7 +55,7 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 그레인), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
+| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 깜빡임, 구석 그늘, 모니터 OSD), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
 | `style.css` | 모든 모양. 아래 "style.css 안의 순서"에 절 목록이 있다 |
 | `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 새 기능을 붙이는 곳, 지켜야 할 것 |
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
@@ -69,10 +69,10 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼, 그레인 그림 만들기, 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
+| `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼과 그 OSD, 전원 연출(켤 때 디가우스)을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
-| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
+| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간, 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
 ## src/: 컴퓨터(OS)
@@ -86,20 +86,20 @@
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 집, 폴더, 공유, 음악, 내 컴퓨터, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
-| `src/crt.js` | 그레인 노이즈 그림 한 장(움직임은 CSS) | `initGrain` |
+| `src/screensaver.js` | 화면 보호기. 바탕화면을 2분 동안 그냥 두면 검은 화면에 주인의 인사말(없으면 "주인 이름의 컴퓨터")이 흘러가고, 마우스나 키로 걷힌다. 언제 돌지는 `os.js`가 정한다 | `createScreensaver` |
 | `src/cursors.js` | 화면 안 커서 그림을 만들어 `--cur-*` CSS 변수로 넣는다. 설정의 `cursor`(색, 크기, 직접 그린 그림)를 따른다 | `initCursors`, `cursorSet`, `defaultPixels` 등 |
 
 ## src/: 방 그리기
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 전원을 켤 때 가구 그림 미리 받기(`preloadFurniture`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `preloadFurniture`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그린다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar`, `depthZ`, `spriteRect` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
-| `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
+| `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기. 링크에는 화면 보호기 인사말도 담긴다 | `sanitizeHome`, `encodeHome`, `decodeHome` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
@@ -111,7 +111,7 @@
 | `src/apps/index.js` | 기본 앱 등록부(`BUILTIN_APPS`). 새 기본 앱은 여기에 한 줄 더한다 |
 | `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바탕화면에 보이는 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
-| `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
+| `src/apps/share-app.js` | 공유하기. 화면 보호기 인사말을 적고 미리 보며, 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
 | `src/apps/mine-app.js` | 나도 만들기와 내 컴퓨터로. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 이 컴퓨터에 내 집이 없으면 로그인 화면으로, 있으면 곧장 내 바탕화면으로 보낸다 |
 | `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
@@ -156,7 +156,7 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었다 |
+| `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었고, localhost가 늦지 않게 IPv6와 IPv4를 함께 받으며 연결을 이어 쓴다(known-issues 56) |
 | `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
@@ -193,7 +193,7 @@
 
 ```
 index.html
-└─ src/main.js ─── settings.js, cursors.js, crt.js
+└─ src/main.js ─── settings.js, cursors.js
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
@@ -215,7 +215,7 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 5. 창: 방 꾸미기 앱, iframe 앱, 배경음악 앱, 미니게임 폴더
 6. 아이콘, 바탕화면, 작업 표시줄과 시작 메뉴
 7. 부팅, 로그인
-8. 화면 효과(스캔라인, 그레인, 깜빡임), 전원 연출
+8. 화면 효과(깜빡임, 구석 그늘), 모니터 OSD, 신호 없음 상자, 전원 연출(디가우스), 화면 보호기
 9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
 10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
 11. 2005 모습: 모니터, 창, 부팅, 로그인 모양을 덮어쓰는 절

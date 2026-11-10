@@ -2,7 +2,6 @@
 import { STAGE_W, STAGE_H } from './config.js';
 import { settings } from './settings.js';
 import { reduceMotion } from './util.js';
-import { initGrain } from './crt.js';
 import { initCursors } from './cursors.js';
 import { createOS } from './os.js';
 import { play, setPlace } from './sound.js';
@@ -71,9 +70,22 @@ addEventListener('resize', () => {
 PORTRAIT_PHONE.addEventListener('change', fit);
 
 // ---------- 화면 효과 ----------
-// 그레인, 주사선, 깜빡임은 늘 켜 둔다(style.css의 "화면 효과"). 화면을 볼록하게 휘던 효과와
-// 그레인, 볼록 켜기 버튼은 2026-11-10에 뺐다(알파 테스트 피드백).
-initGrain($('#grain'));
+// 아주 약한 깜빡임과 구석 그늘은 늘 켜 둔다(style.css의 "화면 효과"). 화면을 볼록하게 휘던 효과와 그레인, 볼록 켜기 버튼은
+// 2026-11-10에 뺐다(알파 테스트 피드백). 가는 가로줄(주사선)은 글자를 가려서 같은 날 뺐고(known-issues 55),
+// 지직거리는 그레인도 2005년 PC 모니터에는 없던 것이라 2026-11-11에 뺐다.
+
+// 모니터 OSD: 모니터 아래 단추를 누르면 그 시절 모니터가 화면 위에 띄우던 상자처럼 잠깐 보여 준다(style.css의 .osd).
+// 꺼진 화면에는 띄우지 않는다. 글은 고정된 낱말만 넣는다(사용자가 쓴 글을 넣지 않는다).
+const osd = $('#osd');
+let osdTimer = 0;
+function showOSD(title, on) {
+  if (!powered) return;
+  const cells = Array.from({ length: 10 }, () => `<i${on ? ' class="on"' : ''}></i>`).join('');
+  osd.innerHTML = `<b>${title}</b><span class="osd-bar">${cells}</span><span class="osd-state">${on ? '켜짐' : '꺼짐'}</span>`;
+  osd.hidden = false;
+  clearTimeout(osdTimer);
+  osdTimer = setTimeout(() => { osd.hidden = true; }, 1800);
+}
 
 // 설정이 바뀔 때마다 모니터 아래 소리 버튼의 불을 맞춘다.
 function applySettings() {
@@ -88,11 +100,15 @@ applySettings();
 document.querySelectorAll('.phys').forEach(btn => {
   btn.addEventListener('mousedown', e => e.preventDefault());
 });
-$('#sound-key').addEventListener('click', () => settings.set({ sound: !settings.get('sound') }));
+$('#sound-key').addEventListener('click', () => {
+  settings.set({ sound: !settings.get('sound') });
+  showOSD('소리', !!settings.get('sound'));
+});
 
 // ---------- 전원 ----------
 // 사용자가 전원 버튼을 직접 누르게 해서 켠다. 브라우저는 첫 클릭 전까지 소리 재생을 막으므로, 이 클릭 뒤부터 소리가 난다.
 // 끄면 실제 컴퓨터처럼 열린 창이 모두 사라지고 배경음악도 바로 멈춘다.
+// 켤 때는 2005년 브라운관 모니터처럼 자기 제거(디가우스)로 색이 잠깐 출렁인 뒤 화면이 밝아진다(style.css의 "전원 연출").
 const powerFx = $('#power-fx');
 const powerBtn = $('#power');
 let powered = false;
@@ -107,21 +123,24 @@ function settlePower() {
   setPowerState(powered ? 'on' : 'off');
   if (!powered) os.reset();
 }
-powerFx.querySelector('.beam').addEventListener('animationend', settlePower);
+// 끌 때는 화면이 어두워지는 애니메이션(off-bg), 켤 때는 디가우스 색 층(#degauss, power-fx 바로 뒤 형제)이 끝나면 마무리한다.
+// 켤 때 power-fx가 밝아지는 애니메이션(1.2초)은 디가우스(2초)보다 먼저 끝나므로 이것으로는 마무리하지 않는다.
+powerFx.addEventListener('animationend', e => { if (e.target === powerFx && e.animationName === 'off-bg') settlePower(); });
+$('#degauss').addEventListener('animationend', settlePower);
 
 function setPower(on) {
   if (on === powered) return;
   powered = on;
   powerBtn.setAttribute('aria-pressed', String(powered));
   play('button');
-  if (!powered) setPlace(null);
+  if (!powered) { setPlace(null); osd.hidden = true; }
   if (reduceMotion) {
     setPowerState(powered ? 'on' : 'off');
     if (!powered) os.reset();
   } else {
     setPowerState(powered ? 'turning-on' : 'turning-off');
     clearTimeout(settleTimer);
-    settleTimer = setTimeout(settlePower, 900);
+    settleTimer = setTimeout(settlePower, 2300); // 켤 때의 디가우스가 2초라 그보다 조금 길게
   }
   if (powered) os.boot();
 }
