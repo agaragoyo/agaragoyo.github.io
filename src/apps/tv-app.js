@@ -35,21 +35,54 @@ const WORK_TYPES = [
   'Q526877',   // 웹 시리즈
   'Q15416',    // TV 프로그램(예능 등)
 ];
-// 이름으로 찾기. 위키데이터 전문 검색에 종류 조건(haswbstatement)을 붙여 영화와 TV 작품만 받고, 이름과 설명은 따로 받는다.
-// 설명(description)에 "2019년 봉준호 감독의 영화"처럼 연도와 감독이 들어 있는 일이 많아 그대로 보여 준다
+// 이름 검색 결과에서 작품만 고르는 설명 낱말. 이름 검색은 종류 조건을 붙일 수 없어서 설명(description)으로 고른다.
+// 같은 이름의 방송국(ITV1, UPN), 사람(감독, 배우), 음반과 노래는 설명에 영화나 TV라는 말이 있어도 뺀다
+// 시리즈의 한 시즌이나 한 회(원피스 4기 같은 것)도 빼고 시리즈 전체를 넣게 한다
+const WORK_WORDS = /영화|드라마|애니메이션|시리즈|시트콤|예능|film|movie|series|sitcom|anime|animated|television|documentary/i;
+const NOT_WORK = /channel|network|station|채널|방송국|soundtrack|album|song|single|\bOST\b|음반|노래|싱글|video game|비디오 게임|novel|소설|manga|만화|웹툰|webtoon|episode|에피소드|\bseason \d+|시즌 ?\d+|character|등장인물|actor|actress|배우|director\b|감독$|producer|screenwriter|company|기업|회사|award|festival|영화제/i;
+const MAX_HITS = 8;
+
+// 위키데이터 이름 칸. 여러 언어에서 똑같이 쓰는 이름(원제 "Up" 같은 것)은 영어 칸(en)이 아니라 "mul" 칸에 있는 일이 늘고 있어 둘 다 읽는다
+const LANGS = 'ko|en|mul';
+const nameOf = (labels, lang) => String(labels?.[lang]?.value || '');
+const korean = labels => nameOf(labels, 'ko');
+const original = labels => nameOf(labels, 'en') || nameOf(labels, 'mul');
+
+// 이름으로 찾기. 두 가지를 합친다.
+//   1. 이름 검색: 한국어 이름, 영어 이름, 별칭에서 정확히 같은 이름과 앞부분이 같은 이름이 먼저 온다. It, Up 같은 짧은 원제와 "기생"처럼 앞부분만 친 이름을 찾는다
+//   2. 1에서 8편이 안 되면 낱말 찾기로 채운다: 작품 종류(WORK_TYPES)로 거르고, 다른 문서에서 많이 가리키는(많이 알려진) 순서로 받는다.
+//      마지막 낱말에는 *를 붙여 앞부분만 쳐도 맞게 한다. 낱말 찾기는 모든 언어의 이름과 설명을 뒤져서(스웨덴어 år도 ar로 맞는다) 1의 뒤에만 둔다
+// 이름은 한국어 이름이 있으면 그것을 쓰고(넷플릭스와 왓챠 한국판처럼 한국 개봉 제목), 영어 이름이 다르면 원제로 같이 보여 준다.
+// 설명에 "2019년 봉준호 감독의 영화"처럼 연도와 감독이 들어 있는 일이 많아 그대로 보여 준다
 async function searchWorks(q) {
-  const s = await wd({ action: 'query', list: 'search', srnamespace: '0', srlimit: '8', srsearch: `${q} haswbstatement:${WORK_TYPES.map(t => `P31=${t}`).join('|')}` });
-  const ids = (s.query?.search || []).map(r => String(r.title)).filter(id => /^Q\d+$/.test(id));
+  const named = await wd({ action: 'wbsearchentities', search: q, language: 'ko', uselang: 'ko', type: 'item', limit: '50' });
+  const ids = [];
+  for (const r of named.search || []) {
+    const about = String(r.description || '');
+    if (ids.length < MAX_HITS && /^Q\d+$/.test(r.id) && WORK_WORDS.test(about) && !NOT_WORK.test(about) && !ids.includes(r.id)) ids.push(r.id);
+  }
+  if (ids.length < MAX_HITS) {
+    const words = q.trim().split(/\s+/);
+    const last = words.length - 1;
+    const text = words.map((w, i) => (i === last && /^[\p{L}\p{N}]+$/u.test(w) ? `${w}*` : w)).join(' ');
+    const s = await wd({ action: 'query', list: 'search', srnamespace: '0', srlimit: String(MAX_HITS), srsort: 'incoming_links_desc', srsearch: `${text} haswbstatement:${WORK_TYPES.map(t => `P31=${t}`).join('|')}` });
+    for (const r of s.query?.search || []) {
+      const id = String(r.title);
+      if (ids.length < MAX_HITS && /^Q\d+$/.test(id) && !ids.includes(id)) ids.push(id);
+    }
+  }
   if (!ids.length) return [];
-  const d = await wd({ action: 'wbgetentities', ids: ids.join('|'), props: 'labels|descriptions', languages: 'ko|en' });
+  const d = await wd({ action: 'wbgetentities', ids: ids.join('|'), props: 'labels|descriptions', languages: LANGS });
   return ids.map(id => {
     const e = d.entities?.[id] || {};
-    return { id, label: String(e.labels?.ko?.value || e.labels?.en?.value || id), about: String(e.descriptions?.ko?.value || e.descriptions?.en?.value || '') };
+    const orig = original(e.labels);
+    const label = korean(e.labels) || orig || id;
+    return { id, label, orig: orig && orig !== label ? orig : '', about: String(e.descriptions?.ko?.value || e.descriptions?.en?.value || '') };
   });
 }
 // 고른 작품의 이름, 연도(개봉일, 방영 시작과 끝), 감독(두 명까지), 위키백과 링크
 async function workDetails(id) {
-  const d = await wd({ action: 'wbgetentities', ids: id, props: 'labels|claims|sitelinks', languages: 'ko|en', sitefilter: 'kowiki|enwiki' });
+  const d = await wd({ action: 'wbgetentities', ids: id, props: 'labels|claims|sitelinks', languages: LANGS, sitefilter: 'kowiki|enwiki' });
   const e = d.entities?.[id];
   if (!e) return null;
   const year = p => (e.claims?.[p] || []).map(c => c.mainsnak?.datavalue?.value?.time).filter(t => typeof t === 'string').sort()[0]?.slice(1, 5) || '';
@@ -58,12 +91,12 @@ async function workDetails(id) {
   const ids = (e.claims?.P57 || []).map(c => c.mainsnak?.datavalue?.value?.id).filter(x => /^Q\d+$/.test(x || '')).slice(0, 2);
   let by = '';
   if (ids.length) {
-    const l = await wd({ action: 'wbgetentities', ids: ids.join('|'), props: 'labels', languages: 'ko|en' });
-    by = ids.map(x => l.entities?.[x]?.labels?.ko?.value || l.entities?.[x]?.labels?.en?.value).filter(Boolean).join(', ');
+    const l = await wd({ action: 'wbgetentities', ids: ids.join('|'), props: 'labels', languages: LANGS });
+    by = ids.map(x => korean(l.entities?.[x]?.labels) || original(l.entities?.[x]?.labels)).filter(Boolean).join(', ');
   }
   const site = e.sitelinks?.kowiki ? ['ko', e.sitelinks.kowiki.title] : e.sitelinks?.enwiki ? ['en', e.sitelinks.enwiki.title] : null;
   return {
-    title: e.labels?.ko?.value || e.labels?.en?.value || '',
+    title: korean(e.labels) || original(e.labels),
     year: from && to && to !== from ? `${from}~${to}` : from,
     by,
     link: site ? `https://${site[0]}.wikipedia.org/wiki/${encodeURIComponent(site[1].replace(/ /g, '_'))}` : `https://www.wikidata.org/wiki/${id}`,
@@ -92,6 +125,8 @@ export function openTvApp(os, app) {
     key: app.id,
     title: app.title,
     className: 'tv-closeup',
+    closeLabel: 'TV 끄기',
+    closeTip: '바깥을 누르면 TV를 끕니다.',
     build(panel, cu) {
       const screen = h('div', { className: 'tv-screen' });
       const tools = h('div', { className: 'tv-tools' });
@@ -174,8 +209,10 @@ export function openTvApp(os, app) {
           hits.replaceChildren();
           if (!found) return say('작품을 찾지 못했습니다. 잠시 후 다시 찾아 주세요.');
           if (!found.length) return say('찾는 작품이 없습니다. 다른 이름으로 찾거나 직접 넣어 주세요.');
+          // 한국어 이름과 원제(영어 이름)를 한 줄에 같이 보여 준다. "그것"이 It인지 알아볼 수 있게
           hits.append(...found.map(f => h('button', { type: 'button', className: 'tv-hit', onclick: () => pick(f) },
-            h('b', {}, f.label || f.id), f.about ? h('span', {}, f.about) : null)));
+            h('span', { className: 'tv-hit-name' }, h('b', {}, f.label || f.id), f.orig ? h('small', {}, f.orig) : null),
+            f.about ? h('span', { className: 'tv-hit-about' }, f.about) : null)));
         };
         const pick = async f => {
           hits.replaceChildren(h('p', { className: 'tv-wait' }, '작품 정보를 받는 중'));

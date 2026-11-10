@@ -1,8 +1,9 @@
 // 가구 기믹: 게임기(F7, F12). 누르면 컴퓨터 화면 안에 게임기를 크게 들고, 게임기 화면에 미니게임 폴더의 게임이 늘어선다.
-// 하나를 고르면 게임기 화면 안에서 하고, 나가기 단추(게임 안의 그만하기 단추도 같다)를 누르면 게임기 첫 화면으로 돌아온다.
-// 게임기 바깥을 누르면 게임기를 내려놓는다(src/closeup.js). 새 탭으로 여는 플래시 게임은 화면 안에서 어디로 가는지 먼저 보여 준다(known-issues 32).
+// 단추는 셋이고 하는 일을 옆에 새겨 둔다. 십자 단추는 고르기(방향키), A는 시작(Enter), B는 나가기(Backspace)다.
+// B는 게임이나 새 탭 안내에서는 게임기 첫 화면으로 돌아오고(게임 안의 그만하기 단추도 같다), 첫 화면에서는 게임기를 내려놓는다.
+// 게임기 바깥을 눌러도 게임기를 내려놓는다(src/closeup.js). 새 탭으로 여는 플래시 게임은 화면 안에서 어디로 가는지 먼저 보여 준다(known-issues 32).
 // 주인은 게임 하나를 추천 게임으로 고를 수 있다(likes.console). 추천 게임은 맨 앞에 서고 "추천" 표시를 단다.
-// 방향키와 게임기의 십자 단추로 고르고 Enter로 시작한다. 바탕화면의 미니게임 폴더 아이콘은 그대로 둔다(게임기를 놓지 않은 방에서도 게임을 하게).
+// 바탕화면의 미니게임 폴더 아이콘은 그대로 둔다(게임기를 놓지 않은 방에서도 게임을 하게).
 import { APPS } from '../../data/apps.js';
 import { h, clamp } from '../util.js';
 import { iconEl } from '../icons.js';
@@ -31,25 +32,26 @@ export function openConsoleApp(os, app) {
     key: app.id,
     title: app.title,
     className: 'console-closeup',
+    closeLabel: '내려놓기',
+    closeTip: '바깥을 누르면 게임기를 내려놓습니다.',
     build(panel, cu) {
       const screen = h('div', { className: 'console-screen' });
-      const exit = h('button', { type: 'button', className: 'console-exit', disabled: true, onclick: () => home() }, '나가기');
       // 게임기의 단추를 눌러도 키보드 초점은 화면의 게임 칸에 남긴다(단추로 옮겨 가면 어느 칸을 골랐는지 잃는다)
       const keep = e => e.preventDefault();
       const pad = (dir, label) => h('button', { type: 'button', className: `console-pad ${dir}`, 'aria-label': label, onmousedown: keep, onclick: () => move(dir) });
-      // 오른쪽 단추 넷: 휴대용 게임기처럼 A는 고르기와 시작(Enter), B는 나가기(Backspace)다. 위와 왼쪽 단추는 눌리는 모양만 나는 장식이라 글자를 새기지 않는다
-      const face = (key, title, onclick) => h('button', { type: 'button', className: `console-face ${key.toLowerCase()}`, title, 'aria-label': title, onmousedown: keep, onclick }, key);
+      // A와 B: 게임보이처럼 B는 왼쪽 아래, A는 오른쪽 위에 두고 단추 아래에 하는 일을 새긴다. 장식 단추는 무슨 일을 하는지 헷갈리게만 해서 두지 않는다
+      const face = (key, word, keyName, onclick) => h('div', { className: `console-key ${key.toLowerCase()}` },
+        h('button', { type: 'button', className: 'console-face', title: `${word} (${keyName})`, 'aria-label': `${key} ${word}`, onmousedown: keep, onclick }, key),
+        h('span', { className: 'console-key-word' }, word));
       panel.append(h('div', { className: 'console-device' },
         h('div', { className: 'console-left' },
-          h('div', { className: 'console-dpad' }, pad('up', '위'), pad('left', '왼쪽'), pad('right', '오른쪽'), pad('down', '아래'))),
+          h('div', { className: 'console-dpad' }, pad('up', '위'), pad('left', '왼쪽'), pad('right', '오른쪽'), pad('down', '아래')),
+          h('span', { className: 'console-key-word' }, '고르기')),
         h('div', { className: 'console-bezel' }, screen),
         h('div', { className: 'console-right' },
-          h('div', { className: 'console-faces' },
-            h('i', { className: 'console-face x', 'aria-hidden': 'true' }),
-            h('i', { className: 'console-face y', 'aria-hidden': 'true' }),
-            face('A', '고르기 (Enter)', () => pressA()),
-            face('B', '나가기 (Backspace)', () => pressB())),
-          exit)));
+          h('div', { className: 'console-keys' },
+            face('B', '나가기', 'Backspace', () => pressB()),
+            face('A', '시작', 'Enter', () => pressA())))));
 
       let tiles = [];      // 첫 화면의 게임 단추. 첫 화면이 아니면 비어 있다
       let selected = 0;    // 첫 화면에서 고른 칸
@@ -76,7 +78,6 @@ export function openConsoleApp(os, app) {
       // 첫 화면: 게임 목록
       function home() {
         stop();
-        exit.disabled = true;
         const pick = os.home.likes.console;
         const list = games();
         tiles = list.map((g, i) => h('button', {
@@ -113,7 +114,6 @@ export function openConsoleApp(os, app) {
         if (g.href) return ask(g);
         stop();
         tiles = [];
-        exit.disabled = false;
         const own = g.src.startsWith('apps/');
         const [w, hgt] = own ? [SCREEN_W, SCREEN_H] : (g.size || [SCREEN_W, SCREEN_H]);
         const s = Math.min(1, SCREEN_W / w, SCREEN_H / hgt);
@@ -133,7 +133,6 @@ export function openConsoleApp(os, app) {
       function ask(g) {
         stop();
         tiles = [];
-        exit.disabled = false;
         const links = g.links || [{ label: '새 탭에서 열기', href: g.href }];
         const card = h('div', { className: 'console-ask' },
           h('div', { className: 'console-ask-title' }, iconEl(g, 32), h('span', {}, g.title)),
@@ -148,13 +147,14 @@ export function openConsoleApp(os, app) {
         const f = document.activeElement;
         if (f && screen.contains(f) && (f.tagName === 'A' || f.tagName === 'BUTTON')) f.click();
       }
-      // B: 게임이나 새 탭 안내에서 첫 화면으로 돌아간다(나가기 단추와 같다)
+      // B(나가기): 게임이나 새 탭 안내에서는 첫 화면으로 돌아가고, 첫 화면에서는 게임기를 내려놓는다(게임기의 "뒤로" 단추처럼)
       function pressB() {
-        if (!tiles.length) home();
+        if (tiles.length) cu.close();
+        else home();
       }
 
       cu.onKey = e => {
-        if (e.key === 'Backspace' && !tiles.length) {
+        if (e.key === 'Backspace') {
           e.preventDefault();
           return pressB();
         }
