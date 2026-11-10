@@ -17,7 +17,7 @@ export const FURNITURE = [
   { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, color: '#efe7cf' },
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, color: '#c4b094' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a' },
-  { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447' },
+  { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
   { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 118, color: '#e0d9a1' },
   { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, color: '#cdc39e' },
   { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0' },

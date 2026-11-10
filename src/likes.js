@@ -3,6 +3,8 @@
 //
 //   computer   { url, name }    좋아하는 웹 게임 링크 하나와 게임 이름(없어도 된다)
 //   console    '<앱 id>'         미니게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 하나
+//   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
+//              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
 //
 // 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink를 거친 것만 쓴다.
 // 그래서 주인이 넣은 글이나 링크(javascript: 주소 같은 것)로 손님 화면에서 스크립트가 돌지 않는다.
@@ -12,12 +14,24 @@ import { APP_BY_ID } from '../data/apps.js';
 export const LIMIT = {
   url: 300,      // 주소 하나의 글자 수
   gameName: 20,  // 컴퓨터에 넣는 게임 이름
+  books: 5,      // 책장의 책 권수
+  bookTitle: 30,
+  bookAuthor: 20,
+  bookNote: 120, // 좋아하는 구절이나 고른 이유
+  bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다)
 };
 
 // 한 줄 글. 글자가 아닌 값은 빈 글로, 줄바꿈과 제어 문자는 띄어쓰기로 바꾸고 max 글자까지만 남긴다(이모지를 반으로 자르지 않게 글자 단위로 센다).
 export function line(value, max) {
   if (typeof value !== 'string') return '';
   return Array.from(value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim()).slice(0, max).join('');
+}
+
+// 여러 줄 글. 줄바꿈은 남기고(빈 줄은 하나까지), 다른 제어 문자는 띄어쓰기로 바꾼다.
+export function para(value, max) {
+  if (typeof value !== 'string') return '';
+  const text = value.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return Array.from(text).slice(0, max).join('').trim();
 }
 
 // 새 탭으로 여는 링크 주소. http와 https만 받고, 아이디와 비밀번호가 든 주소는 버린다. 못 쓰는 주소는 빈 글을 돌려준다.
@@ -41,6 +55,19 @@ const SANITIZE = {
   },
   console(raw) {
     return typeof raw === 'string' && APP_BY_ID[raw]?.folder === 'games' ? raw : null;
+  },
+  bookshelf(raw) {
+    if (!Array.isArray(raw)) return null;
+    const books = raw.slice(0, LIMIT.books).map(b => {
+      const book = { title: line(b?.title, LIMIT.bookTitle) };
+      const author = line(b?.author, LIMIT.bookAuthor);
+      const note = para(b?.note, LIMIT.bookNote);
+      if (author) book.author = author;
+      if (note) book.note = note;
+      book.color = Number.isInteger(b?.color) && b.color >= 0 && b.color < LIMIT.bookColors ? b.color : 0;
+      return book;
+    }).filter(b => b.title);
+    return books.length ? books : null;
   },
 };
 
