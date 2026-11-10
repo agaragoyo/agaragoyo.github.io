@@ -7,10 +7,11 @@ import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
-import { renderStatic } from './room.js';
+import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
+import { createScreensaver } from './screensaver.js';
 import { sanitizeHome, decodeHome } from './share.js';
 import { createTutorial } from './tutorial.js';
 import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
@@ -76,6 +77,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.boot = async () => {
     const my = ++run;
     show('boot');
+    preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
@@ -83,6 +85,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   os.reset = () => {
     run++;
+    os.saver?.hide();
     os.wm.closeAll();
     os.mode = null;
     show();
@@ -94,6 +97,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   function ownHome() {
     const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
     return own && own.owner ? own : null;
+  }
+
+  // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
+  function loginHomes() {
+    const m = location.hash.match(/^#room=(.+)$/);
+    return [ownHome(), m && decodeHome(m[1]), ...NEIGHBOR_LIST.map(neighborHome)].filter(Boolean);
   }
 
   function showLogin() {
@@ -477,6 +486,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 앱(iframe)과 주고받는 메시지
   os.sdk = createSdkHost(os);
+
+  // 화면 보호기(src/screensaver.js). 바탕화면을 그냥 둘 때만 돈다. 앞에 고른 창이 있거나(음악, 영상, 게임을 쓰는 중)
+  // 가구를 가까이 보는 중, 튜토리얼 중에는 돌지 않는다. 인사말이 없으면 "주인 이름의 컴퓨터"가 흘러간다.
+  os.saver = createScreensaver({
+    stage,
+    canRun: () => !!os.mode && !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup && !os.tutorial?.active && document.visibilityState === 'visible',
+    text: () => os.home?.greeting || `${os.home?.owner || ''}의 컴퓨터`,
+  });
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
   window.addEventListener('hashchange', () => {

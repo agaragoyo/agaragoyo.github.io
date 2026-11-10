@@ -13,7 +13,6 @@
     "./data/furniture.js": "./data/furniture.js?v=e5b1d42b",
     "./src/apps/room-app.js": "./src/apps/room-app.js?v=ec7f7c8b",
     "./src/config.js": "./src/config.js?v=b2faa2b0",
-    "./src/crt.js": "./src/crt.js?v=98658a6d",
     "./src/icons.js": "./src/icons.js?v=3566a45c",
     "./src/iso.js": "./src/iso.js?v=d8dfb6d7",
     "./src/os.js": "./src/os.js?v=d8eb882e",
@@ -52,7 +51,7 @@
   <div class="monitor">
     <div class="bezel">
       <div class="screen" id="screen">
-        <!-- 화면 안쪽(무대와 전원 연출). 그레인과 깜빡임은 이 바깥에서 화면 전체에 겹친다. -->
+        <!-- 화면 안쪽(무대와 전원 연출). 깜빡임과 구석 그늘, 모니터 OSD는 이 바깥에서 화면 전체에 겹친다. -->
         <div class="crt" id="crt">
         <div class="stage" id="stage">
           <!-- 바탕화면 (1280×800): 배경은 지금 꾸민 방 그림이다 -->
@@ -93,14 +92,14 @@
           <div class="toast" id="toast" role="status"></div>
         </div>
 
-        <div class="fx fx-scan"></div>
         <div class="power-fx off" id="power-fx">
-          <div class="beam"></div>
-          <p class="power-hint">오른쪽 아래 전원 버튼을 눌러 주세요</p>
+          <p class="no-signal"><b>신호 없음</b>오른쪽 아래 전원 버튼을 눌러 주세요</p>
         </div>
+        <div class="degauss" id="degauss"></div>
         </div>
-        <div class="fx fx-grain" id="grain"></div>
+        <div class="fx fx-vignette"></div>
         <div class="fx fx-flicker"></div>
+        <div class="osd" id="osd" hidden></div>
       </div>
 
       <div class="controls">

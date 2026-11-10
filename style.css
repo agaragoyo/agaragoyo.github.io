@@ -1026,34 +1026,33 @@ form.user { cursor: var(--cur-arrow); }
 
 /* ---------- 화면 효과 (클릭은 그대로 통과) ---------- */
 .fx { position: absolute; inset: 0; z-index: 50; pointer-events: none; }
-.fx-scan {
-  background: repeating-linear-gradient(to bottom, #00000026 0 1px, transparent 1px 3px);
-}
-/* 그레인: crt.js가 만든 노이즈 한 장(--grain-img)을 깔고, 1초에 24번 다른 자리로 건너뛰게 옮긴다.
-   transform만 바꾸므로 브라우저가 다시 칠하지 않고 합성만 한다. 움직이는 범위(256px)만큼 바깥으로 넉넉히 깐다. */
-.fx-grain {
-  overflow: hidden;
-  opacity: 0.07;
-  mix-blend-mode: overlay;
-}
-.fx-grain::before {
-  content: "";
+/* 구석 그늘: 브라운관은 가운데보다 구석이 조금 어두웠다. 글자가 많은 가운데와 가장자리 한가운데는 그대로 두고 구석만 아주 옅게 어둡게 한다.
+   지직거리는 그레인은 2005년 PC 모니터에 없던 것이라 2026-11-11에 뺐다. */
+.fx-vignette { background: radial-gradient(ellipse at center, transparent 70%, #0000001f 100%); }
+
+/* 모니터 OSD: 모니터 아래 단추를 누르면 그 시절 모니터가 화면 위에 띄우던 상자처럼 1.8초 보인다(main.js의 showOSD).
+   아래 가운데에는 알림과 말하기 칸이 뜨므로 위쪽 가운데에 둔다. 화면 크기를 따라 커지고 줄도록 --u(무대 1px이 화면에서 차지하는 크기)로 잰다. */
+.osd {
   position: absolute;
-  inset: -256px;
-  background: var(--grain-img) 0 0 / 256px 256px repeat;
-  animation: grain-jump 0.333s steps(1, end) infinite;
-  will-change: transform;
+  left: 50%;
+  top: 9%;
+  z-index: 55;
+  transform: translateX(-50%);
+  width: calc(340 * var(--u));
+  padding: calc(12 * var(--u)) calc(16 * var(--u));
+  border: calc(2 * var(--u)) solid #9fb6ff;
+  background: #142a6ee8;
+  box-shadow: 0 0 0 calc(2 * var(--u)) #0a1640;
+  color: #fff;
+  font-size: max(11px, calc(18 * var(--u)));
+  line-height: 1.3;
+  pointer-events: none;
 }
-@keyframes grain-jump {
-  0% { transform: translate(0, 0); }
-  12.5% { transform: translate(-83px, -167px); }
-  25% { transform: translate(-197px, -41px); }
-  37.5% { transform: translate(-29px, -223px); }
-  50% { transform: translate(-151px, -109px); }
-  62.5% { transform: translate(-241px, -199px); }
-  75% { transform: translate(-61px, -71px); }
-  87.5% { transform: translate(-173px, -233px); }
-}
+.osd b { display: block; margin-bottom: calc(8 * var(--u)); }
+.osd-bar { display: inline-flex; gap: calc(3 * var(--u)); vertical-align: middle; }
+.osd-bar i { width: calc(20 * var(--u)); height: calc(14 * var(--u)); background: #34509e; }
+.osd-bar i.on { background: #e8f0ff; }
+.osd-state { margin-left: calc(10 * var(--u)); vertical-align: middle; }
 /* 아주 약한 밝기 깜빡임 */
 .fx-flicker {
   background: #fff;
@@ -1082,43 +1081,92 @@ form.user { cursor: var(--cur-arrow); }
   background: #000;
 }
 .power-fx.on { display: none; }
-.beam {
+/* 꺼진 화면: 그 시절 모니터가 컴퓨터 신호가 없을 때 띄우던 "신호 없음" 상자. 델과 삼성 모니터처럼 화면을 끊김 없이 떠다니다
+   가장자리에서 방향을 바꾼다(가로 20초, 세로 13초로 길이를 달리해 1초에 50px쯤 비스듬히 움직인다). */
+.no-signal {
   position: absolute;
-  inset: 0;
-  background: #fff;
-  opacity: 0;
-  transform: scale(0, 0.004);
-}
-.power-hint {
+  left: 50%;
+  top: 50%;
   margin: 0;
-  font-size: 13px;
-  color: #777;
-  animation: blink 1.6s steps(2) infinite;
+  transform: translate(-50%, -50%);
+  padding: calc(14 * var(--u)) calc(22 * var(--u));
+  border: calc(2 * var(--u)) solid #9fb6ff;
+  background: #142a6e;
+  box-shadow: 0 0 0 calc(2 * var(--u)) #0a1640;
+  color: #dfe7ff;
+  font-size: max(11px, calc(17 * var(--u)));
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  animation: no-signal-x 20s linear infinite alternate, no-signal-y 13s linear infinite alternate;
 }
-.power-fx:not(.off) .power-hint { display: none; }
-@keyframes blink { 50% { opacity: 0; } }
+.no-signal b { display: block; margin-bottom: calc(6 * var(--u)); color: #fff; font-size: 1.25em; }
+.power-fx:not(.off) .no-signal { display: none; }
+@keyframes no-signal-x { from { left: 22%; } to { left: 78%; } }
+@keyframes no-signal-y { from { top: 18%; } to { top: 82%; } }
 
-.power-fx.turning-on { animation: on-bg 0.65s forwards; }
-.power-fx.turning-on .beam { animation: beam-on 0.65s ease-out forwards; }
-@keyframes on-bg { 0%, 45% { background: #000; } 100% { background: transparent; } }
-@keyframes beam-on {
-  0% { opacity: 1; transform: scale(0, 0.004); }
-  35% { opacity: 1; transform: scale(1, 0.004); }
-  75% { opacity: 0.6; transform: scale(1, 1); }
-  100% { opacity: 0; transform: scale(1, 1); }
+/* 켤 때: 2005년 브라운관 모니터처럼 자기 제거(디가우스)를 한다. 소니 모니터 설명서 기준으로 켤 때의 자동 디가우스는 2~5초였다.
+   화면은 1.2초에 걸쳐 데워지듯 밝아지고, 그동안 밝은 곳(부팅 로고)에만 색이 번졌다가 2초에 걸쳐 가라앉으며, 화면 떨림은 1.5초에 걸쳐 잦아든다.
+   색 층은 mix-blend-mode: color라 검은 곳은 그대로 검다(브라운관도 빛이 없는 곳에는 색 번짐이 보이지 않는다).
+   색 층을 power-fx 안에 두면 power-fx(z-index)가 쌓임 맥락이라 무대와 섞이지 않으므로 바로 뒤 형제로 둔다.
+   예전의 하얀 가로선이 퍼지는 연출은 옛 TV에 가까워서 바꿨다(2026-11-11). "뚱" 하는 소리는 사운드 담당의 파일을 기다린다. */
+.power-fx.turning-on { animation: warm-up 1.2s ease-out forwards; }
+@keyframes warm-up { 0%, 15% { background: #000; } 100% { background: transparent; } }
+.degauss {
+  position: absolute;
+  inset: -15%;
+  z-index: 61;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: color;
+  background:
+    radial-gradient(circle at 25% 30%, #ff2bd6 0, transparent 45%),
+    radial-gradient(circle at 75% 55%, #2bffb4 0, transparent 45%),
+    radial-gradient(circle at 45% 85%, #3b6bff 0, transparent 40%);
 }
-.power-fx.turning-off { animation: off-bg 0.45s forwards; }
-.power-fx.turning-off .beam { animation: beam-off 0.45s ease-in forwards; }
-@keyframes off-bg { 0% { background: transparent; } 55%, 100% { background: #000; } }
-@keyframes beam-off {
-  0% { opacity: 0; transform: scale(1, 1); }
-  20% { opacity: 0.9; transform: scale(1, 1); }
-  60% { opacity: 1; transform: scale(1, 0.004); }
-  100% { opacity: 1; transform: scale(0, 0.004); }
+.power-fx.turning-on + .degauss { animation: degauss 2s ease-out forwards; }
+@keyframes degauss {
+  0% { opacity: 0.95; transform: rotate(0deg) scale(1.1); }
+  20% { opacity: 0.8; transform: rotate(30deg) scale(1.05); }
+  45% { opacity: 0.5; transform: rotate(-20deg) scale(1.08); }
+  70% { opacity: 0.22; transform: rotate(12deg) scale(1.03); }
+  100% { opacity: 0; transform: rotate(0deg) scale(1); }
 }
+.crt:has(> .power-fx.turning-on) { animation: degauss-shake 1.5s linear; }
+@keyframes degauss-shake {
+  0%, 100% { transform: none; }
+  6% { transform: translateX(0.5%) skewX(0.7deg); }
+  12% { transform: translateX(-0.5%) skewX(-0.7deg); }
+  18% { transform: translateX(0.4%) skewX(0.5deg); }
+  25% { transform: translateX(-0.35%) skewX(-0.45deg); }
+  33% { transform: translateX(0.3%) skewX(0.35deg); }
+  42% { transform: translateX(-0.22%) skewX(-0.25deg); }
+  52% { transform: translateX(0.16%) skewX(0.18deg); }
+  63% { transform: translateX(-0.1%) skewX(-0.1deg); }
+  75% { transform: translateX(0.06%); }
+  88% { transform: translateX(-0.03%); }
+}
+/* 끌 때: 그 시절 모니터에는 끌 때 화면 한가운데에 밝은 점이 남지 않게 막는 보호 회로(스폿 킬러, 뮤팅)가 있어서 그림이 곧바로 꺼졌다.
+   그래서 0.35초 만에 어두워지게 한다. 가로줄로 줄어들다 점으로 사라지는 모습은 옛 TV에 가까워서 바꿨다(2026-11-11). */
+.power-fx.turning-off { animation: off-bg 0.35s ease-in forwards; }
+@keyframes off-bg { 0% { background: transparent; } 45% { background: #000000d9; } 100% { background: #000; } }
+
+/* ---------- 화면 보호기 ---------- */
+/* 바탕화면을 그냥 두면 검은 화면 위로 인사말이 흘러간다(src/screensaver.js). 무대 안의 창(20), 작업 표시줄, 알림(60)보다 위다. */
+.saver { position: absolute; inset: 0; z-index: 70; overflow: hidden; background: #000; cursor: none; }
+.saver-text {
+  position: absolute;
+  left: 0;
+  margin: 0;
+  font-size: 55px;
+  font-weight: 700;
+  white-space: nowrap;
+  will-change: transform;
+}
+.saver-text.still { left: 50%; top: 50%; transform: translate(-50%, -50%); }
 
 @media (prefers-reduced-motion: reduce) {
-  .fx-flicker, .fx-grain::before, .power-hint, .shelf.hint .card { animation: none; }
+  .fx-flicker, .no-signal, .shelf.hint .card { animation: none; }
 }
 
 /* ---------- 공간 탭 ---------- */
@@ -1152,6 +1200,8 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .room, .stage[data-theme="night"] .wallpaper { --apt-window: #ffd76a; }
 .stage[data-theme="night"] .item.light { filter: brightness(1.3) drop-shadow(0 0 10px #ffd76a) drop-shadow(0 0 24px #ffb84a99); }
 .stage[data-theme="night"] .win-body input { background: #1a1922; color: var(--win-text); }
+/* 안내 글자(placeholder)도 밤 바탕과 한 짝으로 맞춘다. 브라우저 기본 회색(#757575)은 밤 바탕에서 3.8:1이다(known-issues 47) */
+.stage[data-theme="night"] .win-body input::placeholder { color: #a3a1b3; }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
 .stage[data-theme="night"] .win-body .like-error { color: #ffb4a8; } /* 창 바탕만 밤에 어두워진다. 가까이 보기의 종이 카드는 밤에도 밝다 */
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }

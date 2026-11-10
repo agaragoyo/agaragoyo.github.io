@@ -8,17 +8,33 @@ import { clamp } from './util.js';
 import { play } from './sound.js';
 
 // 가구 id마다 이미지가 있는지 한 번만 물어본다. 없으면 콘솔에 404가 가구당 한 줄 찍히는데 정상이다.
+// 받은 그림(Image)은 kept에 붙잡아 둔다. 쓰는 곳이 없으면 브라우저가 메모리를 정리할 때 그림을 버리고, 방을 다시 그릴 때
+// 서버에서 새로 받느라 가구가 늦게 뜬다(known-issues 56). 개발 서버(no-store)는 바로 버리고, 배포 사이트도 10분(max-age)이 지나면 다시 묻는다.
 const probes = new Map();
+const kept = new Map();
 function hasImage(id) {
   if (!probes.has(id)) {
     probes.set(id, new Promise(resolve => {
       const img = new Image();
-      img.onload = () => resolve(true);
+      img.onload = () => { kept.set(id, img); resolve(true); };
       img.onerror = () => resolve(false);
       img.src = `assets/furniture/${id}.png`;
     }));
   }
   return probes.get(id);
+}
+
+// 집들(homes)에 놓인 가구의 그림을 미리 받기 시작한다. 전원을 켤 때(os.js의 boot) 로그인 화면에서 고를 수 있는 집들을 넘긴다.
+// 그림은 가구를 처음 그릴 때 받기 시작해서, 미리 받지 않으면 바탕화면이 처음 뜰 때 그림이 올 때까지 임시 상자가 보인다(known-issues 54).
+// 부팅 화면(2초)과 로그인 화면을 지나는 동안 다 받아 두면 바탕화면에서는 처음부터 그림이 보인다.
+// 놓인 가구만 받으므로 그림이 없는 가구의 404는 그 집을 그릴 때와 똑같이 찍히고 늘지 않는다. 돌려 놓은 가구는 돌린 그림(-r)부터 찾는다(imageFor).
+export function preloadFurniture(homes) {
+  for (const home of homes) {
+    for (const it of Object.values(home.scenes || {}).flat()) {
+      if (it.r) hasImage(`${it.id}-r`);
+      hasImage(it.id);
+    }
+  }
 }
 
 // 가구 한 개에 쓸 그림 파일. 돌려 놓았으면(r: 1) 돌린 그림(<id>-r.png)이 있으면 그걸, 없으면 원래 그림을 좌우로 뒤집어(mirror) 쓴다.

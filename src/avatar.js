@@ -4,10 +4,11 @@
 // 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 import { N, DRAG_THRESHOLD } from './config.js';
-import { tile, toTile } from './iso.js';
-import { dims, isWall, supportOf } from './rules.js';
+import { tile, toTile, placementOf, boxSize } from './iso.js';
+import { dims, isWall, supportOf, elevOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
+import { BY_ID } from '../data/furniture.js';
 import { h } from './util.js';
 import { play } from './sound.js';
 
@@ -94,15 +95,33 @@ function nearestFree(blocked, x, y) {
   return best;
 }
 
-// 칸 a에 선 아바타를 어느 가구보다 위에 그릴지. 가구 순서(room.js의 zOf)를 쓰고, 겹치지 않는 두 네모를 가르는 축으로
-// 앞뒤를 판단해서, 아바타가 앞에 있는 가구들 중 가장 높은 것 바로 위에 그린다.
+// 칸 cell에 선 아바타 그림이 화면에서 차지하는 네모(무대 px). placeAt이 그리는 자리와 같다.
+export function spriteRect(cell) {
+  const c = tile(cell.x + 0.5, cell.y + 0.5);
+  return { l: c.x - FW / 2, t: c.y - FOOT, r: c.x + FW / 2, b: c.y - FOOT + FH };
+}
+const unionRect = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
+const overlaps = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+
+// 가구 그림 상자가 화면에서 차지하는 네모(무대 px). room.js가 놓는 자리(placementOf)와 크기(boxSize) 그대로다.
+function furnRect(items, it) {
+  const { left, top } = placementOf(it, elevOf(items, it));
+  const { w, h } = boxSize(BY_ID[it.id], it.r);
+  return { l: left, t: top, r: left + w, b: top + h };
+}
+
+// 칸 a에 선 아바타를 어느 가구보다 위에 그릴지. 화면에서 아바타 그림(rect)과 겹치는 가구만 본다.
+// 그 가운데 아바타가 앞에 있는 가구(겹치지 않는 두 네모를 가르는 축으로 판단)의 순서(room.js의 zOf) 중 가장 높은 것 바로 위에 그린다.
+// 겹치지 않는 먼 가구까지 세면 순서 번호가 큰 먼 가구 때문에 아바타가 바로 앞의 가구보다 위로 올라간다(known-issues 53).
 // 가구 중심의 합(depthOf)으로만 비교하면 긴 가구 옆에서 앞뒤가 뒤집힌다.
-function depthZ(items, a) {
+// a: 아바타가 선 칸. 걷는 동안은 두 칸을 합친 자리의 뒤쪽 모서리(작은 x와 작은 y)다.
+// rect: 아바타 그림이 차지하는 네모. 걷는 동안은 두 칸의 네모를 합친 것이다.
+export function depthZ(items, a, rect = spriteRect(a)) {
   let z = 100;
   for (const it of items) {
     if (isWall(it)) continue;
     const [w, d] = dims(it);
-    if (a.x >= it.x + w || a.y >= it.y + d) z = Math.max(z, zOf(items, it));
+    if ((a.x >= it.x + w || a.y >= it.y + d) && overlaps(rect, furnRect(items, it))) z = Math.max(z, zOf(items, it));
   }
   return z + 1;
 }
@@ -235,9 +254,10 @@ export function mountAvatar(host, avatarId = 'basic') {
   }
 
   // 지금 자리에 그린다. at이 있으면 그 칸 기준으로 가구와의 앞뒤 순서도 다시 정한다.
-  function draw(at) {
+  // rect: 앞뒤를 따질 가구를 고를 때 쓰는 아바타 그림의 네모(없으면 at 칸에 섰을 때의 네모)
+  function draw(at, rect) {
     const c = placeAt(el, pos, facing, col);
-    if (at) el.style.zIndex = depthZ(host.items(), at);
+    if (at) el.style.zIndex = depthZ(host.items(), at, rect);
     if (!bubble.hidden) {
       bubble.style.left = `${Math.round(c.x)}px`;
       bubble.style.top = `${Math.round(c.y - FOOT - 4)}px`;
@@ -279,15 +299,18 @@ export function mountAvatar(host, avatarId = 'basic') {
     facing = FACING[key(to.x - from.x, to.y - from.y)];
     col = steps++ % 2 ? 2 : 1;
     if (col === 1) play('step'); // 한 칸이 0.2초라 두 칸마다(왼발) 한 번 낸다. 사람 걸음과 비슷한 0.4초 간격
-    // 걷는 동안 앞뒤 순서는 두 칸 가운데 앞쪽(화면 아래) 칸으로 정해 두어 깜빡이지 않게 한다.
-    const front = to.x + to.y > from.x + from.y ? to : from;
+    // 걷는 동안에는 두 칸을 합친 자리로 앞뒤를 정해 두어 한 걸음 사이에 순서가 바뀌어 깜빡이지 않게 한다.
+    // 두 칸 모두보다 뒤에 있는 가구 위에만 그리므로, 가구 모서리를 돌 때 걸음 처음부터 가구 앞으로 튀어나오지 않는다.
+    // 겹치는 가구도 두 칸의 그림을 합친 네모로 고른다(그림이 두 칸 사이를 지나는 동안 어느 쪽 가구와도 겹칠 수 있다).
+    const span = { x: Math.min(from.x, to.x), y: Math.min(from.y, to.y) };
+    const sweep = unionRect(spriteRect(from), spriteRect(to));
     me.x = to.x;
     me.y = to.y;
     const t0 = performance.now();
     const tick = now => {
       const t = Math.min(1, (now - t0) / STEP_MS);
       pos = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-      draw(front);
+      draw(span, sweep);
       if (t < 1) raf = requestAnimationFrame(tick);
       else nextStep();
     };
