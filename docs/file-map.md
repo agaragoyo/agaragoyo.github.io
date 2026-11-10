@@ -14,7 +14,7 @@
 | 새 미니게임이나 앱 만들기 | `apps/_template/`를 복사하고 `data/apps.js`에 한 줄 (`apps/README.md`) |
 | 창 안에서 돌지 않는 바깥 게임을 새 탭으로 열기 | `data/apps.js`에 `href: 'https://...'` (`src/apps/link-app.js`가 새 탭에서 열린다고 알리고 연다) |
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
-| 주인이 가구에 담아 두는 것(웹 게임 링크, 책 등)의 칸과 검사 | `src/likes.js`. 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome` |
+| 주인이 가구에 담아 두는 것(웹 게임 링크, 책, CD, 작품)의 칸과 검사 | `src/likes.js`. 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome` |
 | 가구를 가까이 보는 화면(게임기처럼 바탕을 덮고 가구를 크게 띄우기) | `src/closeup.js`의 `openCloseup`, 모양은 `style.css`의 "가구 가까이 보기" 절 |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
 | 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
@@ -97,7 +97,7 @@
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
-| `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
+| `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
 
@@ -116,6 +116,7 @@
 | `src/apps/console-app.js` | 가구 기믹: 게임기. 가까이 보기 화면에 게임기를 들고 미니게임 폴더의 게임을 늘어놓는다. 고른 게임은 게임기 화면 안에서 하고(다른 사이트 게임은 줄여서), 나가기로 첫 화면에 돌아온다. 주인은 추천 게임 하나를 고른다 |
 | `src/apps/bookshelf-app.js` | 가구 기믹: 책장. 고른 책의 표지(같은 디자인에 제목과 작가, 무작위 색)와 남긴 구절이 크게 뜨고, 선반의 책등이나 방향키로 넘긴다. 주인은 5권까지 넣고 고치고 뺀다 |
 | `src/apps/radio-app.js` | 가구 기믹: 라디오. 주인이 넣은 CD(스포티파이, 애플 뮤직 링크)를 펼치고, 고른 CD가 라디오에 들어가 돌면 공식 플레이어를 옆의 작은 창에 띄운다. 음악 창은 라디오를 내려놓아도 남고 그동안 사이트 배경음악을 멈춘다 |
+| `src/apps/tv-app.js` | 가구 기믹: TV. 주인이 고른 영화와 TV 시리즈의 포스터를 추천 줄로 늘어놓고 휠과 방향키로 넘긴다. 주인은 위키데이터로 이름을 찾아 연도, 감독, 링크를 채우고 포스터 그림 주소와 추천 이유를 넣는다 |
 | `src/apps/computer-app.js` | 가구 기믹: 옛날 컴퓨터. 주인이 넣은 웹 게임이 어느 사이트의 새 탭에서 열리는지 보여 주고 연다. 주인에게는 게임을 넣고 고치는 칸이 있다 |
 
 ## data/: 목록
@@ -212,5 +213,5 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 7. 부팅, 로그인
 8. 화면 효과(스캔라인, 그레인, 깜빡임), 전원 연출
 9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
-10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
+10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
 11. 2005 모습: 모니터, 창, 부팅, 로그인 모양을 덮어쓰는 절
