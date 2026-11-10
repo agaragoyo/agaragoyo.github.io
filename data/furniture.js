@@ -27,7 +27,7 @@ export const FURNITURE = [
   // 내 방: 책상 위 (바닥에도 놓을 수 있다)
   { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 48, color: '#d7d3c8', gimmick: 'app:computer' },
   { id: 'tv',        scene: 'room', name: 'TV',       zone: 'top', size: [2, 1], height: 57, color: '#939d8a' },
-  { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9f9498' },
+  { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9f9498', gimmick: 'app:console' },
   { id: 'camera',    scene: 'room', name: '디카',     zone: 'top', size: [1, 1], height: 12, color: '#b6b6b2' },
   { id: 'diary',     scene: 'room', name: '다이어리', zone: 'top', size: [1, 1], height: 4, color: '#af7570' },
   { id: 'desk-lamp', scene: 'room', name: '초록 탁상 조명', zone: 'top', size: [1, 1], height: 29, color: '#6d825f', light: true, gimmick: 'night' },

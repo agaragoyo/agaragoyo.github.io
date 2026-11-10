@@ -36,6 +36,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     settings,
     home: null,
     realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
+    closeup: null, // 가구를 가까이 보는 화면(src/closeup.js)이 열려 있으면 그 화면
     mode: null,
     place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
@@ -60,6 +61,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     syncTheme();
     el.startMenu.hidden = true;
     if (!names.includes('desktop')) {
+      os.closeup?.close();
       walker?.destroy();
       walker = null;
       os.tutorial.hide();
@@ -211,6 +213,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // ---------- 바탕화면 ----------
   function showDesktop() {
+    os.closeup?.close();
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
     os.place = SCENES[0].id;
@@ -225,7 +228,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       },
       input: el.desktop,
       sayRoot: el.desktop,
-      active: () => !el.desktop.hidden && !os.wm.focusedWin(),
+      active: () => !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup, // 가구를 가까이 보는 동안의 방향키는 그 화면 것이다(책장 넘기기)
     });
     renderWallpaper();
     // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
@@ -260,6 +263,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.goScene = id => {
     const scene = SCENES.find(s => s.id === id);
     if (!scene || id === os.place) return;
+    os.closeup?.close(); // 시작 메뉴의 놀이터처럼 가구를 가까이 보는 동안에도 공간을 옮길 수 있다
     os.place = id;
     play('enter'); // 방과 놀이터를 오갈 때 같은 소리를 낸다
     setPlace(id);

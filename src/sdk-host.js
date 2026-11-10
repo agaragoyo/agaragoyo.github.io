@@ -20,8 +20,9 @@ export function createSdkHost(os) {
   window.addEventListener('message', e => {
     const d = e.data;
     if (!d || d.aga !== 1 || !Object.hasOwn(HANDLERS, d.type)) return;
-    const win = os.wm.all().find(w => w.iframe?.contentWindow === e.source);
-    if (!win) return; // 우리 창에 뜬 앱이 보낸 메시지만 받는다
+    // 게임기 화면(src/closeup.js의 frames) 안에서 돌리는 앱도 창처럼 받는다. 닫기는 게임기 첫 화면으로 돌아가기다
+    const win = [...os.wm.all(), ...(os.closeup?.frames || [])].find(w => w.iframe?.contentWindow === e.source);
+    if (!win) return; // 우리 창이나 게임기에 뜬 앱이 보낸 메시지만 받는다
     const reply = HANDLERS[d.type](win, d);
     if (reply) e.source.postMessage({ aga: 1, ...reply }, '*');
   });

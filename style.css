@@ -1204,6 +1204,176 @@ form.user { cursor: var(--cur-arrow); }
 /* 끄는 동안에는 선반 카드를 가리킬 일이 없고 가구를 가리기만 한다 */
 body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 
+/* ---------- 가구 가까이 보기 (src/closeup.js) ---------- */
+/* 바탕화면 아이콘(2)보다 위, 창 층(20)보다 아래. 라디오의 음악 창처럼 옆에 띄우는 OS 창은 그 위에 뜬다.
+   가구 그림은 밤에도 낮 색 그대로라 글자색도 바탕과 한 짝으로 고정한다(--win-text를 쓰지 않는다, known-issues 47) */
+.closeup {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #0d0b14b3;
+  animation: closeup-in 0.14s ease-out;
+}
+.closeup-panel { position: relative; animation: closeup-lift 0.18s ease-out; }
+.closeup.still, .closeup.still .closeup-panel { animation: none; }
+@keyframes closeup-in { from { opacity: 0; } }
+@keyframes closeup-lift { from { transform: translateY(18px) scale(0.96); } }
+.closeup-foot { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #fff; text-shadow: 0 1px 2px #000; }
+.closeup-foot .btn { text-shadow: none; }
+
+/* 게임기: 가구 그림(assets/furniture/console.png)처럼 분홍 휴대용 게임기를 앞에서 본 모습 */
+.console-device {
+  display: grid;
+  grid-template-columns: 150px 792px 150px;
+  align-items: center;
+  width: 1100px;
+  height: 560px;
+  border: 4px solid #6a4a52;
+  border-radius: 150px / 210px;
+  background: linear-gradient(#f6d3d7, #ecbcc3);
+  box-shadow: inset -8px -10px 0 #dba5ae, inset 6px 6px 0 #fbe4e7, 0 16px 0 #0005;
+}
+.console-bezel { width: 792px; height: 502px; padding: 12px; border: 4px solid #6a4a52; border-radius: 18px; background: #3a3340; }
+.console-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 760px;
+  height: 470px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #1e2433;
+  color: #f3efe4;
+}
+.console-left, .console-right { display: grid; justify-items: center; align-content: center; gap: 34px; height: 100%; }
+/* 십자 단추: 가운데가 빈 3×3 칸에 네 방향 단추를 놓는다 */
+.console-dpad { display: grid; grid-template: repeat(3, 34px) / repeat(3, 34px); }
+.console-pad { padding: 0; border: 3px solid #6a4a52; background: #8c7a82; cursor: var(--cur-hand); }
+.console-pad:active { background: #6a4a52; }
+.console-pad.up { grid-area: 1 / 2; border-radius: 6px 6px 0 0; border-bottom: 0; }
+.console-pad.down { grid-area: 3 / 2; border-radius: 0 0 6px 6px; border-top: 0; }
+.console-pad.left { grid-area: 2 / 1; border-radius: 6px 0 0 6px; border-right: 0; }
+.console-pad.right { grid-area: 2 / 3; border-radius: 0 6px 6px 0; border-left: 0; }
+.console-dpad::after { content: ''; grid-area: 2 / 2; background: #8c7a82; }
+.console-dots { display: grid; grid-template: repeat(2, 30px) / repeat(2, 30px); gap: 8px; transform: rotate(45deg); }
+.console-dots i { border: 3px solid #6a4a52; border-radius: 50%; background: #f7e6e9; }
+.console-dots i:nth-child(1) { background: #8fc3d9; }
+.console-dots i:nth-child(4) { background: #f2a6a0; }
+.console-exit {
+  padding: 6px 14px;
+  border: 3px solid #6a4a52;
+  border-radius: 16px;
+  background: #fff4f5;
+  font: 700 15px var(--font);
+  color: #4a3238;
+  cursor: var(--cur-hand);
+  box-shadow: 0 3px 0 #6a4a52;
+}
+.console-exit:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #6a4a52; }
+.console-exit:disabled { opacity: 0.55; cursor: var(--cur-arrow); }
+/* 첫 화면: 게임 목록 */
+.console-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px 8px; font-size: 18px; font-weight: 700; }
+.console-hint { font-size: 13px; font-weight: 400; color: #c9d2e6; }
+.console-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 92px;
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
+  padding: 4px 16px 16px;
+  overflow-y: auto;
+}
+.console-slot { position: relative; display: grid; }
+.console-game {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border: 2px solid #4d5d80;
+  border-radius: 8px;
+  background: #2e3a52;
+  font: 14px/1.25 var(--font);
+  color: #f3efe4;
+  text-align: center;
+  word-break: keep-all;
+  cursor: var(--cur-hand);
+}
+.console-game:hover { background: #38476a; }
+.console-game:focus { outline: none; border-color: #ffd76a; box-shadow: 0 0 0 2px #ffd76a; }
+.console-game-name { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.console-game.external .app-icon::after {
+  content: '↗';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.console-pick {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #ffd76a;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3b2a07;
+}
+.console-star {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+  color: #c9d2e6;
+  cursor: var(--cur-hand);
+}
+.console-star.on { color: #ffd76a; }
+.console-star:hover { color: #ffd76a; }
+/* 게임 화면과 새 탭 안내 */
+.console-play { position: relative; margin: auto; overflow: hidden; }
+.console-play iframe { position: absolute; left: 0; top: 0; border: 0; background: #111; transform-origin: 0 0; }
+.console-ask {
+  width: max-content; /* 난이도 단추가 셋이어도 한 줄에 들어가게 단추 줄만큼 넓어진다 */
+  min-width: 420px;
+  max-width: 720px;
+  margin: auto;
+  padding: 16px 18px;
+  border: 3px solid #6a4a52;
+  border-radius: 10px;
+  background: #fffaf0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.console-ask p { margin: 0 0 6px; }
+.console-ask .meta { font-size: 14px; color: #6c6457; }
+.console-ask-title { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 700; }
+
 /* =====================================================================
    2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
    세 시대를 비교하던 규칙에서 2005 것만 남겨서, 앞의 기본 모양을 body[data-era="2005"]로 덮어쓴다
