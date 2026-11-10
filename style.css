@@ -1109,7 +1109,7 @@ form.user { cursor: var(--cur-arrow); }
    화면은 1.2초에 걸쳐 데워지듯 밝아지고, 그동안 밝은 곳(부팅 로고)에만 색이 번졌다가 2초에 걸쳐 가라앉으며, 화면 떨림은 1.5초에 걸쳐 잦아든다.
    색 층은 mix-blend-mode: color라 검은 곳은 그대로 검다(브라운관도 빛이 없는 곳에는 색 번짐이 보이지 않는다).
    색 층을 power-fx 안에 두면 power-fx(z-index)가 쌓임 맥락이라 무대와 섞이지 않으므로 바로 뒤 형제로 둔다.
-   예전의 하얀 가로선이 퍼지는 연출은 옛 TV에 가까워서 바꿨다(2026-11-11). "뚱" 하는 소리는 사운드 담당의 파일을 기다린다. */
+   예전의 하얀 가로선이 퍼지는 연출은 옛 TV에 가까워서 바꿨다(2026-11-11). 켤 때 소리는 따로 넣지 않는다. */
 .power-fx.turning-on { animation: warm-up 1.2s ease-out forwards; }
 @keyframes warm-up { 0%, 15% { background: #000; } 100% { background: transparent; } }
 .degauss {
