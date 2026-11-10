@@ -21,6 +21,8 @@
 //            지금 바탕화면에 보이는 공간의 바로 가기는 나오지 않는다(놀이터에서는 놀이터 대신 집으로가 보인다)
 //   href     창 대신 새 탭으로 여는 바깥 주소(https). 다른 사이트의 창(iframe) 안에서는 돌지 않는 남의 게임에 쓴다.
 //            열기 전에 새 탭에서 열린다는 것과 열리는 주소를 보여 준다(src/apps/link-app.js). builtin, src 없이 쓴다
+//   links    href 앱의 주소가 여럿일 때 [{ label, href }]. 여는 창에 label이 단추로 하나씩 나온다(예: '초급으로 열기'). href에는 첫 주소를 같이 적는다
+//   noun     href 앱의 여는 창에서 "이 게임은" 대신 쓸 말(예: '영상')
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
 const SITE = 'https://soomin007.github.io';
 
@@ -50,6 +52,12 @@ export const APPS = [
   { id: 'prison-escape', title: '감옥탈출', color: '#55606e', href: 'https://waflash.org/155', folder: 'games' },
   { id: 'eye-signal', title: '눈빛보내기', color: '#b0577f', href: 'https://waflash.org/203', folder: 'games' },
   { id: 'fireboy-watergirl', title: 'Fireboy and Watergirl', color: '#4a78b5', href: 'https://www.friv.com/z/games/fireboyandwatergirlforest/game.html', folder: 'games' },
+  // 2026-11-10 피그마 플래시 게임 표에 더해진 것. 크라라 공주는 난이도마다, 아바타 스타 슈는 1화와 전체 목록 주소가 따로 있어 links로 고른다.
+  { id: 'gogunbuntu', title: '고군분투', color: '#8a6d3b', href: 'https://waflash.org/85', folder: 'games' },
+  { id: 'animal-rescue', title: '동물구출 대작전', color: '#5f8f4e', href: 'https://waflash.org/315', folder: 'games' },
+  { id: 'krara-room', title: '크라라 공주와 이상한 방', color: '#b05a8a', href: 'https://waflash.org/451', folder: 'games', links: [{ label: '초급으로 열기', href: 'https://waflash.org/451' }, { label: '중급으로 열기', href: 'https://waflash.org/902' }, { label: '고급으로 열기', href: 'https://waflash.org/903' }] },
+  { id: 'number-song', title: '숫자쏭', color: '#d4a12a', href: 'https://waflash.org/239', folder: 'games' },
+  { id: 'avatar-star-shu', title: '아바타 스타 슈 1화', color: '#7b5fb0', href: 'https://waflash.org/1179', folder: 'games', noun: '영상', links: [{ label: '1화 보기', href: 'https://waflash.org/1179' }, { label: '전체 목록 보기', href: 'https://waflash.org/search/%EC%95%84%EB%B0%94%ED%83%80%20%EC%8A%A4%ED%83%80%20%EC%8A%88' }] },
 ];
 
 export const APP_BY_ID = Object.fromEntries(APPS.map(a => [a.id, a]));
