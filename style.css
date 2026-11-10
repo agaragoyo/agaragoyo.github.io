@@ -1282,10 +1282,15 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .console-pad.left { grid-area: 2 / 1; border-radius: 6px 0 0 6px; border-right: 0; }
 .console-pad.right { grid-area: 2 / 3; border-radius: 0 6px 6px 0; border-left: 0; }
 .console-dpad::after { content: ''; grid-area: 2 / 2; background: #8c7a82; }
-.console-dots { display: grid; grid-template: repeat(2, 30px) / repeat(2, 30px); gap: 8px; transform: rotate(45deg); }
-.console-dots i { border: 3px solid #6a4a52; border-radius: 50%; background: #f7e6e9; }
-.console-dots i:nth-child(1) { background: #8fc3d9; }
-.console-dots i:nth-child(4) { background: #f2a6a0; }
+/* 오른쪽 단추 넷(마름모): 오른쪽 A(고르기), 아래 B(나가기). 위와 왼쪽은 장식이라 글자 없이 눌리는 모양만 난다 */
+.console-faces { display: grid; grid-template: repeat(3, 36px) / repeat(3, 36px); }
+.console-face { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 3px solid #6a4a52; border-radius: 50%; background: #f7e6e9; box-shadow: 0 3px 0 #6a4a52; }
+.console-face:active { transform: translateY(2px); box-shadow: 0 1px 0 #6a4a52; }
+.console-face.x { grid-area: 1 / 2; background: #8fc3d9; }
+.console-face.y { grid-area: 2 / 1; }
+.console-face.a { grid-area: 2 / 3; background: #f2a6a0; }
+.console-face.b { grid-area: 3 / 2; background: #f6d37a; }
+button.console-face { font: 700 15px var(--font); color: #4a3238; cursor: var(--cur-hand); }
 .console-exit {
   padding: 6px 14px;
   border: 3px solid #6a4a52;
@@ -1712,7 +1717,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .tv-link a.btn { display: inline-block; text-decoration: none; }
 .tv-none { margin: auto; font-size: 16px; color: #c9c9c9; }
 /* 넣는 칸(종이 카드)을 화면 가운데에 띄운다 */
-.tv-card { width: 620px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; }
+.tv-card { width: 724px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; } /* TV 화면(760px)을 거의 다 쓴다 */
 .tv-card.like-form { gap: 6px; }
 .tv-find { display: flex; gap: 8px; align-items: center; }
 .tv-find .like-field { flex: 1; }

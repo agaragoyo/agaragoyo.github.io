@@ -75,7 +75,7 @@ export function openBookshelfApp(os, app) {
           h('div', { className: 'shelf-board' }, ...spines),
           h('button', { type: 'button', className: 'shelf-arrow', 'aria-label': '다음 책', disabled: at >= list.length - 1, onclick: () => go(at + 1) }, '▶'));
         const count = list.length > 1 ? h('p', { className: 'shelf-count' }, h('b', {}, `${at + 1} / ${list.length}`), '방향키로 넘겨 보세요.') : null;
-        panel.replaceChildren(main, count, row);
+        panel.replaceChildren(...[main, count, row].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣는다(책이 한 권이면 count가 없다)
       }
 
       // 주인이 책을 넣거나 고친다. i가 -1이면 새 책

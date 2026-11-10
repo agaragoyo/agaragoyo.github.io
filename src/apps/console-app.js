@@ -34,13 +34,21 @@ export function openConsoleApp(os, app) {
     build(panel, cu) {
       const screen = h('div', { className: 'console-screen' });
       const exit = h('button', { type: 'button', className: 'console-exit', disabled: true, onclick: () => home() }, '나가기');
-      const pad = (dir, label) => h('button', { type: 'button', className: `console-pad ${dir}`, 'aria-label': label, onclick: () => move(dir) });
+      // 게임기의 단추를 눌러도 키보드 초점은 화면의 게임 칸에 남긴다(단추로 옮겨 가면 어느 칸을 골랐는지 잃는다)
+      const keep = e => e.preventDefault();
+      const pad = (dir, label) => h('button', { type: 'button', className: `console-pad ${dir}`, 'aria-label': label, onmousedown: keep, onclick: () => move(dir) });
+      // 오른쪽 단추 넷: 휴대용 게임기처럼 A는 고르기와 시작(Enter), B는 나가기(Backspace)다. 위와 왼쪽 단추는 눌리는 모양만 나는 장식이라 글자를 새기지 않는다
+      const face = (key, title, onclick) => h('button', { type: 'button', className: `console-face ${key.toLowerCase()}`, title, 'aria-label': title, onmousedown: keep, onclick }, key);
       panel.append(h('div', { className: 'console-device' },
         h('div', { className: 'console-left' },
           h('div', { className: 'console-dpad' }, pad('up', '위'), pad('left', '왼쪽'), pad('right', '오른쪽'), pad('down', '아래'))),
         h('div', { className: 'console-bezel' }, screen),
         h('div', { className: 'console-right' },
-          h('div', { className: 'console-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i')),
+          h('div', { className: 'console-faces' },
+            h('i', { className: 'console-face x', 'aria-hidden': 'true' }),
+            h('i', { className: 'console-face y', 'aria-hidden': 'true' }),
+            face('A', '고르기 (Enter)', () => pressA()),
+            face('B', '나가기 (Backspace)', () => pressB())),
           exit)));
 
       let tiles = [];      // 첫 화면의 게임 단추. 첫 화면이 아니면 비어 있다
@@ -134,7 +142,22 @@ export function openConsoleApp(os, app) {
         card.querySelector('a.btn')?.focus();
       }
 
+      // A: 첫 화면에서는 고른 칸의 게임을 시작하고, 새 탭 안내에서는 초점이 있는 단추(처음에는 "새 탭에서 열기")를 누른다
+      function pressA() {
+        if (tiles.length) return tiles[selected].click();
+        const f = document.activeElement;
+        if (f && screen.contains(f) && (f.tagName === 'A' || f.tagName === 'BUTTON')) f.click();
+      }
+      // B: 게임이나 새 탭 안내에서 첫 화면으로 돌아간다(나가기 단추와 같다)
+      function pressB() {
+        if (!tiles.length) home();
+      }
+
       cu.onKey = e => {
+        if (e.key === 'Backspace' && !tiles.length) {
+          e.preventDefault();
+          return pressB();
+        }
         const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key];
         if (!dir || !tiles.length) return;
         e.preventDefault();

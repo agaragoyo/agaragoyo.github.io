@@ -15,10 +15,37 @@ async function wd(params) {
   if (!r.ok) throw new Error(`위키데이터가 ${r.status}로 답했다`);
   return r.json();
 }
-// 이름으로 찾기. 설명(description)에 "2019년 봉준호 감독의 영화"처럼 연도와 감독이 들어 있는 일이 많아 그대로 보여 준다
+// 찾을 작품의 종류(위키데이터 P31, "무엇의 한 종류인가"). 이름 검색만 하면 같은 이름의 음반, 노래, 낱말 뜻까지 나와서
+// 영화와 TV 작품으로 분류된 문서만 고른다. 일본 애니메이션 영화는 "영화"가 아니라 "애니메이션 영화"(Q20650540)로 분류되는 식이라 갈래마다 적는다.
+const WORK_TYPES = [
+  'Q11424',    // 영화
+  'Q29168811', // 장편 애니메이션 영화
+  'Q20650540', // 일본 애니메이션 영화
+  'Q202866',   // 애니메이션 영화
+  'Q24862',    // 단편 영화
+  'Q17517379', // 단편 애니메이션 영화
+  'Q93204',    // 다큐멘터리 영화
+  'Q229390',   // 3D 영화
+  'Q506240',   // TV 영화
+  'Q24856',    // 영화 시리즈
+  'Q5398426',  // TV 시리즈(드라마 대부분)
+  'Q1259759',  // 미니시리즈
+  'Q581714',   // 애니메이션 시리즈
+  'Q63952888', // 일본 애니메이션 TV 시리즈
+  'Q526877',   // 웹 시리즈
+  'Q15416',    // TV 프로그램(예능 등)
+];
+// 이름으로 찾기. 위키데이터 전문 검색에 종류 조건(haswbstatement)을 붙여 영화와 TV 작품만 받고, 이름과 설명은 따로 받는다.
+// 설명(description)에 "2019년 봉준호 감독의 영화"처럼 연도와 감독이 들어 있는 일이 많아 그대로 보여 준다
 async function searchWorks(q) {
-  const d = await wd({ action: 'wbsearchentities', search: q, language: 'ko', uselang: 'ko', type: 'item', limit: '8' });
-  return (d.search || []).map(s => ({ id: String(s.id), label: String(s.label || ''), about: String(s.description || '') }));
+  const s = await wd({ action: 'query', list: 'search', srnamespace: '0', srlimit: '8', srsearch: `${q} haswbstatement:${WORK_TYPES.map(t => `P31=${t}`).join('|')}` });
+  const ids = (s.query?.search || []).map(r => String(r.title)).filter(id => /^Q\d+$/.test(id));
+  if (!ids.length) return [];
+  const d = await wd({ action: 'wbgetentities', ids: ids.join('|'), props: 'labels|descriptions', languages: 'ko|en' });
+  return ids.map(id => {
+    const e = d.entities?.[id] || {};
+    return { id, label: String(e.labels?.ko?.value || e.labels?.en?.value || id), about: String(e.descriptions?.ko?.value || e.descriptions?.en?.value || '') };
+  });
 }
 // 고른 작품의 이름, 연도(개봉일, 방영 시작과 끝), 감독(두 명까지), 위키백과 링크
 async function workDetails(id) {
@@ -160,7 +187,7 @@ export function openTvApp(os, app) {
         };
         screen.replaceChildren(h('form', { className: 'like-form like-card tv-card', onsubmit: find },
           h('p', { className: 'like-card-head' }, '작품 넣기'),
-          h('p', {}, '이름으로 찾으면 연도와 감독이 같이 나옵니다.'),
+          h('p', {}, '영화와 TV 시리즈를 이름으로 찾으면 연도와 감독이 같이 나옵니다.'),
           h('div', { className: 'tv-find' }, h('label', { className: 'like-field' }, h('span', {}, '작품 이름'), input), h('button', { className: 'btn', type: 'submit' }, '찾기')),
           status,
           hits,
