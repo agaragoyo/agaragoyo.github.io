@@ -854,6 +854,7 @@ svg.mouse-chip { border: 0; }
   border: 2px solid;
   border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
   font-size: 14px;
+  color: var(--win-text); /* 작업 표시줄 바탕(--win-face)이 밤에 어두워지므로 글자색도 같은 짝 변수를 쓴다 */
 }
 .start-menu {
   position: absolute;
@@ -1432,6 +1433,7 @@ body[data-era="2005"] .btn {
   border-radius: 4px;
   background: linear-gradient(#fff, #ecebe6 80%, #d6d0c5);
   box-shadow: none;
+  color: var(--ink); /* 바탕이 밤에도 밝으므로 글자색을 --win-text에 맡기지 않는다(known-issues 18). --ink는 밤에도 바뀌지 않는 낮 글자색이다 */
 }
 body[data-era="2005"] .btn:hover { box-shadow: inset 0 0 0 2px #f8b33a; }
 body[data-era="2005"] .taskbar {
