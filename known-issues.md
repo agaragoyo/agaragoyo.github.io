@@ -392,3 +392,6 @@
   또 `h()`는 값이 `false`인 속성을 건너뛰도록 되어 있어서 `false`로 꺼야 하는 속성은 아예 넣지 않는다.
 - 규칙: CSS 변수는 만든 뒤 `el.style.setProperty('--이름', 값)`으로 넣고(`src/apps/bookshelf-app.js`의 `tint`), 끄는 속성은 만든 뒤 `el.spellcheck = false`처럼 따로 넣는다.
   새 화면을 만든 뒤에는 그 값이 실제로 들어갔는지 개발자 도구나 `getComputedStyle`로 본다.
+- 반대 방향의 함정도 있다. `h()`는 자식 가운데 `null`을 걸러 주지만, 브라우저의 `replaceChildren`, `append`는 `null`을 "null"이라는 글자로 넣는다.
+  책장에 책이 한 권뿐일 때 몇 번째 책인지 알리는 줄(`count`)이 없어서 화면에 "null"이 찍혔다(2026-11-10 배포 뒤 TV 옆 칸을 만들다 찾음).
+  있을 수도 없을 수도 있는 요소를 `replaceChildren`, `append`에 넣을 때는 `[...].filter(Boolean)`으로 거른 뒤 넣는다.
