@@ -22,6 +22,12 @@ const BUILTIN = {
     <path d="M19 14 L37 10 V15 L19 19 Z" fill="#5a4632"/>
     <ellipse cx="14.5" cy="34.5" rx="5.6" ry="4.3" transform="rotate(-20 14.5 34.5)" fill="#c56c96" stroke="#5a4632" stroke-width="2"/>
     <ellipse cx="32.5" cy="30.5" rx="5.6" ry="4.3" transform="rotate(-20 32.5 30.5)" fill="#c56c96" stroke="#5a4632" stroke-width="2"/></svg>`,
+  // 내 컴퓨터로(손님 바탕화면에서 내 컴퓨터로 돌아가기): 베이지 모니터 화면에 시작 단추와 같은 작은 집
+  computer: `<svg viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="28" rx="3" fill="#ede8da" stroke="#5a4632" stroke-width="2"/>
+    <rect x="10" y="10" width="28" height="19" fill="#3d6fd1" stroke="#5a4632" stroke-width="1.5"/>
+    <path d="M24 13 l7 6 h-2.5 v6 h-9 v-6 h-2.5 z" fill="#f2e6cb" stroke="#5a4632" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M19 34 h10 l2 5 h-14 z" fill="#d7d3c8" stroke="#5a4632" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M12 42 h24" stroke="#5a4632" stroke-width="2.5" stroke-linecap="round"/></svg>`,
   furniture: `<svg viewBox="0 0 48 48"><rect x="8" y="10" width="32" height="28" rx="3" fill="#f7f3e8" stroke="#5a4632" stroke-width="2"/>
     <rect x="8" y="10" width="32" height="7" fill="#6b2d5c"/><path d="M14 24 h20 M14 30 h14" stroke="#5a4632" stroke-width="2"/></svg>`,
 };

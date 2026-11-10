@@ -182,7 +182,8 @@ function drawSprite(g, sp) {
 }
 
 // 한 공간의 그림을 캔버스로 만든다. items: 그 공간의 가구 목록, scene: config.js의 SCENES 한 줄
-export async function renderRoomImage(items, scene) {
+// owner: 집 주인 이름. 화면과 같이 놀이터에 이 집의 이웃집 문패는 그리지 않는다.
+export async function renderRoomImage(items, scene, owner = '') {
   const canvas = document.createElement('canvas');
   canvas.width = IMAGE_W;
   canvas.height = IMAGE_H;
@@ -199,7 +200,7 @@ export async function renderRoomImage(items, scene) {
     if (!cache.has(key)) cache.set(key, makeSprite(item));
     return cache.get(key);
   };
-  const [back, ...sprites] = await Promise.all([bakeSVG(sceneSVG(scene.kind, scene.gate)), ...order.map(o => sprite(o.item))]);
+  const [back, ...sprites] = await Promise.all([bakeSVG(sceneSVG(scene, owner)), ...order.map(o => sprite(o.item))]);
 
   // 글자는 쓰기 전에 글꼴이 불려 와 있어야 한다(처음 쓰는 글자의 글꼴 조각이 늦게 오면 다른 글꼴로 써진다)
   const texts = [back, ...sprites].flatMap(s => s.texts || []);

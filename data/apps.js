@@ -24,12 +24,14 @@
 //   links    href 앱의 주소가 여럿일 때 [{ label, href }]. 여는 창에 label이 단추로 하나씩 나온다(예: '초급으로 열기'). href에는 첫 주소를 같이 적는다
 //   noun     href 앱의 여는 창에서 "이 게임은" 대신 쓸 말(예: '영상')
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
-//   visitOnly true 이면 친구 컴퓨터를 구경할 때만 보인다(손님에게 자기 컴퓨터를 만드는 길을 보여 준다)
+//   visitOnly true 이면 친구 컴퓨터를 구경할 때만 보인다(손님에게 자기 컴퓨터를 만드는 길이나 돌아가는 길을 보여 준다)
+//   ownHome  visitOnly 앱에 쓴다. true 이면 이 컴퓨터에 자기 집이 있는 손님에게만, false 이면 없는 손님에게만 보인다
 const SITE = 'https://soomin007.github.io';
 
 export const APPS = [
   { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room', editOnly: true },
-  { id: 'make-mine', title: '나도 만들기', icon: 'builtin:room', builtin: 'mine', visitOnly: true },
+  { id: 'make-mine', title: '나도 만들기', icon: 'builtin:room', builtin: 'mine', visitOnly: true, ownHome: false },
+  { id: 'my-computer', title: '내 컴퓨터로', icon: 'builtin:computer', builtin: 'mine', visitOnly: true, ownHome: true },
   { id: 'playground', title: '놀이터', icon: 'builtin:playground', scene: 'playground' },
   { id: 'go-home', title: '집으로', icon: 'builtin:home', scene: 'room' },
   { id: 'games', title: '미니게임', icon: 'builtin:folder', builtin: 'folder', folder: null, opens: 'games' },

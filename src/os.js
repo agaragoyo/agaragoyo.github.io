@@ -13,6 +13,7 @@ import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { sanitizeHome, decodeHome } from './share.js';
 import { createTutorial } from './tutorial.js';
+import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
 import { play, setPlace } from './sound.js';
 
@@ -38,6 +39,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
     closeup: null, // 가구를 가까이 보는 화면(src/closeup.js)이 열려 있으면 그 화면
     mode: null,
+    hasOwnHome: false, // 이 컴퓨터에 저장된 내 집이 있는지. 손님 바탕화면에서 나도 만들기와 내 컴퓨터로 가운데 무엇을 보일지 정한다
     place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
       layer: $('#windows'),
@@ -88,6 +90,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // ---------- 로그인 ----------
+  // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
+  function ownHome() {
+    const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
+    return own && own.owner ? own : null;
+  }
+
   function showLogin() {
     const my = ++run;
     os.wm.closeAll();
@@ -95,8 +103,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     show('login');
     const users = el.login.querySelector('.users');
     users.replaceChildren();
-    const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
-    const hasOwn = own && own.owner;
+    const own = ownHome();
 
     const m = location.hash.match(/^#room=(.+)$/);
     if (m) {
@@ -104,13 +111,17 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
       else toast('링크가 깨져서 친구 컴퓨터를 열 수 없었습니다.');
     }
-    if (hasOwn) {
+    // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
+    // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
+    const nearby = m ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor'));
+    if (own) {
       users.append(userTile(own.owner, m ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
         enter('edit', own, my);
       }));
-      users.append(resetButton());
+      users.append(...nearby, resetButton());
     } else {
+      users.append(...nearby);
       users.append(newUserTile(name => {
         clearHash();
         const home = sanitizeHome({ owner: name });
@@ -149,8 +160,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   const avatar = name => h('span', { className: 'avatar' }, [...name][0] || '?');
 
-  function userTile(name, sub, onPick) {
-    return h('button', { type: 'button', className: 'user', onclick: onPick },
+  function userTile(name, sub, onPick, kind = '') {
+    return h('button', { type: 'button', className: kind ? `user ${kind}` : 'user', onclick: onPick },
       avatar(name),
       h('span', { className: 'user-name' }, name, h('small', {}, sub)));
   }
@@ -193,6 +204,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (my !== run) return;
     os.mode = mode;
     os.home = home;
+    os.hasOwnHome = mode === 'edit' || !!ownHome();
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
@@ -205,11 +217,29 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   };
 
-  // 친구 컴퓨터를 구경하다가 내 컴퓨터로 간다.
+  // 친구 컴퓨터를 구경하다가 돌아간다(손님 바탕화면의 나도 만들기와 내 컴퓨터로, src/apps/mine-app.js).
+  // 이 컴퓨터에 내 집이 있으면 로그인 화면을 거치지 않고 곧장 내 바탕화면으로 가고, 없으면 사용자를 만들 수 있는 로그인 화면으로 간다.
   os.goHome = () => {
     clearHash();
-    showLogin();
+    const own = ownHome();
+    if (own) switchTo('edit', own);
+    else showLogin();
   };
+
+  // 이웃집에 손님으로 들어간다(src/neighbors.js의 askVisit). 놀이터의 이웃집 문에서 온다.
+  os.visit = home => {
+    clearHash();
+    switchTo('visit', home);
+  };
+
+  // 바탕화면에서 곧장 다른 컴퓨터(또는 내 컴퓨터)로 옮겨 간다. 로그인할 때처럼 환영 화면을 거친다.
+  // 로그인 화면을 보이면서 바탕화면을 떠나므로 하던 튜토리얼은 멈추고(돌아오면 이어진다), 연습 방이었으면 연습을 끝낸다.
+  function switchTo(mode, home) {
+    const my = ++run;
+    os.wm.closeAll();
+    show('login');
+    enter(mode, home, my);
+  }
 
   // ---------- 바탕화면 ----------
   function showDesktop() {
@@ -243,9 +273,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (os.mode === 'edit') os.tutorial.resume();
   }
 
-  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기)은 그때만 보인다.
+  // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기, 내 컴퓨터로)은 그때만 보인다.
+  // ownHome이 적힌 앱은 이 컴퓨터에 내 집이 있는 손님(true)이나 없는 손님(false)에게만 보인다.
   // 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
-  os.canSee = app => (os.mode === 'visit' ? !app.editOnly : !app.visitOnly) && app.scene !== os.place;
+  os.canSee = app => (os.mode === 'visit'
+    ? !app.editOnly && (app.ownHome === undefined || app.ownHome === os.hasOwnHome)
+    : !app.visitOnly) && app.scene !== os.place;
   function renderDesktopIcons() {
     os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
   }
@@ -253,13 +286,18 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
     const scene = SCENES.find(s => s.id === os.place);
-    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, os.useFurniture, os.useGate);
+    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner);
     walker?.attach();
   }
 
-  // 바탕화면의 공간을 옮긴다(창문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 문으로 막 들어온 칸
-  // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에, 내 방에서는 처음 서는 곳에 선다.
+  // 바탕화면의 공간을 옮긴다(현관문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 그 문으로 막 들어온 칸
+  // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에 선다. 놀이터는 아파트 문 앞, 내 방은 현관문 앞이다.
   // 방 꾸미기 창의 탭과는 따로 움직인다(꾸미는 화면은 꾸밀 공간을 탭으로 고른다).
+  const doorstep = scene => {
+    if (scene.gate) return { x: scene.gate.x, y: 1 };
+    if (scene.door) return scene.door.wall === 'R' ? { x: scene.door.x, y: 1 } : { x: 1, y: scene.door.x };
+    return undefined;
+  };
   os.goScene = id => {
     const scene = SCENES.find(s => s.id === id);
     if (!scene || id === os.place) return;
@@ -267,7 +305,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.place = id;
     play('enter'); // 방과 놀이터를 오갈 때 같은 소리를 낸다
     setPlace(id);
-    walker?.moveTo(scene.gate ? { x: scene.gate.x, y: 1 } : undefined);
+    walker?.moveTo(doorstep(scene));
     renderWallpaper();
     renderDesktopIcons();
   };
@@ -277,6 +315,21 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const home = () => os.goScene(SCENES[0].id);
     if (walker) walker.approachWall('R', gate.x, gate.w, home);
     else home();
+  };
+
+  // 방의 현관문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 바깥 공간(놀이터)으로 나간다.
+  os.useDoor = door => {
+    const out = () => os.goScene(door.to);
+    if (walker) walker.approachWall(door.wall, door.x, door.w, out);
+    else out();
+  };
+
+  // 놀이터 왼쪽 울타리의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 그 집에 놀러 갈지 묻는다.
+  // 지금 이 컴퓨터의 집 문패는 놀이터에 달지 않으므로(아파트 문이 그 집으로 가는 문이다) 여기 오는 문은 늘 다른 집이다.
+  os.useNeighbor = n => {
+    const ask = () => askVisit(os, n);
+    if (walker) walker.approachWall(n.wall, n.x, n.w, ask);
+    else ask();
   };
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
 
@@ -404,7 +457,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 가구 이름을 말한다.
-  // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(창문을 쓰면 아바타가 놀이터로 나간다).
+  // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(2026-11-10까지 창문이 놀이터로 나가던 길. 지금은 현관문이 맡아 쓰는 가구가 없다).
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();

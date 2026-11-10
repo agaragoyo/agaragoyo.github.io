@@ -313,6 +313,10 @@ button { font-family: inherit; }
   --wall-cap: #fbf4e3;
   --baseboard: #9a7550;
   --baseboard-dark: #85633f;
+  --door: #b07a4a;
+  --door-frame: #74502f;
+  --door-line: #8c5f38;
+  --door-knob: #f0c75e;
 }
 .room-bg { position: absolute; left: 0; top: 0; }
 .room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
@@ -322,6 +326,16 @@ button { font-family: inherit; }
 .room-bg .gate-sign { fill: #3f7a4f; stroke: #f4efe3; stroke-width: 2; stroke-linejoin: round; }
 .room-bg .gate-text { font-family: var(--font); font-size: 12px; font-weight: 700; fill: #f4efe3; }
 .room-bg .gate-hit { fill: transparent; pointer-events: none; }
+/* 놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js). 나무 문패에 닉네임을 쓴다. 바탕화면에서 두 번 누르면 그 집에 놀러 갈지 묻는다 */
+.room-bg .neighbor-sign { fill: #8a5a32; stroke: #f4efe3; stroke-width: 2; stroke-linejoin: round; }
+.room-bg .neighbor-text { font-family: var(--font); font-size: 12px; font-weight: 700; fill: #fff4dc; }
+.room-bg .neighbor-hit { fill: transparent; pointer-events: none; }
+/* 방의 현관문(src/iso.js의 doorSVG). 바탕화면에서 .door-hit를 두 번 누르면 놀이터로 나간다 */
+.room-bg .door-frame { fill: var(--door-frame); }
+.room-bg .door-leaf { fill: var(--door); }
+.room-bg .door-panel { fill: none; stroke: var(--door-line); stroke-width: 2; stroke-linejoin: round; }
+.room-bg .door-knob { fill: var(--door-knob); stroke: #6b4a1e; stroke-width: 1.5; }
+.room-bg .door-hit { fill: transparent; pointer-events: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
 .night-shade {
   position: absolute;
@@ -713,8 +727,9 @@ body.moving-window iframe { pointer-events: none; }
 /* 가구의 z-index가 창 위로 새어 나오지 않게 배경을 따로 쌓는다 */
 .wallpaper { position: absolute; left: 0; top: 40px; z-index: 0; isolation: isolate; width: 1280px; height: 720px; pointer-events: none; }
 .wallpaper .room-bg { position: absolute; left: 0; top: 0; }
-/* 바탕화면 가구와 놀이터 문은 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic). 배경은 클릭을 흘려보내고 가구 그림과 문만 받는다. */
-.wallpaper .item.usable .hit, .wallpaper .room-bg .gate-hit { pointer-events: auto; cursor: var(--cur-hand); }
+/* 바탕화면 가구와 문(놀이터의 아파트 문과 이웃집 문, 방의 현관문)은 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic).
+   배경은 클릭을 흘려보내고 가구 그림과 문만 받는다. */
+.wallpaper .item.usable .hit, .wallpaper .room-bg .gate-hit, .wallpaper .room-bg .neighbor-hit, .wallpaper .room-bg .door-hit { pointer-events: auto; cursor: var(--cur-hand); }
 .room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
 .room-bg .fence { stroke: #f4efe3; stroke-width: 4; stroke-linecap: round; fill: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
@@ -951,6 +966,10 @@ form.user { cursor: var(--cur-arrow); }
 }
 .user-name { display: grid; gap: 4px; font-size: 24px; }
 .user-name small { font-size: 15px; color: #e6e2ff; }
+/* 이웃집(data/neighbors.js): 내 사용자보다 작게, 놀이터 문패와 같은 나무색 그림으로 늘어선다(여섯 집까지 들어간다) */
+.user.neighbor { gap: 12px; padding: 6px 14px 6px 10px; }
+.user.neighbor .avatar { width: 48px; height: 48px; font-size: 22px; background: linear-gradient(#b07a4a, #8a5a32); }
+.user.neighbor .user-name { gap: 2px; font-size: 20px; }
 .new-row { position: relative; display: flex; gap: 8px; width: 330px; }
 .new-row input { font-size: 16px; color: var(--ink); }
 /* 빈 닉네임으로 확인을 누르면 입력칸을 빨갛게 두르고, 그 아래에 튜토리얼 안내와 같은 노란 풍선으로 할 일을 알린다 */
