@@ -54,10 +54,9 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 로컬 서버: `python tools/serve.py` → http://localhost:8123
   - 캐시 금지 서버다. `python -m http.server`는 옛 JS를 캐시하므로 쓰지 않는다
   - `index.html`을 파일로 바로 열면 빈 화면이다(ES 모듈은 `file://`에서 막힌다)
-- 시대 비교: 주소 뒤에 `?era=1998`, `?era=2005`, `?era=2010`
-- 고친 뒤에는 로컬 서버에서 직접 열어 확인한다. 클릭을 받는 기능은 볼록 화면(1998)에서도 눌러 본다
-- 밤 모드 글자 대비: `style.css`의 색이나 시대 덩어리, 창 화면을 고쳤으면 커밋 전에 `node tools/night-contrast.mjs`를 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요)
-  - 이 폴더를 빈 포트에 띄워 바탕화면까지 들어간 뒤 창 다섯 개와 시작 메뉴를 열고, 세 시대의 낮과 밤에서 글자마다 바탕과의 대비를 잰다
+- 고친 뒤에는 로컬 서버에서 직접 열어 확인한다
+- 밤 모드 글자 대비: `style.css`의 색이나 "2005 모습" 절, 창 화면을 고쳤으면 커밋 전에 `node tools/night-contrast.mjs`를 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요)
+  - 이 폴더를 빈 포트에 띄워 바탕화면까지 들어간 뒤 창 다섯 개와 시작 메뉴를 열고, 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다
   - 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 글자색을 바탕과 한 짝으로 고친다(known-issues 47)
   - 원래 있고 화면에서 읽히는 것만 도구 맨 위 `EXCEPTIONS`에 이유와 함께 넣는다. 도구가 열지 않는 새 창은 `OPEN`에 더하거나 밤 모드에서 직접 본다
 - 배포: PR이 main에 합쳐지면 `.github/workflows/pages.yml`이 Pages로 올린다. 1~2분 뒤 반영
@@ -67,7 +66,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 파일마다 하는 일과 내보내는 것은 `docs/file-map.md`(파일 지도)에 있다. 자동 점검이 지도와 실제 파일이 맞는지 본다.
 큰 그림만 적으면 이렇다.
 
-- `index.html`, `style.css`: 사이트의 유일한 HTML과 모든 모양. `style.css` 끝의 "시대 비교" 덩어리가 1998/2005/2010 모습
+- `index.html`, `style.css`: 사이트의 유일한 HTML과 모든 모양. `style.css` 끝의 "2005 모습" 절이 모니터와 창 모양을 덮어쓴다
 - `src/`: 컴퓨터(OS)와 방 꾸미기. 시작점은 `src/main.js`, 기본 앱은 `src/apps/`, 설정은 `src/settings.js`, 숫자는 `src/config.js`
 - `data/`: 앱 목록(`apps.js`)과 가구 목록(`furniture.js`)
 - `apps/`: 팀원 앱(iframe). SDK `apps/aga-sdk.js`, 틀 `apps/_template/`
@@ -95,9 +94,6 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
   - `package.json`, `node_modules`, 번들러 설정 파일을 만들지 않는다
 - PC(마우스) 환경 기준. 세로 폰 회전 처리는 남아 있지만 새 기능은 PC 기준으로 만든다
 - 무대는 1280×840 고정 좌표. 화면 좌표는 반드시 `toLocal`(main의 `mon.toLocal`, 방 앱의 `ctx.toLocal`)로 바꾼다
-- 볼록 화면에서는 브라우저의 클릭 위치가 어긋난다
-  - 클릭을 받는 새 요소는 `.crt-input`이 보내는 합성 이벤트로 동작하는지 확인한다
-  - 더블클릭은 넘어가지 않는다(아이콘 더블클릭은 클릭 간격으로 직접 판정). 오른쪽 클릭 메뉴(`contextmenu`)는 화면 안 요소까지만 넘어가고 iframe 앱 안으로는 넘어가지 않는다
 - hidden으로 숨기는 요소에 display를 주면 `:not([hidden])`이나 `[hidden]` 짝 규칙을 같이 둔다
 - 가구를 그리는 상자는 쌓임 맥락을 만든다(`isolation: isolate`). 없으면 가구 z-index가 창 위로 샌다
 - localStorage 키는 `agarago.`(OS) 또는 `<앱id>.`(앱)로 시작. `localStorage.clear()` 금지
@@ -122,7 +118,6 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 | 튜토리얼 | 합쇼체 설명과 "~하세요" | 방 꾸미기 아이콘을 두 번 누르면 가구를 놓는 창이 열립니다. |
 | 툴팁 | 명사형 | 눌러서 말하기 |
 | 아바타 말풍선 | 반말 혼잣말 | 옷장이네. |
-| 부팅 화면 | 기술 표기 | 메모리 검사 : 640K OK |
 | 미니게임의 판 위 알림과 결과 | 해요체 한마디, 12자 이하 | 더 지울 묶음이 없어요, 상자가 꽉 찼어요 |
 | 미니게임의 점수와 숫자 | 명사형 라벨 | 파일 54개 정리, 놓친 묶음 45개 |
 | 미니게임의 조작 안내 | 해요체 권유 한 문장 | 합이 10이 되게 끌어서 지워 보세요. |
@@ -141,7 +136,5 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 
 정할 것 전체와 이미 정한 것은 `docs/requirements.md`의 "아직 정하지 않은 것"과 "정한 것"에 있다. 아래는 정해지면 코드에서 고칠 곳이다.
 
-- 시대: 1998(베이지 CRT, 볼록, BIOS 부팅), 2005(은색 평면 CRT, 왜곡 없음, XP 시절식), 2010(검은 LCD, 유리 창, 맑은 고딕)
-  - 정해지면 `style.css` 끝 "시대 비교" 덩어리, `src/main.js`의 ERAS, `index.html`의 `.era-switch`를 정리한다
 - 시점과 아트: 지금은 아이소메트릭(싸이월드 미니룸식). 평면 시점도 후보
   - 아트가 정해지면 그림 크기는 `src/iso.js`의 `boxSize`를 따른다

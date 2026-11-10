@@ -13,7 +13,7 @@ export function openLinkApp(os, app) {
     key: app.id,
     app,
     title: app.title,
-    width: 360 + (links.length - 1) * 110, // 2010 단추(약 132px) 셋과 취소가 한 줄에 들어가는 폭
+    width: 360 + (links.length - 1) * 110, // 단추 셋과 취소가 한 줄에 들어가는 폭(예전에 가장 넓던 2010 단추 약 132px 기준이라 2005에서는 조금 넉넉하다)
     height: 190,
     build(body, win) {
       // 새 탭은 진짜 링크(target="_blank")로 연다. 사람이 누른 링크는 팝업 차단에 걸리지 않고, 마우스를 올리면 브라우저가 주소도 보여 준다.

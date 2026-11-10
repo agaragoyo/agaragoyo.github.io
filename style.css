@@ -55,9 +55,13 @@ body {
   background: var(--page-bg);
   font-family: var(--font);
   color: var(--ink);
+  /* 글자 고르기는 입력칸 안에서만 한다. 모니터 아래 단추를 빠르게 두 번 누르면 단추 둘레 글자가 파랗게 선택되었다 */
+  user-select: none;
+  -webkit-user-select: none;
 }
+input, textarea { user-select: text; -webkit-user-select: text; }
 /* 화면 안 커서. 그림은 src/cursors.js가 만들어 body에 --cur-arrow, --cur-hand, --cur-grab, --cur-grabbing, --cur-wait로 넣는다.
-   모니터 바깥(시대 스위치, 전원 버튼)은 브라우저 기본 커서를 쓴다 */
+   모니터 아래 버튼(소리, 전원)은 브라우저 기본 커서를 쓴다 */
 .screen { cursor: var(--cur-arrow); }
 body.grabbing, body.grabbing * { cursor: var(--cur-grabbing) !important; }
 button { font-family: inherit; }
@@ -177,7 +181,6 @@ button { font-family: inherit; }
     0 0 0 calc(32 * var(--u)) #c4bba4,
     0 0 0 calc(35 * var(--u)) #b3a990;
 }
-body.curve .screen { border-radius: calc(3 * var(--u)); }
 .stage {
   position: absolute;
   left: 0;
@@ -417,7 +420,9 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 .ghost .item .hit { pointer-events: none; }
 .ghost[data-state="ok"] .item { filter: drop-shadow(0 8px 2px #0005); }
 .ghost[data-state="bad"] .item { filter: sepia(1) saturate(6) hue-rotate(-45deg); opacity: 0.8; }
-.ghost[data-state="remove"], .ghost[data-state="idle"] { opacity: 0.4; }
+.ghost[data-state="remove"] { opacity: 0.4; }
+/* 선반에서 꺼낸 가구는 방 위로 올라올 때까지 숨긴다. 그동안은 자리를 정하지 않아서 방 왼쪽 위 구석에 떠 보였다(known-issues 48) */
+.ghost[data-state="idle"] { visibility: hidden; }
 
 
 /* ---------- 가구 선반 ---------- */
@@ -476,9 +481,6 @@ body.curve .screen { border-radius: calc(3 * var(--u)); }
 @keyframes glow {
   to { box-shadow: 0 3px 0 var(--ink), 0 0 0 4px #ffe066, 0 0 18px #ffe066; }
 }
-.shelf-visit { display: none; margin: 0 auto; font-size: 18px; color: #f4ebd7; }
-[data-mode="visit"] .shelf > :not(.shelf-visit) { display: none; }
-[data-mode="visit"] .shelf-visit { display: block; }
 
 /* ---------- 위쪽 이름표와 버튼 ---------- */
 .hud {
@@ -621,8 +623,7 @@ body.moving-window iframe { pointer-events: none; }
 .frame-lost:not([hidden]) { display: grid; }
 .frame-lost .btn { margin-top: 12px; }
 
-/* 마우스 앱 (src/apps/mouse-app.js). 그 시절 대화상자처럼 제목 붙은 묶음(fieldset)으로 나누고, 그림판처럼 도구를 세로로 둔다. */
-/* 배경음악 앱: 마우스 앱과 같은 제목 붙은 묶음(fieldset) 모양 */
+/* 배경음악 앱: 그 시절 대화상자처럼 제목 붙은 묶음(fieldset)으로 나눈다 */
 .music-app { display: flex; flex-direction: column; gap: 8px; }
 .music-app .meta { margin: 0; font-size: 13px; }
 .music-group {
@@ -636,68 +637,6 @@ body.moving-window iframe { pointer-events: none; }
 }
 .music-group legend { padding: 0 4px; font-size: 14px; }
 .music-pick { display: flex; align-items: center; gap: 8px; font-size: 15px; cursor: pointer; }
-.mouse-app { display: flex; flex-direction: column; gap: 6px; }
-.mouse-app .meta { margin: 0; font-size: 13px; }
-.mouse-group {
-  margin: 0;
-  padding: 6px 10px 10px;
-  border: 1px solid var(--bev-mid);
-  box-shadow: inset 1px 1px 0 var(--bev-hi), 1px 1px 0 var(--bev-hi);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.mouse-group legend { padding: 0 4px; font-size: 14px; }
-.mouse-preview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.mouse-tile {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 4px 0;
-  border: 1px solid var(--bev-mid);
-  background: repeating-conic-gradient(var(--win-check) 0 25%, var(--win-paper) 0 50%) 0 0 / 12px 12px;
-  font-size: 13px;
-}
-.mouse-big { width: 40px; height: 40px; background: center / 40px 40px no-repeat; image-rendering: pixelated; }
-.mouse-row { display: flex; align-items: center; gap: 6px; }
-.mouse-row .grow, .mouse-commands .grow { flex: 1; }
-.mouse-label { min-width: 64px; font-size: 14px; }
-.swatch {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 2px solid var(--bev-mid);
-  font-size: 11px;
-  color: var(--win-text);
-  cursor: var(--cur-hand);
-}
-.swatch-default { width: auto; padding: 0 6px; background: var(--win-face); }
-.swatch.on { outline: 3px solid var(--win-bar-b); outline-offset: 1px; }
-.mouse-app .btn { padding: 3px 10px; font-size: 14px; }
-/* 눌린 버튼: 시대마다 버튼 모양이 달라서 바탕을 덮지 않고 안쪽 그림자와 밝기로만 눌린 티를 낸다 */
-.mouse-app .btn.on { box-shadow: inset 1px 1px 4px #0008; filter: brightness(0.9); }
-.mouse-default { outline: 1px solid var(--win-text); outline-offset: 1px; }
-.mouse-draw { display: flex; gap: 12px; align-items: flex-start; }
-.mouse-tools { display: flex; flex-direction: column; gap: 6px; width: 112px; }
-.mouse-tool { display: flex; align-items: center; gap: 8px; text-align: left; }
-.mouse-chip { flex: none; width: 16px; height: 16px; border: 1px solid var(--win-text); }
-svg.mouse-chip { border: 0; }
-.mouse-chip-clear { background: repeating-conic-gradient(#d9d4c7 0 25%, #f2efe8 0 50%) 0 0 / 8px 8px; }
-.mouse-canvas { width: 224px; height: 224px; border: 1px solid var(--bev-mid); image-rendering: pixelated; cursor: var(--cur-arrow); touch-action: none; }
-.mouse-side { display: grid; justify-items: center; gap: 4px; font-size: 13px; }
-.mouse-hot-note { white-space: nowrap; }
-.mouse-view {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--bev-mid);
-  background: repeating-conic-gradient(var(--win-check) 0 25%, var(--win-paper) 0 50%) 0 0 / 12px 12px;
-}
-.mouse-view-2 { width: 72px; height: 72px; }
-.mouse-real { width: 32px; height: 32px; background: center / 32px 32px no-repeat; }
-.mouse-twice { width: 64px; height: 64px; background: center / 64px 64px no-repeat; image-rendering: pixelated; }
-.mouse-commands { display: flex; gap: 6px; }
 
 /* 미니게임 폴더 */
 .folder { display: flex; flex-direction: column; padding: 10px; }
@@ -897,7 +836,6 @@ svg.mouse-chip { border: 0; }
 
 /* ---------- 부팅 ---------- */
 .boot { position: absolute; inset: 0; z-index: 50; background: #000; color: #c9c9c9; cursor: var(--cur-wait); }
-.boot-text { margin: 0; padding: 48px 56px; font: 20px/1.6 var(--font); white-space: pre; }
 .boot-logo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 30px; }
 .boot-logo[hidden] { display: none; }
 .boot-title {
@@ -976,8 +914,29 @@ form.user { cursor: var(--cur-arrow); }
 }
 .user-name { display: grid; gap: 4px; font-size: 24px; }
 .user-name small { font-size: 15px; color: #e6e2ff; }
-.new-row { display: flex; gap: 8px; width: 330px; }
+.new-row { position: relative; display: flex; gap: 8px; width: 330px; }
 .new-row input { font-size: 16px; color: var(--ink); }
+/* 빈 닉네임으로 확인을 누르면 입력칸을 빨갛게 두르고, 그 아래에 튜토리얼 안내와 같은 노란 풍선으로 할 일을 알린다 */
+.new-row input[aria-invalid="true"] { border-color: #c4281c; outline: 2px solid #c4281c; outline-offset: 0; } /* 초점 테두리가 빨간 테두리를 덮지 않게 같은 색으로 */
+.name-tip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 12px;
+  border: 2px solid #2b2b33;
+  border-radius: 8px;
+  background: #ffffe1;
+  box-shadow: 3px 3px 0 #0005;
+  font-size: 16px;
+  color: #1d1d22;
+  white-space: nowrap;
+}
+/* 풍선 꼬리: 진한 삼각형 위에 노란 삼각형을 겹쳐 테두리가 이어져 보이게 한다 */
+.name-tip::before, .name-tip::after { content: ""; position: absolute; border: solid transparent; border-top-width: 0; }
+.name-tip::before { top: -10px; left: 20px; border-width: 0 10px 10px; border-bottom-color: #2b2b33; }
+.name-tip::after { top: -7px; left: 22px; border-width: 0 8px 8px; border-bottom-color: #ffffe1; }
 .welcome {
   position: absolute;
   inset: 0;
@@ -1054,20 +1013,8 @@ form.user { cursor: var(--cur-arrow); }
   78% { opacity: 0.026; }
   83% { opacity: 0.012; }
 }
-/* 볼록 효과: 실제로 휘게 하면 클릭 위치가 어긋나므로 비네팅과 반사광만 겹친다. */
-.fx-curve {
-  border-radius: inherit;
-  background:
-    linear-gradient(135deg, #ffffff1c 0%, #fff0 32%),
-    radial-gradient(ellipse at center, transparent 60%, #00000070 100%);
-  box-shadow: inset 0 0 50px #0009;
-}
-body:not(.grain) .fx-scan, body:not(.grain) .fx-grain, body:not(.grain) .fx-flicker { display: none; }
 
 .crt { position: absolute; inset: 0; }
-.crt-input { position: absolute; inset: 0; z-index: 70; }
-.crt-input[hidden] { display: none; }
-body:not(.curve) .fx-curve { display: none; }
 
 /* ---------- 전원 연출 ---------- */
 .power-fx {
@@ -1242,94 +1189,10 @@ body:not(.curve) .fx-curve { display: none; }
 body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 
 /* =====================================================================
-   시대 비교 (body[data-era]). 팀 의견을 들은 뒤 하나로 정하면 나머지는 지운다.
+   2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
+   세 시대를 비교하던 규칙에서 2005 것만 남겨서, 앞의 기본 모양을 body[data-era="2005"]로 덮어쓴다
+   (index.html의 body에 고정한 속성). 모양을 고칠 때는 이 절에 같은 요소의 규칙이 있는지 먼저 본다.
    ===================================================================== */
-.viewport { padding-top: var(--top); }
-.era-switch {
-  position: fixed;
-  top: 10px;
-  left: 50%;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px 4px 12px;
-  border-radius: 999px;
-  background: #ffffff14;
-  font-family: var(--font-base); /* 2010이 --font를 바꿔도 모니터 바깥 스위치는 같은 글꼴 */
-  font-size: 13px;
-  color: #cfc9da;
-  transform: translateX(-50%);
-}
-.era-switch button {
-  padding: 4px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  font-size: 13px;
-  color: #cfc9da;
-  cursor: pointer;
-}
-.era-switch button[aria-pressed="true"] { background: #f2ebda; color: #2a1f18; }
-
-/* ---------- 1998: 로그인은 윈도우 98식 대화 상자 ---------- */
-body[data-era="1998"] .login:not([hidden]) {
-  display: grid;
-  grid-template-rows: none;
-  place-items: center;
-  background: repeating-linear-gradient(45deg, #2f6f6b 0 20px, #2b6763 20px 40px);
-  color: var(--win-text);
-}
-body[data-era="1998"] .login-top,
-body[data-era="1998"] .login-bottom { display: none; }
-body[data-era="1998"] .login-mid {
-  display: block;
-  width: 560px;
-  padding: 3px;
-  border: 2px solid;
-  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
-  background: var(--win-face);
-  box-shadow: 1px 1px 0 #000, 8px 10px 0 #0004;
-}
-body[data-era="1998"] .login-mid::before {
-  content: "아가라고요에 로그인";
-  display: block;
-  height: 30px;
-  padding: 0 8px;
-  background: linear-gradient(90deg, var(--win-bar-a), var(--win-bar-b));
-  font-size: 15px;
-  line-height: 30px;
-  color: #fff;
-}
-body[data-era="1998"] .login-left {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 18px 18px 10px;
-  border: 0;
-  text-align: left;
-}
-body[data-era="1998"] .login-logo { font-size: 26px; text-shadow: none; color: var(--win-text); }
-body[data-era="1998"] .login-left p { margin: 0; font-size: 15px; color: var(--win-text); }
-body[data-era="1998"] .users { justify-items: stretch; gap: 6px; padding: 0 18px 18px; }
-body[data-era="1998"] .user {
-  border: 2px solid;
-  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
-  border-radius: 0;
-  background: #fff;
-  color: var(--win-text);
-}
-body[data-era="1998"] button.user:hover { background: var(--win-bar-a); color: #fff; }
-body[data-era="1998"] button.user:hover small { color: #e6e2ff; }
-body[data-era="1998"] .avatar { width: 40px; height: 40px; border: 2px solid #2a1f18; border-radius: 0; font-size: 20px; }
-body[data-era="1998"] .user-name { font-size: 18px; }
-body[data-era="1998"] .user-name small { font-size: 13px; color: #6c6457; }
-body[data-era="1998"] .welcome {
-  background: repeating-linear-gradient(45deg, #2f6f6b 0 20px, #2b6763 20px 40px);
-  font-size: 40px;
-  font-style: normal;
-  color: #fff;
-}
 
 /* ---------- 2005: 은색 평면 CRT ---------- */
 body[data-era="2005"] .bezel {
@@ -1344,8 +1207,7 @@ body[data-era="2005"] .bezel {
     0 calc(30 * var(--u)) calc(60 * var(--u)) #000c;
 }
 /* 화면 둘레는 검은 광택 테 (2000년대 투톤 모니터) */
-body[data-era="2005"] .screen,
-body[data-era="2005"].curve .screen {
+body[data-era="2005"] .screen {
   border-radius: calc(2 * var(--u));
   box-shadow:
     0 0 0 calc(3 * var(--u)) #000,
@@ -1523,279 +1385,3 @@ body[data-era="2005"] .welcome { background: radial-gradient(ellipse at 25% 35%,
 .reset-box { display: contents; }
 .reset-box p { margin: 6px 0 0; font-size: 13px; }
 .reset-row { display: flex; gap: 8px; }
-body[data-era="1998"] .reset-link { justify-self: end; }
-
-/* ---------- 2010: 검은 광택 와이드 LCD (CRT 효과 없음) ---------- */
-.boot-orbs { display: none; }
-body[data-era="2010"] {
-  --font: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", system-ui, sans-serif;
-}
-body[data-era="2010"] .fx,
-body[data-era="2010"] [data-toggle] { display: none !important; }
-body[data-era="2010"] .bezel {
-  border-radius: calc(12 * var(--u));
-  background:
-    linear-gradient(160deg, #ffffff26 0 22%, transparent 22%),
-    linear-gradient(#2a2c30, #121316 60%, #0b0c0e);
-  box-shadow:
-    inset 0 calc(1.5 * var(--u)) 0 #ffffff33,
-    inset 0 0 0 calc(1.5 * var(--u)) #000,
-    0 calc(24 * var(--u)) calc(50 * var(--u)) #000d;
-}
-body[data-era="2010"] .screen,
-body[data-era="2010"].curve .screen {
-  border-radius: 0;
-  box-shadow: 0 0 0 calc(2 * var(--u)) #000, 0 0 0 calc(3 * var(--u)) #2b2d31;
-}
-/* 화면 유리의 은은한 반사 */
-body[data-era="2010"] .screen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 80;
-  pointer-events: none;
-  background: linear-gradient(155deg, #ffffff10 0 35%, transparent 35%);
-}
-body[data-era="2010"] .controls { padding-top: calc(10 * var(--u)); justify-content: center; }
-body[data-era="2010"] .brand {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  letter-spacing: 0.25em;
-  color: #9aa0a8;
-  text-shadow: none;
-}
-body[data-era="2010"] .model,
-body[data-era="2010"] .grille { display: none; }
-/* 터치 버튼: 글자 없이 불빛만 있는 작은 전원 표시 */
-body[data-era="2010"] .phys.power {
-  margin-left: auto;
-  padding: calc(4 * var(--u)) calc(8 * var(--u));
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  box-shadow: none;
-  font-size: calc(12 * var(--u));
-  font-weight: 400;
-  color: #6f757e;
-  text-shadow: none;
-}
-body[data-era="2010"] .phys.power:hover { color: #c9d4e3; background: none; }
-body[data-era="2010"] .phys.power:active { transform: none; box-shadow: none; }
-body[data-era="2010"] .power[aria-pressed="true"] .led { background: #e8f4ff; box-shadow: 0 0 calc(8 * var(--u)) #8fd0ff; }
-body[data-era="2010"] .power[aria-pressed="false"] .led { background: #ffb347; box-shadow: 0 0 calc(6 * var(--u)) #ffb347; }
-/* 소리 키도 전원처럼 글자와 불빛만 있는 작은 터치 버튼으로, 전원 바로 왼쪽에 둔다 */
-body[data-era="2010"] .phys.sound-key {
-  margin-left: auto;
-  padding: calc(4 * var(--u)) calc(8 * var(--u));
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  box-shadow: none;
-  font-size: calc(12 * var(--u));
-  font-weight: 400;
-  color: #6f757e;
-  text-shadow: none;
-}
-body[data-era="2010"] .phys.sound-key + .phys.power { margin-left: 0; }
-body[data-era="2010"] .phys.sound-key:hover { color: #c9d4e3; background: none; }
-body[data-era="2010"] .phys.sound-key:active { transform: none; box-shadow: none; }
-body[data-era="2010"] .sound-key[aria-pressed="true"] .led { background: #e8f4ff; box-shadow: 0 0 calc(8 * var(--u)) #8fd0ff; }
-
-/* ---------- 2010: 반투명 유리 창과 작업 표시줄 (모양새만 따르고 로고나 이름은 쓰지 않는다) ---------- */
-body[data-era="2010"] .stage {
-  --win-face: #f0f0f0;
-  --win-paper: #ffffff;
-  --win-bar-a: #5d8fc9;
-  --win-bar-b: #8db7e6;
-  --win-check: #dcdcdc;
-  --bev-hi: #ffffff;
-  --bev-lo: #9a9a9a;
-  --bev-mid: #c8c8c8;
-  font-family: var(--font);
-}
-body[data-era="2010"] .stage[data-theme="night"] {
-  --win-face: #2b2f36;
-  --win-paper: #1e2127;
-  --win-check: #3a3f48;
-  --bev-hi: #4a505a;
-  --bev-lo: #101215;
-  --bev-mid: #191c21;
-}
-body[data-era="2010"] .win {
-  padding: 0 7px 7px;
-  border: 1px solid #0006;
-  border-radius: 7px;
-  background: linear-gradient(#a9c8ecb3, #7fa7d8a6);
-  -webkit-backdrop-filter: blur(6px) saturate(1.3);
-  backdrop-filter: blur(6px) saturate(1.3);
-  box-shadow: inset 0 0 0 1px #ffffff99, 0 6px 22px #0007;
-}
-body[data-era="2010"] .win.inactive { background: linear-gradient(#cfd8e3b3, #b9c4d2a6); }
-body[data-era="2010"] .win-bar {
-  height: 30px;
-  padding: 0 0 0 4px;
-  background: none;
-  font-weight: 400;
-  color: #1c2633;
-  text-shadow: 0 0 8px #fff, 0 0 4px #fff;
-}
-body[data-era="2010"] .win.inactive .win-bar { background: none; color: #4b5563; }
-body[data-era="2010"] .win-btns { align-self: flex-start; gap: 0; }
-body[data-era="2010"] .win-btn {
-  width: 28px;
-  height: 20px;
-  border: 1px solid #3c4f6b;
-  border-radius: 0;
-  background: linear-gradient(#e8f0fa, #b9cce6 50%, #a3bbdc 51%, #c5d6ec);
-  font-size: 13px;
-  color: #1c2633;
-}
-body[data-era="2010"] .win-min { border-radius: 0 0 0 5px; }
-body[data-era="2010"] .win-close {
-  width: 46px;
-  border-radius: 0 0 5px 0;
-  background: linear-gradient(#f3a08c, #d9583b 50%, #c43a1c 51%, #e07b5c);
-  font-weight: 700;
-  color: #fff;
-}
-body[data-era="2010"] .win-body { margin-top: 0; border: 1px solid #0004; }
-body[data-era="2010"] .btn {
-  border: 1px solid #707070;
-  border-radius: 3px;
-  background: linear-gradient(#f2f2f2, #ebebeb 50%, #dddddd 51%, #cfcfcf);
-  box-shadow: none;
-  color: #1c2633; /* 바탕이 밤에도 밝으므로 글자색을 --win-text에 맡기지 않는다 */
-}
-body[data-era="2010"] .btn:hover { border-color: #3c7fb1; background: linear-gradient(#eaf6fd, #d9f0fc 50%, #bee6fd 51%, #a7d9f5); }
-body[data-era="2010"] .taskbar {
-  height: 40px;
-  border-top: 1px solid #ffffff55;
-  background: linear-gradient(#2a3a52cc, #12192699);
-  -webkit-backdrop-filter: blur(8px) saturate(1.4);
-  backdrop-filter: blur(8px) saturate(1.4);
-}
-body[data-era="2010"] .start-btn {
-  gap: 0; /* "시작" 글자는 크기 0으로 숨겼지만 gap은 남아서 집 그림을 왼쪽으로 3px 민다 */
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  justify-content: center;
-  border: 1px solid #0008;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 30%, #9fd2ff, #2b6fc2 55%, #123d7a);
-  box-shadow: inset 0 1px 0 #fff8, 0 0 10px #4aa3ff88;
-  font-size: 0;
-  color: transparent;
-}
-body[data-era="2010"] .start-btn:active { background: radial-gradient(circle at 50% 30%, #7fbcf5, #1f5aa6 55%, #0e2f61); }
-/* 집은 위가 뾰족하고 아래가 넓어서 그림 상자의 가운데에 두면 둥근 단추 안에서 아래로 처져 보인다(known-issues 39).
-   집을 감싸는 원의 중심은 1.8px, 무게 중심은 1.3px 아래에 있어서 그 사이인 1.5px을 올린다. */
-body[data-era="2010"] .start-logo { width: 22px; height: 22px; transform: translateY(-1.5px); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff' stroke='none'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%232b6fc2'/%3E%3C/svg%3E"); }
-body[data-era="2010"] .task {
-  width: 160px;
-  height: 34px;
-  border: 1px solid #ffffff40;
-  border-radius: 3px;
-  background: linear-gradient(#ffffff26, #ffffff0a);
-  color: #fff;
-}
-body[data-era="2010"] .task.active { background: linear-gradient(#ffffff55, #ffffff22); box-shadow: inset 0 0 6px #ffffff55; }
-body[data-era="2010"] .clock { border: 0; font-size: 13px; color: #fff; }
-body[data-era="2010"] .start-menu {
-  bottom: 44px;
-  padding: 6px;
-  border: 1px solid #0007;
-  border-radius: 7px;
-  background: linear-gradient(#a9c8ecd9, #7fa7d8cc);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 6px 22px #0007;
-}
-body[data-era="2010"] .start-head { margin: 0 0 6px; border-radius: 4px; background: #ffffff33; color: #1c2633; }
-body[data-era="2010"] .start-item { border-radius: 3px; background: #fffc; color: #1c2633; } /* 위와 같은 이유 */
-body[data-era="2010"] .start-item + .start-item { margin-top: 2px; }
-body[data-era="2010"] .start-item:hover { background: linear-gradient(#eaf6fd, #bee6fd); color: #1c2633; }
-
-/* 2010년식 부팅: 네 빛 방울이 사방에서 날아와 한데 모이고, 그 자리에 작은 집(시작 버튼 로고)이 뜬다.
-   방울을 2×2 사각형으로 두면 실제 윈도우 부팅 화면과 같은 구도가 되므로 위, 오른쪽, 아래, 왼쪽에서 들어온다 */
-body[data-era="2010"] .boot-orbs { display: block; position: relative; width: 90px; height: 90px; }
-body[data-era="2010"] .boot-orbs i {
-  position: absolute;
-  left: 35px;
-  top: 35px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  filter: blur(1px);
-  opacity: 0;
-  animation: orb-gather 0.9s ease-in var(--delay) forwards;
-}
-body[data-era="2010"] .boot-orbs i:nth-child(1) { background: #c56c96; box-shadow: 0 0 16px #c56c96; --dx: 0px; --dy: -60px; --delay: 0s; }
-body[data-era="2010"] .boot-orbs i:nth-child(2) { background: #e8b84a; box-shadow: 0 0 16px #e8b84a; --dx: 60px; --dy: 0px; --delay: 0.06s; }
-body[data-era="2010"] .boot-orbs i:nth-child(3) { background: #6fae8f; box-shadow: 0 0 16px #6fae8f; --dx: 0px; --dy: 60px; --delay: 0.12s; }
-body[data-era="2010"] .boot-orbs i:nth-child(4) { background: #5b8def; box-shadow: 0 0 16px #5b8def; --dx: -60px; --dy: 0px; --delay: 0.18s; }
-body[data-era="2010"] .boot-orbs::after {
-  content: "";
-  position: absolute;
-  inset: 13px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23fff'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23fff'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%23123d7a'/%3E%3C/svg%3E") center / contain no-repeat;
-  filter: drop-shadow(0 0 10px #9fd2ff);
-  opacity: 0;
-  animation: house-in 0.4s ease-out 0.9s forwards;
-}
-@keyframes orb-gather {
-  0% { transform: translate(var(--dx), var(--dy)) scale(0.7); opacity: 0; }
-  25% { opacity: 1; }
-  75% { transform: translate(0, 0) scale(1.1); opacity: 1; }
-  100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
-}
-@keyframes house-in {
-  from { transform: scale(0.6); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-body[data-era="2010"] .boot-title {
-  font-size: 40px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  background: none;
-  color: #e9eef5;
-}
-body[data-era="2010"] .boot-bar { display: none; }
-body[data-era="2010"] .boot-logo::after { content: "시작하는 중"; font-size: 18px; color: #9aa6b5; }
-
-/* 2010년식 로그인: 빛줄기가 지나가는 파란 배경, 가운데 사용자 */
-body[data-era="2010"] .login {
-  grid-template-rows: 1fr;
-  background:
-    radial-gradient(ellipse at 50% 120%, #4fb3ff55, transparent 60%),
-    linear-gradient(115deg, transparent 40%, #ffffff12 48%, transparent 56%),
-    linear-gradient(#1f6fb8, #0f4a8a 60%, #0a3366);
-}
-body[data-era="2010"] .login-top,
-body[data-era="2010"] .login-bottom { display: none; }
-body[data-era="2010"] .login-mid { display: flex; flex-direction: column; justify-content: center; gap: 30px; background: none; }
-body[data-era="2010"] .login-left { padding: 0; border: 0; text-align: center; }
-body[data-era="2010"] .login-logo { font-size: 30px; font-weight: 400; text-shadow: 0 1px 6px #0006; }
-body[data-era="2010"] .login-left p { font-size: 15px; }
-body[data-era="2010"] .users { padding: 0; justify-items: center; }
-body[data-era="2010"] .user { flex-direction: column; gap: 10px; padding: 14px 24px; text-align: center; }
-body[data-era="2010"] button.user:hover { background: #ffffff1f; box-shadow: inset 0 0 0 1px #ffffff55; }
-body[data-era="2010"] .avatar {
-  width: 96px;
-  height: 96px;
-  border: 6px solid #ffffffcc;
-  border-radius: 8px;
-  background: linear-gradient(#6fc0ff, #2a7fd4);
-  font-size: 44px;
-  box-shadow: 0 4px 12px #0006;
-}
-body[data-era="2010"] .user-name { font-size: 20px; text-shadow: 0 1px 4px #0008; }
-body[data-era="2010"] .user.new { align-items: center; }
-body[data-era="2010"] .welcome {
-  background: linear-gradient(#1f6fb8, #0f4a8a 60%, #0a3366);
-  font-size: 40px;
-  font-weight: 400;
-  font-style: normal;
-  text-shadow: 0 1px 6px #0006;
-}

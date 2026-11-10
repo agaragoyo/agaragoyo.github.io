@@ -28,18 +28,17 @@
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`, `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
-| 부팅 글자, 로그인 화면 흐름 | `src/os.js`의 `BIOS`, `showLogin` |
+| 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
 | 창 열기, 끌기, 최대화 | `src/win.js` |
-| 시대마다 다른 모니터와 창 모양 | `style.css` 끝의 "시대 비교" 덩어리, `src/main.js`의 `ERAS` |
-| 볼록 화면이 휘는 정도 | `src/main.js`의 `ERAS`(`warp`), 공식은 `src/crt.js`의 `warp` |
+| 2005년식 모니터와 창 모양 | `style.css` 끝의 "2005 모습" 절(앞의 기본 모양을 덮어쓰는 규칙) |
 | 처음 접속해서 모니터가 그려지기 전의 화면(가림막, 점 세 개, 새로 고침 안내) | `index.html`의 `#page-loader`, `style.css`의 "첫 화면 가림막" 절. 걷는 곳은 `src/main.js` 맨 끝 |
 | 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
 | 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
-| 커서 그림과 색 | `src/cursors.js`, 마우스 앱은 `src/apps/mouse-app.js` |
+| 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 공유 링크 형식 | `src/share.js`의 `encodeHome`, `decodeHome` |
@@ -52,7 +51,7 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 그레인, 볼록 보정 층), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
+| `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 그레인), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
 | `style.css` | 모든 모양. 아래 "style.css 안의 순서"에 절 목록이 있다 |
 | `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 새 기능을 붙이는 곳, 지켜야 할 것 |
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
@@ -66,9 +65,9 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/main.js` | 시작점. 모니터 크기 맞추기, 시대 정하기, 테두리 버튼, 볼록 효과를 켤지 정하기(핀치 줌 중에는 끄고, 주소의 `?warp=on`은 크롬 계열이 아닌 브라우저에서도 켠다), 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
+| `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼, 그레인 그림 만들기, 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
-| `src/settings.js` | 이 컴퓨터의 설정(그레인, 볼록, 밤, 시대, 커서, 소리, 방 배경음악) 저장소. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
+| `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
@@ -81,7 +80,7 @@
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
-| `src/crt.js` | 볼록 화면(SVG 필터), 휜 화면의 입력을 바로잡는 보정 층, iframe 안으로 입력 넣기, 그레인 노이즈 그림 | `initCRT` |
+| `src/crt.js` | 그레인 노이즈 그림 한 장(움직임은 CSS) | `initGrain` |
 | `src/cursors.js` | 화면 안 커서 그림을 만들어 `--cur-*` CSS 변수로 넣는다. 설정의 `cursor`(색, 크기, 직접 그린 그림)를 따른다 | `initCursors`, `cursorSet`, `defaultPixels` 등 |
 
 ## src/: 방 그리기
@@ -106,7 +105,7 @@
 | `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바로 가기나 창문으로 열면 그 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
 | `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
-| `src/apps/mouse-app.js` | 마우스. 커서 색과 크기, 32×32칸 직접 그리기 |
+| `src/apps/mine-app.js` | 나도 만들기. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 두 번 누르면 로그인 화면으로 보낸다 |
 | `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다 |
@@ -148,7 +147,7 @@
 | `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
-| `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 세 시대의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에 적는다 |
+| `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에 적는다 |
 
 ## docs/: 설명 문서
 
@@ -187,7 +186,7 @@ index.html
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
          ├─ share-app.js ── room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js
-         ├─ folder-app.js, mouse-app.js(cursors.js)
+         ├─ folder-app.js, music-app.js, mine-app.js
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
 ```
@@ -200,9 +199,9 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 2. 모니터: 몸체, 화면 둘레, 이름표, 스피커, 물리 버튼
 3. 방: 방 색, 밤 그늘, 드래그 중 격자, 가구 상자
 4. 가구 선반, 위쪽 이름표와 버튼
-5. 창: 방 꾸미기 앱, iframe 앱, 마우스 앱, 미니게임 폴더
+5. 창: 방 꾸미기 앱, iframe 앱, 배경음악 앱, 미니게임 폴더
 6. 아이콘, 바탕화면, 작업 표시줄과 시작 메뉴
 7. 부팅, 로그인
-8. 화면 효과(스캔라인, 그레인, 깜빡임, 볼록), 전원 연출
+8. 화면 효과(스캔라인, 그레인, 깜빡임), 전원 연출
 9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
-10. 시대 비교: 1998, 2005, 2010 덩어리(모니터, 창, 부팅, 로그인 모양을 시대마다 덮어쓴다)
+10. 2005 모습: 모니터, 창, 부팅, 로그인 모양을 덮어쓰는 절

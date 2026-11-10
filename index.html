@@ -41,25 +41,18 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="style.css?v=4f320ec8">
 </head>
-<body>
+<body data-era="2005">
   <!-- 첫 화면 가림막. main.js가 모니터를 다 그리고 글꼴을 받을 때까지 화면 전체를 덮는다(style.css의 "첫 화면 가림막", known-issues 42).
        새로 고침 단추는 모듈을 받지 못했을 때도 눌려야 하므로 main.js가 아니라 여기서 바로 잇는다. -->
   <div class="page-loader" id="page-loader">
     <p class="page-loader-dots" role="status"><i></i><i></i><i></i><span>불러오는 중</span></p>
     <p class="page-loader-slow"><span>불러오는 데 오래 걸리고 있습니다.</span><button type="button" onclick="location.reload()">새로 고침</button></p>
   </div>
-  <!-- 시대 비교 스위치 (모니터 바깥). 팀 의견을 들은 뒤 하나로 정하면 없앤다. -->
-  <div class="era-switch" role="group" aria-label="시대">
-    <span>시대</span>
-    <button type="button" data-era-pick="1998">1998</button>
-    <button type="button" data-era-pick="2005">2005</button>
-    <button type="button" data-era-pick="2010">2010</button>
-  </div>
   <div class="viewport" id="viewport">
   <div class="monitor">
     <div class="bezel">
       <div class="screen" id="screen">
-        <!-- .crt 안쪽만 볼록하게 휜다. 움직이는 그레인은 다시 그리는 비용이 커서 바깥에 둔다. -->
+        <!-- 화면 안쪽(무대와 전원 연출). 그레인과 깜빡임은 이 바깥에서 화면 전체에 겹친다. -->
         <div class="crt" id="crt">
         <div class="stage" id="stage">
           <!-- 바탕화면 (1280×800): 배경은 지금 꾸민 방 그림이다 -->
@@ -76,9 +69,7 @@
           <div class="start-menu" id="start-menu" hidden></div>
 
           <div class="boot" id="boot" hidden>
-            <pre class="boot-text"></pre>
             <div class="boot-logo" hidden>
-              <div class="boot-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
               <div class="boot-title">아가라고요</div>
               <div class="boot-bar"><i></i></div>
             </div>
@@ -110,32 +101,19 @@
         </div>
         <div class="fx fx-grain" id="grain"></div>
         <div class="fx fx-flicker"></div>
-        <div class="fx fx-curve"></div>
-        <!-- 화면이 휘어 있을 때 마우스 입력을 받아 휘기 전 위치로 고쳐 전달하는 투명한 층 -->
-        <div class="crt-input" id="crt-input"></div>
       </div>
 
       <div class="controls">
         <span class="brand">아가라고요</span>
         <span class="model">AGA-15</span>
         <span class="grille" aria-hidden="true"></span>
-        <button type="button" class="phys" data-toggle="grain" aria-pressed="true"><i class="led"></i>그레인</button>
-        <button type="button" class="phys" data-toggle="curve" aria-pressed="true"><i class="led"></i>볼록</button>
-        <!-- 소리는 전원을 켜기 전에도 보이게 둔다(불이 켜져 있으면 전원을 누를 때부터 소리가 난다). 2010에서도 숨기지 않으려고 data-toggle을 쓰지 않는다 -->
+        <!-- 소리는 전원을 켜기 전에도 보이게 둔다(불이 켜져 있으면 전원을 누를 때부터 소리가 난다) -->
         <button type="button" class="phys sound-key" id="sound-key" aria-pressed="true" title="효과음과 배경음악을 켜고 끕니다"><i class="led"></i>소리</button>
         <button type="button" class="phys power" id="power" aria-pressed="false"><i class="led"></i>전원</button>
       </div>
     </div>
   </div>
   </div>
-
-  <svg class="defs" width="0" height="0" aria-hidden="true">
-    <filter id="crt-warp" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse"
-      color-interpolation-filters="sRGB" x="0" y="0" width="100" height="100">
-      <feImage id="crt-map" result="map" preserveAspectRatio="none" x="0" y="0" width="100" height="100" />
-      <feDisplacementMap in="SourceGraphic" in2="map" scale="0" xChannelSelector="R" yChannelSelector="G" />
-    </filter>
-  </svg>
 
   <script type="module" src="src/main.js?v=610b612f"></script>
 </body>
