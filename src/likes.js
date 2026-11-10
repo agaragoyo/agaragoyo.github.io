@@ -5,6 +5,7 @@
 //   console    '<앱 id>'         미니게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 하나
 //   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
 //              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
+//   radio      [{ url }]        CD 6장까지. 스포티파이, 애플 뮤직의 앨범이나 플레이리스트 링크(parseMusic이 알아보는 것만)
 //
 // 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink를 거친 것만 쓴다.
 // 그래서 주인이 넣은 글이나 링크(javascript: 주소 같은 것)로 손님 화면에서 스크립트가 돌지 않는다.
@@ -19,6 +20,7 @@ export const LIMIT = {
   bookAuthor: 20,
   bookNote: 120, // 좋아하는 구절이나 고른 이유
   bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다)
+  cds: 6,        // 라디오의 CD 장수
 };
 
 // 한 줄 글. 글자가 아닌 값은 빈 글로, 줄바꿈과 제어 문자는 띄어쓰기로 바꾸고 max 글자까지만 남긴다(이모지를 반으로 자르지 않게 글자 단위로 센다).
@@ -46,6 +48,28 @@ export function safeLink(value) {
   }
 }
 
+// 라디오 CD 링크. 스포티파이와 애플 뮤직의 앨범, 플레이리스트만 알아보고 { service, kind, id, link, embed }를 돌려준다.
+// 주인이 넣은 주소를 그대로 창에 띄우지 않고, 알아본 id로 공식 플레이어 주소(embed)를 새로 만든다. 다른 페이지가 창에 뜨지 않게 하려는 것이다.
+//   https://open.spotify.com/album/<22자 id>?si=...        https://open.spotify.com/intl-ko/playlist/<id>
+//   https://music.apple.com/kr/album/<이름>/<숫자 id>      https://music.apple.com/kr/playlist/<이름>/pl.<id>
+export function parseMusic(value) {
+  let u;
+  try { u = new URL(String(value).trim()); } catch { return null; }
+  if (u.protocol !== 'https:') return null;
+  if (u.host === 'open.spotify.com') {
+    const m = u.pathname.match(/^\/(?:intl-[a-z]{2}(?:-[a-z]{2,4})?\/)?(album|playlist)\/([A-Za-z0-9]{22})\/?$/);
+    if (!m) return null;
+    return { service: 'spotify', kind: m[1], id: m[2], link: `https://open.spotify.com/${m[1]}/${m[2]}`, embed: `https://open.spotify.com/embed/${m[1]}/${m[2]}` };
+  }
+  if (u.host === 'music.apple.com' || u.host === 'embed.music.apple.com') {
+    const m = u.pathname.match(/^\/([a-z]{2})\/(album|playlist)\/(?:([A-Za-z0-9%._~-]{1,150})\/)?(\d{4,12}|pl\.[A-Za-z0-9-]{8,64})\/?$/);
+    if (!m || (m[2] === 'album') !== /^\d/.test(m[4])) return null; // 앨범은 숫자 id, 플레이리스트는 pl. id
+    const path = `${m[1]}/${m[2]}/${m[3] ? m[3] + '/' : ''}${m[4]}`;
+    return { service: 'apple', kind: m[2], id: m[4], cc: m[1], link: `https://music.apple.com/${path}`, embed: `https://embed.music.apple.com/${path}` };
+  }
+  return null;
+}
+
 const SANITIZE = {
   computer(raw) {
     const url = safeLink(raw?.url);
@@ -68,6 +92,11 @@ const SANITIZE = {
       return book;
     }).filter(b => b.title);
     return books.length ? books : null;
+  },
+  radio(raw) {
+    if (!Array.isArray(raw)) return null;
+    const links = [...new Set(raw.map(c => parseMusic(c?.url)?.link).filter(Boolean))].slice(0, LIMIT.cds);
+    return links.length ? links.map(url => ({ url })) : null;
   },
 };
 
