@@ -1,4 +1,5 @@
-// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 세 개를 직접 놓고 써 보면서 가구 놓기, 가구 쓰기, 놀이터를 배운다.
+// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 놀이터에 나갔다 돌아오면서
+// 가구 놓기, 가구 쓰기, 놀이터를 배운다(2026-11-10까지는 창문도 놓고 창문으로 나갔다).
 // 화면 구석의 작은 안내 카드가 한 번에 한 가지 행동만 부탁하고 화살표가 그 자리를 가리킨다. 글을 읽고 넘기는 "다음" 단추는 없다.
 //
 // 지금이 몇 단계인지는 저장하지 않고, 매 화면 지금 상태(방의 가구, 열린 창, 공간, 밤낮)를 읽어 아직 하지 않은 첫 단계를 고른다.
@@ -28,9 +29,8 @@ const newState = active => ({ active, passed: {} });
 const loadState = () => ({ ...newState(false), ...loadJSON(STORAGE_TUTORIAL) });
 
 export function createTutorial(os) {
-  const { first, light, door } = TUTORIAL_FURNITURE;
+  const { first, light } = TUTORIAL_FURNITURE;
   const lightName = eul(BY_ID[light].name);
-  const doorName = eul(BY_ID[door].name);
   let state = loadState();
   const save = () => { if (!os.realHome) saveJSON(STORAGE_TUTORIAL, state); };
 
@@ -88,13 +88,12 @@ export function createTutorial(os) {
       id: 'open',
       lesson: 0,
       text: () => '방 꾸미기 아이콘을 두 번 누르면\n가구를 놓는 창이 열립니다.',
-      done: () => roomWin() || [first, light, door].every(has),
+      done: () => roomWin() || [first, light].every(has),
       target: () => os.stage.querySelector('#icons [data-app="room"]'),
       side: true, // 첫 아이콘은 위에 자리가 없고 아래에는 다음 아이콘이 있어서 화살표를 옆에 둔다
     },
     place(first, '아래 선반의'),
     place(light, '이번에는'),
-    place(door, '마지막으로'),
     {
       id: 'close',
       lesson: 0,
@@ -125,9 +124,9 @@ export function createTutorial(os) {
       lesson: 2,
       use: true,
       once: true,
-      text: () => `${doorName} 두 번 누르면 아바타가\n놀이터로 나갑니다.`,
+      text: () => '방 벽의 현관문을 두 번 누르면\n아바타가 놀이터로 나갑니다.',
       done: () => os.place === OUTSIDE,
-      target: () => inWallpaper(`.furn[data-id="${door}"]`),
+      target: () => inWallpaper('.door-hit'),
     },
     GATE,
   ];
@@ -185,7 +184,7 @@ export function createTutorial(os) {
     if (view.card) centerCard(view.card());
   }
 
-  // 놓을 가구의 카드가 선반 가운데에 오게 넘긴다(스탠드와 창문은 처음에 선반 밖에 있다).
+  // 놓을 가구의 카드가 선반 가운데에 오게 넘긴다(스탠드는 처음에 선반 밖에 있다).
   function centerCard(el) {
     const track = el?.parentElement;
     track?.scrollTo({ left: el.offsetLeft - track.offsetLeft - (track.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });

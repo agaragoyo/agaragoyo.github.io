@@ -17,9 +17,11 @@
 | 주인이 가구에 담아 두는 것(웹 게임 링크, 책, CD, 작품)의 칸과 검사 | `src/likes.js`. 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome` |
 | 가구를 가까이 보는 화면(게임기처럼 바탕을 덮고 가구를 크게 띄우기) | `src/closeup.js`의 `openCloseup`, 모양은 `style.css`의 "가구 가까이 보기" 절 |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
-| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
+| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate`, 방에서 놀이터로 나가는 현관문 자리는 `door` |
+| 이웃집 더하기와 바꾸기(로그인 화면의 이웃집, 놀이터 울타리의 문패) | `data/neighbors.js`에 닉네임과 공유 링크 한 줄. 문 자리와 놀러 갈지 묻는 창은 `src/neighbors.js` |
 | 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(놀이터에서는 `집으로`가 보인다) |
-| 바탕화면의 공간 옮기기(창문, 놀이터 아이콘, 놀이터 문) | `src/os.js`의 `goScene`, `useGate`, 문 그림은 `src/iso.js`의 `outdoorSVG` |
+| 바탕화면의 공간 옮기기(현관문, 놀이터 아이콘, 놀이터 문) | `src/os.js`의 `goScene`, `useDoor`, `useGate`, 문 그림은 `src/iso.js`의 `doorSVG`(현관문), `outdoorSVG`(울타리 문) |
+| 이웃집에 손님으로 들어가기와 돌아오기 | `src/os.js`의 `useNeighbor`, `visit`, `goHome`(손님 바탕화면의 나도 만들기와 내 컴퓨터로) |
 | 바탕화면에서 가구 두 번 누르기(아바타가 다가가 기믹) | `src/room.js`의 `renderStatic`, `src/os.js`의 `useFurniture`, `src/avatar.js`의 `approach` |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
 | 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace` |
@@ -27,7 +29,7 @@
 | 앞뒤로 겹쳐 그리는 순서 | `src/room.js`의 `zOf`, `src/iso.js`의 `depthOf` |
 | 바탕화면 방을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 바탕화면에 붙이는 곳은 `src/os.js`의 `showDesktop`, 가구와의 앞뒤는 `depthZ` |
 | 아바타 그림과 옷 색 | `data/avatars.js`. 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄) |
-| 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`, `outdoorSVG` |
+| 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`), `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
@@ -70,18 +72,19 @@
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼, 그레인 그림 만들기, 전원 연출을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
-| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문 자리 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
+| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 저장 키 | `N`, `TW`, `SCENES`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
 
 ## src/: 컴퓨터(OS)
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인, 바탕화면 아이콘과 배경의 공간(아바타 포함, 내 방과 놀이터를 오간다), 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/os.js` | 부팅, 로그인(이웃집 줄 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/neighbors.js` | 이웃집(`data/neighbors.js`). 링크를 풀어 깨진 줄을 빼고 여섯 집까지 고르기, 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패는 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
-| `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 폴더, 공유, 마우스, 가구)은 SVG로 직접 그린다 | `iconEl` |
+| `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 집, 폴더, 공유, 음악, 내 컴퓨터, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
 | `src/crt.js` | 그레인 노이즈 그림 한 장(움직임은 CSS) | `initGrain` |
 | `src/cursors.js` | 화면 안 커서 그림을 만들어 `--cur-*` CSS 변수로 넣는다. 설정의 `cursor`(색, 크기, 직접 그린 그림)를 따른다 | `initCursors`, `cursorSet`, `defaultPixels` 등 |
@@ -90,11 +93,11 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구와 놀이터 문을 두 번 누르면 쓰기) | `furnitureEl`, `imageFor`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
+| `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그린다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 놀이터 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
-| `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다 | `canPlace`, `supportOf`, `elevOf`, `dims`, `isWall` |
-| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서, 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar` |
+| `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
+| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
@@ -106,10 +109,10 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `src/apps/index.js` | 기본 앱 등록부(`BUILTIN_APPS`). 새 기본 앱은 여기에 한 줄 더한다 |
-| `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바로 가기나 창문으로 열면 그 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
+| `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바탕화면에 보이는 공간부터), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(미니게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다 |
 | `src/apps/share-app.js` | 공유하기. 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
-| `src/apps/mine-app.js` | 나도 만들기. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 두 번 누르면 로그인 화면으로 보낸다 |
+| `src/apps/mine-app.js` | 나도 만들기와 내 컴퓨터로. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 이 컴퓨터에 내 집이 없으면 로그인 화면으로, 있으면 곧장 내 바탕화면으로 보낸다 |
 | `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다. 안내와 단추(`linkPrompt`)는 옛날 컴퓨터도 같이 쓴다 |
@@ -125,6 +128,7 @@
 | --- | --- |
 | `data/apps.js` | 앱 목록. 바탕화면 아이콘, 시작 메뉴, 미니게임 폴더가 모두 여기서 만들어진다. 칸의 뜻은 파일 맨 위에 있다 |
 | `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있고, 튜토리얼 기본 가구는 맨 아래에 있다 |
+| `data/neighbors.js` | 이웃집 목록. 문패에 쓰는 닉네임과 그 집 공유 링크(`#room=` 뒤의 글자). 로그인 화면과 놀이터 울타리에 나온다. 넣는 법은 파일 맨 위에 있다 |
 | `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
 
 ## apps/: 팀원 앱

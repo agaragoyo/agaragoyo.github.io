@@ -39,10 +39,11 @@ export const FURNITURE = [
   { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
   { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8' },
   // 내 방: 벽
-  { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', gimmick: 'scene:playground' },
-  { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', gimmick: 'scene:playground' },
-  { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba', gimmick: 'scene:playground' },
-  { id: 'wide-beads-window', scene: 'room', name: '비즈 발 넓은 창문', zone: 'wall', size: [4, 3], color: '#b1c6c1', gimmick: 'scene:playground' },
+  // 창문은 2026-11-10까지 두 번 누르면 놀이터로 나갔다. 지금은 방 벽의 현관문(src/config.js의 SCENES door)이 그 일을 한다
+  { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8' },
+  { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1' },
+  { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba' },
+  { id: 'wide-beads-window', scene: 'room', name: '비즈 발 넓은 창문', zone: 'wall', size: [4, 3], color: '#b1c6c1' },
   { id: 'frame',     scene: 'room', name: '액자',     zone: 'wall', size: [2, 2], color: '#c97b6b' },
   { id: 'poster',    scene: 'room', name: '포스터',   zone: 'wall', size: [2, 3], color: '#8e9490' },
   { id: 'wall-clock', scene: 'room', name: '벽시계',  zone: 'wall', size: [1, 1], color: '#f2e6cb' },
@@ -61,5 +62,5 @@ export const BY_ID = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 // 튜토리얼(src/tutorial.js)에서 놓아 보는 기본 가구. 여기의 id만 바꾸면 안내 문구와 화살표가 따라간다.
 //   first  놓는 법을 배우는 가구. 기믹을 쓰지 않으므로 내 방 가구 아무거나 된다. 가구별 인터랙션이 정해지면 바뀔 수 있다
 //   light  가구를 쓸 수 있다는 것을 배우는 가구. gimmick: 'night'여야 한다
-//   door   놀이터가 있다는 것을 배우는 가구. gimmick: 'scene:playground'여야 한다
-export const TUTORIAL_FURNITURE = { first: 'bed', light: 'lamp', door: 'window' };
+// 놀이터는 가구가 아니라 방 벽의 현관문으로 나가서 배운다(2026-11-10까지는 door: 'window'로 창문을 놓고 썼다).
+export const TUTORIAL_FURNITURE = { first: 'bed', light: 'lamp' };

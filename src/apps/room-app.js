@@ -72,6 +72,8 @@ export function openRoomApp(os, appInfo) {
           set items(v) { os.home.scenes[scene.id] = v; },
         },
         get mode() { return os.mode; },
+        get scene() { return scene; }, // 지금 꾸미는 공간(config.js의 SCENES 한 줄). 현관문 자리 검사에 쓴다
+        get owner() { return os.home.owner; }, // 집 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다
         // 화면 좌표 → 공간 좌표 (1280×840)
         toLocal(clientX, clientY) {
           const p = os.toStage(clientX, clientY);

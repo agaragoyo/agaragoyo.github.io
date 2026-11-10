@@ -35,6 +35,16 @@ export function elevOf(items, item) {
   return s ? BY_ID[s.id].height : 0;
 }
 
+// 벽 가구 item이 그 공간의 현관문(config.js의 SCENES door) 자리를 가리는지. scene: SCENES 한 줄.
+// 방 꾸미기에서 새로 걸 때만 막고(room.js의 beginDrag), 저장본이나 링크를 불러올 때는 막지 않는다.
+// 현관문이 생기기 전에 그 자리에 걸어 둔 창문이 불러올 때 조용히 사라지지 않게 하려는 것이다. 옮기면 다시는 그 자리에 걸지 못한다.
+export function coversDoor(scene, item) {
+  const d = scene?.door;
+  if (!d || !isWall(item) || item.wall !== d.wall) return false;
+  const [w] = dims(item);
+  return item.x < d.x + d.w && d.x < item.x + w && item.y < d.h;
+}
+
 // others: 이미 놓여 있는 가구들. item 을 그 사이에 놓을 수 있는지.
 export function canPlace(others, item) {
   const def = BY_ID[item.id];

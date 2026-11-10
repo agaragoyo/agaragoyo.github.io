@@ -159,7 +159,7 @@ def check_tutorial():
         return
     picked = dict(re.findall(r"(\w+):\s*'([^']+)'", m.group(1)))
     items = {f['id']: f for f in entries(text)}
-    for role, gimmick in (('first', None), ('light', 'night'), ('door', 'scene:playground')):
+    for role, gimmick in (('first', None), ('light', 'night')):
         f = items.get(picked.get(role))
         if not f:
             err(where, f"{role} 의 가구 '{picked.get(role)}' 이 목록에 없다")
@@ -167,9 +167,44 @@ def check_tutorial():
             err(where, f"{role} 의 가구 '{f['id']}' 은 내 방(scene: 'room') 가구여야 한다")
         elif gimmick and f.get('gimmick') != gimmick:
             err(where, f"{role} 의 가구 '{f['id']}' 은 gimmick: '{gimmick}' 이어야 한다")
-    for name, path in (('scene-tab', 'src/apps/room-app.js'), ('win-close', 'src/win.js'), ('gate-hit', 'src/iso.js')):
+    for name, path in (('scene-tab', 'src/apps/room-app.js'), ('win-close', 'src/win.js'), ('gate-hit', 'src/iso.js'), ('door-hit', 'src/iso.js')):
         if name not in read(path):
             err('src/tutorial.js', f"화면에서 찾는 이름 '{name}' 이 {path} 에 없다(이름을 바꿨다면 튜토리얼도 고친다)")
+    # 놀이터로 나가는 단계는 방의 현관문(src/config.js의 SCENES door)을 가리킨다
+    if not re.search(r"id:\s*'room'[^\n]*door:\s*\{", read('src/config.js')):
+        err('src/tutorial.js', "내 방(SCENES 의 'room')에 현관문(door)이 없어 놀이터로 나가는 단계에서 막힌다")
+
+
+# 이웃집 목록 (data/neighbors.js). 공유 링크가 풀리는지, 링크 속 주인 이름이 문패 닉네임과 같은지 본다.
+# 링크(base64)는 누구나 풀어 읽을 수 있어서, 다르면 공개 레포에 다른 이름(실명일 수 있다)이 숨어 올라간다. 그래서 오류 문구에도 그 이름을 적지 않는다.
+def check_neighbors():
+    import base64
+    import json
+    path = 'data/neighbors.js'
+    items = entries(read(path))
+    ids = set()
+    for n in items:
+        where = f"{path} '{n['id']}'"
+        if n['id'] in ids:
+            err(where, 'id가 겹친다')
+        ids.add(n['id'])
+        if not KEBAB.match(n['id']):
+            err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
+        name = n.get('name', '')
+        if not name.strip() or len(name) > 12:
+            err(where, 'name(문패 닉네임)은 1~12글자다')
+        room = n.get('room', '')
+        try:
+            data = json.loads(base64.urlsafe_b64decode(room + '=' * (-len(room) % 4)).decode('utf-8'))
+        except Exception:
+            err(where, 'room 이 풀리지 않는다. 공유 링크에서 #room= 뒤의 글자 전부를 넣는다')
+            continue
+        if not isinstance(data, dict) or data.get('v') != 3 or not isinstance(data.get('s'), dict):
+            err(where, '예전 형식의 링크다. 배포 사이트의 공유하기에서 링크를 다시 복사한다')
+        elif data.get('o') != name:
+            err(where, '링크 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
+    if len(items) > 6:
+        warn(path, f'이웃집이 {len(items)}집이다. 로그인 화면과 놀이터에는 앞의 여섯 집까지만 나온다(src/neighbors.js의 MAX_NEIGHBORS)')
 
 
 # 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
@@ -358,6 +393,7 @@ def main():
     app_ids = check_apps()
     check_furniture(app_ids)
     check_tutorial()
+    check_neighbors()
     check_avatars()
     check_storage_keys()
     check_imports()

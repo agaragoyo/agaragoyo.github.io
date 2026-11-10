@@ -1,8 +1,9 @@
 // 방 그리기와 가구 끌어 놓기.
 import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { canPlace, dims, supportOf, elevOf, isWall } from './rules.js';
+import { canPlace, coversDoor, dims, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
+import { neighborGates } from './neighbors.js';
 import { clamp } from './util.js';
 import { play } from './sound.js';
 
@@ -109,7 +110,7 @@ export function furnitureEl(id, r = 0) {
 // 공간 배경을 그린다(공간을 바꿀 때도 부른다). scene: config.js의 SCENES 한 줄
 export function setSceneBg(app, scene) {
   app.roomEl.querySelector('.room-bg')?.remove();
-  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene.kind, scene.gate));
+  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene, app.owner));
   app.roomEl.dataset.kind = scene.kind;
 }
 
@@ -131,11 +132,14 @@ function renderShade(container, items) {
 }
 
 // 바탕화면 배경의 공간 그림 한 장. container 는 1280×720 크기여야 한다. scene: config.js의 SCENES 한 줄.
-// 가구를 두 번 누르면 onUse(item)를, 바깥 공간의 울타리 문을 두 번 누르면 onGate(gate)를 부른다(아바타가 그 옆으로 걸어가 쓴다).
+// 두 번 누르면 on에 넘긴 함수를 부른다(아바타가 그 옆으로 걸어가 쓴다).
+//   on.use(item)      가구          on.gate(gate)   바깥 공간의 아파트 문
+//   on.door(door)     방의 현관문    on.neighbor(n)  놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js의 neighborGates 한 줄)
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
 // 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(예전 볼록 화면이 dblclick을 넘기지 못해 이렇게 만들었다).
-export function renderStatic(container, items, scene, onUse, onGate) {
-  container.innerHTML = sceneSVG(scene.kind, scene.gate);
+// owner: 이 집의 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다(src/neighbors.js의 neighborGates).
+export function renderStatic(container, items, scene, on = {}, owner = '') {
+  container.innerHTML = sceneSVG(scene, owner);
   let last = { what: null, t: 0 };
   const twice = (what, use) => () => {
     const now = performance.now();
@@ -146,13 +150,19 @@ export function renderStatic(container, items, scene, onUse, onGate) {
       last = { what, t: now };
     }
   };
-  container.querySelector('.gate-hit')?.addEventListener('click', twice(scene.gate, () => onGate?.(scene.gate)));
+  container.querySelector('.gate-hit')?.addEventListener('click', twice(scene.gate, () => on.gate?.(scene.gate)));
+  container.querySelector('.door-hit')?.addEventListener('click', twice(scene.door, () => on.door?.(scene.door)));
+  const gates = scene.neighbors ? neighborGates(owner) : [];
+  for (const hit of container.querySelectorAll('.neighbor-hit')) {
+    const n = gates.find(g => g.id === hit.dataset.neighbor);
+    if (n) hit.addEventListener('click', twice(n, () => on.neighbor?.(n)));
+  }
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
-    el.addEventListener('click', twice(item, () => onUse?.(item)));
+    el.addEventListener('click', twice(item, () => on.use?.(item)));
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
@@ -294,8 +304,9 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     return moved;
   };
 
+  // 현관문 자리(config.js의 SCENES door)에는 벽 가구를 새로 걸 수 없다. 불러올 때는 막지 않으므로 여기서만 본다.
   const valid = (base, moved) =>
-    moved.every((m, i) => canPlace([...base, ...moved.filter((_, j) => j !== i)], m));
+    moved.every((m, i) => canPlace([...base, ...moved.filter((_, j) => j !== i)], m) && !coversDoor(app.scene, m));
 
   const update = (clientX, clientY) => {
     const p = app.toLocal(clientX, clientY);
