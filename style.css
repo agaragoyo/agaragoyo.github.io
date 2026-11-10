@@ -1565,8 +1565,13 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   transform-origin: 50% 140%;
   transition: transform 0.15s;
 }
-.cd-pick:hover { transform: rotate(var(--tilt, 0deg)) translateY(calc(var(--drop, 0px) - 10px)); }
-.cd-pick.in { visibility: hidden; }
+.cd-pick:not(.in):hover { transform: rotate(var(--tilt, 0deg)) translateY(calc(var(--drop, 0px) - 10px)); }
+/* 라디오에 든 CD의 제자리: CD가 빠진 자리처럼 점선 동그라미와 흐린 이름만 남긴다(CD가 한 장뿐이어도 펼친 줄이 비지 않게).
+   이름 색은 바탕(#2f3542)과 5.5:1이라 흐려 보여도 읽힌다 */
+.cd-pick.in { cursor: var(--cur-arrow); }
+.cd-pick.in .cd { border-style: dashed; border-color: #8a8f9c; background: none; box-shadow: none; }
+.cd-pick.in .cd > * { visibility: hidden; }
+.cd-pick.in .cd-name { color: #b3ada0; }
 .cd-name { max-width: 124px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* CD: 은빛 무지개 원판 가운데에 앨범 표지를 둥글게 깐다 */
 .cd {
@@ -1641,6 +1646,9 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   cursor: var(--cur-hand);
 }
 .radio-key:active, .radio-key.pressed { transform: translateY(3px); box-shadow: 0 1px 0 #5e5548; }
+/* 꺼내기 기호: 갈무리에 ⏏ 글자가 없어 다른 글꼴로 그려지므로, 옆의 ▶ ■처럼 꽉 찬 삼각형(12×6px)과 막대(12×3px)로 그린다 */
+.radio-eject { display: inline-block; width: 12px; height: 11px; vertical-align: -1px; background: linear-gradient(currentColor, currentColor) 0 100% / 100% 3px no-repeat; }
+.radio-eject::before { content: ''; display: block; height: 6px; background: currentColor; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .radio-tools { display: flex; gap: 8px; min-height: 34px; }
 /* 음악 창: 서비스의 공식 플레이어와 미리 듣기 안내. 창 바탕(.flush)이 밤낮 없이 어두워 글자색을 고정한다 */
 .radio-player { display: flex; flex-direction: column; }
