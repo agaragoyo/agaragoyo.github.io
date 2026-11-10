@@ -46,9 +46,9 @@ export function openRoomApp(os, appInfo) {
             <button type="button" class="shelf-arrow" aria-label="앞 가구">◀</button>
             <div class="shelf-track"></div>
             <button type="button" class="shelf-arrow" aria-label="뒤 가구">▶</button>
-            <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 바탕화면에서 가구를 두 번 누르면 써 볼 수 있습니다.</p>
+            <p class="shelf-visit">친구 집의 가구는 옮길 수 없습니다. 바탕화면에서 가구를 두 번 눌러 사용해 보세요.</p>
           </div>
-          <p class="rotate-tip">가구를 끄는 동안 R 키나 마우스 휠로 돌릴 수 있어요</p>
+          <p class="rotate-tip">가구를 옮기는 동안 R 키나 마우스 휠로 돌릴 수 있습니다</p>
           <p class="room-hint" hidden></p>
           <div class="hud">
             <span class="owner"></span>
@@ -86,7 +86,7 @@ export function openRoomApp(os, appInfo) {
         },
         // 꾸미는 화면에서는 가구를 눌러도 기믹을 쓰지 않고, 바탕화면에서 쓰라고 알려 준다.
         pressItem() {
-          os.toast('가구는 바탕화면에서 두 번 눌러 써 볼 수 있어요');
+          os.toast('바탕화면에서 가구를 두 번 눌러 사용해 보세요');
         },
       };
 
