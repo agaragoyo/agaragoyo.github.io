@@ -241,8 +241,9 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
   const ghost = document.createElement('div');
   ghost.className = 'ghost';
   // 끄는 동안 R 키나 마우스 휠로 돌린다(바닥 가구만, 위에 물건을 얹은 책상은 빼고).
+  // 칸이 정사각형인 가구도 돌린다. 차지하는 칸은 그대로지만 그림은 좌우로 뒤집혀 다른 쪽을 본다(1인 소파, 디카처럼 방향이 있는 그림).
   let rot = item?.r ? 1 : 0;
-  const canRotate = lead.zone !== 'wall' && group.length <= 1 && lead.size[0] !== lead.size[1];
+  const canRotate = lead.zone !== 'wall' && group.length <= 1;
   const ghostEls = [{ id: leadId, r: rot }, ...group.slice(1)].map(g => {
     const el = furnitureEl(g.id, g.r);
     el.classList.add('item');
