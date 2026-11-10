@@ -1,9 +1,12 @@
 // 가구 기믹: 라디오(F12). 누르면 라디오를 가까이 보며 주인이 넣어 둔 CD가 위에 펼쳐진다.
 // CD 하나를 고르면 그 CD가 라디오의 CD 창으로 들어간 뒤 재생 단추가 꾹 눌리고 CD가 돈다. 그러면 스포티파이나 애플 뮤직의
 // 공식 플레이어가 옆의 작은 창(OS 창)에 열린다. 미리 듣기 길이는 서비스가 정한다(로그인하지 않으면 노래마다 30초쯤, 2026-11-10 정함).
+// 다른 CD를 고르면 든 CD와 바뀌고, 꺼내기 단추(삼각형과 막대)는 음악을 멈추고 든 CD를 펼친 줄의 제자리로 돌려놓는다.
+// 든 CD의 제자리는 점선 동그라미로 남긴다. 아예 비우면 CD가 한 장뿐일 때 펼친 줄이 텅 비어 고장 난 것처럼 보였다.
 // 라디오를 내려놓아도 음악 창은 남아서 방을 걸으며 듣고, 음악 창이 열려 있는 동안 사이트 배경음악은 멈춘다.
 // CD 그림(앨범 표지와 이름)은 볼 때마다 서비스의 공개 정보(스포티파이 oEmbed, 애플 iTunes 조회)에서 받는다. 키가 필요 없다.
-// 주인(내 컴퓨터)에게는 CD 넣기와 빼기 단추가 있고 손님에게는 없다. 넣은 CD는 likes.radio에 저장되고 공유 링크에도 담긴다(src/likes.js).
+// 주인(내 컴퓨터)에게는 CD 넣기와 지우기 단추가 있고 손님에게는 없다. 넣은 CD는 likes.radio에 저장되고 공유 링크에도 담긴다(src/likes.js).
+// 목록에서 지우는 단추를 다른 가구처럼 "빼기"라고 하면 라디오에서 꺼내기로 읽혀서, 라디오만 "지우기"라고 쓴다.
 import { h, reduceMotion } from '../util.js';
 import { CHROME_W, CHROME_H } from '../win.js';
 import { DESK_W } from '../config.js';
@@ -108,13 +111,14 @@ export function openRadioApp(os, app) {
       const lcd = h('div', { className: 'radio-lcd' });
       const playKey = h('button', { type: 'button', className: 'radio-key', 'aria-label': '재생', title: '재생', onclick: () => current && play(current) }, '▶');
       const stopKey = h('button', { type: 'button', className: 'radio-key', 'aria-label': '멈춤', title: '멈춤', onclick: () => player?.win.close() }, '■');
+      const ejectKey = h('button', { type: 'button', className: 'radio-key eject', 'aria-label': '꺼내기', title: '꺼내기', onclick: () => eject() }, h('i', { className: 'radio-eject', 'aria-hidden': 'true' }));
       const speaker = () => h('div', { className: 'radio-speaker' }, h('i'));
       const fan = h('div', { className: 'radio-fan' });
       const tools = h('div', { className: 'radio-tools' });
       const radio = h('div', { className: 'radio-body' },
         h('div', { className: 'radio-handle' }),
         speaker(),
-        h('div', { className: 'radio-middle' }, slot, lcd, h('div', { className: 'radio-keys' }, playKey, stopKey)),
+        h('div', { className: 'radio-middle' }, slot, lcd, h('div', { className: 'radio-keys' }, playKey, stopKey, ejectKey)),
         speaker());
 
       // CD 한 장의 그림. 표지가 오면 가운데 둥근 그림으로 깐다
@@ -142,10 +146,13 @@ export function openRadioApp(os, app) {
           const name = h('span', { className: 'cd-name' }, label(m));
           nameOf(m, name);
           const tilt = (i - (list.length - 1) / 2) * 7;
-          // 라디오에 든 CD는 펼친 줄에서 빠진 자리로 남는다(꺼내져 라디오에 들어갔으므로)
+          // 라디오에 든 CD의 제자리는 점선 동그라미로 남고 누를 수 없다(꺼내기 단추로 돌려놓는다)
+          const inside = current?.link === m.link;
           const item = h('button', {
             type: 'button',
-            className: current?.link === m.link ? 'cd-pick in' : 'cd-pick',
+            className: inside ? 'cd-pick in' : 'cd-pick',
+            disabled: inside,
+            dataset: { link: m.link },
             onclick: () => choose(m, item),
           }, disc(m, false), name);
           item.style.setProperty('--tilt', `${tilt}deg`);
@@ -156,35 +163,45 @@ export function openRadioApp(os, app) {
         if (!list.length) fan.append(h('p', { className: 'radio-empty' }, '아직 넣은 CD가 없습니다.'));
         tools.replaceChildren(...(owner ? [
           list.length < LIMIT.cds ? h('button', { type: 'button', className: 'btn', onclick: form }, 'CD 넣기') : null,
-          current && list.some(m => m.link === current.link) ? h('button', { type: 'button', className: 'btn', onclick: remove }, '이 CD 빼기') : null,
+          current && list.some(m => m.link === current.link) ? h('button', { type: 'button', className: 'btn', onclick: remove }, '이 CD 지우기') : null,
         ].filter(Boolean) : []));
         panel.replaceChildren(fan, radio, tools);
         showSlot();
       }
 
-      // 펼친 CD에서 하나를 고르면 라디오 CD 창으로 날아 들어간 뒤 재생 단추가 눌린다.
-      // 펼친 CD는 기울어 있어 그대로 옮기면 좌표가 돌아가므로, 같은 그림을 하나 더 띄워 CD 창까지 옮기고 원래 CD는 숨긴다
-      function choose(m, item) {
+      // 움직이던 CD를 멈춘다(날던 그림과 기다리던 일을 지운다)
+      function settle() {
         timers.forEach(clearTimeout);
         timers = [];
         cu.el.querySelector('.cd.flying')?.remove();
+      }
+
+      // CD 그림을 펼친 줄의 CD(cd)와 라디오 CD 창 사이로 날린다. toSlot이면 CD 창으로, 아니면 제자리로 간다.
+      // 펼친 CD는 기울어 있어 그대로 옮기면 좌표가 돌아가므로, 같은 그림을 하나 더 띄워 옮긴다
+      function flyDisc(m, cd, toSlot) {
+        const root = cu.el.getBoundingClientRect();
+        const k = root.width / cu.el.offsetWidth || 1; // 화면 px과 무대 px의 비율(모니터 크기에 따라 무대가 줄어 있다)
+        const centre = el => { const r = el.getBoundingClientRect(); return { x: (r.left + r.width / 2 - root.left) / k, y: (r.top + r.height / 2 - root.top) / k }; };
+        const [from, to] = toSlot ? [centre(cd), centre(slot)] : [centre(slot), centre(cd)];
+        const size = cd.offsetWidth;
+        const inSlot = (slot.clientWidth - 16) / size; // CD 창 안에서의 크기
+        const [s0, s1] = toSlot ? [1, inSlot] : [inSlot, 1];
+        const fly = disc(m, false);
+        fly.classList.add('flying');
+        Object.assign(fly.style, { left: `${from.x - size / 2}px`, top: `${from.y - size / 2}px`, width: `${size}px`, height: `${size}px`, transform: `translate(0px, 0px) scale(${s0})` });
+        cu.el.append(fly);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          fly.style.transform = `translate(${to.x - from.x}px, ${to.y - from.y}px) scale(${s1})`;
+        }));
+        later(() => fly.remove(), 600);
+      }
+
+      // 펼친 CD에서 하나를 고르면 라디오 CD 창으로 날아 들어간 뒤 재생 단추가 눌린다. 날아가는 동안 제자리는 빈자리로 둔다
+      function choose(m, item) {
+        settle();
         if (!reduceMotion) {
-          const d = item.querySelector('.cd');
-          const root = cu.el.getBoundingClientRect();
-          const k = root.width / cu.el.offsetWidth || 1; // 화면 px과 무대 px의 비율(모니터 크기에 따라 무대가 줄어 있다)
-          const centre = r => ({ x: (r.left + r.width / 2 - root.left) / k, y: (r.top + r.height / 2 - root.top) / k });
-          const from = centre(d.getBoundingClientRect());
-          const to = centre(slot.getBoundingClientRect());
-          const size = d.offsetWidth;
-          const fly = disc(m, false);
-          fly.classList.add('flying');
-          Object.assign(fly.style, { left: `${from.x - size / 2}px`, top: `${from.y - size / 2}px`, width: `${size}px`, height: `${size}px` });
-          cu.el.append(fly);
+          flyDisc(m, item.querySelector('.cd'), true);
           item.classList.add('in');
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            fly.style.transform = `translate(${to.x - from.x}px, ${to.y - from.y}px) scale(${(slot.clientWidth - 16) / size})`;
-          }));
-          later(() => fly.remove(), 600);
         }
         later(() => {
           current = m;
@@ -192,6 +209,22 @@ export function openRadioApp(os, app) {
           playKey.classList.add('pressed');
           later(() => { playKey.classList.remove('pressed'); play(m); }, 320);
         }, 560);
+      }
+
+      // 꺼내기: 음악을 멈추고 든 CD를 넣을 때와 거꾸로 제자리로 날려 보낸다. 제자리는 CD가 닿을 때까지 빈자리로 둔다
+      function eject() {
+        if (!current) return; // 빈 라디오는 꺼낼 것이 없다
+        settle();
+        const m = current;
+        current = null;
+        player?.win.close(); // 음악 창이 닫히면 onPlayerGone이 CD 창과 LCD를 비우고 라디오를 가운데로 돌린다
+        os.wm.blur(); // 음악 창 다음의 창이 키를 가져가지 않게 한다(Esc는 라디오 내려놓기)
+        render();
+        const spot = [...fan.children].find(el => el.dataset.link === m.link);
+        if (!spot || reduceMotion) return;
+        flyDisc(m, spot.querySelector('.cd'), false);
+        spot.classList.add('in');
+        later(() => spot.classList.remove('in'), 560);
       }
 
       function play(m) {
