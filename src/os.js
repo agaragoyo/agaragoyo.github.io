@@ -409,10 +409,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     walker?.say(`${def.name}${batchim(def.name) ? '이네' : '네'}.`);
   };
 
-  os.saveHome = () => {
+  // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.
+  os.saveHome = (redraw = true) => {
     if (os.mode === 'edit' && !os.realHome) saveJSON(STORAGE_ROOM, os.home);
-    renderWallpaper();
+    if (redraw) renderWallpaper();
   };
+
+  // 아바타가 말풍선으로 한마디 한다(가구에 담아 둔 것이 없을 때 등). 바탕화면이 아니면 아무 일도 하지 않는다.
+  os.say = text => walker?.say(text);
 
   // 앱(iframe)과 주고받는 메시지
   os.sdk = createSdkHost(os);

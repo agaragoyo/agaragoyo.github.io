@@ -583,6 +583,21 @@ button { font-family: inherit; }
 .share-save { flex-wrap: wrap; }
 .link-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .link-row a.btn { display: inline-block; text-decoration: none; }
+/* 주인이 가구에 담아 둘 것을 넣는 칸(src/likes.js). 고치기와 빼기 단추는 줄 왼쪽에 따로 둔다 */
+.link-row .like-edit { margin-right: auto; }
+.like-form { display: flex; flex-direction: column; gap: 8px; }
+.win-body .like-form p { margin: 0; }
+.like-field { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 15px; }
+.like-field input {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 2px solid;
+  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
+  font: 15px var(--font);
+}
+.like-error { font-size: 14px; color: #b3261e; }
+.like-error[hidden] { display: none; }
+.like-form .link-row { margin-top: 4px; }
 .share-row input, .new-row input {
   flex: 1;
   min-width: 0;
@@ -1097,6 +1112,7 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .item.light { filter: brightness(1.3) drop-shadow(0 0 10px #ffd76a) drop-shadow(0 0 24px #ffb84a99); }
 .stage[data-theme="night"] .win-body input { background: #1a1922; color: var(--win-text); }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
+.stage[data-theme="night"] .like-error { color: #ffb4a8; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
 
 /* 방 꾸미기: 돌리기 안내 */

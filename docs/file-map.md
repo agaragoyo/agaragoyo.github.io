@@ -14,6 +14,7 @@
 | 새 미니게임이나 앱 만들기 | `apps/_template/`를 복사하고 `data/apps.js`에 한 줄 (`apps/README.md`) |
 | 창 안에서 돌지 않는 바깥 게임을 새 탭으로 열기 | `data/apps.js`에 `href: 'https://...'` (`src/apps/link-app.js`가 새 탭에서 열린다고 알리고 연다) |
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
+| 주인이 가구에 담아 두는 것(웹 게임 링크 등)의 칸과 검사 | `src/likes.js`. 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome` |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
 | 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate` |
 | 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(놀이터에서는 `집으로`가 보인다) |
@@ -94,6 +95,7 @@
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(놀이터 울타리의 "아파트" 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기 | `sanitizeHome`, `encodeHome`, `decodeHome` |
+| `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `line`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
 
@@ -108,7 +110,8 @@
 | `src/apps/mine-app.js` | 나도 만들기. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 두 번 누르면 로그인 화면으로 보낸다 |
 | `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
-| `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다 |
+| `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다. 안내와 단추(`linkPrompt`)는 옛날 컴퓨터도 같이 쓴다 |
+| `src/apps/computer-app.js` | 가구 기믹: 옛날 컴퓨터. 주인이 넣은 웹 게임이 어느 사이트의 새 탭에서 열리는지 보여 주고 연다. 주인에게는 게임을 넣고 고치는 칸이 있다 |
 
 ## data/: 목록
 

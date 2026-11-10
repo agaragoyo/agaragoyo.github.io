@@ -1,8 +1,10 @@
 // 집 상태 검사와 공유 링크(#room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
-// 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] } }
+// 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 } }
+// likes의 칸과 검사는 src/likes.js에 있다.
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace } from './rules.js';
+import { sanitizeLikes } from './likes.js';
 
 const MAX_ITEMS = 200;
 const MAX_NAME = 12;
@@ -30,7 +32,7 @@ export function sanitizeHome(raw) {
   const src = raw.scenes && typeof raw.scenes === 'object' ? raw.scenes : { room: raw.items };
   const scenes = {};
   for (const sc of SCENES) scenes[sc.id] = sanitizeItems(src[sc.id], sc.id);
-  return { v: 3, owner, scenes };
+  return { v: 3, owner, scenes, likes: sanitizeLikes(raw.likes) };
 }
 
 const toB64 = str => {
@@ -50,11 +52,13 @@ const unpack = list => (Array.isArray(list)
   ? list.filter(Array.isArray).map(([id, x, y, extra]) => (typeof extra === 'string' ? { id, x, y, wall: extra } : { id, x, y, r: extra === 1 ? 1 : 0 }))
   : []);
 
-// 링크에는 짧은 형태로 담는다: { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], ...] } }
+// 링크에는 짧은 형태로 담는다: { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], ...] }, l: likes }
+// 주인이 가구에 담아 둔 것(l)은 있을 때만 넣는다. l이 없는 예전 링크도 그대로 열린다.
 export function encodeHome(home) {
   const s = {};
   for (const [id, items] of Object.entries(home.scenes)) if (items.length) s[id] = pack(items);
-  return toB64(JSON.stringify({ v: 3, o: home.owner, s }));
+  const l = home.likes && Object.keys(home.likes).length ? home.likes : undefined;
+  return toB64(JSON.stringify({ v: 3, o: home.owner, s, l }));
 }
 
 export function decodeHome(str) {
@@ -64,7 +68,7 @@ export function decodeHome(str) {
     if (c?.v === 3 && c.s && typeof c.s === 'object') {
       const scenes = {};
       for (const [id, list] of Object.entries(c.s)) scenes[id] = unpack(list);
-      raw = { owner: c.o, scenes };
+      raw = { owner: c.o, scenes, likes: c.l };
     } else if (c?.v === 2) {
       raw = { owner: c.o, items: unpack(c.i) }; // 공간이 하나뿐이던 때의 링크
     }
