@@ -44,6 +44,8 @@ export const APPS = [
   { id: 'bookshelf', title: '책장', color: '#685447', builtin: 'bookshelf', folder: 'furniture' },
   { id: 'radio', title: '라디오', color: '#8a7f63', builtin: 'radio', folder: 'furniture' },
   { id: 'tv', title: 'TV', color: '#6f7d63', builtin: 'tv', folder: 'furniture' },
+  // 코르크 보드는 주인이 아니라 손님이 쪽지를 붙인다(방명록, 시험). 쪽지는 서버(src/cloud.js)에 있다
+  { id: 'corkboard', title: '코르크 보드', color: '#a87b4f', builtin: 'corkboard', folder: 'furniture' },
 
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.
   // 레포 밖 게임 다섯 개는 게임 안에 배경음악이 있어서 music: 'own' 이다.

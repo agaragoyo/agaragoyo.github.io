@@ -47,6 +47,8 @@ export const FURNITURE = [
   { id: 'frame',     scene: 'room', name: '액자',     zone: 'wall', size: [2, 2], color: '#c97b6b' },
   { id: 'poster',    scene: 'room', name: '포스터',   zone: 'wall', size: [2, 3], color: '#8e9490' },
   { id: 'wall-clock', scene: 'room', name: '벽시계',  zone: 'wall', size: [1, 1], color: '#f2e6cb' },
+  // 코르크 보드: 손님이 쪽지를 붙이는 방명록(시험, src/apps/corkboard-app.js). 그림이 오기 전까지는 코르크색 액자 상자로 보인다
+  { id: 'corkboard', scene: 'room', name: '코르크 보드', zone: 'wall', size: [3, 2], color: '#c69a64', gimmick: 'app:corkboard' },
   // 놀이터
   { id: 'sandbox',   scene: 'playground', name: '모래 놀이터', zone: 'floor', size: [3, 3], height: 14, color: '#e3cf98' },
   { id: 'slide',     scene: 'playground', name: '미끄럼틀', zone: 'floor', size: [3, 1], height: 96, color: '#e5534b' },

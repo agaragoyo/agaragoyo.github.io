@@ -45,6 +45,7 @@
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
+| 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 긴 링크(`#r=`)는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`. 짧은 링크(`#s=`)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules` |
 | 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
@@ -61,7 +62,7 @@
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
 | `CLAUDE.md` | Claude Code용. `AGENTS.md`를 불러오고 Claude 전용 몇 줄만 더한다 |
 | `known-issues.md` | 되풀이된 함정 목록(증상, 원인, 규칙). 코드를 고치기 전에 읽는다 |
-| `firestore.rules` | 짧은 링크의 방을 두는 서버(Firebase의 Firestore) 보안 규칙. 서버에 저절로 올라가지 않아서, 고치면 Firebase 콘솔의 Firestore > 규칙에 붙여 게시한다(known-issues 59) |
+| `firestore.rules` | 짧은 링크의 방과 코르크 보드의 쪽지를 두는 서버(Firebase의 Firestore) 보안 규칙. 서버에 저절로 올라가지 않아서, 고치면 Firebase 콘솔의 Firestore > 규칙에 붙여 게시한다(known-issues 59) |
 | `.gitignore` | 레포에 올리지 않는 파일(개인 기획 문서, Claude 개인 설정) |
 | `.gitattributes` | 줄바꿈을 LF로 통일한다(맥과 윈도우가 섞인 팀) |
 | `.nojekyll` | GitHub Pages가 파일을 가공하지 않고 그대로 내보내게 한다 |
@@ -80,7 +81,7 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인(이웃집 줄과 짧은 링크의 방 받아 오기 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/os.js` | 부팅, 로그인(이웃집 줄과 짧은 링크의 방 받아 오기 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 링크를 풀어 깨진 줄을 빼고 여섯 집까지 고르기, 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패는 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
@@ -101,7 +102,7 @@
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#r=...`, 예전 링크는 `#room=...`) 만들기, 읽기. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말도 담긴다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
-| `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기. SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 짧은 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `MAX_CODE`, `CloudError` |
+| `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기. SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 짧은 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 짧은 링크를 지우면 쪽지도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `NOTE`, `MAX_CODE`, `CloudError` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
@@ -122,6 +123,7 @@
 | `src/apps/bookshelf-app.js` | 가구 기믹: 책장. 고른 책의 표지(같은 디자인에 제목과 작가, 무작위 색)와 남긴 구절이 크게 뜨고, 선반의 책등이나 방향키로 넘긴다. 주인은 5권까지 넣고 고치고 뺀다 |
 | `src/apps/radio-app.js` | 가구 기믹: 라디오. 주인이 넣은 CD(스포티파이, 애플 뮤직 링크)를 펼치고, 고른 CD가 라디오에 들어가 돌면 공식 플레이어를 옆의 작은 창에 띄운다. 음악 창은 라디오를 내려놓아도 남고 그동안 사이트 배경음악을 멈춘다 |
 | `src/apps/tv-app.js` | 가구 기믹: TV. 주인이 고른 영화와 TV 시리즈의 포스터를 추천 줄로 늘어놓고 휠과 방향키로 넘긴다. 주인은 위키데이터로 이름을 찾아 연도, 감독, 링크를 채우고 포스터 그림 주소와 추천 이유를 넣는다 |
+| `src/apps/corkboard-app.js` | 가구 기믹: 코르크 보드(방명록, 시험). 가까이 보기 화면의 코르크 판에 손님이 붙인 쪽지가 최근 것부터 12장씩 붙는다. 손님은 색을 골라 닉네임과 글을 써 붙이고 자기 쪽지를 지우며, 주인은 모든 쪽지를 지운다. 쪽지는 서버(`src/cloud.js`)에 있어 짧은 링크를 만든 방에서만 쓴다 |
 | `src/apps/computer-app.js` | 가구 기믹: 옛날 컴퓨터. 주인이 넣은 웹 게임이 어느 사이트의 새 탭에서 열리는지 보여 주고 연다. 주인에게는 게임을 넣고 고치는 칸이 있다 |
 
 ## data/: 목록
@@ -219,5 +221,5 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 7. 부팅, 로그인
 8. 화면 효과(깜빡임, 구석 그늘), 모니터 OSD, 신호 없음 상자, 전원 연출(디가우스), 화면 보호기
 9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
-10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
+10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV, 코르크 보드. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
 11. 2005 모습: 모니터, 창, 부팅, 로그인 모양을 덮어쓰는 절

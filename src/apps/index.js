@@ -11,6 +11,7 @@ import { openConsoleApp } from './console-app.js';
 import { openBookshelfApp } from './bookshelf-app.js';
 import { openRadioApp } from './radio-app.js';
 import { openTvApp } from './tv-app.js';
+import { openCorkboardApp } from './corkboard-app.js';
 
 export const BUILTIN_APPS = {
   room: openRoomApp,
@@ -24,6 +25,7 @@ export const BUILTIN_APPS = {
   bookshelf: openBookshelfApp,
   radio: openRadioApp,
   tv: openTvApp,
+  corkboard: openCorkboardApp, // 손님이 쪽지를 붙이는 방명록(서버에 둔다, src/cloud.js)
 };
 
 export { openFrameApp } from './frame-app.js';

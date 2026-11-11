@@ -1817,6 +1817,135 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   .tv-row { scroll-behavior: auto; }
 }
 
+/* 코르크 보드(방명록): 나무 틀 안의 코르크 판에 손님이 붙인 쪽지가 최근 것부터 4칸씩 3줄 붙는다(src/apps/corkboard-app.js).
+   쪽지 색(--note)과 글자색은 밤에도 그대로라 한 짝으로 고정한다(known-issues 47). 판 크기는 쪽지 190×168px 열두 장에 맞췄다 */
+.cork-closeup {
+  width: 904px;
+  padding: 24px 28px 14px;
+  border: 14px solid #7a5232;
+  border-radius: 8px;
+  background-color: #c69a64;
+  background-image: radial-gradient(#a8794a 1px, transparent 1.6px), radial-gradient(#ddb985 1px, transparent 1.6px);
+  background-size: 9px 9px, 13px 13px;
+  background-position: 0 0, 4px 6px;
+  box-shadow: inset 0 0 0 2px #5d3d24, 0 16px 0 #0005;
+  color: #2a1f18;
+}
+.cork-closeup.loading .cork-area { opacity: 0.6; }
+.cork-notes {
+  display: grid;
+  grid-template-columns: repeat(4, 190px);
+  grid-auto-rows: 168px;
+  gap: 18px 20px;
+  justify-content: center;
+  align-content: start;
+  min-height: 540px;
+}
+.cork-note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px 10px;
+  background: var(--note);
+  box-shadow: 2px 4px 0 #0000002e, 0 1px 1px #00000026;
+  transform: rotate(var(--tilt, 0deg));
+  color: #2a1f18;
+}
+.cork-note.fresh { animation: cork-stick 0.5s ease-out; }
+@keyframes cork-stick { from { opacity: 0; transform: translateY(-16px) rotate(var(--tilt, 0deg)) scale(1.06); } }
+/* 빨간 압정. 쪽지와 쓰는 칸의 위 가운데에 꽂는다 */
+.cork-pin {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff9a88, #c0392b 70%);
+  box-shadow: 0 2px 0 #0004;
+}
+.cork-text { flex: 1; margin: 0; overflow: hidden; font-size: 15px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
+.cork-note.mid .cork-text { font-size: 14px; }
+.cork-note.long .cork-text { font-size: 13px; line-height: 1.4; }
+/* 아래 두 줄: 닉네임(12자가 한 줄에 들어간다), 붙인 날과 지우기 단추 */
+.cork-foot { display: grid; gap: 2px; margin-top: 6px; font-size: 12px; line-height: 1.35; }
+.cork-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cork-when { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 22px; color: #5f4e3e; }
+.cork-remove {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid #2a1f1866;
+  border-radius: 3px;
+  background: #ffffff8c;
+  font: 12px var(--font);
+  color: #2a1f18;
+  cursor: var(--cur-hand);
+}
+.cork-remove:hover, .cork-remove:focus-visible { background: #fff; }
+/* 지우기를 누르면 쪽지 위에 결과를 말하는 단추가 뜬다 */
+.cork-ask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 16px 10px 10px;
+  background: var(--note);
+  box-shadow: inset 0 0 0 2px #2a1f1866;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cork-ask p { margin: 0; white-space: nowrap; }
+.cork-ask-row { display: flex; gap: 6px; margin-top: 10px; }
+.cork-ask .btn { padding: 4px 8px; font-size: 13px; }
+.cork-empty { min-height: 540px; display: grid; place-content: center; justify-items: center; }
+.cork-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 640px;
+  padding: 20px 28px;
+  border: 3px solid #2f231b;
+  border-radius: 8px;
+  background: #fffaf0;
+  font-size: 17px;
+  line-height: 1.6;
+  text-align: center;
+  word-break: keep-all;
+}
+.cork-card p { margin: 0; }
+.cork-tools { display: flex; justify-content: center; gap: 10px; min-height: 36px; margin-top: 12px; }
+/* 손님이 쓰는 쪽지: 큰 포스트잇 한 장. 고른 색이 바로 칠해진다 */
+.cork-form {
+  position: relative;
+  width: 440px;
+  padding: 26px 26px 18px;
+  background: var(--note);
+  box-shadow: 3px 5px 0 #0000002e;
+  font-size: 15px;
+  color: #2a1f18;
+}
+.cork-form-head { margin: 0; font-size: 18px; font-weight: 700; }
+.cork-swatches { display: flex; gap: 10px; }
+.cork-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #2a1f1866;
+  border-radius: 50%;
+  background: var(--note);
+  cursor: var(--cur-hand);
+}
+.cork-swatch[aria-pressed="true"] { border-color: #2a1f18; box-shadow: 0 0 0 3px #fffaf0, 0 0 0 5px #2a1f18; }
+.cork-form .like-field input, .cork-form .like-field textarea { background: #fffdf6; color: #2a1f18; }
+.cork-label { display: flex; justify-content: space-between; }
+.cork-count { font-size: 13px; color: #5f4e3e; }
+@media (prefers-reduced-motion: reduce) {
+  .cork-note.fresh { animation: none; }
+}
+
 /* =====================================================================
    2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
    세 시대를 비교하던 규칙에서 2005 것만 남겨서, 앞의 기본 모양을 body[data-era="2005"]로 덮어쓴다
