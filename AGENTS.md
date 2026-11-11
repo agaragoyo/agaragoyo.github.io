@@ -81,7 +81,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 주인이 가구에 담아 두는 것(링크, 글): `src/likes.js`의 `SANITIZE`에 가구 id로 한 칸(검사와 글자 수 제한). 화면은 아래의 OS 기본 앱으로 만들고 `folder: 'furniture'`.
   손님 화면에도 뜨므로 글은 `h()`의 자식으로, 주소는 `safeLink`를 거친 것만 넣는다(`src/apps/computer-app.js`가 예)
 - 다른 사이트 창(iframe) 안에서 돌지 않는 남의 게임: `data/apps.js`에 `href`(https 주소). `src/apps/link-app.js`가 새 탭에서 열린다고 알린 뒤 연다
-- 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`
+- 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`, 공유 링크의 가구 번호는 `src/share.js`의 `LINK_CODES` 끝에 id 한 줄(중간에 끼우지 않는다)
 - 아바타 그림: `data/avatars.js`에 한 줄, 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄). 걷기와 말풍선은 `src/avatar.js`
 - 새 공간: `src/config.js`의 `SCENES`에 한 줄(바깥 공간은 돌아오는 울타리 문 `gate`), 가구의 `scene`. 바탕화면 바로 가기는 `data/apps.js`에 `scene: '<id>'`
 - 새 설정 값: `src/settings.js`의 `DEFAULTS`에 기본값, 쓰는 쪽은 `settings.get/subscribe`

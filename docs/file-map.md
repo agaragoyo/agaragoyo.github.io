@@ -45,7 +45,7 @@
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
-| 공유 링크 형식 | `src/share.js`의 `encodeHome`, `decodeHome` |
+| 공유 링크 형식 | `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES` |
 | 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
@@ -99,7 +99,7 @@
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
-| `src/share.js` | 집 상태 검사와 공유 링크(`#room=...`) 만들기, 읽기. 링크에는 화면 보호기 인사말도 담긴다 | `sanitizeHome`, `encodeHome`, `decodeHome` |
+| `src/share.js` | 집 상태 검사와 공유 링크(`#r=...`, 예전 링크는 `#room=...`) 만들기, 읽기. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말도 담긴다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `LINK_CODES` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
@@ -128,7 +128,7 @@
 | --- | --- |
 | `data/apps.js` | 앱 목록. 바탕화면 아이콘, 시작 메뉴, 미니게임 폴더가 모두 여기서 만들어진다. 칸의 뜻은 파일 맨 위에 있다 |
 | `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있고, 튜토리얼 기본 가구는 맨 아래에 있다 |
-| `data/neighbors.js` | 이웃집 목록. 문패에 쓰는 닉네임과 그 집 공유 링크(`#room=` 뒤의 글자). 로그인 화면과 놀이터 울타리에 나온다. 넣는 법은 파일 맨 위에 있다 |
+| `data/neighbors.js` | 이웃집 목록. 문패에 쓰는 닉네임과 그 집 공유 링크(`#r=` 뒤의 글자, 예전 링크는 `#room=` 뒤). 로그인 화면과 놀이터 울타리에 나온다. 넣는 법은 파일 맨 위에 있다 |
 | `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
 
 ## apps/: 팀원 앱

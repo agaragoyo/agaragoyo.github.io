@@ -18,7 +18,7 @@ function saveFile(blob, name) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다
-  const linkNow = () => `${location.origin}${location.pathname}#room=${encodeHome(home())}`;
+  const linkNow = () => `${location.origin}${location.pathname}#r=${encodeHome(home())}`; // 예전 링크는 #room=(src/share.js의 linkCode)
   const win = os.wm.open({
     key: app.id,
     app,

@@ -150,6 +150,16 @@ def check_furniture(app_ids):
             err(p.relative_to(ROOT).as_posix(), '가구 그림은 <가구 id>.png 또는 <가구 id>-r.png 로 올린다')
         elif m.group(1) not in ids:
             err(p.relative_to(ROOT).as_posix(), f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
+    # 공유 링크의 가구 번호(src/share.js의 LINK_CODES). 순서를 바꾸면 이미 보낸 링크의 가구가 바뀌므로 끝에만 더한다(known-issues 57)
+    block = re.search(r'export const LINK_CODES = \[(.*?)\];', read('src/share.js'), re.S)
+    codes = re.findall(r"'([^']+)'", block.group(1)) if block else []
+    if not codes:
+        err('src/share.js', 'LINK_CODES 를 찾지 못했다')
+    for c in sorted({c for c in codes if codes.count(c) > 1}):
+        err('src/share.js', f"LINK_CODES 에 '{c}' 가 두 번 있다")
+    for f in items:
+        if codes and f['id'] not in codes:
+            warn(f"data/furniture.js '{f['id']}'", "src/share.js 의 LINK_CODES 에 없다. 공유 링크가 조금 길어지니 LINK_CODES 끝에 더한다(중간에 끼우지 않는다)")
 
 
 # ---------- 가구 그림이 칸에 맞는지 ----------
@@ -385,11 +395,17 @@ def check_neighbors():
             err(where, 'name(문패 닉네임)은 1~12글자다')
         room = n.get('room', '')
         try:
-            data = json.loads(base64.urlsafe_b64decode(room + '=' * (-len(room) % 4)).decode('utf-8'))
+            raw = base64.urlsafe_b64decode(room + '=' * (-len(room) % 4))
+            if raw[:1] == b'\x04':  # 짧은 형식(src/share.js의 encodeShort): [4][이름 바이트 수][이름]...
+                if len(raw) < 2 or len(raw) < 2 + raw[1]:
+                    raise ValueError('짧다')
+                data = {'v': 4, 'o': raw[2:2 + raw[1]].decode('utf-8')}
+            else:
+                data = json.loads(raw.decode('utf-8'))
         except Exception:
-            err(where, 'room 이 풀리지 않는다. 공유 링크에서 #room= 뒤의 글자 전부를 넣는다')
+            err(where, 'room 이 풀리지 않는다. 공유 링크에서 #r= 뒤(예전 링크는 #room= 뒤)의 글자 전부를 넣는다')
             continue
-        if not isinstance(data, dict) or data.get('v') != 3 or not isinstance(data.get('s'), dict):
+        if not isinstance(data, dict) or data.get('v') not in (3, 4) or (data.get('v') == 3 and not isinstance(data.get('s'), dict)):
             err(where, '예전 형식의 링크다. 배포 사이트의 공유하기에서 링크를 다시 복사한다')
         elif data.get('o') != name:
             err(where, '링크 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
