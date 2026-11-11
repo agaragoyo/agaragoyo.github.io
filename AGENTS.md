@@ -48,6 +48,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 쓰지 않는 것: 팀원 실명(사람은 Admin, Maintain 같은 권한이나 역할로 적는다), 팀원에게 물어볼 질문, 누가 무엇을 제보하거나 좋아했는지, 팀 안의 의견, 사적이거나 민망한 이야기, 개인 연락처
 - 제보는 "제보가 있었다"로만 쓴다. 커밋 전에 바뀐 문서에서 사람 이름과 대화 내용을 한 번 훑는다
 - 비밀번호, API 키, 토큰을 파일에 넣지 않는다
+  - 예외는 Firebase 웹 설정의 API 키(`src/cloud.js`의 `API_KEY`) 하나다. 원래 웹페이지에 공개되는 값이고, 데이터는 서버의 보안 규칙(`firestore.rules`)이 지킨다. 다른 파일에는 넣지 않는다(자동 점검이 본다)
 
 ## 실행과 확인
 
@@ -71,6 +72,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - `data/`: 앱 목록(`apps.js`)과 가구 목록(`furniture.js`)
 - `apps/`: 팀원 앱(iframe). SDK `apps/aga-sdk.js`, 틀 `apps/_template/`
 - `tools/`: 개발 서버, 자동 점검, 캐시 지문. `worklog/`: 작업 일지. `docs/`: 설명서와 파일 지도
+- `firestore.rules`: 짧은 공유 링크의 방을 두는 서버(Firebase의 Firestore) 보안 규칙. 서버 코드는 `src/cloud.js`
 
 ## 새 기능을 붙이는 곳
 
@@ -88,6 +90,8 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - OS가 직접 그리는 기본 앱: `src/apps/<이름>-app.js`에 `open<이름>App(os, app)`, `src/apps/index.js`에 등록, `data/apps.js`에 `builtin: '<이름>'`
   - 요소는 `src/util.js`의 `h()`로 만든다. 창은 `os.wm.open({ key, app, title, width, height, build })`, `build`가 돌려준 함수는 창을 닫을 때 불린다
 - 앱 SDK에 새 기능: `src/sdk-host.js`의 `HANDLERS`에 하나, `apps/aga-sdk.js`에 하나
+- 서버(Firebase)에 둘 것(짧은 링크의 방, 앞으로 방명록): `src/cloud.js`에 함수, 문서 모양과 누가 읽고 쓰는지는 `firestore.rules`.
+  서버에서 읽은 값도 링크처럼 검사를 거친다(`decodeHome`). 규칙은 저절로 올라가지 않으므로 고친 PR을 합친 뒤 Admin이 Firebase 콘솔에 게시한다(known-issues 59)
 - 기계로 지킬 수 있는 새 규칙: `tools/check.py`에 `check_...` 함수
 
 ## 지켜야 할 것

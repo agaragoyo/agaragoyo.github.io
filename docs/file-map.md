@@ -45,7 +45,7 @@
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
-| 공유 링크 형식 | `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES` |
+| 공유 링크 형식 | 긴 링크(`#r=`)는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`. 짧은 링크(`#s=`)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules` |
 | 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
@@ -61,6 +61,7 @@
 | `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
 | `CLAUDE.md` | Claude Code용. `AGENTS.md`를 불러오고 Claude 전용 몇 줄만 더한다 |
 | `known-issues.md` | 되풀이된 함정 목록(증상, 원인, 규칙). 코드를 고치기 전에 읽는다 |
+| `firestore.rules` | 짧은 링크의 방을 두는 서버(Firebase의 Firestore) 보안 규칙. 서버에 저절로 올라가지 않아서, 고치면 Firebase 콘솔의 Firestore > 규칙에 붙여 게시한다(known-issues 59) |
 | `.gitignore` | 레포에 올리지 않는 파일(개인 기획 문서, Claude 개인 설정) |
 | `.gitattributes` | 줄바꿈을 LF로 통일한다(맥과 윈도우가 섞인 팀) |
 | `.nojekyll` | GitHub Pages가 파일을 가공하지 않고 그대로 내보내게 한다 |
@@ -79,7 +80,7 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인(이웃집 줄 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/os.js` | 부팅, 로그인(이웃집 줄과 짧은 링크의 방 받아 오기 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림, 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 링크를 풀어 깨진 줄을 빼고 여섯 집까지 고르기, 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패는 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
@@ -99,7 +100,8 @@
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
-| `src/share.js` | 집 상태 검사와 공유 링크(`#r=...`, 예전 링크는 `#room=...`) 만들기, 읽기. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말도 담긴다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `LINK_CODES` |
+| `src/share.js` | 집 상태 검사와 공유 링크(`#r=...`, 예전 링크는 `#room=...`) 만들기, 읽기. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말도 담긴다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
+| `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기. SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 짧은 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `MAX_CODE`, `CloudError` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
@@ -194,11 +196,11 @@
 ```
 index.html
 └─ src/main.js ─── settings.js, cursors.js
-   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
+   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
-         ├─ share-app.js ── room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js
+         ├─ share-app.js ── cloud.js, room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js
          ├─ folder-app.js, music-app.js, mine-app.js
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
