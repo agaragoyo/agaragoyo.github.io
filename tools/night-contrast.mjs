@@ -1,6 +1,6 @@
 // 밤 모드 글자 대비 점검. 밤에 글자가 바탕에 묻히는 함정(known-issues 11, 18, 47)을 사람 눈 대신 기계로 잡는다.
 //
-//   node tools/night-contrast.mjs                이 폴더의 사이트를 빈 포트에 띄워 잰다(10초쯤 걸린다)
+//   node tools/night-contrast.mjs                이 폴더의 사이트를 빈 포트에 띄워 잰다(15초쯤 걸린다)
 //   node tools/night-contrast.mjs --base=<주소>   이미 떠 있는 사이트를 잰다(예: https://agaragoyo.github.io/)
 //   node tools/night-contrast.mjs --all          실패가 아니어도 밤에 4.5:1 아래인 글자를 모두 보여 준다
 //
@@ -12,10 +12,11 @@
 // 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
+// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
-import { Stop, sleep, startServer, launchChrome, runTool } from './headless.mjs';
+import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome } from './headless.mjs';
 
 const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
 // 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다.
@@ -23,6 +24,17 @@ const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 미니게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
 const OPEN = ['games', 'room', 'share', 'music', 'shu-ramen'];
+// 가구를 두 번 눌러 여는 화면(가구 가까이 보기와 가구 창). 점검용 집의 가구로 연다.
+// [이름, 가구 id, 다 열렸는지 보는 선택자, 그 화면에서 차례로 눌러 더 열어 볼 단추의 글자]
+// 가구 화면을 새로 만들면 여기에 한 줄을 더하고, 그 가구가 점검용 집에 없으면 TEST_HOME에도 놓는다.
+const SCREENS = [
+  ['책장', 'bookshelf', '.closeup .book-cover', ['고치기']],
+  ['TV', 'tv', '.closeup .tv-row', ['작품 넣기', '직접 넣기']],
+  ['게임기', 'console', '.closeup .console-grid', []],
+  ['라디오', 'radio', '.closeup form', []],
+  ['코르크 보드', 'corkboard', '.closeup .cork-card', []],
+  ['컴퓨터', 'computer', '#windows .computer-app', ['고치기']],
+];
 // 원래 있고 화면에서 읽히는 낮은 대비는 여기에 이유와 함께 적는다. 재는 값이 min 아래로 더 떨어지면 다시 실패로 센다.
 // 적는 모양: { era: '2005', selector: '.win:not(.inactive) .win-title', min: 3, why: '화면에서 읽히는 이유' }
 // (2010 앞쪽 창 제목의 예외는 시대를 2005로 정하면서 지웠다.)
@@ -72,6 +84,38 @@ async function setDay() {
   const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
   settings.set({ night: false });
   return document.body.dataset.era;
+}
+
+// 바탕화면의 방에서 가구를 두 번 누른다(아바타가 걸어가 화면을 연다)
+function useFurniture(id) {
+  const el = document.querySelector(`#wallpaper .furn[data-id="${id}"]`);
+  if (!el) return false;
+  el.click();
+  el.click();
+  return true;
+}
+
+// 가구 화면이나 창 안에서 글자가 label인 단추를 누른다
+function pressButton(label) {
+  const b = [...document.querySelectorAll('.closeup .btn, #windows .btn')].find(x => x.textContent.trim() === label);
+  if (!b) return false;
+  b.click();
+  return true;
+}
+
+// 열려 있는 가구 화면과 창을 닫는다(쓰던 칸에서 빠져나온 뒤 Esc, 창은 닫기 단추)
+function closeScreens() {
+  document.activeElement?.blur();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  for (const b of document.querySelectorAll('#windows .win .win-close')) b.click();
+  return !document.querySelector('.closeup');
+}
+
+function ownUser() {
+  const tile = document.querySelector('.users .user:not(.neighbor):not(.new)');
+  if (!tile) return false;
+  tile.click();
+  return true;
 }
 
 function openStartMenu() {
@@ -126,6 +170,7 @@ async function dayAndNight(selectors) {
   const where = el => {
     const win = el.closest('.win');
     if (win) return `${win.querySelector('.win-title')?.textContent.trim() || '이름 없는'} 창`;
+    if (el.closest('.closeup')) return '가구 가까이 보기';
     if (el.closest('#start-menu')) return '시작 메뉴';
     if (el.closest('#taskbar')) return '작업 표시줄';
     if (el.closest('.coach-card')) return '튜토리얼 카드';
@@ -166,6 +211,8 @@ async function dayAndNight(selectors) {
     for (let t; (t = walker.nextNode());) {
       const el = t.parentElement;
       if (!el || seen.has(el) || !t.textContent.trim()) continue;
+      // 방 그림(SVG) 안의 글자(놀이터 문패, 그림이 없는 가구의 이름)는 재지 않는다. 뒤에 깔린 도형이 조상이 아니라서 바탕색을 알 수 없다
+      if (el instanceof SVGElement) continue;
       if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
       const range = document.createRange();
       range.selectNodeContents(t);
@@ -240,14 +287,17 @@ async function main() {
   await until(page, s => s.ready, `${base} 주소가 다 뜨지 않았다`);
 
   // 전원: 페이지가 다 뜨기 전에 누르면 먹지 않으므로 켜지지 않았으면 다시 누른다
-  const t1 = Date.now();
-  for (let i = 0; ; i++) {
-    const s = await page.run(pageState);
-    if (s.login) break;
-    if (Date.now() - t1 > 20000) throw new Stop(`전원을 눌러도 로그인 화면이 뜨지 않았다(지금: ${JSON.stringify(s)})`);
-    if (i % 10 === 0 && s.power !== 'true') await page.run(pressPower);
-    await sleep(150);
-  }
+  const powerOn = async () => {
+    const t1 = Date.now();
+    for (let i = 0; ; i++) {
+      const s = await page.run(pageState);
+      if (s.login) break;
+      if (Date.now() - t1 > 20000) throw new Stop(`전원을 눌러도 로그인 화면이 뜨지 않았다(지금: ${JSON.stringify(s)})`);
+      if (i % 10 === 0 && s.power !== 'true') await page.run(pressPower);
+      await sleep(150);
+    }
+  };
+  await powerOn();
   if (!(await page.run(newUser, '밤점검'))) throw new Stop('로그인 화면에 새 사용자 만들기 칸이 없다(저장된 집이 있는 사용자 폴더로 열렸다).');
   await until(page, s => s.desktop, '새 사용자를 만들어도 바탕화면이 뜨지 않았다');
 
@@ -267,21 +317,59 @@ async function main() {
       throw new Stop(`${era} 낮과 밤으로 바뀌지 않았다(시대 ${r.era}, 낮 ${r.dayTheme}, 밤 ${r.nightTheme}).`);
     }
     if (r.night.length < 50) throw new Stop(`${era} 밤 화면에서 글자를 ${r.night.length}개밖에 찾지 못했다. 창이 열렸는지 본다.`);
-    results.push(judge(era, r));
+    results.push({ ...judge(era, r), label: era });
+  }
+
+  // 둘째 바퀴: 가구를 두 번 눌러 여는 화면. 점검용 집을 내 집으로 심고 다시 들어가 화면마다 낮과 밤을 잰다.
+  // 이미 떠 있는 사이트(--base)에서는 하지 않는다. 그 사이트의 저장소에 점검용 집을 심게 되기 때문이다
+  if (!option('base')) {
+    const era = ERAS[0];
+    const exceptions = EXCEPTIONS.filter(e => e.era === era).map(e => e.selector);
+    const measure = async label => {
+      const r = await page.run(dayAndNight, exceptions);
+      if (r.dayTheme !== 'day' || r.nightTheme !== 'night') throw new Stop(`${label} 화면에서 낮과 밤으로 바뀌지 않았다(낮 ${r.dayTheme}, 밤 ${r.nightTheme}).`);
+      results.push({ ...judge(era, r), label: `${era} ${label}` });
+    };
+    await page.run(plantHome, TEST_HOME);
+    await page.send('Page.navigate', { url: 'about:blank' });
+    await page.send('Page.navigate', { url: base });
+    await until(page, s => s.ready, `${base} 주소가 다시 뜨지 않았다`);
+    await powerOn();
+    if (!(await page.run(ownUser))) throw new Stop('로그인 화면에 점검용 집의 사용자가 없다.');
+    await until(page, s => s.desktop, '점검용 집으로 들어가도 바탕화면이 뜨지 않았다');
+    await sleep(500);
+    for (const [name, id, ready, more] of SCREENS) {
+      if (!(await page.run(useFurniture, id))) throw new Stop(`바탕화면의 방에 ${id} 가구가 없다. tools/headless.mjs의 TEST_HOME에 놓는다.`);
+      const t2 = Date.now();
+      while (!(await page.run(sel => !!document.querySelector(sel), ready))) {
+        if (Date.now() - t2 > 15000) throw new Stop(`${name} 화면이 열리지 않았다(${ready}). 화면이 바뀌었으면 tools/night-contrast.mjs의 SCREENS도 고친다.`);
+        await sleep(150);
+      }
+      await sleep(250);
+      await measure(name);
+      for (const label of more) {
+        if (!(await page.run(pressButton, label))) throw new Stop(`${name} 화면에 "${label}" 단추가 없다. 단추 이름이 바뀌었으면 SCREENS도 고친다.`);
+        await sleep(250);
+        await measure(`${name}의 ${label}`);
+      }
+      for (let i = 0; i < 4 && !(await page.run(closeScreens)); i++) await sleep(100);
+      await page.run(setDay);
+      await sleep(150);
+    }
   }
 
   console.log(`밤 모드 글자 대비 점검: 낮에는 ${LIMIT}:1 이상인데 밤에 그 아래로 떨어지는 글자를 센다`);
   for (const r of results) {
     const extra = [r.excused.length && `예외 ${r.excused.length}개`, SHOW_ALL && `낮에도 낮음 ${r.low.length}개`].filter(Boolean);
-    console.log(`  ${r.era}  글자 ${r.count}개, 밤에만 낮음 ${r.fails.length}개${extra.map(x => ', ' + x).join('')}`);
+    console.log(`  ${r.label}  글자 ${r.count}개, 밤에만 낮음 ${r.fails.length}개${extra.map(x => ', ' + x).join('')}`);
   }
-  for (const r of results) for (const f of r.excused) console.log(`예외 ${r.era} 밤 ${line(f)}: ${f.why}`);
-  if (SHOW_ALL) for (const r of results) for (const f of r.low.sort((a, b) => a.ratio - b.ratio)) console.log(`낮음 ${r.era} 밤 ${line(f)}`);
+  for (const r of results) for (const f of r.excused) console.log(`예외 ${r.label} 밤 ${line(f)}: ${f.why}`);
+  if (SHOW_ALL) for (const r of results) for (const f of r.low.sort((a, b) => a.ratio - b.ratio)) console.log(`낮음 ${r.label} 밤 ${line(f)}`);
   const unused = EXCEPTIONS.filter(e => !results.some(r => r.usedExceptions.has(e)));
   for (const e of unused) console.log(`경고 예외 ${e.era} ${e.selector}에 걸리는 글자가 없다. 고쳤거나 이름이 바뀌었으면 EXCEPTIONS에서 지운다`);
   for (const msg of new Set(page.pageErrors)) console.log(`경고 페이지 오류: ${msg}`);
-  const fails = results.flatMap(r => r.fails.sort((a, b) => a.ratio - b.ratio).map(f => ({ ...f, era: r.era })));
-  for (const f of fails) console.log(`실패 ${f.era} 밤 ${line(f)}`);
+  const fails = results.flatMap(r => r.fails.sort((a, b) => a.ratio - b.ratio).map(f => ({ ...f, label: r.label })));
+  for (const f of fails) console.log(`실패 ${f.label} 밤 ${line(f)}`);
   console.log(`점검 끝: 실패 ${fails.length}개 (${Math.round((Date.now() - t0) / 1000)}초)`);
   return fails.length ? 1 : 0;
 }
