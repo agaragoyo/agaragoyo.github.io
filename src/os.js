@@ -12,7 +12,7 @@ import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
-import { sanitizeHome, decodeHome } from './share.js';
+import { sanitizeHome, decodeHome, linkCode } from './share.js';
 import { createTutorial } from './tutorial.js';
 import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
@@ -101,8 +101,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
   function loginHomes() {
-    const m = location.hash.match(/^#room=(.+)$/);
-    return [ownHome(), m && decodeHome(m[1]), ...NEIGHBOR_LIST.map(neighborHome)].filter(Boolean);
+    const m = linkCode(location.hash);
+    return [ownHome(), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborHome)].filter(Boolean);
   }
 
   function showLogin() {
@@ -114,9 +114,9 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     users.replaceChildren();
     const own = ownHome();
 
-    const m = location.hash.match(/^#room=(.+)$/);
+    const m = linkCode(location.hash);
     if (m) {
-      const friend = decodeHome(m[1]);
+      const friend = decodeHome(m);
       if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
       else toast('링크가 깨져서 친구 컴퓨터를 열 수 없었습니다.');
     }
@@ -497,7 +497,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
   window.addEventListener('hashchange', () => {
-    if ((os.mode || !el.login.hidden) && location.hash.startsWith('#room=')) showLogin();
+    if ((os.mode || !el.login.hidden) && linkCode(location.hash)) showLogin();
   });
 
   // ---------- 알림 ----------
