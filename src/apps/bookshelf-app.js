@@ -5,7 +5,7 @@
 // 넣은 책은 집 상태의 likes.bookshelf에 저장되고 공유 링크에도 담긴다(src/likes.js).
 import { h, clamp } from '../util.js';
 import { openCloseup } from '../closeup.js';
-import { LIMIT, setLike, isOwner } from '../likes.js';
+import { LIMIT, setLike, isOwner, nextColor } from '../likes.js';
 
 // 표지 색(likes의 color 번호). 가구 그림의 책장(assets/furniture/bookshelf.png)에 꽂힌 책처럼 바랜 색이다. 개수는 LIMIT.bookColors와 같다
 export const BOOK_COLORS = ['#c9766a', '#7f9a6c', '#5d84b8', '#d4a12a', '#8b72b8', '#a07a4a', '#c06c94', '#4f8f86'];
@@ -94,11 +94,7 @@ export function openBookshelfApp(os, app) {
             return;
           }
           const list = [...books()];
-          // 새 책의 색은 무작위로 고르되, 바로 앞 책과 같은 색은 피한다(선반에서 책등이 붙어 보이지 않게)
-          const prev = list[list.length - 1]?.color;
-          let color = old?.color;
-          if (color == null) do { color = Math.floor(Math.random() * LIMIT.bookColors); } while (color === prev);
-          const book = { title: title.value, author: author.value, note: note.value, color };
+          const book = { title: title.value, author: author.value, note: note.value, color: old?.color ?? nextColor(list) }; // 고칠 때는 색을 그대로 둔다
           if (old) list[i] = book;
           else list.push(book);
           setLike(os, 'bookshelf', list);

@@ -30,17 +30,29 @@ export const LIMIT = {
   workWhy: 80,   // 추천 이유
 };
 
+// 글을 글자(코드 포인트) 단위로 나눈다. 이모지를 반으로 자르지 않으려는 것이고, 이미 반으로 잘려 들어온 조각(짝 없는 서러게이트)은 버린다.
+// 반쪽 조각은 화면에 깨진 글자로 보이고, 링크에 담았다 풀면 다른 글자(U+FFFD)로 바뀐다.
+const chars = text => Array.from(text).filter(ch => ch.length > 1 || ch < '\ud800' || ch > '\udfff');
+
 // 한 줄 글. 글자가 아닌 값은 빈 글로, 줄바꿈과 제어 문자는 띄어쓰기로 바꾸고 max 글자까지만 남긴다(이모지를 반으로 자르지 않게 글자 단위로 센다).
 export function line(value, max) {
   if (typeof value !== 'string') return '';
-  return Array.from(value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim()).slice(0, max).join('');
+  return chars(value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim()).slice(0, max).join('').trim();
 }
 
 // 여러 줄 글. 줄바꿈은 남기고(빈 줄은 하나까지), 다른 제어 문자는 띄어쓰기로 바꾼다.
 export function para(value, max) {
   if (typeof value !== 'string') return '';
   const text = value.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-  return Array.from(text).slice(0, max).join('').trim();
+  return chars(text).slice(0, max).join('').trim();
+}
+
+// 새로 넣는 책과 작품의 색 번호. 무작위로 고르되 목록의 마지막 것과 같은 색은 피한다(선반에서 책등이 붙어 보이지 않게).
+export function nextColor(list) {
+  const prev = list[list.length - 1]?.color;
+  let color;
+  do { color = Math.floor(Math.random() * LIMIT.bookColors); } while (color === prev);
+  return color;
 }
 
 // 새 탭으로 여는 링크 주소. http와 https만 받고, 아이디와 비밀번호가 든 주소는 버린다. 못 쓰는 주소는 빈 글을 돌려준다.

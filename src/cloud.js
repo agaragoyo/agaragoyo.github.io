@@ -59,6 +59,7 @@ async function request(url, opts = {}) {
 // 토큰은 한 시간짜리라 메모리에만 두고, 다시 받을 때 쓰는 refresh 토큰을 저장한다. 동시에 불려도 계정을 둘 만들지 않게 받는 중인 일을 같이 쓴다.
 let session = null; // { token, uid, until }
 let signing = null;
+let kept = true; // 로그인한 계정을 저장소에 남길 수 있었는지. 저장소를 못 쓰는 환경이면 false다
 
 async function signIn() {
   const { refresh } = state();
@@ -86,10 +87,15 @@ async function signIn() {
   return { token: r.idToken, uid: r.localId, until: Date.now() + (Number(r.expiresIn) - 60) * 1000 };
 }
 
+// 저장해 둔 계정이 메모리의 로그인과 달라졌으면 메모리의 것을 버리고 다시 로그인한다. "이 컴퓨터 초기화"로 저장소를 지웠거나
+// 다른 탭이 새 계정을 만든 경우다. 버리지 않으면 지워진 계정으로 방을 올리고 저장소에는 그 계정이 남지 않아서,
+// 새로 고침한 뒤에는 새 계정이 그 방을 고치지도 지우지도 못한다(known-issues 61).
 async function auth() {
+  if (session && kept && state().uid !== session.uid) session = null;
   if (session && Date.now() < session.until) return session;
   signing ||= signIn().finally(() => { signing = null; });
   session = await signing;
+  kept = state().uid === session.uid;
   return session;
 }
 

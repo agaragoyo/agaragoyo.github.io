@@ -160,7 +160,7 @@ function outdoorSVG(gate, neighbors = []) {
       <rect x="${x}" y="${y - 10}" width="${w}" height="10" style="fill:var(--apt-roof)" />`).join('');
   // 울타리의 문: 오른쪽 울타리의 아파트 문(.gate-*)과 왼쪽 울타리의 이웃집 문(.neighbor-*). wall 'R'은 y = 0 줄, 'L'은 x = 0 줄이다.
   const doors = [
-    ...(gate ? [{ wall: 'R', x: gate.x, w: gate.w, cls: 'gate', text: '아파트', size: 12, title: '두 번 누르면 집으로 돌아가요' }] : []),
+    ...(gate ? [{ wall: 'R', x: gate.x, w: gate.w, cls: 'gate', text: '아파트', size: 12, title: '두 번 눌러 집으로 돌아가기' }] : []),
     ...neighbors.map(n => ({
       wall: 'L', x: n.x, w: n.w, cls: 'neighbor', id: n.id,
       ...fitLabel(n.name, (n.w * TW) / 2 - 8), title: `두 번 눌러 ${n.name}의 집에 놀러 가기`,
