@@ -29,7 +29,7 @@ function sanitizeItems(list, sceneId) {
 // 공간이 하나뿐이던 옛 형식({ owner, items })은 내 방으로 옮긴다.
 export function sanitizeHome(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const owner = typeof raw.owner === 'string' ? raw.owner.trim().slice(0, MAX_NAME) : '';
+  const owner = line(raw.owner, MAX_NAME); // slice로 자르면 12번째 자리에 걸친 이모지가 반으로 잘려 깨진 글자가 남는다
   const src = raw.scenes && typeof raw.scenes === 'object' ? raw.scenes : { room: raw.items };
   const scenes = {};
   for (const sc of SCENES) scenes[sc.id] = sanitizeItems(src[sc.id], sc.id);

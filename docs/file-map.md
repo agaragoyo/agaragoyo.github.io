@@ -32,6 +32,7 @@
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`), `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 코드를 고친 뒤 주요 흐름이 그대로 도는지 기계로 눌러 보기 | `node tools/smoke.mjs`. 새 창이나 가구 화면을 만들면 그 파일의 `walk`에 한 줄을 더한다 |
+| 공유 링크와 집 검사를 고친 뒤 무작위 입력으로 두드려 보기 | `node tools/link-fuzz.mjs`. 가구에 담는 것의 종류를 더하면 그 파일의 `randomHome`과 `invariants`에도 더한다 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
@@ -166,6 +167,7 @@
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
 | `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문), 기본 앱 창과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 눌러 본다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자도 센다. 서버와 다른 사이트에는 요청을 보내지 않고, 그림의 모양과 소리는 보지 않는다 |
+| `tools/link-fuzz.mjs` | 공유 링크 무작위 점검. `node tools/link-fuzz.mjs`로 돌린다(3초쯤, Node 22.7 이상). 무작위로 꾸민 집 2만 개를 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값을 넣어도 멈추지 않고 규칙을 지키는 집만 돌려주는지 본다. `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것의 칸을 더했을 때 돌린다 |
 | `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. `tools/smoke.mjs`와 `tools/night-contrast.mjs`가 같이 쓴다 |
 | `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에 적는다 |
 
