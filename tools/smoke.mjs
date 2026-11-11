@@ -8,9 +8,11 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기, 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창,
-// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 본다.
+// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크,
+// 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
-// 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다(짧은 링크가 없는 집, CD가 없는 라디오로 본다).
+// 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방은 페이지 안의 fetch를 바꿔 껴서 서버 대신 답하고(fakeCloud),
+// 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
@@ -61,6 +63,23 @@ function overflowing() {
 async function linkOf(home, owner) {
   const { sanitizeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
   return encodeHome(sanitizeHome({ ...home, owner: owner || home.owner }));
+}
+
+// 서버(Firebase)로 가는 요청을 페이지 안에서 가로채, 짧은 링크(#s=)의 방을 서버 대신 답한다. 서버에는 요청이 나가지 않는다.
+// how: hold(window.__cloudAnswer()를 부를 때까지 기다렸다가 code의 방을 준다), missing(그런 방이 없다는 404), offline(연결 실패)
+// 물은 횟수는 window.__cloudCalls에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다
+function fakeCloud(how, code) {
+  const real = window.fetch;
+  window.__cloudCalls = 0;
+  window.fetch = async (url, opts) => {
+    if (!String(url).includes('googleapis.com')) return real(url, opts);
+    window.__cloudCalls++;
+    if (how === 'offline') throw new TypeError('Failed to fetch');
+    if (how === 'missing') return new Response('{}', { status: 404 });
+    await new Promise(done => { window.__cloudAnswer = done; });
+    return new Response(JSON.stringify({ fields: { code: { stringValue: code } } }));
+  };
+  return true;
 }
 
 // 미니게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
@@ -468,6 +487,62 @@ async function walk(page, base) {
     const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
     return !decodeHome(location.hash.slice(3)).likes.computer;
   }));
+
+  // ---------- 짧은 링크(#s=)의 방 ----------
+  // 서버 대신 페이지 안에서 답한다(fakeCloud). 받는 동안의 자리, 받기 전에 전원을 끄면 늦게 온 답을 버리는지(src/login.js의 isCurrent),
+  // 다시 켜면 받아 둔 방을 쓰는지, 없는 방과 연결 실패의 알림을 본다
+  const SHORT = '#s=AbCd1234';
+  const shortCode = await page.run(linkOf, HOME, '짧은친구');
+  await open(SHORT);
+  await page.run(fakeCloud, 'hold', shortCode);
+  await powerOn();
+  check('짧은 링크로 오면 방을 받는 동안 친구 방 자리가 눌리지 않는다', await page.run(() => {
+    const t = document.querySelector('.users .user');
+    return !!t && t.disabled && t.textContent.includes('불러오는 중');
+  }));
+  await probe('짧은 링크의 방을 받는 로그인 화면');
+  check('부팅할 때 서버에 방을 한 번 묻는다', (await page.run(() => window.__cloudCalls)) === 1);
+  await page.run(() => document.getElementById('power').click());
+  check('전원을 끄면 로그인 화면이 꺼진다', await until(page, () => document.getElementById('login').hidden && document.getElementById('boot').hidden, 10000));
+  await page.run(() => window.__cloudAnswer());
+  await sleep(500);
+  check('받기 전에 전원을 끄면 늦게 온 답으로 손님 자리를 만들지 않는다', await page.run(() => !document.getElementById('login').textContent.includes('손님으로 구경하기')));
+  await powerOn();
+  check('다시 켜면 받아 둔 친구 방이 손님 자리로 나온다', await until(page, () => [...document.querySelectorAll('.users .user')]
+    .some(t => !t.disabled && t.textContent.includes('짧은친구') && t.textContent.includes('손님으로 구경하기')), 3000));
+  check('다시 켜도 서버에 다시 묻지 않는다', (await page.run(() => window.__cloudCalls)) === 1);
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  check('짧은 링크의 손님 자리를 누르면 친구 방에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit'
+    && !document.getElementById('desktop').hidden && document.getElementById('toast').textContent.includes('짧은친구'), 5000));
+  await open(SHORT);
+  await page.run(fakeCloud, 'missing');
+  await powerOn();
+  check('없는 방의 짧은 링크는 친구 방 자리를 지우고 알린다', await until(page, () => !document.querySelector('.users .user[disabled]')
+    && !!document.querySelector('.users .user') && document.getElementById('toast').textContent.includes('찾을 수 없습니다'), 3000));
+  await open(SHORT);
+  await page.run(fakeCloud, 'offline');
+  await powerOn();
+  check('서버에 닿지 못하면 친구 방 자리를 지우고 알린다', await until(page, () => !document.querySelector('.users .user[disabled]')
+    && document.getElementById('toast').textContent.includes('불러오지 못했습니다'), 3000));
+
+  // ---------- 이 컴퓨터 초기화 ----------
+  // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
+  const appKey = `${games.own[0]}.smoke`;
+  await open();
+  const settings = await page.run(key => {
+    localStorage.setItem(key, '1');
+    localStorage.setItem('other-site.smoke', '1');
+    if (!localStorage.getItem('agarago.settings')) localStorage.setItem('agarago.settings', '{}');
+    return localStorage.getItem('agarago.settings');
+  }, appKey);
+  await powerOn();
+  await page.run(clickOnce, '.reset-link');
+  await page.run(clickText, '.reset-row .btn', '지우기');
+  check('초기화에서 지우기를 누르면 내 사용자 대신 새 사용자 만들기가 나온다', await until(page, () => !!document.querySelector('.user.new input')
+    && !document.querySelector('.users .user:not(.neighbor):not(.new)'), 5000));
+  const left = await page.run(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
+  check('지우기는 집과 앱 기록만 지우고 설정과 다른 사이트의 키는 남긴다', Object.keys(left).every(k => k === 'agarago.settings' || !k.startsWith('agarago.'))
+    && !(appKey in left) && left['other-site.smoke'] === '1' && left['agarago.settings'] === settings, Object.keys(left).join(', '));
 
   // 그림이 없는 가구의 404는 정상이다(known-issues 2). 그 밖의 콘솔 오류와 잡지 못한 예외를 센다
   const errors = [...new Set([...page.pageErrors, ...page.consoleErrors.filter(e => !/Failed to load resource/.test(e))])];
