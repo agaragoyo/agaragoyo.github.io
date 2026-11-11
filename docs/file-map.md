@@ -31,6 +31,7 @@
 | 아바타 그림과 옷 색 | `data/avatars.js`. 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄) |
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`), `outdoorSVG` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
+| 코드를 고친 뒤 주요 흐름이 그대로 도는지 기계로 눌러 보기 | `node tools/smoke.mjs`. 새 창이나 가구 화면을 만들면 그 파일의 `walk`에 한 줄을 더한다 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
@@ -164,6 +165,8 @@
 | `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 가구 그림이 칸에 맞는지(경고. PNG를 직접 풀어 바닥 튀어나옴, 칸 채움, 벽 가구 정면을 잰다), 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
+| `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문), 기본 앱 창과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 눌러 본다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자도 센다. 서버와 다른 사이트에는 요청을 보내지 않고, 그림의 모양과 소리는 보지 않는다 |
+| `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. `tools/smoke.mjs`와 `tools/night-contrast.mjs`가 같이 쓴다 |
 | `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에 적는다 |
 
 ## docs/: 설명 문서

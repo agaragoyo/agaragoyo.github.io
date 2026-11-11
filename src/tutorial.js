@@ -268,7 +268,7 @@ export function createTutorial(os) {
     hide();
     state = newState(false);
     save();
-    os.toast('튜토리얼은 시작 메뉴에서 다시 볼 수 있습니다', 4000);
+    os.toast('튜토리얼은 시작 메뉴에서 다시 볼 수 있습니다.', 4000);
   }
 
   function startPractice() {

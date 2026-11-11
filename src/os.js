@@ -337,10 +337,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     renderWallpaper();
     // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
     if (os.mode === 'visit') {
-      toast(`${os.home.owner}의 집에 놀러 왔습니다. 바닥을 눌러 걷고, 가구를 두 번 눌러 사용해 보세요`, 6000);
+      toast(`${os.home.owner}의 집에 놀러 왔습니다. 바닥을 눌러 걷고, 가구를 두 번 눌러 사용해 보세요.`, 6000);
     } else if (!walkTipShown && !os.tutorial.active) { // 튜토리얼을 하는 동안에는 걷는 법을 튜토리얼 끝에서 알려 준다
       walkTipShown = true;
-      toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말할 수 있습니다', 5000);
+      toast('방 바닥을 누르거나 방향키로 걷고, Enter로 말할 수 있습니다.', 5000);
     }
     renderDesktopIcons();
     tick();
