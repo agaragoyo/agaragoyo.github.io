@@ -578,6 +578,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     el.toast.classList.remove('show');
   }
   os.toast = toast;
+  os.hideToast = hideToast; // 가구를 가까이 보는 화면이 열릴 때 앞의 알림을 걷는다(src/closeup.js)
 
   return os;
 }
