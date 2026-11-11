@@ -1,6 +1,6 @@
 // 눌러 보기 점검(스모크 테스트). 코드를 고친 뒤 사이트의 주요 흐름이 그대로 도는지 사람 손 대신 기계로 눌러 본다.
 //
-//   node tools/smoke.mjs          이 폴더의 사이트를 빈 포트에 띄워 눌러 본다(1분쯤 걸린다)
+//   node tools/smoke.mjs          이 폴더의 사이트를 빈 포트에 띄워 눌러 본다(1분 남짓 걸린다)
 //   node tools/smoke.mjs --all    통과한 항목도 모두 보여 준다
 //
 // 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
@@ -8,7 +8,7 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기, 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창,
-// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 튜토리얼 연습 방, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 본다.
+// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다(짧은 링크가 없는 집, CD가 없는 라디오로 본다).
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
@@ -95,6 +95,35 @@ async function gameIds() {
   const { APPS } = await import(new URL('data/apps.js', document.baseURI).href);
   const games = APPS.filter(a => a.folder === 'games');
   return { own: games.filter(a => a.src?.startsWith('apps/')).map(a => a.id), link: games.find(a => a.href)?.id || null };
+}
+
+// 튜토리얼에서 놓는 가구(data/furniture.js의 TUTORIAL_FURNITURE)와 그 이름
+async function tutorialFurniture() {
+  const { TUTORIAL_FURNITURE: t, BY_ID } = await import(new URL('data/furniture.js', document.baseURI).href);
+  return { first: t.first, light: t.light, firstName: BY_ID[t.first].name, lightName: BY_ID[t.light].name };
+}
+
+// 튜토리얼 안내 카드가 떠 있고 글에 word가 들어 있는지. word가 비면 카드의 글을 돌려준다
+function cardSays(word) {
+  const card = document.querySelector('.coach-card');
+  const text = card && !card.hidden ? card.querySelector('.coach-text').textContent.replace(/\s+/g, ' ') : '';
+  return word ? text.includes(word) : text;
+}
+
+// 방 꾸미기 선반에서 가구 id의 카드가 보이면 그 가운데의 화면 좌표(선반 밖으로 넘어가 있으면 null)
+function shelfCard(id) {
+  const card = document.querySelector(`.room-app .card .furn[data-id="${id}"]`)?.closest('.card');
+  if (!card || card.hidden) return null;
+  const track = card.parentElement.getBoundingClientRect();
+  const r = card.getBoundingClientRect();
+  const x = r.left + r.width / 2;
+  return x > track.left + 8 && x < track.right - 8 ? { x, y: r.top + r.height / 2 } : null;
+}
+
+// 방 꾸미기의 방 그림에서 가로 fx, 세로 fy 비율 자리의 화면 좌표(바닥 가운데는 0.5, 0.68쯤이다)
+function roomPoint(fx, fy) {
+  const r = document.querySelector('.room-app .room').getBoundingClientRect();
+  return { x: r.left + r.width * fx, y: r.top + r.height * fy };
 }
 
 const savedHome = () => JSON.parse(localStorage.getItem('agarago.home.v3'));
@@ -354,14 +383,60 @@ async function walk(page, base) {
   await page.run(clickText, '.start-item', '튜토리얼');
   await sleep(300);
   await probe('튜토리얼 다시 보기 안내');
+  const beforePractice = JSON.stringify(await page.run(savedHome));
   await page.run(clickText, '#windows .btn', '빈 방에서 연습하기');
   await sleep(500);
   check('연습 방은 가구가 없는 빈 방이다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0);
   await probe('연습 방');
+
+  // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 놀이터 가기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
+  const tut = await page.run(tutorialFurniture);
+  const step = async (word, what) => {
+    check(`튜토리얼: ${what}`, await until(page, cardSays, 8000, word), `안내 카드: "${await page.run(cardSays, '')}"`);
+    await sleep(350); // 안내 카드가 가리키는 자리로 선반이 넘어가는 동안 기다린다
+  };
+  // 선반의 카드를 방 안의 자리로 끌어 놓는다. 자리가 막혀 있으면 다음 자리에 놓아 본다
+  const placeFromShelf = async (id, spots) => {
+    for (const [fx, fy] of spots) {
+      const card = await until(page, shelfCard, 4000, id);
+      if (!card) return false;
+      const to = await page.run(roomPoint, fx, fy);
+      await mouse(page, 'mousePressed', card);
+      await mouse(page, 'mouseMoved', { x: card.x + 4, y: card.y - 6 });
+      await mouse(page, 'mouseMoved', { x: card.x + 9, y: card.y - 12 });
+      await mouse(page, 'mouseMoved', to);
+      await mouse(page, 'mouseReleased', to);
+      await sleep(200);
+      if (await page.run(i => !!document.querySelector(`.room-app .items .furn[data-id="${i}"]`), id)) return true;
+    }
+    return false;
+  };
+  await step('방 꾸미기 아이콘', '첫 단계가 방 꾸미기 아이콘을 열라고 한다');
+  check('튜토리얼: 화살표가 가리킬 곳을 찾았다', await page.run(() => !document.querySelector('.coach-arrow').hidden && !document.querySelector('.coach-ring').hidden));
+  await openIcon('room');
+  await step(tut.firstName, `방 꾸미기를 열면 ${tut.firstName} 놓기로 넘어간다`);
+  check(`튜토리얼: 선반에서 ${tut.firstName} 카드를 끌어 방에 놓는다`, await placeFromShelf(tut.first, [[0.5, 0.68], [0.5, 0.8]]));
+  await step(tut.lightName, `${tut.firstName}를 놓으면 ${tut.lightName} 놓기로 넘어간다`);
+  check(`튜토리얼: 선반에서 ${tut.lightName} 카드를 끌어 방에 놓는다`, await placeFromShelf(tut.light, [[0.25, 0.62], [0.75, 0.62], [0.5, 0.45], [0.5, 0.92]]));
+  await step('창을 닫으세요', '가구 둘을 놓으면 창을 닫으라고 한다');
+  await closeWindows();
+  await step('두 번 누르면 아바타가', '창을 닫으면 놓은 가구를 써 보라고 한다');
+  await page.run(clickTwice, `#wallpaper .furn[data-id="${tut.light}"]`);
+  await step('다시 두 번 누르면', '가구를 쓰면 밤이 되고 한 번 더 써 보라고 한다');
+  check('튜토리얼: 연습 방이 밤이 된다', (await page.run(theme)) === 'night');
+  await page.run(clickTwice, `#wallpaper .furn[data-id="${tut.light}"]`);
+  await step('현관문', '낮으로 돌아오면 현관문으로 나가 보라고 한다');
+  await page.run(clickTwice, '#wallpaper .door-hit');
+  await step('아파트 문', '놀이터에 나가면 아파트 문으로 돌아오라고 한다');
+  await page.run(clickTwice, '#wallpaper .gate-hit');
+  check('튜토리얼: 방으로 돌아오면 끝 카드가 뜬다', await until(page, () => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝' && !document.querySelector('.coach-card').hidden, 15000));
+  await probe('튜토리얼 끝 카드');
+
   await page.run(() => document.querySelector('.coach-btn').click());
   await sleep(500);
   check('연습을 끝내면 저장된 방이 돌아온다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === HOME.scenes.room.length);
-  check('연습 방은 저장된 집을 바꾸지 않는다', (await page.run(savedHome)).scenes.room.length === HOME.scenes.room.length);
+  check('연습 방에서 놓은 가구와 바꾼 밤낮은 저장되지 않는다', JSON.stringify(await page.run(savedHome)) === beforePractice && (await page.run(theme)) === 'day'
+    && !(await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || '{}').night)));
 
   // ---------- 로그아웃과 손님 ----------
   await page.run(clickOnce, '.start-btn');
