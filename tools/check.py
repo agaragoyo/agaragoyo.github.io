@@ -3,12 +3,15 @@
 # 파일 지도(docs/file-map.md)와 실제 파일이 어긋나는지도 본다.
 # 오류가 하나라도 있으면 실패(종료 코드 1)한다. 경고는 알려만 준다.
 # 무엇을 보는지는 아래 check_* 함수 이름과 주석을 보면 된다. 새 규칙이 생기면 함수를 하나 더 만든다.
+import math
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
+import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 errors = []
@@ -147,6 +150,193 @@ def check_furniture(app_ids):
             err(p.relative_to(ROOT).as_posix(), '가구 그림은 <가구 id>.png 또는 <가구 id>-r.png 로 올린다')
         elif m.group(1) not in ids:
             err(p.relative_to(ROOT).as_posix(), f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
+
+
+# ---------- 가구 그림이 칸에 맞는지 ----------
+# 가구 그림은 data/furniture.js 의 칸(size)과 높이(height)로 만든 상자에 맞춰 줄어 아래 가운데에 붙는다(src/iso.js 의 boxSize,
+# style.css 의 .furn img). 사이트와 같은 식으로 그림을 상자에 얹어 재고, 바닥 밖으로 나오거나 칸을 다 채우지 못하거나 벽 가구가 기울어 있으면 경고한다.
+# 이미 올라간 그림도 있고 고치는 데 시간이 걸리므로 오류가 아니라 경고다. 그림이 없는 가구와 돌린 그림(-r.png)은 보지 않는다.
+FIT_ALPHA = 64              # 알파가 이 값 이상인 점을 칠해진 점으로 본다
+FIT_STICK_OUT = 6           # 바닥 변보다 이만큼(px) 넘게 아래로 나오면 경고
+FIT_FILL = 0.85             # 가로 칸과 세로 칸의 합이 3 이상인 가구는 칠해진 폭이 상자 폭의 이 비율은 되어야 한다
+FIT_FRONT = 10              # 가장 아래 점이 앞 꼭짓점에서 이만큼(px) 넘게 벗어나면 경고
+FIT_WALL_DEG = 3            # 벽 가구 그림의 아래 변이 이 각도(도)를 넘게 기울면 경고
+FIT_MAX_PIXELS = 4_000_000  # 이보다 큰 그림은 읽지 않는다(파이썬으로 푸는 데 오래 걸린다)
+
+
+def png_alpha(data):
+    """PNG 파일의 바이트에서 점마다 알파(0~255)를 읽어 (가로, 세로, 줄 목록)을 돌려준다. 표준 라이브러리만 쓴다.
+    8비트, 비인터레이스, 색 형식 6(RGBA), 2(RGB), 3(팔레트)만 읽는다. 그 밖의 형식이거나 깨졌으면 ValueError."""
+    if data[:8] != b'\x89PNG\r\n\x1a\n':
+        raise ValueError('PNG 파일이 아니다')
+    head = trns = None
+    idat = []
+    pos = 8
+    while pos + 8 <= len(data):
+        size, kind = struct.unpack('>I4s', data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + size]
+        if kind == b'IHDR' and len(body) == 13:
+            head = struct.unpack('>IIBBBBB', body)
+        elif kind == b'tRNS':
+            trns = body
+        elif kind == b'IDAT':
+            idat.append(body)
+        pos += 12 + size
+    if head is None or not idat:
+        raise ValueError('PNG 파일이 깨졌다')
+    w, h, depth, ctype, _, _, interlace = head
+    channels = {6: 4, 2: 3, 3: 1}.get(ctype)
+    if depth != 8 or interlace or channels is None:
+        raise ValueError(f'8비트 RGBA, RGB, 팔레트 PNG만 읽는다(이 파일은 비트 깊이 {depth}, 색 형식 {ctype}, 인터레이스 {interlace})')
+    if not 0 < w * h <= FIT_MAX_PIXELS:
+        raise ValueError(f'그림 크기({w}×{h})가 비었거나 너무 크다')
+    stride = w * channels
+    want = h * (stride + 1)
+    try:
+        raw = zlib.decompressobj().decompress(b''.join(idat), want)  # 한 줄은 필터 종류 1바이트와 점 데이터
+    except zlib.error:
+        raise ValueError('그림 데이터가 깨졌다') from None
+    if len(raw) < want:
+        raise ValueError('그림 데이터가 모자란다')
+
+    def plane(k):
+        """색 채널 k 하나를 푼 줄 목록. PNG 필터는 채널마다 따로 풀어도 같아서, RGBA에서 알파만 풀면 네 채널을 다 푸는 것보다 네 배 빠르다."""
+        rows = []
+        prev = bytearray(w)
+        for y in range(h):
+            p = y * (stride + 1)
+            ft = raw[p]  # 줄의 필터 종류
+            cur = bytearray(raw[p + 1:p + 1 + stride][k::channels])
+            if ft == 1:  # 왼쪽 점과의 차
+                for x in range(1, w):
+                    cur[x] = (cur[x] + cur[x - 1]) & 255
+            elif ft == 2:  # 위 줄과의 차
+                for x in range(w):
+                    cur[x] = (cur[x] + prev[x]) & 255
+            elif ft == 3:  # 왼쪽과 위의 평균과의 차
+                for x in range(w):
+                    cur[x] = (cur[x] + (((cur[x - 1] if x else 0) + prev[x]) >> 1)) & 255
+            elif ft == 4:  # 왼쪽, 위, 왼쪽 위 중 가까운 값과의 차(Paeth)
+                for x in range(w):
+                    a = cur[x - 1] if x else 0
+                    b = prev[x]
+                    c = prev[x - 1] if x else 0
+                    pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                    cur[x] = (cur[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+            elif ft:
+                raise ValueError(f'알 수 없는 필터({ft})가 있다')
+            rows.append(cur)
+            prev = cur
+        return rows
+
+    if ctype == 6:
+        return w, h, plane(3)
+    if ctype == 3:  # 팔레트: tRNS가 칸마다 알파를 적고, 모자란 칸은 불투명
+        table = bytes(trns or b'')[:256].ljust(256, b'\xff')
+        return w, h, [bytes(row).translate(table) for row in plane(0)]
+    if not trns or len(trns) < 6:  # RGB는 알파가 없어서 모두 칠해진 점. tRNS가 투명한 색 하나를 정했으면 그 색만 비운다
+        return w, h, [b'\xff' * w] * h
+    key = struct.unpack('>3H', trns[:6])
+    return w, h, [bytes(0 if px == key else 255 for px in zip(*row)) for row in zip(plane(0), plane(1), plane(2))]
+
+
+def painted_bottoms(rows):
+    """열마다 가장 아래 칠해진 줄의 번호(칠해진 점이 없는 열은 -1)."""
+    painted = bytes(int(a >= FIT_ALPHA) for a in range(256))
+    return [bytes(col).rfind(1) for col in zip(*(row.translate(painted) for row in rows))]
+
+
+def fit_num(v, limit):
+    """경고 문장에 적는 숫자. 반올림하면 허용 한도 이하로 보일 때만 소수 한 자리까지 적는다(6.3px이 "6px"로 보이지 않게)."""
+    return f'{v:.0f}' if round(v) > limit else f'{v:.1f}'
+
+
+def fit_floor(f, w, d, iw, ih, low, tw, th):
+    """바닥 가구와 책상 위 가구. 어긋난 곳을 말하는 문장의 목록을 돌려준다."""
+    height = int(f['height'])
+    bw = (w + d) * tw / 2  # 상자 크기. src/iso.js 의 boxSize 와 같다
+    bh = (w + d) * th / 2 + height
+    s = min(bw / iw, bh / ih)  # 그림이 상자에 맞춰 줄고 아래 가운데에 붙는다(style.css 의 .furn img)
+    ox, oy = (bw - iw * s) / 2, bh - ih * s
+    front = w * tw / 2  # 바닥 변의 앞 꼭짓점(가장 아래)의 x
+    xs = [x for x, y in enumerate(low) if y >= 0]
+
+    def bx(x):  # 그림의 점을 상자 좌표로
+        return ox + (x + 0.5) * s
+
+    def by(y):
+        return oy + (y + 0.5) * s
+
+    def edge(x):  # 바닥 변이 x에서 지나는 높이. 왼쪽 꼭짓점에서 앞 꼭짓점까지 내려가고 오른쪽 꼭짓점까지 올라간다
+        return d * th / 2 + height + x * th / tw if x <= front else bh - (x - front) * th / tw
+
+    out = []
+    stick = max(by(low[x]) - edge(bx(x)) for x in xs)
+    if stick > FIT_STICK_OUT:
+        out.append(f'바닥 변보다 {fit_num(stick, FIT_STICK_OUT)}px 튀어나온다')
+    if w + d >= 3:  # 1×1 같은 작은 물건은 칸을 다 채우지 않아도 된다
+        fill = (xs[-1] + 1 - xs[0]) * s / bw
+        if fill < FIT_FILL:
+            out.append(f'칠해진 폭이 칸 폭의 {int(fill * 100)}%뿐이다')
+        bottom = by(max(low))
+        tip = [bx(x) for x in xs if by(low[x]) >= bottom - 1]  # 가장 아래 점 둘레(1px 이내)의 열들
+        gap = sum(tip) / len(tip) - front
+        if abs(gap) > FIT_FRONT:
+            out.append(f'그림의 가장 아래 점이 칸의 앞 꼭짓점보다 {fit_num(abs(gap), FIT_FRONT)}px {"왼쪽" if gap < 0 else "오른쪽"}에 있다')
+    return out
+
+
+def fit_wall(low):
+    """벽 가구. 가로 가운데 80%의 열마다 가장 아래 칠해진 점을 직선으로 맞춰 기울기를 잰다(그림이 상자에 줄어도 각도는 같다)."""
+    xs = [x for x, y in enumerate(low) if y >= 0]
+    margin = (xs[-1] - xs[0]) * 0.1
+    pts = [(x, low[x]) for x in xs if xs[0] + margin <= x <= xs[-1] - margin]
+    if len(pts) < 8:
+        return []
+    mx = sum(x for x, _ in pts) / len(pts)
+    my = sum(y for _, y in pts) / len(pts)
+    slope = sum((x - mx) * (y - my) for x, y in pts) / sum((x - mx) ** 2 for x, _ in pts)
+    deg = math.degrees(math.atan(abs(slope)))
+    return [f'아래 변이 {fit_num(deg, FIT_WALL_DEG)}도 기울어 있다'] if deg > FIT_WALL_DEG else []
+
+
+def check_furniture_fit():
+    consts = dict(re.findall(r'export const (TW|TH)\s*=\s*(\d+)', read('src/config.js')))
+    iso = read('src/iso.js')
+    box = '((w + d) * TW) / 2' in iso and '((w + d) * TH) / 2 + def.height' in iso
+    rule = re.search(r'\.furn img\s*\{([^}]*)\}', read('style.css'))
+    contain = rule and re.search(r'object-fit:\s*contain', rule.group(1)) and re.search(r'object-position:\s*bottom', rule.group(1))
+    if len(consts) != 2 or not box or not contain:
+        err('src/iso.js', '가구 상자의 크기를 구하는 식(boxSize)이나 TW, TH, 그림을 상자에 얹는 규칙(style.css 의 .furn img)을 찾지 못했다. '
+            '바꿨다면 tools/check.py 의 check_furniture_fit도 같이 고친다')
+        return
+    tw, th = int(consts['TW']), int(consts['TH'])
+    for f in entries(read('data/furniture.js')):
+        path = ROOT / 'assets/furniture' / f"{f['id']}.png"
+        size = [int(n) for n in re.findall(r'\d+', f.get('size', ''))]
+        zone = f.get('zone')
+        if not path.is_file():
+            continue  # 그림이 없는 가구
+        if zone not in ('wall', 'floor', 'top') or len(size) != 2 or min(size) < 1 or (zone != 'wall' and not f.get('height', '').isdigit()):
+            continue  # 목록이 틀린 가구(check_furniture 가 오류로 알린다)
+        where = path.relative_to(ROOT).as_posix()
+        try:
+            iw, ih, rows = png_alpha(path.read_bytes())
+        except ValueError as e:
+            warn(where, f'칸에 맞는지 재지 못했다. {e}. 8비트 RGBA PNG로 내보내 다시 올린다')
+            continue
+        low = painted_bottoms(rows)
+        if max(low) < 0:
+            warn(where, '칠해진 곳이 없다. 그림이 통째로 투명하다')
+            continue
+        if zone == 'wall':
+            problems = fit_wall(low)
+            fix = '사이트가 벽에 맞춰 기울이므로 정면에서 본 그림으로 다시 그린다'
+        else:
+            problems = fit_floor(f, size[0], size[1], iw, ih, low, tw, th)
+            fix = f'칸({size[0]}×{size[1]})에 맞게 다시 그린다'
+        if problems:
+            warn(where, '. '.join(problems) + '. ' + fix)
 
 
 # 튜토리얼 (src/tutorial.js). 쓰는 단계의 기믹이 없으면 그 단계에서 막히고, 화면에서 찾는 이름이 바뀌면 화살표가 조용히 사라진다.
@@ -392,6 +582,7 @@ def main():
     check_no_build_tools()
     app_ids = check_apps()
     check_furniture(app_ids)
+    check_furniture_fit()
     check_tutorial()
     check_neighbors()
     check_avatars()
