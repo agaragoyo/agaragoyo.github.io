@@ -1,4 +1,4 @@
-// 화면 없는 크롬을 CDP로 모는 공용 부분. tools/night-contrast.mjs(밤 모드 글자 대비)와 tools/smoke.mjs(눌러 보기 점검)가 같이 쓴다.
+// 화면 없는 크롬을 CDP로 모는 공용 부분. tools/smoke.mjs(눌러 보기 점검), tools/night-contrast.mjs(밤 모드 글자 대비), tools/css-diff.mjs(모양 비교)가 같이 쓴다.
 // 이 폴더의 사이트를 tools/serve.py로 빈 포트에 띄우고, 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다.
 // 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬. npm 패키지는 쓰지 않는다.
 // 크롬을 찾지 못하면 환경 변수 CHROME에, 파이썬을 찾지 못하면 PYTHON에 실행 파일 경로를 넣는다.

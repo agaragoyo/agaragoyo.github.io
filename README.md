@@ -89,7 +89,7 @@ https://agaragoyo.github.io/ 에서 직접 써 보고 버그나 아이디어가 
 - 새 가구는 `data/furniture.js`에 한 줄을 넣고 그림을 `assets/furniture/<가구 id>.png`로 올립니다.
 - 방 안을 걷는 아바타는 `src/avatar.js`가 맡습니다. 아바타 그림은 `data/avatars.js`에 한 줄을 넣고 `assets/avatars/<아바타 id>.png`로 올리며, 그림 규격은 `data/avatars.js` 맨 위에 있습니다.
 - 방이나 놀이터 같은 새 공간은 `src/config.js`의 `SCENES`에 한 줄을 넣고 가구의 `scene`에 그 id를 적습니다. 바깥 공간이면 내 방으로 돌아오는 울타리 문 자리도 `gate`로 정합니다.
-- 모니터와 화면 모양은 `index.html`과 `style.css`가 맡습니다. `style.css` 끝부분의 "2005 모습" 절이 모니터와 창의 모양을 덮어씁니다.
+- 모니터와 화면 모양은 `index.html`과 `style.css`가 맡습니다. `style.css`는 절마다 제목 주석이 있고, 절의 순서는 `docs/file-map.md` 맨 아래에 있습니다.
 - 부팅, 창, 방 꾸미기, 배경음악처럼 컴퓨터 자체의 동작은 `src/` 폴더에 있습니다.
 
 이 밖의 자리와 파일마다 맡은 일은 [docs/file-map.md](docs/file-map.md)에 정리되어 있습니다.
