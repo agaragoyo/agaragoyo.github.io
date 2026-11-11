@@ -118,7 +118,7 @@ const queue = job => {
 
 // 방 글자를 올린다. 올린 적이 없으면 새 번호로 만들고, 있으면 같은 번호의 방을 고친다. 번호를 돌려준다.
 // 규칙이 updatedAt에 서버 시각만 받으므로 PATCH가 아니라 commit의 updateTransforms(REQUEST_TIME)로 쓴다.
-async function upload(code, keepalive = false) {
+async function upload(code) {
   if (code.length > MAX_CODE) throw new CloudError('denied', `방 글자가 ${MAX_CODE}자를 넘는다`);
   const me = await auth();
   const old = state().id;
@@ -126,7 +126,6 @@ async function upload(code, keepalive = false) {
   try {
     await request(`${DOCS}:commit?key=${API_KEY}`, {
       method: 'POST',
-      keepalive,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${me.token}` },
       body: JSON.stringify({
         writes: [{
@@ -171,14 +170,14 @@ export function unshare() {
 let timer = 0;
 let pending = null; // 올릴 방 글자를 만드는 함수
 
-function flush(keepalive = false) {
+function flush() {
   clearTimeout(timer);
   const make = pending;
   pending = null;
   if (!make || !sharedId()) return Promise.resolve();
   const code = make();
   if (code === state().sent) return Promise.resolve();
-  return queue(() => upload(code, keepalive));
+  return queue(() => upload(code));
 }
 
 // make는 올릴 때 부르므로 그사이에 더 고친 것까지 담긴다. 짧은 링크가 없으면 아무것도 하지 않는다(처음 올리기는 주인이 공유하기 창에서 고른다).
@@ -196,8 +195,9 @@ export function syncNow(make) {
   return flush();
 }
 
-// 탭을 닫거나 다른 탭으로 갈 때 기다리던 것을 바로 올린다. keepalive라 페이지가 닫혀도 요청은 끝까지 간다.
-// 그래도 못 올렸으면 다음에 내 컴퓨터로 들어올 때 다시 올린다(src/os.js의 enter).
+// 탭을 닫거나 다른 탭으로 갈 때 기다리던 것을 바로 올린다. 탭을 닫는 중이면 요청이 끊길 수 있는데,
+// 그때는 다음에 내 컴퓨터로 들어올 때 다시 올린다(src/os.js의 enter). fetch의 keepalive는 쓰지 않는다.
+// 파이어폭스가 2024년 말에야 지원해 Baseline 널리 사용 가능이 아니고(docs/checklists.md의 "사파리와 파이어폭스에서도 볼 때"), 다음에 올리는 길이 이미 있다.
 addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && pending) flush(true).catch(() => {});
+  if (document.visibilityState === 'hidden' && pending) flush().catch(() => {});
 });
