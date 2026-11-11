@@ -63,7 +63,10 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
   - 그림의 모양, 색, 소리는 보지 않는다. 고친 화면은 로컬 서버에서 직접 본다. 새 창이나 가구 화면을 만들면 도구의 `walk`에 한 줄을 더한다
 - 공유 링크 무작위 점검: `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 `node tools/link-fuzz.mjs`를 돌린다(3초쯤, Node 22.7 이상)
   - 무작위로 꾸민 집을 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값에도 멈추지 않는지 본다. 새 칸은 도구의 `randomHome`과 `invariants`에도 더한다
-- 밤 모드 글자 대비: `style.css`의 색이나 "2005 모습" 절, 창 화면을 고쳤으면 커밋 전에 `node tools/night-contrast.mjs`를 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요)
+- 모양 비교: `style.css`의 규칙을 합치거나 옮기거나 지우는 정리를 했으면 `node tools/css-diff.mjs`를 돌린다(5분쯤, Node 22 이상과 크롬이나 엣지 필요)
+  - 화면 99가지에서 모든 요소의 계산된 모양을 마지막 커밋의 `style.css`와 견준다. 모양을 바꾸지 않는 정리라면 "다른 곳 0개"가 나와야 한다
+  - 모양을 일부러 바꿨을 때는 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 본다
+- 밤 모드 글자 대비: `style.css`의 색이나 창 화면을 고쳤으면 커밋 전에 `node tools/night-contrast.mjs`를 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요)
   - 이 폴더를 빈 포트에 띄워 바탕화면까지 들어간 뒤 창 다섯 개와 시작 메뉴를 열고, 이어서 가구를 두 번 눌러 여는 화면 여섯 개와 그 안의 넣는 칸을 열어, 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다
   - 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 글자색을 바탕과 한 짝으로 고친다(known-issues 47)
   - 원래 있고 화면에서 읽히는 것만 도구 맨 위 `EXCEPTIONS`에 이유와 함께 넣는다. 새 창은 `OPEN`에, 새 가구 화면은 `SCREENS`에 더한다. 도구가 열지 않는 화면은 밤 모드에서 직접 본다
@@ -74,7 +77,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 파일마다 하는 일과 내보내는 것은 `docs/file-map.md`(파일 지도)에 있다. 자동 점검이 지도와 실제 파일이 맞는지 본다.
 큰 그림만 적으면 이렇다.
 
-- `index.html`, `style.css`: 사이트의 유일한 HTML과 모든 모양. `style.css` 끝의 "2005 모습" 절이 모니터와 창 모양을 덮어쓴다
+- `index.html`, `style.css`: 사이트의 유일한 HTML과 모든 모양. 2005년식 모니터와 창 모양은 요소마다 한 곳에만 있다(예전의 덮어쓰는 "2005 모습" 절은 2026-11-11에 합쳤다)
 - `src/`: 컴퓨터(OS)와 방 꾸미기. 시작점은 `src/main.js`, 기본 앱은 `src/apps/`, 설정은 `src/settings.js`, 숫자는 `src/config.js`
 - `data/`: 앱 목록(`apps.js`)과 가구 목록(`furniture.js`)
 - `apps/`: 팀원 앱(iframe). SDK `apps/aga-sdk.js`, 틀 `apps/_template/`

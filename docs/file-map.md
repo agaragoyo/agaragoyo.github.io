@@ -33,6 +33,7 @@
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 코드를 고친 뒤 주요 흐름이 그대로 도는지 기계로 눌러 보기 | `node tools/smoke.mjs`. 새 창이나 가구 화면을 만들면 그 파일의 `walk`에 한 줄을 더한다 |
 | 공유 링크와 집 검사를 고친 뒤 무작위 입력으로 두드려 보기 | `node tools/link-fuzz.mjs`. 가구에 담는 것의 종류를 더하면 그 파일의 `randomHome`과 `invariants`에도 더한다 |
+| `style.css`를 고친 뒤 화면의 모양이 어디가 달라졌는지 견주기 | `node tools/css-diff.mjs`. 모양을 바꾸지 않는 정리라면 "다른 곳 0개"가 나와야 한다 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
@@ -40,7 +41,7 @@
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
 | 창 열기, 끌기, 최대화 | `src/win.js` |
-| 2005년식 모니터와 창 모양 | `style.css` 끝의 "2005 모습" 절(앞의 기본 모양을 덮어쓰는 규칙) |
+| 2005년식 모니터와 창 모양 | `style.css`의 "모니터", "창", "작업 표시줄과 시작 메뉴", "부팅", "로그인" 절. 요소마다 규칙이 한 곳에만 있다(덮어쓰던 "2005 모습" 절은 2026-11-11에 합쳤다) |
 | 처음 접속해서 모니터가 그려지기 전의 화면(가림막, 점 세 개, 새로 고침 안내) | `index.html`의 `#page-loader`, `style.css`의 "첫 화면 가림막" 절. 걷는 곳은 `src/main.js` 맨 끝 |
 | 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
 | 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
@@ -168,7 +169,8 @@
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
 | `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문), 기본 앱 창과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 눌러 본다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자도 센다. 서버와 다른 사이트에는 요청을 보내지 않고, 그림의 모양과 소리는 보지 않는다 |
 | `tools/link-fuzz.mjs` | 공유 링크 무작위 점검. `node tools/link-fuzz.mjs`로 돌린다(3초쯤, Node 22.7 이상). 무작위로 꾸민 집 2만 개를 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값을 넣어도 멈추지 않고 규칙을 지키는 집만 돌려주는지 본다. `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것의 칸을 더했을 때 돌린다 |
-| `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. 가구와 담아 둔 것이 있는 점검용 집(`TEST_HOME`)과 그 집을 내 집으로 심는 함수도 여기에 있다. `tools/smoke.mjs`와 `tools/night-contrast.mjs`가 같이 쓴다 |
+| `tools/css-diff.mjs` | 모양 비교. `node tools/css-diff.mjs`로 돌린다(5분쯤, Node 22 이상과 크롬이나 엣지, git 필요). 화면 99가지(꺼진 화면부터 손님 화면까지, 단추에 마우스를 올리거나 누른 상태 포함)를 열어, 같은 페이지에서 스타일시트만 마지막 커밋의 것으로 바꿔 끼우고 모든 요소의 계산된 속성을 낮과 밤에서 견준다. 모양을 바꾸지 않는 `style.css` 정리라면 "다른 곳 0개"가 나와야 하고, 모양을 일부러 바꿨다면 바뀐 요소와 속성의 목록이 나온다. `--base=<커밋이나 브랜치>`로 견줄 대상을 바꾼다 |
+| `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. 가구와 담아 둔 것이 있는 점검용 집(`TEST_HOME`)과 그 집을 내 집으로 심는 함수도 여기에 있다. `tools/smoke.mjs`, `tools/night-contrast.mjs`, `tools/css-diff.mjs`가 같이 쓴다 |
 | `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 이어서 점검용 집을 심어 가구를 두 번 눌러 여는 화면 여섯 개(책장, TV, 게임기, 라디오, 코르크 보드, 컴퓨터)와 그 안의 넣는 칸도 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 방 그림 안의 글자(문패, 그림 없는 가구의 이름)는 재지 않는다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에, 가구 화면은 `SCREENS`에 적는다 |
 
 ## docs/: 설명 문서
@@ -227,4 +229,3 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 8. 화면 효과(깜빡임, 구석 그늘), 모니터 OSD, 신호 없음 상자, 전원 연출(디가우스), 화면 보호기
 9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
 10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV, 코르크 보드. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
-11. 2005 모습: 모니터, 창, 부팅, 로그인 모양을 덮어쓰는 절

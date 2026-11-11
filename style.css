@@ -146,40 +146,32 @@ button { font-family: inherit; }
 .bezel, .controls { font-size: calc(12.5 * var(--u)); }
 /* 모니터 크기 단위: --u 는 무대 1px이 화면에서 차지하는 크기다(main.js의 fit이 정한다).
    그래서 테두리, 버튼, 스피커 구멍이 화면 크기와 같은 비율로 커지고 작아진다. */
-/* 모니터 몸체: 살짝 거친 플라스틱 질감 + 왼쪽 위에서 오는 빛 + 둥글게 깎인 모서리 */
+/* 모니터 몸체: 2005년 무렵의 은색 평면 CRT. 왼쪽 위에서 오는 빛과 둥글게 깎인 모서리 */
 .bezel {
   position: relative;
   padding: var(--pad) var(--pad) 0;
-  border-radius: calc(2 * var(--u));
+  border-radius: calc(10 * var(--u));
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.37 0 0 0 0 0.3 0 0 0 0.22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse at 18% 0%, #fffaf0 0%, transparent 55%),
-    linear-gradient(var(--plastic-hi), var(--plastic-lo) 70%, #bdb399);
+    linear-gradient(100deg, #ffffff22 0 30%, transparent 30% 70%, #ffffff14 70%),
+    linear-gradient(#d9dce1, #b4b9c0 55%, #9ba0a8);
   box-shadow:
-    inset 0 calc(2.5 * var(--u)) calc(1.25 * var(--u)) #fffc,
-    inset calc(2.5 * var(--u)) 0 calc(1.25 * var(--u)) #fff6,
-    inset 0 calc(-6.25 * var(--u)) calc(3.75 * var(--u)) #0000002e,
-    inset calc(-3.75 * var(--u)) 0 calc(3.75 * var(--u)) #00000018,
-    0 calc(2.5 * var(--u)) 0 #9f967e,
-    0 calc(7.5 * var(--u)) 0 #8b826b,
-    0 calc(37.5 * var(--u)) calc(75 * var(--u)) #000c,
-    0 calc(12.5 * var(--u)) calc(22.5 * var(--u)) #0007;
+    inset 0 calc(2 * var(--u)) 0 #fff,
+    inset 0 calc(-5 * var(--u)) calc(4 * var(--u)) #00000033,
+    0 calc(3 * var(--u)) 0 #7c8189,
+    0 calc(30 * var(--u)) calc(60 * var(--u)) #000c;
 }
-/* 화면 둘레: 검은 안쪽 테두리와 플라스틱이 화면 쪽으로 꺾여 들어가는 턱 */
+/* 화면 둘레는 검은 광택 테(2000년대 투톤 모니터) */
 .screen {
   position: relative;
   overflow: hidden;
   border-radius: calc(2 * var(--u));
   background: #000;
-  /* 안에서 밖으로: 유리 가장자리, 검은 안쪽 테, 화면 쪽으로 깊게 꺾여 들어가는 비탈(위는 그늘, 아래는 빛), 바깥 턱 */
   box-shadow:
-    0 0 0 calc(3 * var(--u)) #0b0b0a,
-    0 0 0 calc(12 * var(--u)) #262420,
-    0 0 0 calc(14 * var(--u)) #4b463c,
-    0 calc(-6 * var(--u)) 0 calc(32 * var(--u)) #a0967e,
-    0 calc(6 * var(--u)) 0 calc(32 * var(--u)) #e6dfcc,
-    0 0 0 calc(32 * var(--u)) #c4bba4,
-    0 0 0 calc(35 * var(--u)) #b3a990;
+    0 0 0 calc(3 * var(--u)) #000,
+    0 0 0 calc(24 * var(--u)) #1d1f23,
+    0 calc(-2 * var(--u)) 0 calc(26 * var(--u)) #3a3d43,
+    0 calc(2 * var(--u)) 0 calc(26 * var(--u)) #0b0c0e,
+    0 0 0 calc(30 * var(--u)) #8e939b;
 }
 .stage {
   position: absolute;
@@ -193,6 +185,15 @@ button { font-family: inherit; }
   /* 손가락으로 가구를 끌 때 페이지가 스크롤되거나 확대되지 않게 한다. */
   touch-action: none;
   -webkit-touch-callout: none;
+  /* 창과 작업 표시줄의 색(XP 시절식. 모양새만 따르고 로고나 이름은 쓰지 않는다). 밤 색은 "밤 모드" 절에 있다 */
+  --win-face: #ece9d8;
+  --win-paper: #ffffff;
+  --win-bar-a: #0a55d6;
+  --win-bar-b: #3d8ef2;
+  --win-check: #d8d4c0;
+  --bev-hi: #ffffff;
+  --bev-lo: #8c8a7c;
+  --bev-mid: #b9b6a6;
 }
 
 .controls {
@@ -202,7 +203,7 @@ button { font-family: inherit; }
   position: relative;
   z-index: 1;
   height: var(--ctrl);
-  /* 화면 둘레의 비탈(.screen box-shadow, 38u)이 버튼 줄을 덮지 않게 그만큼 띄운다 */
+  /* 화면 둘레의 테(.screen box-shadow, 30u)가 버튼 줄을 덮지 않게 띄운다 */
   padding-top: calc(38 * var(--u));
   padding-left: calc(5 * var(--u));
   padding-right: calc(5 * var(--u));
@@ -210,20 +211,20 @@ button { font-family: inherit; }
 /* 이름표: 몸체에 눌러 찍은 듯한 글씨 */
 .brand {
   font-size: calc(17.5 * var(--u));
-  letter-spacing: 0.3em;
-  color: #8a8169;
-  text-shadow: 0 calc(1.25 * var(--u)) 0 #fffb, 0 calc(-1.25 * var(--u)) 0 #0000002a;
+  letter-spacing: 0.2em;
+  color: #5d636c;
+  text-shadow: 0 calc(1 * var(--u)) 0 #fff9;
 }
 .model {
   margin-left: calc(-5 * var(--u));
   padding: calc(2.5 * var(--u)) calc(7.5 * var(--u));
   border-radius: calc(3.75 * var(--u));
-  background: linear-gradient(#b9b09a, #d4ccb7);
-  box-shadow: inset 0 calc(1.25 * var(--u)) calc(2.5 * var(--u)) #0004, 0 calc(1.25 * var(--u)) 0 #fff8;
+  background: linear-gradient(#5d636c, #3f444b);
   font-size: calc(12.5 * var(--u));
   letter-spacing: 0.1em;
-  color: #6c6452;
+  color: #e3e6ea;
 }
+.model::after { content: " FLAT"; }
 /* 스피커 구멍 */
 .grille {
   flex: none;
@@ -232,47 +233,39 @@ button { font-family: inherit; }
   height: calc(17.5 * var(--u));
   margin: 0 calc(10 * var(--u));
   border-radius: calc(8.75 * var(--u));
-  background: repeating-linear-gradient(90deg, #6f6855 0 calc(3.75 * var(--u)), transparent calc(3.75 * var(--u)) calc(10 * var(--u)));
+  background: repeating-linear-gradient(90deg, #4a4f57 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(6 * var(--u)));
   box-shadow: 0 calc(1.25 * var(--u)) 0 #fff8;
-  opacity: 0.55;
+  opacity: 0.35;
 }
-/* 몸체에 박힌 물리 버튼: 오목한 홈 안에 볼록한 버튼 */
-/* 몸체에 박힌 물리 버튼: 베이지 몸체와 다른 짙은 회색 키가 오목한 홈 안에 솟아 있다.
-   누르면 키가 홈 안으로 내려간다. */
+/* 몸체의 물리 버튼: 은색 둥근 버튼. 누르면 조금 내려간다 */
 .phys {
   display: flex;
   align-items: center;
   gap: calc(8.75 * var(--u));
   padding: calc(8 * var(--u)) calc(16 * var(--u));
-  border: calc(1.25 * var(--u)) solid #24221f;
-  border-radius: calc(4 * var(--u));
-  background: linear-gradient(#6a665e, #4a4741 55%, #3a3833);
+  border: calc(1 * var(--u)) solid #7b8088;
+  border-radius: 999px;
+  background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf);
   box-shadow:
-    inset 0 calc(1.5 * var(--u)) 0 #8e8a80,
-    inset 0 calc(-2 * var(--u)) 0 #2a2824,
-    0 calc(3 * var(--u)) 0 #1f1d1a,
-    0 0 0 calc(4 * var(--u)) #a99f87,
-    0 calc(1 * var(--u)) 0 calc(5 * var(--u)) #f2ebda;
+    inset 0 calc(1.5 * var(--u)) 0 #fff,
+    0 calc(2 * var(--u)) calc(3 * var(--u)) #0005;
   font-size: calc(15 * var(--u));
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.04em;
-  color: #ece6d6;
-  text-shadow: 0 calc(-1 * var(--u)) 0 #0008;
+  color: #3d424a;
+  text-shadow: 0 calc(1 * var(--u)) 0 #fff;
   cursor: pointer;
 }
-.phys:hover { background: linear-gradient(#77736a, #55524b 55%, #43403a); }
+.phys:hover { background: linear-gradient(#fff, #d5d9de 55%, #bfc4ca); }
 .phys:active {
   transform: translateY(calc(3 * var(--u)));
-  box-shadow:
-    inset 0 calc(2 * var(--u)) calc(3 * var(--u)) #0007,
-    0 0 0 calc(4 * var(--u)) #a99f87,
-    0 calc(1 * var(--u)) 0 calc(5 * var(--u)) #f2ebda;
+  box-shadow: inset 0 calc(2 * var(--u)) calc(3 * var(--u)) #0004;
 }
-/* 전원 키는 조금 더 크고 붉은 기가 돈다 */
+/* 전원 키는 조금 더 크다. 마우스를 올려도 밝아지지 않는다(이 규칙이 :hover 뒤에 있어 바탕을 다시 정한다) */
 .phys.power {
   padding-left: calc(20 * var(--u));
   padding-right: calc(20 * var(--u));
-  background: linear-gradient(#7a5f55, #5a463f 55%, #47362f);
+  background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf);
 }
 .led {
   width: calc(10 * var(--u));
@@ -281,8 +274,10 @@ button { font-family: inherit; }
   background: #4a3b30;
   box-shadow: inset 0 calc(1.25 * var(--u)) calc(1.25 * var(--u)) #0007;
 }
-.phys[aria-pressed="true"] .led { background: #9dff6c; box-shadow: 0 0 calc(7.5 * var(--u)) #9dff6c; }
-.power[aria-pressed="false"] .led { background: #ff9d3f; box-shadow: 0 0 calc(7.5 * var(--u)) #ff9d3f; }
+/* 켜진 불은 파랑, 꺼진 전원은 주황 */
+.phys[aria-pressed="true"] .led { background: #6cc3ff; box-shadow: 0 0 calc(8 * var(--u)) #3fa9ff; }
+.power[aria-pressed="true"] .led { background: #3fa9ff; box-shadow: 0 0 calc(10 * var(--u)) #3fa9ff, 0 0 calc(18 * var(--u)) #3fa9ff88; }
+.power[aria-pressed="false"] .led { background: #ffb347; box-shadow: 0 0 calc(8 * var(--u)) #ffb347; }
 
 /* ---------- 방 ---------- */
 .room {
@@ -519,16 +514,15 @@ button { font-family: inherit; }
 }
 .btn {
   padding: 6px 14px;
-  border: 2px solid;
-  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
-  background: var(--win-face);
-  box-shadow: 1px 1px 0 #000;
+  border: 1px solid #003c74;
+  border-radius: 4px;
+  background: linear-gradient(#fff, #ecebe6 80%, #d6d0c5);
   font-size: 16px;
-  color: var(--win-text);
+  color: var(--ink); /* 바탕이 밤에도 밝으므로 글자색을 --win-text에 맡기지 않는다(known-issues 18, 47). --ink는 밤에도 바뀌지 않는 낮 글자색이다 */
   cursor: var(--cur-hand);
   white-space: nowrap;
 }
-.btn:active { border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo); }
+.btn:hover { box-shadow: inset 0 0 0 2px #f8b33a; }
 
 /* ---------- 창 ---------- */
 .windows { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
@@ -536,52 +530,53 @@ button { font-family: inherit; }
   position: absolute;
   display: flex;
   flex-direction: column;
-  padding: 3px;
-  border: 2px solid;
-  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
-  background: var(--win-face);
-  box-shadow: 1px 1px 0 #000, 8px 10px 0 #0003;
+  padding: 0 3px 3px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(var(--win-bar-b), var(--win-bar-a) 30px);
+  box-shadow: 0 0 0 1px #0831a0, 6px 8px 14px #0005;
   pointer-events: auto;
 }
 .win[hidden] { display: none; }
-.win.maximized { box-shadow: none; }
+.win.inactive { background: linear-gradient(#9db3e3, #7a95d3 30px); }
 .win-bar {
   display: flex;
   flex: none;
   align-items: center;
   gap: 6px;
   height: 30px;
-  padding: 0 4px 0 6px;
-  background: linear-gradient(90deg, var(--win-bar-a), var(--win-bar-b));
+  padding: 0 4px 0 8px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(#3b8af0, #0d5ad8 45%, #0a4fc9 55%, #2a76e6);
   font-size: 15px;
+  font-weight: 700;
   color: #fff;
+  text-shadow: 1px 1px 0 #0a2f80;
   cursor: var(--cur-arrow);
 }
 .win.maximized .win-bar { cursor: var(--cur-arrow); }
-.win.inactive .win-bar { background: linear-gradient(90deg, #7c7972, #b4b0a6); }
+.win.inactive .win-bar { background: linear-gradient(#a8bce8, #7c96d6 50%, #8fa7de); }
 .win-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .win-btns { display: flex; gap: 2px; }
 .win-btn {
-  width: 24px;
+  width: 22px;
   height: 22px;
   padding: 0;
-  border: 2px solid;
-  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
-  background: var(--win-face);
+  border: 1px solid #fff;
+  border-radius: 4px;
+  background: linear-gradient(#4f97ff, #1a5fd8);
   font-size: 15px;
+  font-weight: 700;
   line-height: 1;
-  color: var(--win-text);
+  color: #fff;
   cursor: var(--cur-hand);
 }
-.win-btn:active { border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo); }
+.win-close { background: linear-gradient(#ee8a6c, #c8401c); }
+.win-btn:active { border-color: #ddd; filter: brightness(0.9); }
 .win-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  margin-top: 3px;
   padding: 14px 16px;
-  border: 2px solid;
-  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
   background: var(--win-paper);
   font-size: 16px;
   line-height: 1.6;
@@ -809,8 +804,7 @@ body.moving-window iframe { pointer-events: none; }
   align-items: center;
   gap: 6px;
   padding: 0 6px;
-  border-top: 2px solid var(--bev-hi);
-  background: var(--win-face);
+  background: linear-gradient(#3f8cf3, #245edb 12%, #245edb 88%, #1941a5);
   z-index: 30;
 }
 .start-btn, .task {
@@ -826,7 +820,21 @@ body.moving-window iframe { pointer-events: none; }
   color: var(--win-text);
   cursor: var(--cur-hand);
 }
-.start-btn { font-weight: 700; }
+.start-btn {
+  height: 40px;
+  margin-left: -6px;
+  padding: 0 22px 0 14px;
+  border: 0;
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(#3c9a3c, #3aa335 20%, #2f8a2b 80%, #2b7a28);
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1px 1px 1px #0006;
+  box-shadow: inset -2px 0 3px #0004;
+}
+.start-btn:active { background: linear-gradient(#2b7a28, #2f8a2b); }
 /* 시작 버튼 로고: 작은 집(우리 개념). 실제 윈도우 로고를 닮은 네 칸 사각형은 쓰지 않는다 */
 .start-logo {
   width: 18px;
@@ -834,39 +842,48 @@ body.moving-window iframe { pointer-events: none; }
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23c56c96' stroke='%235a4632'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23f7f3e8' stroke='%235a4632'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%23e8b84a'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .tasks { flex: 1; display: flex; gap: 4px; min-width: 0; }
-.task { width: 190px; min-width: 0; }
-.task span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.task.active, .start-btn:active {
-  border-color: var(--bev-lo) var(--bev-hi) var(--bev-hi) var(--bev-lo);
-  background: repeating-conic-gradient(var(--win-check) 0 25%, var(--win-face) 0 50%) 0 0 / 4px 4px;
+.task {
+  width: 190px;
+  min-width: 0;
+  border: 1px solid #1c49b8;
+  border-radius: 3px;
+  background: linear-gradient(#3c81f3, #2c6be4);
+  color: #fff;
 }
+.task span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.task.active { background: #1e52c8; box-shadow: inset 1px 1px 2px #0005; }
+/* 시계: 작업 표시줄 오른쪽 끝의 하늘색 칸. 바탕을 밤에도 바뀌지 않는 색으로 고정했으므로 글자색도 흰색으로 고정한다(known-issues 47) */
 .clock {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin-right: -6px;
   padding: 4px 12px;
-  border: 2px solid;
-  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
+  border-left: 1px solid #1042af;
+  background: linear-gradient(#18a1ef, #0f8ae0 50%, #0b74cf);
   font-size: 14px;
-  color: var(--win-text); /* 작업 표시줄 바탕(--win-face)이 밤에 어두워지므로 글자색도 같은 짝 변수를 쓴다 */
+  color: #fff;
 }
 .start-menu {
   position: absolute;
   left: 4px;
   bottom: 42px;
   width: 270px;
-  padding: 3px;
-  border: 2px solid;
-  border-color: var(--bev-hi) var(--bev-lo) var(--bev-lo) var(--bev-hi);
-  background: var(--win-face);
-  box-shadow: 4px 4px 0 #0004;
+  border: 1px solid #0831a0;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 4px 4px 10px #0006;
   z-index: 40;
 }
 .start-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 4px;
   padding: 10px;
-  background: linear-gradient(90deg, var(--win-bar-a), var(--win-bar-b));
+  background: linear-gradient(#2b74ea, #1450c8);
   font-size: 17px;
+  font-weight: 700;
   color: #fff;
 }
 .start-head .avatar { width: 36px; height: 36px; font-size: 18px; }
@@ -883,33 +900,35 @@ body.moving-window iframe { pointer-events: none; }
   color: var(--win-text);
   cursor: var(--cur-hand);
 }
-.start-item:hover { background: var(--win-bar-a); color: #fff; }
+.start-item:hover { background: #316ac5; color: #fff; }
 .start-sep { margin: 4px 2px; border: 0; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
 
-/* ---------- 부팅 ---------- */
+/* ---------- 부팅 (검은 화면에 로고와 파란 진행 막대) ---------- */
 .boot { position: absolute; inset: 0; z-index: 50; background: #000; color: #c9c9c9; cursor: var(--cur-wait); }
 .boot-logo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 30px; }
 .boot-logo[hidden] { display: none; }
 .boot-title {
   font-size: 72px;
   font-weight: 700;
+  font-style: italic;
   letter-spacing: 0.08em;
-  background: linear-gradient(90deg, #c56c96, #e8b84a, #6fae8f, #5b8def);
+  background: linear-gradient(90deg, #fff, #cfe3ff);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-.boot-bar { width: 240px; height: 20px; padding: 3px; border: 2px solid #777; border-radius: 4px; overflow: hidden; }
+.boot-bar { width: 200px; height: 18px; padding: 3px; border: 2px solid #b7b7b7; border-radius: 6px; overflow: hidden; }
 .boot-bar i {
   display: block;
-  width: 60px;
+  width: 44px;
   height: 100%;
-  background: repeating-linear-gradient(90deg, #5b8def 0 14px, transparent 14px 20px);
-  animation: boot-slide 1s linear infinite;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #3d8ef2 0 10px, #1a5fd8 10px 12px, transparent 12px 14px);
+  animation: boot-slide 1.6s linear infinite;
 }
 @keyframes boot-slide { from { transform: translateX(-60px); } to { transform: translateX(240px); } }
 
-/* ---------- 로그인 ---------- */
+/* ---------- 로그인 (파란 띠 사이의 사용자 목록) ---------- */
 .login {
   position: absolute;
   inset: 0;
@@ -918,21 +937,21 @@ body.moving-window iframe { pointer-events: none; }
   grid-template-rows: 90px 1fr 90px;
   color: #fff;
 }
-.login-top, .login-bottom { background: #2b2453; }
-.login-top { border-bottom: 3px solid #e8b84a; }
-.login-bottom { display: flex; align-items: center; padding: 0 60px; border-top: 3px solid #8b7fd6; font-size: 15px; color: #c8c2ee; }
+.login-top, .login-bottom { background: #00309c; }
+.login-top { border-bottom: 3px solid #f08a24; }
+.login-bottom { display: flex; align-items: center; padding: 0 60px; border-top: 3px solid #5a7edc; font-size: 15px; color: #c9d6f5; }
 .login-mid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  background: radial-gradient(ellipse at 30% 40%, #8e86d8, #5a4fa6 70%);
+  background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc);
 }
 .login-left {
   padding-right: 60px;
   border-right: 2px solid #ffffff55;
   text-align: right;
 }
-.login-logo { font-size: 56px; font-weight: 700; letter-spacing: 0.05em; text-shadow: 0 3px 0 #2b2453; }
+.login-logo { font-size: 56px; font-weight: 700; font-style: italic; letter-spacing: 0.05em; text-shadow: 0 2px 0 #0a2f80; }
 .login-left p { margin: 12px 0 0; font-size: 18px; color: #e6e2ff; }
 .users { display: grid; gap: 14px; padding-left: 60px; justify-items: start; }
 .user {
@@ -957,8 +976,8 @@ form.user { cursor: var(--cur-arrow); }
   width: 64px;
   height: 64px;
   border: 3px solid #fff;
-  border-radius: 10px;
-  background: #e8a33d;
+  border-radius: 6px;
+  background: linear-gradient(#f8b33a, #e0861d);
   font-size: 30px;
   font-weight: 700;
   color: #fff;
@@ -998,11 +1017,11 @@ form.user { cursor: var(--cur-arrow); }
   inset: 0;
   display: none;
   place-items: center;
-  background: radial-gradient(ellipse at 30% 40%, #8e86d8, #5a4fa6 70%);
+  background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc);
   font-size: 64px;
   font-weight: 700;
   font-style: italic;
-  text-shadow: 0 3px 0 #2b2453;
+  text-shadow: 0 2px 0 #0a2f80;
 }
 .login.entering .welcome { display: grid; }
 
@@ -1188,16 +1207,17 @@ form.user { cursor: var(--cur-arrow); }
 
 /* ---------- 밤 모드 (스탠드, 가로등으로 켜고 끈다) ---------- */
 .stage[data-theme="night"] {
-  --win-face: #3a394a;
-  --win-paper: #24232e;
+  --win-face: #2f3442;
+  --win-paper: #1f2330;
   --win-text: #ebe8f7;
-  --win-check: #4a4960;
-  --bev-hi: #6e6c86;
-  --bev-lo: #111017;
-  --bev-mid: #16151d;
-  --win-bar-a: #2b2870;
-  --win-bar-b: #7354a8;
+  --win-check: #3a4152;
+  --bev-hi: #5a6275;
+  --bev-lo: #0d0f15;
+  --bev-mid: #141824;
+  --win-bar-a: #12306e;
+  --win-bar-b: #2e5aa8;
 }
+.stage[data-theme="night"] .start-menu { background: var(--win-paper); }
 .stage[data-theme="night"] .night-shade { display: block; }
 .stage[data-theme="night"] .room,
 .stage[data-theme="night"] .desktop { background: radial-gradient(ellipse at 50% 40%, #2a3354, #0f1329 75%); }
@@ -1945,186 +1965,6 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .cork-note.fresh { animation: none; }
 }
-
-/* =====================================================================
-   2005 모습: 은색 평면 CRT 모니터와 XP 시절식 창. 시대는 2005로 정했다(2026-11-10).
-   세 시대를 비교하던 규칙에서 2005 것만 남겨서, 앞의 기본 모양을 body[data-era="2005"]로 덮어쓴다
-   (index.html의 body에 고정한 속성). 모양을 고칠 때는 이 절에 같은 요소의 규칙이 있는지 먼저 본다.
-   ===================================================================== */
-
-/* ---------- 2005: 은색 평면 CRT ---------- */
-body[data-era="2005"] .bezel {
-  border-radius: calc(10 * var(--u));
-  background:
-    linear-gradient(100deg, #ffffff22 0 30%, transparent 30% 70%, #ffffff14 70%),
-    linear-gradient(#d9dce1, #b4b9c0 55%, #9ba0a8);
-  box-shadow:
-    inset 0 calc(2 * var(--u)) 0 #fff,
-    inset 0 calc(-5 * var(--u)) calc(4 * var(--u)) #00000033,
-    0 calc(3 * var(--u)) 0 #7c8189,
-    0 calc(30 * var(--u)) calc(60 * var(--u)) #000c;
-}
-/* 화면 둘레는 검은 광택 테 (2000년대 투톤 모니터) */
-body[data-era="2005"] .screen {
-  border-radius: calc(2 * var(--u));
-  box-shadow:
-    0 0 0 calc(3 * var(--u)) #000,
-    0 0 0 calc(24 * var(--u)) #1d1f23,
-    0 calc(-2 * var(--u)) 0 calc(26 * var(--u)) #3a3d43,
-    0 calc(2 * var(--u)) 0 calc(26 * var(--u)) #0b0c0e,
-    0 0 0 calc(30 * var(--u)) #8e939b;
-}
-body[data-era="2005"] .brand { color: #5d636c; text-shadow: 0 calc(1 * var(--u)) 0 #fff9; letter-spacing: 0.2em; }
-body[data-era="2005"] .model { background: linear-gradient(#5d636c, #3f444b); color: #e3e6ea; box-shadow: none; }
-body[data-era="2005"] .model::after { content: " FLAT"; }
-body[data-era="2005"] .grille { opacity: 0.35; background: repeating-linear-gradient(90deg, #4a4f57 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(6 * var(--u))); }
-/* 은색 둥근 버튼, 전원은 파란 불빛 */
-body[data-era="2005"] .phys {
-  border: calc(1 * var(--u)) solid #7b8088;
-  border-radius: 999px;
-  background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf);
-  box-shadow:
-    inset 0 calc(1.5 * var(--u)) 0 #fff,
-    0 calc(2 * var(--u)) calc(3 * var(--u)) #0005;
-  font-weight: 400;
-  color: #3d424a;
-  text-shadow: 0 calc(1 * var(--u)) 0 #fff;
-}
-body[data-era="2005"] .phys:hover { background: linear-gradient(#fff, #d5d9de 55%, #bfc4ca); }
-body[data-era="2005"] .phys:active { box-shadow: inset 0 calc(2 * var(--u)) calc(3 * var(--u)) #0004; }
-body[data-era="2005"] .phys.power { background: linear-gradient(#f5f6f8, #c9cdd3 55%, #b3b8bf); }
-body[data-era="2005"] .phys[aria-pressed="true"] .led { background: #6cc3ff; box-shadow: 0 0 calc(8 * var(--u)) #3fa9ff; }
-body[data-era="2005"] .power[aria-pressed="true"] .led { background: #3fa9ff; box-shadow: 0 0 calc(10 * var(--u)) #3fa9ff, 0 0 calc(18 * var(--u)) #3fa9ff88; }
-body[data-era="2005"] .power[aria-pressed="false"] .led { background: #ffb347; box-shadow: 0 0 calc(8 * var(--u)) #ffb347; }
-
-/* ---------- 2005: XP 시절식 창과 작업 표시줄 (모양새만 따르고 로고나 이름은 쓰지 않는다) ---------- */
-body[data-era="2005"] .stage {
-  --win-face: #ece9d8;
-  --win-paper: #ffffff;
-  --win-bar-a: #0a55d6;
-  --win-bar-b: #3d8ef2;
-  --win-check: #d8d4c0;
-  --bev-hi: #ffffff;
-  --bev-lo: #8c8a7c;
-  --bev-mid: #b9b6a6;
-}
-body[data-era="2005"] .stage[data-theme="night"] {
-  --win-face: #2f3442;
-  --win-paper: #1f2330;
-  --win-bar-a: #12306e;
-  --win-bar-b: #2e5aa8;
-  --win-check: #3a4152;
-  --bev-hi: #5a6275;
-  --bev-lo: #0d0f15;
-  --bev-mid: #141824;
-}
-body[data-era="2005"] .win {
-  padding: 0 3px 3px;
-  border: 0;
-  border-radius: 8px 8px 0 0;
-  background: linear-gradient(var(--win-bar-b), var(--win-bar-a) 30px);
-  box-shadow: 0 0 0 1px #0831a0, 6px 8px 14px #0005;
-}
-body[data-era="2005"] .win.inactive { background: linear-gradient(#9db3e3, #7a95d3 30px); }
-body[data-era="2005"] .win-bar {
-  height: 30px;
-  padding: 0 4px 0 8px;
-  border-radius: 8px 8px 0 0;
-  background: linear-gradient(#3b8af0, #0d5ad8 45%, #0a4fc9 55%, #2a76e6);
-  font-weight: 700;
-  text-shadow: 1px 1px 0 #0a2f80;
-}
-body[data-era="2005"] .win.inactive .win-bar { background: linear-gradient(#a8bce8, #7c96d6 50%, #8fa7de); }
-body[data-era="2005"] .win-btn {
-  width: 22px;
-  height: 22px;
-  border: 1px solid #fff;
-  border-radius: 4px;
-  background: linear-gradient(#4f97ff, #1a5fd8);
-  font-weight: 700;
-  color: #fff;
-}
-body[data-era="2005"] .win-close { background: linear-gradient(#ee8a6c, #c8401c); }
-body[data-era="2005"] .win-btn:active { border-color: #ddd; filter: brightness(0.9); }
-body[data-era="2005"] .win-body { margin-top: 0; border: 0; }
-body[data-era="2005"] .win-body.flush { background: #111; }
-body[data-era="2005"] .btn {
-  border: 1px solid #003c74;
-  border-radius: 4px;
-  background: linear-gradient(#fff, #ecebe6 80%, #d6d0c5);
-  box-shadow: none;
-  color: var(--ink); /* 바탕이 밤에도 밝으므로 글자색을 --win-text에 맡기지 않는다(known-issues 18). --ink는 밤에도 바뀌지 않는 낮 글자색이다 */
-}
-body[data-era="2005"] .btn:hover { box-shadow: inset 0 0 0 2px #f8b33a; }
-body[data-era="2005"] .taskbar {
-  border-top: 0;
-  background: linear-gradient(#3f8cf3, #245edb 12%, #245edb 88%, #1941a5);
-}
-body[data-era="2005"] .start-btn {
-  height: 40px;
-  margin-left: -6px;
-  padding: 0 22px 0 14px;
-  border: 0;
-  border-radius: 0 14px 14px 0;
-  background: linear-gradient(#3c9a3c, #3aa335 20%, #2f8a2b 80%, #2b7a28);
-  font-size: 18px;
-  font-style: italic;
-  color: #fff;
-  text-shadow: 1px 1px 1px #0006;
-  box-shadow: inset -2px 0 3px #0004;
-}
-body[data-era="2005"] .start-btn:active { background: linear-gradient(#2b7a28, #2f8a2b); }
-body[data-era="2005"] .task {
-  border: 1px solid #1c49b8;
-  border-radius: 3px;
-  background: linear-gradient(#3c81f3, #2c6be4);
-  color: #fff;
-}
-body[data-era="2005"] .task.active { background: #1e52c8; box-shadow: inset 1px 1px 2px #0005; }
-body[data-era="2005"] .clock {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  margin-right: -6px;
-  border: 0;
-  border-left: 1px solid #1042af;
-  background: linear-gradient(#18a1ef, #0f8ae0 50%, #0b74cf);
-  color: #fff;
-}
-body[data-era="2005"] .start-menu {
-  padding: 0;
-  border: 1px solid #0831a0;
-  border-radius: 8px 8px 0 0;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 4px 4px 10px #0006;
-}
-body[data-era="2005"] .start-head { margin: 0; background: linear-gradient(#2b74ea, #1450c8); font-weight: 700; }
-body[data-era="2005"] .start-item:hover { background: #316ac5; }
-body[data-era="2005"] .stage[data-theme="night"] .start-menu { background: var(--win-paper); }
-
-/* 2005년식 부팅: 검은 화면에 로고와 파란 진행 막대 */
-body[data-era="2005"] .boot-title {
-  font-style: italic;
-  background: linear-gradient(90deg, #fff, #cfe3ff);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-body[data-era="2005"] .boot-bar { width: 200px; height: 18px; border: 2px solid #b7b7b7; border-radius: 6px; }
-body[data-era="2005"] .boot-bar i {
-  width: 44px;
-  background: repeating-linear-gradient(90deg, #3d8ef2 0 10px, #1a5fd8 10px 12px, transparent 12px 14px);
-  border-radius: 3px;
-  animation-duration: 1.6s;
-}
-
-/* 2005년식 로그인: 파란 띠 사이의 사용자 목록 */
-body[data-era="2005"] .login-top { background: #00309c; border-bottom: 3px solid #f08a24; }
-body[data-era="2005"] .login-bottom { background: #00309c; border-top: 3px solid #5a7edc; color: #c9d6f5; }
-body[data-era="2005"] .login-mid { background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc); }
-body[data-era="2005"] .login-logo { font-style: italic; text-shadow: 0 2px 0 #0a2f80; }
-body[data-era="2005"] .avatar { border-radius: 6px; background: linear-gradient(#f8b33a, #e0861d); }
-body[data-era="2005"] .welcome { background: radial-gradient(ellipse at 25% 35%, #7aa1e6, #5a7edc 60%, #4a6ccc); text-shadow: 0 2px 0 #0a2f80; }
 
 /* 로그인 화면의 초기화 버튼 (시험용) */
 .reset-link {

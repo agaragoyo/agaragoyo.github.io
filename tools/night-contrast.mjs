@@ -19,7 +19,7 @@
 import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome } from './headless.mjs';
 
 const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
-// 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다.
+// 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다. 지금은 결과 줄의 이름표로만 쓴다(화면에는 시대를 가리는 속성이 없다).
 const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 미니게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
@@ -79,11 +79,10 @@ function openIcon(id) {
   return true;
 }
 
-// 낮으로 돌려놓고 지금 시대(body의 data-era, 2005로 고정)를 돌려준다.
+// 낮으로 돌려놓는다.
 async function setDay() {
   const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
   settings.set({ night: false });
-  return document.body.dataset.era;
 }
 
 // 바탕화면의 방에서 가구를 두 번 누른다(아바타가 걸어가 화면을 연다)
@@ -235,7 +234,7 @@ async function dayAndNight(selectors) {
   const dayTheme = theme();
   settings.set({ night: true });
   const night = scan();
-  return { era: document.body.dataset.era, dayTheme, nightTheme: theme(), day, night };
+  return { dayTheme, nightTheme: theme(), day, night };
 }
 
 // ---------- 점검 ----------
@@ -309,12 +308,12 @@ async function main() {
 
   const results = [];
   for (const era of ERAS) {
-    if ((await page.run(setDay)) !== era) throw new Stop(`화면이 ${era} 모습이 아니다(index.html body의 data-era를 본다).`);
+    await page.run(setDay);
     await sleep(600); // 낮으로 돌린 뒤 아이콘과 창을 다시 그리는 것이 끝나기를 기다린다
     if (!(await page.run(openStartMenu))) throw new Stop('시작 메뉴가 열리지 않았다.');
     const r = await page.run(dayAndNight, EXCEPTIONS.filter(e => e.era === era).map(e => e.selector));
-    if (r.era !== era || r.dayTheme !== 'day' || r.nightTheme !== 'night') {
-      throw new Stop(`${era} 낮과 밤으로 바뀌지 않았다(시대 ${r.era}, 낮 ${r.dayTheme}, 밤 ${r.nightTheme}).`);
+    if (r.dayTheme !== 'day' || r.nightTheme !== 'night') {
+      throw new Stop(`${era} 낮과 밤으로 바뀌지 않았다(낮 ${r.dayTheme}, 밤 ${r.nightTheme}).`);
     }
     if (r.night.length < 50) throw new Stop(`${era} 밤 화면에서 글자를 ${r.night.length}개밖에 찾지 못했다. 창이 열렸는지 본다.`);
     results.push({ ...judge(era, r), label: era });
