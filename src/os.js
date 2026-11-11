@@ -211,6 +211,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
     const scene = SCENES.find(s => s.id === os.place);
+    el.desktop.dataset.kind = scene.kind; // 바깥 공간(놀이터)이면 바탕화면 뒤를 하늘색으로 칠한다(style.css의 .desktop[data-kind="outdoor"])
     renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner);
     walker?.attach();
   }
