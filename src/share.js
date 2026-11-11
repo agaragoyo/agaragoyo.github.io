@@ -37,7 +37,8 @@ export function sanitizeHome(raw) {
 }
 
 // ---------- 공유 링크 ----------
-// 링크는 주소 뒤에 #r=<글자>를 붙인 꼴이다(2026-11-11 전에 만든 링크는 #room=). 카카오톡은 메시지를 500자까지만 보여 주고 나머지를 접어서,
+// 긴 링크는 주소 뒤에 #r=<글자>를 붙인 꼴이다(2026-11-11 전에 만든 링크는 #room=). 짧은 링크(#s=번호)는 같은 글자를 서버에 둔다(src/cloud.js).
+// 카카오톡은 메시지를 500자까지만 보여 주고 나머지를 접어서,
 // 가구 이름을 글자로 적던 JSON(형식 3) 대신 가구 하나를 2바이트로 담는 짧은 형식(4)으로 만든다(known-issues 57).
 // 예전 형식의 링크와 이웃집 목록(data/neighbors.js)도 그대로 열린다.
 
@@ -55,6 +56,12 @@ const ESCAPE = 127; // LINK_CODES에 없는 가구: 이 번호 뒤에 id의 바�
 // 주소의 #r=(예전 링크는 #room=) 뒤 글자. 없으면 null
 export function linkCode(hash) {
   const m = String(hash || '').match(/^#(?:r|room)=(.+)$/);
+  return m ? m[1] : null;
+}
+
+// 짧은 링크(#s=)의 방 번호. 방은 서버에 있다(src/cloud.js). 없으면 null
+export function linkId(hash) {
+  const m = String(hash || '').match(/^#s=([0-9A-Za-z]{8})$/);
   return m ? m[1] : null;
 }
 

@@ -502,11 +502,38 @@ def check_ui_font():
 # ---------- 비밀 값 ----------
 def check_secrets():
     pattern = re.compile(r'(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})')
+    # Firebase 웹 설정의 API 키는 원래 웹페이지에 공개하는 값이라 src/cloud.js 한 곳에만 둔다(AGENTS.md "공개 레포").
+    # 다른 곳에 있는 구글 API 키는 지도나 Gemini처럼 막아 둬야 하는 키일 수 있다.
+    google = re.compile(r'AIza[0-9A-Za-z_-]{35}')
     for p in ROOT.rglob('*'):
-        if '.git' in p.parts or not p.is_file() or p.suffix not in ('.js', '.html', '.css', '.md', '.json', '.yml', '.py'):
+        if '.git' in p.parts or not p.is_file() or p.suffix not in ('.js', '.html', '.css', '.md', '.json', '.yml', '.py', '.rules'):
             continue
-        if pattern.search(p.read_text(encoding='utf-8', errors='ignore')):
-            err(p.relative_to(ROOT).as_posix(), '토큰이나 키처럼 보이는 값이 있다. 레포는 공개라 넣으면 안 된다')
+        text = p.read_text(encoding='utf-8', errors='ignore')
+        rel = p.relative_to(ROOT).as_posix()
+        if pattern.search(text):
+            err(rel, '토큰이나 키처럼 보이는 값이 있다. 레포는 공개라 넣으면 안 된다')
+        if google.search(text) and rel != 'src/cloud.js':
+            err(rel, '구글 API 키처럼 보이는 값이 있다. Firebase 웹 설정의 키는 src/cloud.js에만 둔다')
+
+
+# ---------- 서버(Firebase) ----------
+# 짧은 링크의 방은 Firestore에 둔다(src/cloud.js). 규칙은 레포의 firestore.rules를 Firebase 콘솔에 붙여 게시한 것이라
+# 두 곳이 따로 논다(known-issues 59). 기계로 볼 수 있는 것만 본다: 규칙 파일이 있는지, 방 글자 수 한도와 컬렉션 이름이 src/cloud.js와 같은지.
+def check_cloud():
+    if not (ROOT / 'firestore.rules').exists():
+        err('firestore.rules', 'Firestore 규칙 파일이 없다. 콘솔에 게시한 규칙을 이 파일에 둔다')
+        return
+    rules = read('firestore.rules')
+    js = read('src/cloud.js')
+    limit_js = re.search(r'export const MAX_CODE = (\d+)', js)
+    limit_rules = re.search(r'd\.code\.size\(\) <= (\d+)', rules)
+    if not limit_js or not limit_rules:
+        err('src/cloud.js', '방 글자 수 한도(MAX_CODE와 firestore.rules의 code.size())를 찾지 못했다. 모양을 바꿨다면 tools/check.py의 check_cloud도 고친다')
+    elif limit_js.group(1) != limit_rules.group(1):
+        err('src/cloud.js', f'MAX_CODE({limit_js.group(1)})가 firestore.rules의 한도({limit_rules.group(1)})와 다르다. 규칙을 고쳤다면 콘솔에도 게시한다')
+    col = re.search(r"const HOMES = '(\w+)'", js)
+    if not col or f'match /{col.group(1)}/' not in rules:
+        err('firestore.rules', 'src/cloud.js의 컬렉션 이름(HOMES)에 맞는 match 줄이 없다')
 
 
 # ---------- 방 그림(PNG) 바탕 색 ----------
@@ -554,7 +581,7 @@ def check_file_map():
     mentioned = set(re.findall(r'`([^`\s<>*]+)`', path.read_text(encoding='utf-8')))
     must = [*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.py'), *ROOT.glob('tools/*.mjs'), *ROOT.glob('docs/*.md'),
             *ROOT.glob('.github/**/*.yml'), *ROOT.glob('.github/*.md')]
-    must += [ROOT / n for n in ('index.html', 'style.css', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'known-issues.md')]
+    must += [ROOT / n for n in ('index.html', 'style.css', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'known-issues.md', 'firestore.rules')]
     for p in sorted(set(must)):
         rel = p.relative_to(ROOT).as_posix()
         if rel not in mentioned:
@@ -607,6 +634,7 @@ def main():
     check_stamp()
     check_ui_font()
     check_secrets()
+    check_cloud()
     check_room_image()
     check_sounds()
     check_file_map()

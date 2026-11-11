@@ -12,7 +12,8 @@ import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
-import { sanitizeHome, decodeHome, linkCode } from './share.js';
+import { sanitizeHome, decodeHome, encodeHome, linkCode, linkId } from './share.js';
+import { fetchHome, sharedId, syncLater, unshare } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
@@ -78,6 +79,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const my = ++run;
     show('boot');
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
+    const sid = linkId(location.hash);
+    if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
@@ -100,9 +103,42 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   }
 
   // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
+  // 짧은 링크(#s=)로 온 친구 집은 서버에서 받아야 해서 여기 없고, cloudHome이 받은 뒤에 따로 미리 받는다.
   function loginHomes() {
     const m = linkCode(location.hash);
     return [ownHome(), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborHome)].filter(Boolean);
+  }
+
+  // 짧은 링크(#s=번호)의 방을 서버에서 받아 온다(src/cloud.js). 링크마다 한 번만 받는다.
+  // 받은 값: 집, null(그런 방이 없거나 깨짐), undefined(서버에 닿지 못함. 이때는 다음에 다시 받도록 기억하지 않는다)
+  const cloudHomes = new Map();
+  function cloudHome(id) {
+    if (!cloudHomes.has(id)) {
+      cloudHomes.set(id, fetchHome(id).then(code => (code ? decodeHome(code) : null), err => {
+        console.warn('짧은 링크의 방을 받지 못했다', err);
+        cloudHomes.delete(id);
+        return undefined;
+      }));
+    }
+    return cloudHomes.get(id);
+  }
+
+  // 짧은 링크로 온 친구 집의 자리. 받아 오는 동안은 누를 수 없게 두고, 받으면 손님으로 구경하기로 바꾼다.
+  function cloudTile(id, my) {
+    const tile = h('button', { type: 'button', className: 'user', disabled: true },
+      h('span', { className: 'avatar' }, '…'),
+      h('span', { className: 'user-name' }, '친구 방', h('small', {}, '불러오는 중')));
+    cloudHome(id).then(friend => {
+      if (my !== run || !tile.isConnected) return;
+      if (friend) {
+        tile.replaceWith(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
+        return;
+      }
+      tile.remove();
+      if (friend === null) toast('링크의 방을 찾을 수 없습니다. 친구에게 링크를 다시 받아 주세요.', 7000);
+      else toast('친구 방을 불러오지 못했습니다. 페이지를 새로고침해 주세요.', 7000);
+    });
+    return tile;
   }
 
   function showLogin() {
@@ -115,16 +151,20 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const own = ownHome();
 
     const m = linkCode(location.hash);
+    const sid = linkId(location.hash);
     if (m) {
       const friend = decodeHome(m);
       if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
       else toast('링크가 깨져서 친구 컴퓨터를 열 수 없었습니다.');
+    } else if (sid) {
+      users.append(cloudTile(sid, my));
     }
     // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
     // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
-    const nearby = m ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor'));
+    const linked = !!(m || sid);
+    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor'));
     if (own) {
-      users.append(userTile(own.owner, m ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
+      users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
         enter('edit', own, my);
       }));
@@ -148,16 +188,20 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   const ownApps = APPS.filter(a => a.src?.startsWith('apps/')).map(a => a.id + '.');
   const ownKey = key => key.startsWith('agarago.') || ownApps.some(p => key.startsWith(p));
   // 되돌릴 수 없는 일이라 바로 지우지 않고, 지울 것을 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
+  // 짧은 링크로 서버에 올린 방(src/cloud.js)도 같이 지운다. 서버가 늦으면 3초까지만 기다리고 이 컴퓨터의 것은 지운다.
   function resetButton() {
     const box = h('div', { className: 'reset-box' });
-    const wipe = () => {
+    const wipe = async () => {
+      if (sharedId()) await Promise.race([unshare().catch(err => console.warn('서버의 방을 지우지 못했다', err)), wait(3000)]);
       try {
         for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);
       } catch { /* 저장소를 못 쓰는 환경 */ }
       showLogin();
     };
     const ask = () => box.replaceChildren(
-      h('p', {}, '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
+      h('p', {}, sharedId()
+        ? '이 컴퓨터의 집과 게임 기록, 짧은 링크의 방을 지웁니다. 되돌릴 수 없습니다.'
+        : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
       h('div', { className: 'reset-row' },
         h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),
         h('button', { type: 'button', className: 'btn', onclick: idle }, '그대로 두기')),
@@ -214,6 +258,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.mode = mode;
     os.home = home;
     os.hasOwnHome = mode === 'edit' || !!ownHome();
+    if (mode === 'edit') syncLater(() => encodeHome(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침이 있으면 올린다(src/cloud.js)
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
@@ -476,8 +521,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.
+  // 짧은 링크를 만들어 둔 방이면 서버의 방도 따라 고친다(src/cloud.js의 syncLater). 연습 방은 저장도 올리기도 하지 않는다(known-issues 40).
   os.saveHome = (redraw = true) => {
-    if (os.mode === 'edit' && !os.realHome) saveJSON(STORAGE_ROOM, os.home);
+    if (os.mode === 'edit' && !os.realHome) {
+      saveJSON(STORAGE_ROOM, os.home);
+      const home = os.home;
+      syncLater(() => encodeHome(home));
+    }
     if (redraw) renderWallpaper();
   };
 
@@ -497,7 +547,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
   window.addEventListener('hashchange', () => {
-    if ((os.mode || !el.login.hidden) && linkCode(location.hash)) showLogin();
+    if ((os.mode || !el.login.hidden) && (linkCode(location.hash) || linkId(location.hash))) showLogin();
   });
 
   // ---------- 알림 ----------
