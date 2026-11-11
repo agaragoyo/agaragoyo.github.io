@@ -1082,7 +1082,11 @@ form.user { cursor: var(--cur-arrow); }
 }
 .power-fx.on { display: none; }
 /* 꺼진 화면: 그 시절 모니터가 컴퓨터 신호가 없을 때 띄우던 "신호 없음" 상자. 델과 삼성 모니터처럼 화면을 끊김 없이 떠다니다
-   가장자리에서 방향을 바꾼다(가로 20초, 세로 13초로 길이를 달리해 1초에 50px쯤 비스듬히 움직인다). */
+   상자 가장자리가 화면 끝에 닿으면 방향을 바꾼다. 가로 26초, 세로 18초로 길이를 달리해 1초에 55px쯤 비스듬히 움직이고,
+   음수 지연(-13초, -9초)으로 화면 가운데에서 출발한다.
+   left와 top이 0에서 100%로 가는 동안 상자를 제 폭과 높이만큼(0에서 -100%) 되당기면, 상자 크기와 상관없이 화면 끝에서 끝까지 간다.
+   예전처럼 상자 가운데를 고정 비율(22~78%)로 움직이면 상자 크기만큼 안쪽에서 돌아선다(known-issues 58).
+   가로는 translate, 세로는 transform 속성으로 나눠 두 애니메이션이 서로 덮어쓰지 않게 한다. 움직임 줄이기를 켜면 가운데에 멈춘다. */
 .no-signal {
   position: absolute;
   left: 50%;
@@ -1098,12 +1102,12 @@ form.user { cursor: var(--cur-arrow); }
   line-height: 1.4;
   text-align: center;
   white-space: nowrap;
-  animation: no-signal-x 20s linear infinite alternate, no-signal-y 13s linear infinite alternate;
+  animation: no-signal-x 26s linear -13s infinite alternate, no-signal-y 18s linear -9s infinite alternate;
 }
 .no-signal b { display: block; margin-bottom: calc(6 * var(--u)); color: #fff; font-size: 1.25em; }
 .power-fx:not(.off) .no-signal { display: none; }
-@keyframes no-signal-x { from { left: 22%; } to { left: 78%; } }
-@keyframes no-signal-y { from { top: 18%; } to { top: 82%; } }
+@keyframes no-signal-x { from { left: 0; translate: 0 0; } to { left: 100%; translate: -100% 0; } }
+@keyframes no-signal-y { from { top: 0; transform: translateY(0); } to { top: 100%; transform: translateY(-100%); } }
 
 /* 켤 때: 2005년 브라운관 모니터처럼 자기 제거(디가우스)를 한다. 소니 모니터 설명서 기준으로 켤 때의 자동 디가우스는 2~5초였다.
    화면은 1.2초에 걸쳐 데워지듯 밝아지고, 그동안 밝은 곳(부팅 로고)에만 색이 번졌다가 2초에 걸쳐 가라앉으며, 화면 떨림은 1.5초에 걸쳐 잦아든다.
