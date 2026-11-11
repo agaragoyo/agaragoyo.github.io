@@ -58,14 +58,17 @@ function figure(back, step, shirt) {
     <rect x="18" y="56" width="28" height="30" rx="9" fill="${shirt}" stroke="${ink}" stroke-width="2"/>${face}`;
 }
 
-// 임시 그림의 시트 한 장(가로 3칸 × 세로 2줄)을 SVG로 그려 CSS 배경 주소로 돌려준다. 그림 파일(sheet)과 같은 규격이다.
+// SVG 그림 주소(data:). w, h는 viewBox 크기이고, 그림 자체는 scale배 크기로 만든다(두 배로 그리는 방 그림에서 흐려지지 않게).
+const svgURL = (body, w, h, scale = 1) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}">${body}</svg>`)}`;
+
+// 임시 그림의 시트 한 장(가로 3칸 × 세로 2줄)을 SVG 그림 주소로 돌려준다. 그림 파일(sheet)과 같은 규격이다.
 function placeholderSheet(shirt) {
   let frames = '';
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 3; col++) frames += `<g transform="translate(${col * FW} ${row * FH})">${figure(row === 1, col, shirt)}</g>`;
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${FW * 3}" height="${FH * 2}" viewBox="0 0 ${FW * 3} ${FH * 2}">${frames}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return svgURL(frames, FW * 3, FH * 2);
 }
 
 const inRoom = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -129,18 +132,45 @@ export function depthZ(items, a, rect = spriteRect(a)) {
 function avatarEl(avatarId) {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
   const el = h('div', { className: 'room-avatar' });
-  el.style.backgroundImage = def.sheet ? `url("${def.sheet}")` : placeholderSheet(def.color);
+  el.style.backgroundImage = `url("${def.sheet || placeholderSheet(def.color)}")`;
   return el;
+}
+
+// 칸 pos(걷는 중에는 소수)에 선 아바타 그림 상자의 왼쪽 위(무대 px)와 발끝 c. 화면(placeAt)과 방 그림(avatarStill)이 같이 쓴다.
+function boxAt(pos) {
+  const c = tile(pos.x + 0.5, pos.y + 0.5);
+  return { c, left: Math.round(c.x - FW / 2), top: Math.round(c.y - FOOT) };
 }
 
 // 발끝을 칸(걷는 중에는 소수) 가운데에 맞춰 놓고, 방향과 걸음에 맞는 그림 칸을 보여 준다. 발끝의 화면 위치를 돌려준다.
 function placeAt(el, pos, facing, col) {
-  const c = tile(pos.x + 0.5, pos.y + 0.5);
-  el.style.left = `${Math.round(c.x - FW / 2)}px`;
-  el.style.top = `${Math.round(c.y - FOOT)}px`;
+  const { c, left, top } = boxAt(pos);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
   el.style.backgroundPosition = `${-col * FW}px ${-facing.row * FH}px`;
   el.classList.toggle('flip', facing.flip);
   return c;
+}
+
+// 공유하기에서 내려받는 방 그림(src/room-image.js)에 세울 아바타 한 명. 화면과 같은 그림과 자리(boxAt), 가구와의 앞뒤(depthZ)를 쓴다.
+// items: 그 공간의 가구. spot: 설 칸 { x, y }과 방향 facing(걷는 아바타의 spot()이 준다). 없으면 처음 서는 곳에 앞을 보고 선다.
+// 그 칸이 막혀 있으면 가장 가까운 빈칸에 선다(화면의 attach와 같다). scale: 임시 그림을 만들 배율.
+// 돌려주는 것: { src(그림 주소), frame(그림에서 오려 낼 네모, 그림 파일일 때만), left, top, w, h, flip, z }. 설 칸이 없으면 null
+export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
+  const blocked = blockedOf(items);
+  const want = spot || SPAWN;
+  const cell = inRoom(want.x, want.y) && !blocked.has(key(want.x, want.y)) ? { x: want.x, y: want.y } : nearestFree(blocked, want.x, want.y);
+  if (!cell) return null;
+  const facing = spot?.facing || FACING['0,1'];
+  const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
+  const { left, top } = boxAt(cell);
+  return {
+    // 그림 파일은 시트에서 서 있는 칸을 오려 내고, 임시 그림은 서 있는 칸 하나만 SVG로 그린다
+    src: def.sheet || svgURL(figure(facing.row === 1, 0, def.color), FW, FH, scale),
+    frame: def.sheet ? { x: 0, y: facing.row * FH, w: FW, h: FH } : null,
+    left, top, w: FW, h: FH, flip: facing.flip,
+    z: depthZ(items, cell),
+  };
 }
 
 // host: 아바타가 사는 곳(지금은 바탕화면 배경, os.js가 넘긴다).
@@ -150,7 +180,7 @@ function placeAt(el, pos, facing, col) {
 //   input          바닥 클릭을 받는 요소. 이 요소 자체를 누른 것만 바닥으로 본다(아이콘, 창, 가구는 건너뛴다)
 //   sayRoot        말하기 입력 칸을 넣을 상자
 //   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
-// 돌려주는 것: attach(다시 그린 뒤), openSay, destroy
+// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, destroy
 export function mountAvatar(host, avatarId = 'basic') {
   const el = avatarEl(avatarId);
   el.title = '눌러서 말하기';
@@ -439,6 +469,8 @@ export function mountAvatar(host, avatarId = 'basic') {
       facing = FACING['0,1'];
       placed = true;
     },
+    // 지금 서 있는 칸과 방향(걷는 중에는 들어가는 칸). 공유하기의 방 그림이 avatarStill에 넘긴다. 방이 꽉 차 서 있지 못하면 null
+    spot: () => (placed && el.isConnected ? { x: me.x, y: me.y, facing } : null),
     openSay,
     say,
     approach,

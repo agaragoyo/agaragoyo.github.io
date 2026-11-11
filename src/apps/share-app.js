@@ -127,6 +127,7 @@ export function openShareApp(os, app) {
       };
 
       // 공간마다 그림이 한 장씩이다. 그림은 누르는 순간의 방으로 만든다(창을 열어 둔 사이에 방을 고쳐도 최신이다).
+      // 아바타도 누르는 순간 선 자리에 넣는다. 다른 공간에 나가 있으면 그 공간에 들어갈 때 서는 문 앞에 세운다(os.avatarSpot).
       // PNG를 만드는 데 1초쯤 걸리므로(2560×1440) 그동안 단추에 만드는 중이라고 보여 준다.
       const saveButton = scene => {
         const file = `agarago-${scene.id}.png`;
@@ -137,7 +138,7 @@ export function openShareApp(os, app) {
           b.disabled = true;
           b.textContent = '그림을 만드는 중';
           try {
-            const canvas = await renderRoomImage(home().scenes[scene.id], scene, home().owner);
+            const canvas = await renderRoomImage(home().scenes[scene.id], scene, home().owner, os.avatarSpot(scene));
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             if (!blob) throw new Error('PNG 파일을 만들지 못했다(canvas.toBlob이 빈 값을 돌려줌)');
             saveFile(blob, file);

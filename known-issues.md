@@ -251,6 +251,7 @@
 - 원인: 화면의 방은 SVG 바탕 위에 DOM 가구 상자를 CSS로 겹친 것이라 브라우저가 사진처럼 찍어 주지 못한다. 그래서 `src/room-image.js`가 캔버스에 다시 그린다.
   SVG를 그림으로 바꾸면 페이지의 CSS 변수, 클래스, 웹폰트(Galmuri)를 읽지 못하고, `.room`의 바탕 그라디언트는 CSS에서 값을 읽어 올 방법이 없다.
 - 규칙: 가구의 자리, 앞뒤 순서, 그림 고르는 규칙은 `placementOf`(iso.js), `zOf`와 `imageFor`(room.js)에서만 정하고 화면과 내려받기가 같이 쓴다. 화면용 코드에 따로 계산을 늘어놓지 않는다.
+  아바타도 같다. 그림 상자 자리(`boxAt`)와 가구와의 앞뒤(`depthZ`)는 avatar.js에서 화면(`placeAt`)과 내려받기(`avatarStill`)가 같이 쓴다.
   SVG에 점선이나 그림자 같은 새 속성을 쓰면 `room-image.js`의 `PAINT`에 더하고, `.room`의 바탕 색을 고치면 `BACKDROP`도 같이 고친다(`tools/check.py`가 색을 본다). 글자는 SVG 그림 안에 두지 않고 캔버스에 따로 쓴다.
   그림은 `onload`만 기다려 불러오고 `img.decode()`는 쓰지 않는다. 화면을 고친 뒤에는 내려받은 PNG를 방 위에 `mix-blend-mode: difference`로 겹쳐, 검게 남지 않는 곳이 있는지 본다.
 

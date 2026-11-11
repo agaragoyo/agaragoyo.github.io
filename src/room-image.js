@@ -4,12 +4,14 @@
 //   바탕과 그림이 없는 가구의 임시 모양(SVG): 화면에서 보이는 색을 요소마다 읽어 적은 뒤 그림 한 장으로 바꿔 그린다
 //   가구 그림(PNG): .furn img 처럼 상자 아래 가운데에 맞춰 줄이고, 돌린 그림이 없으면 좌우로 뒤집는다
 //   글자(임시 모양의 이름, 놀이터 문 팻말): SVG 그림 안에서는 웹폰트를 쓸 수 없어서 캔버스에 따로 쓴다
-// 크기는 화면의 방(1280×720)의 2배인 2560×1440px이다. 낮 모습이고 아바타는 넣지 않는다.
+// 크기는 화면의 방(1280×720)의 2배인 2560×1440px이고 낮 모습이다.
+// 아바타도 화면과 같은 그림과 자리, 가구와의 앞뒤 순서로 넣는다(src/avatar.js의 avatarStill).
 import { ROOM_W, ROOM_H } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { elevOf } from './rules.js';
 import { boxSize, placementOf, placeholderSVG, sceneSVG } from './iso.js';
 import { imageFor, zOf } from './room.js';
+import { avatarStill } from './avatar.js';
 
 export const IMAGE_SCALE = 2;
 export const IMAGE_W = ROOM_W * IMAGE_SCALE;
@@ -181,9 +183,20 @@ function drawSprite(g, sp) {
   }
 }
 
+// 아바타 한 명(avatarStill이 정한 그림과 자리). 화면의 .room-avatar.flip처럼 그림 상자 가운데를 기준으로 좌우를 뒤집는다.
+function drawAvatar(g, a, img) {
+  g.save();
+  g.translate(a.left, a.top);
+  if (a.flip) { g.translate(a.w, 0); g.scale(-1, 1); }
+  if (a.frame) g.drawImage(img, a.frame.x, a.frame.y, a.frame.w, a.frame.h, 0, 0, a.w, a.h);
+  else g.drawImage(img, 0, 0, a.w, a.h);
+  g.restore();
+}
+
 // 한 공간의 그림을 캔버스로 만든다. items: 그 공간의 가구 목록, scene: config.js의 SCENES 한 줄
 // owner: 집 주인 이름. 화면과 같이 놀이터에 이 집의 이웃집 문패는 그리지 않는다.
-export async function renderRoomImage(items, scene, owner = '') {
+// avatar: 아바타가 설 칸과 방향(os.avatarSpot). 비우면 처음 서는 곳에 서고, false면 아바타를 그리지 않는다.
+export async function renderRoomImage(items, scene, owner = '', avatar = null) {
   const canvas = document.createElement('canvas');
   canvas.width = IMAGE_W;
   canvas.height = IMAGE_H;
@@ -193,23 +206,35 @@ export async function renderRoomImage(items, scene, owner = '') {
   g.imageSmoothingQuality = 'high';
 
   // 화면은 z-index가 낮은 가구부터 쌓고, 같으면 목록에서 뒤에 있는 가구가 위에 온다(sort는 같은 값의 순서를 지킨다).
-  const order = items.map((item, i) => ({ item, i, z: zOf(items, item) })).sort((a, b) => a.z - b.z || a.i - b.i);
+  // 아바타는 가구 뒤에 붙인 요소라 z-index가 같은 가구보다 위에 오므로 목록 맨 끝 자리로 넣는다.
+  const order = items.map((item, i) => ({ item, i, z: zOf(items, item) }));
+  const still = avatar === false ? null : avatarStill(items, avatar, undefined, IMAGE_SCALE);
+  if (still) order.push({ still, i: items.length, z: still.z });
+  order.sort((a, b) => a.z - b.z || a.i - b.i);
   const cache = new Map(); // 같은 모양의 가구는 한 번만 준비한다
   const sprite = item => {
     const key = `${item.id}:${item.r ? 1 : 0}`;
     if (!cache.has(key)) cache.set(key, makeSprite(item));
     return cache.get(key);
   };
-  const [back, ...sprites] = await Promise.all([bakeSVG(sceneSVG(scene, owner)), ...order.map(o => sprite(o.item))]);
+  // 아바타 그림을 불러오지 못하면 아바타만 빼고 방은 그린다
+  const [back, ...sprites] = await Promise.all([
+    bakeSVG(sceneSVG(scene, owner)),
+    ...order.map(o => (o.still ? loadImage(o.still.src).catch(() => null) : sprite(o.item))),
+  ]);
 
   // 글자는 쓰기 전에 글꼴이 불려 와 있어야 한다(처음 쓰는 글자의 글꼴 조각이 늦게 오면 다른 글꼴로 써진다)
-  const texts = [back, ...sprites].flatMap(s => s.texts || []);
+  const texts = [back, ...sprites].flatMap(s => s?.texts || []);
   await Promise.all(texts.map(t => document.fonts.load(t.font, t.text).catch(() => {})));
 
   paintBackdrop(g, scene.kind);
   g.drawImage(back.img, 0, 0, ROOM_W, ROOM_H);
   drawTexts(g, back.texts);
-  order.forEach(({ item }, k) => {
+  order.forEach(({ item, still: a }, k) => {
+    if (a) {
+      if (sprites[k]) drawAvatar(g, a, sprites[k]);
+      return;
+    }
     const { left, top, skew } = placementOf(item, elevOf(items, item));
     g.save();
     g.translate(left, top);
