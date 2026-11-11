@@ -91,7 +91,7 @@ F로 시작하는 번호는 `docs/requirements.md`의 요구 사항 번호이고
 | See you on the other side 창이 흰 화면으로 바뀌었다는 제보의 원인 찾기 (`known-issues.md` 16번) | Admin | 기다림 |
 | 미니게임 창을 최소화해도 게임이 계속 도는지 확인하기. 화면 없는 크롬으로 재 보니 짐 정리와 파일 정리 10은 최소화한 동안에도 화면 그리기와 타이머가 보일 때와 똑같이 돈다(2026-11-11). 멈추게 할지는 `docs/requirements.md`의 "아직 정하지 않은 것"에 있다 | Admin | 끝 |
 | 맥 사파리에서 `?era=1998&warp=on`으로 볼록 화면이 다 그려지는지, 다른 사이트 게임 창의 클릭이 맞는지 확인한 뒤 사파리에서도 기본으로 켜기 (`known-issues.md` 30번). 볼록 효과를 빼서 필요 없어짐(2026-11-10) | Admin | 끝 |
-| `apps/README.md`와 `worklog/README.md`의 말투를 README에 맞추기 | Admin | 할 일 |
+| `apps/README.md`와 `worklog/README.md`의 말투를 README에 맞추기. `apps/README.md`의 부탁하는 문장 네 곳을 "~해 주시기 바랍니다"로 맞췄고 `worklog/README.md`는 이미 맞아 있었다(2026-11-11) | Admin | 끝 |
 | 처음 접속했을 때 모니터 없이 글씨만 먼저 보이던 것을 가림막으로 덮기 (`known-issues.md` 42번) | Admin | 끝 |
 | 느린 연결에서 모듈을 여섯 단계에 걸쳐 받던 것을 크롬 계열에서는 한꺼번에 받게 하기 (`tools/stamp.py`, `known-issues.md` 15번) | Admin | 끝 |
 | 사파리에 WebKit 버그 270357을 고친 버전이 나오면, 모듈 하나를 막은 뒤 새로 고침으로 가림막이 걷히는지 확인하고 모듈 미리 받기를 모든 브라우저로 넓히기 (`known-issues.md` 43번) | Admin | 기다림 |
