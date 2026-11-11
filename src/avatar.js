@@ -9,7 +9,7 @@ import { dims, isWall, supportOf, elevOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
 import { BY_ID } from '../data/furniture.js';
-import { h } from './util.js';
+import { h, isField } from './util.js';
 import { play } from './sound.js';
 
 const FW = 64;        // 그림 한 칸 가로 (px)
@@ -37,7 +37,6 @@ const KEYS = {
 };
 
 const key = (x, y) => `${x},${y}`;
-const isField = t => t instanceof HTMLElement && (t.matches('input, textarea, select') || t.isContentEditable);
 
 // 임시 그림 한 칸. back: 뒷모습, step: 0 서 있기, 1 왼발 걸음, 2 오른발 걸음
 function figure(back, step, shirt) {

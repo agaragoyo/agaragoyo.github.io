@@ -1,10 +1,10 @@
 // 방 그리기와 가구 끌어 놓기.
-import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
+import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace, coversDoor, dims, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 import { neighborGates } from './neighbors.js';
-import { clamp } from './util.js';
+import { clamp, doubleClick } from './util.js';
 import { play } from './sound.js';
 
 // 가구 id마다 이미지가 있는지 한 번만 물어본다. 없으면 콘솔에 404가 가구당 한 줄 찍히는데 정상이다.
@@ -152,33 +152,25 @@ function renderShade(container, items) {
 //   on.use(item)      가구          on.gate(gate)   바깥 공간의 아파트 문
 //   on.door(door)     방의 현관문    on.neighbor(n)  놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js의 neighborGates 한 줄)
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
-// 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(예전 볼록 화면이 dblclick을 넘기지 못해 이렇게 만들었다).
+// 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(src/util.js의 doubleClick).
 // owner: 이 집의 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다(src/neighbors.js의 neighborGates).
 export function renderStatic(container, items, scene, on = {}, owner = '') {
   container.innerHTML = sceneSVG(scene, owner);
-  let last = { what: null, t: 0 };
-  const twice = (what, use) => () => {
-    const now = performance.now();
-    if (last.what === what && now - last.t < DOUBLE_CLICK_MS) {
-      last = { what: null, t: 0 };
-      use();
-    } else {
-      last = { what, t: now };
-    }
-  };
-  container.querySelector('.gate-hit')?.addEventListener('click', twice(scene.gate, () => on.gate?.(scene.gate)));
-  container.querySelector('.door-hit')?.addEventListener('click', twice(scene.door, () => on.door?.(scene.door)));
+  const twice = doubleClick();
+  const onTwice = (what, use) => () => { if (twice(what)) use(); };
+  container.querySelector('.gate-hit')?.addEventListener('click', onTwice(scene.gate, () => on.gate?.(scene.gate)));
+  container.querySelector('.door-hit')?.addEventListener('click', onTwice(scene.door, () => on.door?.(scene.door)));
   const gates = scene.neighbors ? neighborGates(owner) : [];
   for (const hit of container.querySelectorAll('.neighbor-hit')) {
     const n = gates.find(g => g.id === hit.dataset.neighbor);
-    if (n) hit.addEventListener('click', twice(n, () => on.neighbor?.(n)));
+    if (n) hit.addEventListener('click', onTwice(n, () => on.neighbor?.(n)));
   }
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
-    el.addEventListener('click', twice(item, () => on.use?.(item)));
+    el.addEventListener('click', onTwice(item, () => on.use?.(item)));
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
@@ -351,7 +343,13 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     ghostEls[0] = el;
     update(last.x, last.y);
   };
-  const onKey = e => { if (e.key === 'r' || e.key === 'R' || e.key === 'ㄱ') { e.preventDefault(); rotate(); } };
+  // 한글 입력 상태에서도 같게 동작하도록 글자(e.key) 대신 자리(e.code)로 읽는다(아바타의 WASD와 같다).
+  // Ctrl+R(새로 고침)처럼 조합 키를 누른 것은 브라우저 단축키라 건드리지 않는다(known-issues 37).
+  const onKey = e => {
+    if (e.code !== 'KeyR' || e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    rotate();
+  };
   const onWheel = e => {
     e.preventDefault();
     const now = performance.now();

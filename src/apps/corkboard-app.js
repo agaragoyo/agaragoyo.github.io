@@ -114,7 +114,7 @@ export function openCorkboardApp(os, app) {
 
       function render() {
         if (notes.length) area.replaceChildren(h('div', { className: 'cork-notes' }, ...notes.map(noteEl)));
-        else if (page) message(h('p', {}, '이 장의 쪽지를 모두 지웠습니다.'));
+        else if (page || more) message(h('p', {}, '이 장의 쪽지를 모두 지웠습니다.')); // 가장 최근 장을 다 지워도 지난 쪽지가 남아 있으면 빈 보드라고 하지 않는다
         else if (owner) message(h('p', {}, '아직 붙은 쪽지가 없습니다.'), h('p', {}, '짧은 링크를 받은 친구가 여기에 쪽지를 남길 수 있습니다.'));
         else message(h('p', {}, '아직 붙은 쪽지가 없습니다.'));
         fresh = null;

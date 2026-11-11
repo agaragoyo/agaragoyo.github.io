@@ -6,7 +6,7 @@
 import { h, clamp } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { BOOK_COLORS } from './bookshelf-app.js';
-import { LIMIT, safeLink, safeImage, setLike, isOwner } from '../likes.js';
+import { LIMIT, safeLink, safeImage, setLike, isOwner, nextColor } from '../likes.js';
 
 // ---------- 위키데이터(키 없이 다른 사이트에서 부를 수 있다, origin=*) ----------
 const WD = 'https://www.wikidata.org/w/api.php';
@@ -257,10 +257,8 @@ export function openTvApp(os, app) {
           const pic = art.value.trim() && safeImage(art.value);
           if (art.value.trim() && !pic) return fail('포스터 주소를 알아보지 못했습니다. https://로 시작하는 그림 주소를 넣어 주세요.', art);
           const list = [...works()];
-          const prev = list[list.length - 1]?.color;
-          let color = i >= 0 ? list[i].color : null;
-          if (color == null) do { color = Math.floor(Math.random() * LIMIT.bookColors); } while (color === prev);
-          const work = { title: title.value, year: year.value, by: by.value, link: href, poster: pic, why: why.value, color };
+          const color = list[i]?.color ?? nextColor(list); // 고칠 때는 제목 카드의 색을 그대로 둔다
+          const work ={ title: title.value, year: year.value, by: by.value, link: href, poster: pic, why: why.value, color };
           if (i >= 0) list[i] = work;
           else list.push(work);
           setLike(os, 'tv', list);

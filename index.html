@@ -29,7 +29,7 @@
        스타일시트보다 앞에 둔다. 뒤에 두면 아래 스크립트가 CSS를 다 받을 때까지 기다린다. -->
   <template id="modulepreload"></template>
   <script>
-    // 크롬 계열 판별은 src/main.js의 CHROMIUM과 같은 식이다. 한쪽을 고치면 다른 쪽도 같이 고친다.
+    // 크롬 계열(사용자 에이전트에 Chrome/이나 Chromium/이 있는 크롬, 엣지, 웨일, 삼성 인터넷)만 고른다.
     if (/Chrome\/|Chromium\//.test(navigator.userAgent)) document.head.append(document.getElementById('modulepreload').content);
   </script>
   <!-- 글꼴: 첫 화면은 사이트 글자만 담은 작은 글꼴(AgaUI, 두 벌 합쳐 약 21KB)로 그리므로 HTML을 읽자마자 받는다.

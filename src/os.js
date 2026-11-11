@@ -2,7 +2,7 @@
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
 //         'visit' 공유 링크로 들어온 친구 컴퓨터 (가구는 옮기지 못하고, 바탕화면에서 아바타로 걸으며 써 본다)
 // 앱은 src/apps/(기본 앱)와 apps/(팀원 앱, iframe)에 있고, 여기서는 목록대로 열어 주기만 한다.
-import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, DOUBLE_CLICK_MS, SCENES } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID } from '../data/apps.js';
 import { createWM } from './win.js';
@@ -16,7 +16,7 @@ import { sanitizeHome, decodeHome, encodeHome, linkCode, linkId } from './share.
 import { fetchHome, sharedId, syncLater, unshare, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
-import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
+import { batchim, h, wait, reduceMotion, loadJSON, saveJSON, doubleClick } from './util.js';
 import { play, setPlace } from './sound.js';
 
 export function createOS({ stage, toStage, requestPowerOff, settings }) {
@@ -443,7 +443,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 아이콘 묶음(바탕화면, 폴더 창). 한 번 누르면 고르고, 두 번 누르면 연다.
   os.renderIcons = (container, apps) => {
     container.replaceChildren();
-    let last = { id: null, t: 0 };
+    const twice = doubleClick();
     for (const app of apps) {
       // 새 탭으로 열리는 앱(href)은 누르기 전에 알 수 있게 아이콘에 바깥 화살표를 달고, 마우스를 올리면 열리는 곳을 보여 준다(known-issues 32).
       const b = h('button', {
@@ -452,14 +452,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         dataset: { app: app.id },
         title: app.href ? `새 탭에서 열립니다(${new URL(app.href).host})` : null,
         onclick: () => {
-          const now = performance.now();
           for (const o of container.querySelectorAll('.desk-icon')) o.classList.toggle('selected', o === b);
-          if (last.id === app.id && now - last.t < DOUBLE_CLICK_MS) {
-            last = { id: null, t: 0 };
-            os.openApp(app.id);
-          } else {
-            last = { id: app.id, t: now };
-          }
+          if (twice(app.id)) os.openApp(app.id);
         },
         onkeydown: e => {
           if (e.key !== 'Enter') return;

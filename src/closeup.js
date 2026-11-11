@@ -8,9 +8,7 @@
 //   const cu = openCloseup(os, { key, title, className, closeLabel, closeTip, build(panel, cu) { ...; return 닫을 때 부를 함수 } })
 //   cu.onKey = e => {}   창이 앞에 없을 때 받은 키(Esc는 닫기로 먼저 쓴다)
 //   cu.frames            게임기처럼 안에 앱(iframe)을 띄우면 [{ iframe, close, setTitle }]. 앱 SDK가 이걸 창처럼 쓴다(src/sdk-host.js)
-import { h, reduceMotion } from './util.js';
-
-const isField = el => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+import { h, reduceMotion, isField } from './util.js';
 
 export function openCloseup(os, { key, title, className = '', closeLabel = '닫기', closeTip = '바깥을 누르면 닫힙니다.', build }) {
   os.closeup?.close();

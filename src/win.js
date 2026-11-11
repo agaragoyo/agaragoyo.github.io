@@ -1,11 +1,11 @@
 // 창 관리자. 옛 OS 모양 창을 열고, 끌어 옮기고, 최소화, 최대화, 닫는다.
 // 작업 표시줄 버튼도 여기서 만든다. 바탕화면 좌표(1280×800) 안에서 움직인다.
-import { DESK_W, DESK_H, DOUBLE_CLICK_MS } from './config.js';
+import { DESK_W, DESK_H } from './config.js';
 import { iconEl } from './icons.js';
+import { clamp, doubleClick } from './util.js';
 // 창 안쪽(body) 크기에 더하면 바깥 크기가 되는 테두리, 제목 줄 몫 (style.css의 .win과 맞춘다)
 export const CHROME_W = 14;
 export const CHROME_H = 47;
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
   const wins = new Map(); // key -> win
@@ -160,12 +160,10 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
       else focus(win);
     });
     el.addEventListener('pointerdown', () => { if (focused !== win) focus(win); });
-    let lastBarClick = 0;
+    const twice = doubleClick();
     bar.addEventListener('pointerdown', e => {
       if (e.target.closest('.win-btn')) return; // 제목 줄 단추는 끌기와 두 번 누르기에서 뺀다
-      const now = performance.now();
-      if (now - lastBarClick < DOUBLE_CLICK_MS) { setMax(win, !win.maximized); lastBarClick = 0; return; }
-      lastBarClick = now;
+      if (twice(bar)) { setMax(win, !win.maximized); return; }
       if (!win.maximized) dragWindow(win, e);
     });
 

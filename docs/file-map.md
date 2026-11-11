@@ -75,7 +75,7 @@
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간, 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `STORAGE_*` 등 |
-| `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion` |
+| `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기, 두 번 누르기 판정(바탕화면 아이콘, 가구와 문, 창 제목 줄이 같이 쓴다), 글을 치는 칸인지 보기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion`, `doubleClick`, `isField` |
 
 ## src/: 컴퓨터(OS)
 
@@ -89,7 +89,7 @@
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘(방, 놀이터, 집, 폴더, 공유, 음악, 내 컴퓨터, 가구)은 SVG로 직접 그린다 | `iconEl` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
 | `src/screensaver.js` | 화면 보호기. 바탕화면을 2분 동안 그냥 두면 검은 화면에 주인의 인사말(없으면 "주인 이름의 컴퓨터")이 흘러가고, 마우스나 키로 걷힌다. 언제 돌지는 `os.js`가 정한다 | `createScreensaver` |
-| `src/cursors.js` | 화면 안 커서 그림을 만들어 `--cur-*` CSS 변수로 넣는다. 설정의 `cursor`(색, 크기, 직접 그린 그림)를 따른다 | `initCursors`, `cursorSet`, `defaultPixels` 등 |
+| `src/cursors.js` | 화면 안 커서 그림(화살표, 손, 잡는 손, 모래시계)을 만들어 `--cur-*` CSS 변수로 넣는다. 2005년식 그림 한 벌뿐이고 직접 그린 것이다 | `initCursors`, `cursorSet` |
 
 ## src/: 방 그리기
 
@@ -103,7 +103,7 @@
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 공유 링크(`#r=...`, 예전 링크는 `#room=...`) 만들기, 읽기. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말도 담긴다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
 | `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기. SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 짧은 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 짧은 링크를 지우면 쪽지도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `NOTE`, `MAX_CODE`, `CloudError` |
-| `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `line`, `para`, `isOwner`, `LIMIT` |
+| `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 새 책과 작품의 색 고르기(`nextColor`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `nextColor`, `line`, `para`, `isOwner`, `LIMIT` |
 
 ## src/apps/: 기본 앱
 

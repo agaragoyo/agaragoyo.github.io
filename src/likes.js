@@ -43,6 +43,14 @@ export function para(value, max) {
   return Array.from(text).slice(0, max).join('').trim();
 }
 
+// 새로 넣는 책과 작품의 색 번호. 무작위로 고르되 목록의 마지막 것과 같은 색은 피한다(선반에서 책등이 붙어 보이지 않게).
+export function nextColor(list) {
+  const prev = list[list.length - 1]?.color;
+  let color;
+  do { color = Math.floor(Math.random() * LIMIT.bookColors); } while (color === prev);
+  return color;
+}
+
 // 새 탭으로 여는 링크 주소. http와 https만 받고, 아이디와 비밀번호가 든 주소는 버린다. 못 쓰는 주소는 빈 글을 돌려준다.
 export function safeLink(value) {
   if (typeof value !== 'string' || !value.trim()) return '';

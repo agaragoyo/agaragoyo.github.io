@@ -24,16 +24,6 @@ body:
         2. 두 번째 장면에서 아이템을 골랐습니다.
     validations:
       required: true
-  - type: dropdown
-    id: era
-    attributes:
-      label: 시대
-      description: 모니터 위 스위치에서 고른 시대입니다.
-      options:
-        - '1998'
-        - '2005'
-        - '2010'
-        - 모르겠음
   - type: input
     id: browser
     attributes:

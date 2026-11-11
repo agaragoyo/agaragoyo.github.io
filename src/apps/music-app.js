@@ -1,7 +1,7 @@
 // 기본 앱: 배경음악. 바탕화면 내 방에서 틀 곡을 고르고, 배경음악만 따로 끄고 켠다(효과음은 그대로 난다).
 // 이 창이 열려 있는 동안은 놀이터에 있어도 고른 곡을 틀어 바로 들어 볼 수 있다(src/sound.js의 holdMusic, 'room').
 // 고른 값은 settings의 music, musicOn에 저장된다. 모니터 아래 소리 버튼(settings.sound)이 꺼지면 모든 소리가 꺼진다.
-// 모양은 마우스 앱처럼 그 시절 대화상자의 제목 붙은 묶음(fieldset)을 따른다.
+// 모양은 그 시절 대화상자의 제목 붙은 묶음(fieldset)을 따른다.
 import { h } from '../util.js';
 import { ROOM_MUSIC, roomMusic, holdMusic } from '../sound.js';
 
