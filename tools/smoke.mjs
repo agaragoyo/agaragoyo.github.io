@@ -6,7 +6,7 @@
 // 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
-// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기, 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(HOME)을
+// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기, 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창,
 // 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
@@ -14,29 +14,10 @@
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
-import { sleep, startServer, launchChrome, runTool } from './headless.mjs';
+import { sleep, startServer, launchChrome, runTool, TEST_HOME as HOME, plantHome } from './headless.mjs';
 
 const SHOW_ALL = process.argv.includes('--all');
 
-// 점검용 집. 바닥과 벽의 가구, 책상 위 물건, 가구에 담아 둔 것이 고루 들어 있다. 라디오는 CD를 넣지 않아 넣는 칸이 바로 뜬다
-// (CD가 있으면 표지를 받으러 스포티파이에 요청을 보낸다). 처음 서는 칸(8, 8) 둘레는 비워 둔다.
-const HOME = {
-  owner: '점검',
-  scenes: {
-    room: [
-      { id: 'lamp', x: 0, y: 0 }, { id: 'desk', x: 3, y: 0 }, { id: 'computer', x: 3, y: 0 }, { id: 'radio', x: 4, y: 1 },
-      { id: 'bookshelf', x: 7, y: 0 }, { id: 'bed', x: 0, y: 3 }, { id: 'tv', x: 8, y: 3 }, { id: 'console', x: 10, y: 3 },
-      { id: 'corkboard', wall: 'R', x: 0, y: 4 },
-    ],
-    playground: [{ id: 'bench', x: 9, y: 10 }],
-  },
-  likes: {
-    computer: { url: 'https://example.com/', name: '점검용 게임' },
-    console: 'file-ten',
-    bookshelf: [{ title: '첫 책', author: '지은이', note: '남긴 말', color: 0 }, { title: '둘째 책', color: 3 }, { title: '셋째 책', color: 5 }],
-    tv: [{ title: '첫 작품', year: '2005', by: '감독', why: '추천 이유', color: 2 }, { title: '둘째 작품', color: 6 }],
-  },
-};
 // 손님 화면에서 스크립트가 돌지 않는지 볼 집. 이름과 글에 HTML을, 주소에 javascript:를 넣는다
 const EVIL = {
   owner: '<img src=x>',
@@ -74,14 +55,6 @@ function overflowing() {
     }
   }
   return [...new Set(out)].slice(0, 8);
-}
-
-// 집을 검사(sanitizeHome)에 통과시켜 내 집으로 심는다. 통과한 가구 수를 돌려준다
-async function plantHome(home) {
-  const { sanitizeHome } = await import(new URL('src/share.js', document.baseURI).href);
-  const clean = sanitizeHome(home);
-  localStorage.setItem('agarago.home.v3', JSON.stringify(clean));
-  return Object.values(clean.scenes).flat().length;
 }
 
 // 집을 긴 링크(#r= 뒤의 글자)로 바꾼다

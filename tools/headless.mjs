@@ -6,6 +6,7 @@
 //   const base = await startServer();      사이트 주소(http://127.0.0.1:<빈 포트>/)
 //   const page = await launchChrome();     { send(CDP 명령, 값), run(페이지 안에서 돌릴 함수, ...넘길 값), pageErrors, consoleErrors }
 //   await runTool(import.meta.url, main);  main이 돌려준 종료 코드로 끝낸다. 끝나거나 멈추면 크롬과 서버를 끈다
+//   await page.run(plantHome, TEST_HOME);  가구와 담아 둔 것이 있는 점검용 집을 내 집으로 심는다(다시 열면 그 집의 사용자가 나온다)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -152,6 +153,34 @@ async function connect(url) {
     return r.result.value;
   };
   return { send, run, pageErrors, consoleErrors };
+}
+
+// 점검용 집. tools/smoke.mjs와 tools/night-contrast.mjs가 내 집으로 심어 쓴다. 바닥과 벽의 가구, 책상 위 물건, 가구에 담아 둔 것이 고루 들어 있다. 라디오는 CD를 넣지 않아 넣는 칸이 바로 뜬다
+// (CD가 있으면 표지를 받으러 스포티파이에 요청을 보낸다). 처음 서는 칸(8, 8) 둘레는 비워 둔다.
+export const TEST_HOME = {
+  owner: '점검',
+  scenes: {
+    room: [
+      { id: 'lamp', x: 0, y: 0 }, { id: 'desk', x: 3, y: 0 }, { id: 'computer', x: 3, y: 0 }, { id: 'radio', x: 4, y: 1 },
+      { id: 'bookshelf', x: 7, y: 0 }, { id: 'bed', x: 0, y: 3 }, { id: 'tv', x: 8, y: 3 }, { id: 'console', x: 10, y: 3 },
+      { id: 'corkboard', wall: 'R', x: 0, y: 4 },
+    ],
+    playground: [{ id: 'bench', x: 9, y: 10 }],
+  },
+  likes: {
+    computer: { url: 'https://example.com/', name: '점검용 게임' },
+    console: 'file-ten',
+    bookshelf: [{ title: '첫 책', author: '지은이', note: '남긴 말', color: 0 }, { title: '둘째 책', color: 3 }, { title: '셋째 책', color: 5 }],
+    tv: [{ title: '첫 작품', year: '2005', by: '감독', why: '추천 이유', color: 2 }, { title: '둘째 작품', color: 6 }],
+  },
+};
+
+// 페이지 안에서 도는 함수(page.run(plantHome, TEST_HOME)). 집을 검사(sanitizeHome)에 통과시켜 내 집으로 심는다. 통과한 가구 수를 돌려준다
+export async function plantHome(home) {
+  const { sanitizeHome } = await import(new URL('src/share.js', document.baseURI).href);
+  const clean = sanitizeHome(home);
+  localStorage.setItem('agarago.home.v3', JSON.stringify(clean));
+  return Object.values(clean.scenes).flat().length;
 }
 
 // 도구 하나를 돌린다. main은 종료 코드를 돌려준다(0 통과, 1 실패가 있음). 도구를 돌리지 못하면 2로 끝낸다.
