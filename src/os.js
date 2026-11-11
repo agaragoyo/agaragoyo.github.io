@@ -235,6 +235,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     renderDesktopIcons();
   };
 
+  // 공유하기의 방 그림에 세울 아바타의 칸과 방향(src/room-image.js). 아바타가 그 공간에 있으면 지금 선 칸, 없으면 그 공간에 들어갈 때 서는 칸이다.
+  // 튜토리얼 연습 방을 걷는 동안에는 그림에 담는 집(저장된 집)과 가구가 달라서 들어갈 때 서는 칸을 쓴다.
+  os.avatarSpot = scene => (!os.realHome && scene.id === os.place && walker?.spot()) || doorstep(scene) || null;
+
   // 놀이터 문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 내 방으로 돌아간다.
   os.useGate = gate => {
     const home = () => os.goScene(SCENES[0].id);

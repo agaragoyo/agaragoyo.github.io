@@ -50,7 +50,7 @@
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 긴 링크(`#r=`)는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`. 짧은 링크(`#s=`)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules` |
-| 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE` |
+| 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE`. 그림 속 아바타는 `src/avatar.js`의 `avatarStill`, 서는 칸은 `src/os.js`의 `avatarSpot` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
 | 예전에 겪은 함정 | `known-issues.md` |
@@ -100,8 +100,8 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 전원을 켤 때 가구 그림 미리 받기(`preloadFurniture`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `preloadFurniture`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
-| `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그린다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다 | `mountAvatar`, `depthZ`, `spriteRect` |
+| `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그리고, 아바타(`avatarStill`)를 가구 사이의 앞뒤 순서에 맞춰 넣는다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`) | `mountAvatar`, `depthZ`, `spriteRect`, `avatarStill` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함) | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -211,7 +211,7 @@ index.html
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
-         ├─ share-app.js ── cloud.js, room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js
+         ├─ share-app.js ── cloud.js, room-image.js ── room.js(imageFor, zOf), iso.js(placementOf, sceneSVG), rules.js, avatar.js(avatarStill)
          ├─ folder-app.js, music-app.js, mine-app.js
          └─ frame-app.js ── iframe 안의 apps/<id>/index.html ── apps/aga-sdk.js
 data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 읽는다
