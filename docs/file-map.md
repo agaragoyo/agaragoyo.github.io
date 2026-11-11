@@ -157,7 +157,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었고, localhost가 늦지 않게 IPv6와 IPv4를 함께 받으며 연결을 이어 쓴다(known-issues 56) |
-| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
+| `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 가구 그림이 칸에 맞는지(경고. PNG를 직접 풀어 바닥 튀어나옴, 칸 채움, 벽 가구 정면을 잰다), 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
 | `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(10초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에 적는다 |
