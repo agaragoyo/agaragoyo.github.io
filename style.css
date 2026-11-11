@@ -725,7 +725,9 @@ body.moving-window iframe { pointer-events: none; }
 /* 바탕화면 가구와 문(놀이터의 아파트 문과 이웃집 문, 방의 현관문)은 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic).
    배경은 클릭을 흘려보내고 가구 그림과 문만 받는다. */
 .wallpaper .item.usable .hit, .wallpaper .room-bg .gate-hit, .wallpaper .room-bg .neighbor-hit, .wallpaper .room-bg .door-hit { pointer-events: auto; cursor: var(--cur-hand); }
-.room[data-kind="outdoor"] { background: linear-gradient(#9fd0ee, #d9eef2 60%); }
+/* 놀이터처럼 바깥 공간이 배경이면 바탕화면 뒤도 하늘이다(os.js의 renderWallpaper가 data-kind를 단다). 방 꾸미기 창의 .room과 내려받는 그림(room-image.js의 BACKDROP)과 같은 색이고,
+   방 상자(.wallpaper)가 40px 아래에서 시작하므로 색이 바뀌는 자리도 그만큼 내린다(방 상자의 0~432px이 바탕화면의 40~472px) */
+.desktop[data-kind="outdoor"] { background: linear-gradient(#9fd0ee 40px, #d9eef2 472px); }
 .room-bg .fence { stroke: #f4efe3; stroke-width: 4; stroke-linecap: round; fill: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
 .night-shade {

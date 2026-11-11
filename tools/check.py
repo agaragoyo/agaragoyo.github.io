@@ -569,9 +569,10 @@ def check_room_image():
         err('src/room-image.js', 'BACKDROP(indoor, outdoor 색)을 찾지 못했다. 이 모양을 바꿨다면 tools/check.py의 check_room_image도 고친다')
         return
     a, b, c, d = (x.lower() for x in m.groups())
-    for want in (f'radial-gradient(ellipse at 50% 45%, {a}, {b} 75%)', f'linear-gradient({c}, {d} 60%)'):
+    # 바탕화면 놀이터의 하늘(.desktop[data-kind="outdoor"])도 같은 색이다. 방 상자가 40px 아래에서 시작해 색이 바뀌는 자리를 그만큼 내렸다
+    for want in (f'radial-gradient(ellipse at 50% 45%, {a}, {b} 75%)', f'linear-gradient({c}, {d} 60%)', f'linear-gradient({c} 40px, {d} 472px)'):
         if want not in css:
-            err('style.css', f'.room의 바탕이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
+            err('style.css', f'방 바탕(.room과 바탕화면 놀이터의 .desktop)이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
 
 
 # ---------- 소리 ----------
