@@ -35,7 +35,7 @@
 | 공유 링크와 집 검사를 고친 뒤 무작위 입력으로 두드려 보기 | `node tools/link-fuzz.mjs`. 가구에 담는 것의 종류를 더하면 그 파일의 `randomHome`과 `invariants`에도 더한다 |
 | `style.css`를 고친 뒤 화면의 모양이 어디가 달라졌는지 견주기 | `node tools/css-diff.mjs`. 모양을 바꾸지 않는 정리라면 "다른 곳 0개"가 나와야 한다 |
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
-| 부팅 로고, 로그인 화면 흐름 | `src/os.js`의 `os.boot`, `showLogin` |
+| 부팅 로고, 로그인 화면 흐름 | 부팅은 `src/os.js`의 `os.boot`, 로그인 화면(사용자 목록, 새 사용자 만들기, 이 컴퓨터 초기화)은 `src/login.js`의 `showLogin`, 고른 집으로 들어가기(환영 화면)는 `src/os.js`의 `enter` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
@@ -84,7 +84,8 @@
 
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
-| `src/os.js` | 부팅, 로그인(이웃집 줄과 짧은 링크의 방 받아 오기 포함), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 초기화, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/os.js` | 부팅, 고른 집으로 들어가기(로그인 화면은 `login.js`가 만든다), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
+| `src/login.js` | 로그인 화면. 내 집, 링크로 온 친구 집(짧은 링크의 방은 서버에서 받아 온다), 이웃집을 사용자처럼 늘어놓고, 맨 끝에 새 사용자 만들기나 이 컴퓨터 초기화를 둔다. 화면 바꾸기와 고른 집으로 들어가기는 `os.js`에서 넘겨받는다 | `createLogin` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 링크를 풀어 깨진 줄을 빼고 여섯 집까지 고르기, 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패는 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
@@ -206,6 +207,7 @@
 index.html
 └─ src/main.js ─── settings.js, cursors.js
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
+      ├─ src/login.js ── share.js, cloud.js, neighbors.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
