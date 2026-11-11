@@ -379,7 +379,9 @@ async function walk(page, base) {
   await sleep(500);
   await probe('손님 바탕화면');
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
+  check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
+  check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
   check('손님에게는 넣기, 고치기, 빼기 단추가 없다', await page.run(() => !document.querySelector('.closeup .shelf-tools, .closeup .book-spine.add')));
   await press(page, 'Escape');
   await openIcon('my-computer');

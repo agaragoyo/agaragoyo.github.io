@@ -42,6 +42,9 @@ export function openCloseup(os, { key, title, className = '', closeLabel = '닫�
   el.addEventListener('click', e => { if (e.target === el) close(); });
   window.addEventListener('keydown', onKey);
   os.wm.blur(); // 창을 앞에 두지 않아야 키가 이 화면으로 온다
+  // 떠 있던 알림은 걷는다. 알림은 화면 아래 가운데에 떠서 이 화면의 아래쪽 단추 줄을 가린다. 손님으로 들어온 직후의
+  // "가구를 두 번 눌러 사용해 보세요"(6초)가 바로 그 가구 화면을 가렸다. 이 화면 안에서 띄우는 알림(지우지 못했습니다 등)은 그 뒤에 뜬다
+  os.hideToast();
   os.closeup = cu;
   os.stage.querySelector('#desktop').append(el);
   cleanup = build(panel, cu);
