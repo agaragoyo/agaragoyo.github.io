@@ -13,7 +13,7 @@ import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
 import { sanitizeHome, decodeHome, encodeHome, linkCode, linkId } from './share.js';
-import { fetchHome, sharedId, syncLater, unshare } from './cloud.js';
+import { fetchHome, sharedId, syncLater, unshare, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { NEIGHBOR_LIST, neighborHome, askVisit } from './neighbors.js';
 import { batchim, h, wait, reduceMotion, loadJSON, saveJSON } from './util.js';
@@ -42,6 +42,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     closeup: null, // 가구를 가까이 보는 화면(src/closeup.js)이 열려 있으면 그 화면
     mode: null,
     hasOwnHome: false, // 이 컴퓨터에 저장된 내 집이 있는지. 손님 바탕화면에서 나도 만들기와 내 컴퓨터로 가운데 무엇을 보일지 정한다
+    boardId: null, // 짧은 링크(#s=)로 온 손님이면 그 방 번호. 코르크 보드의 쪽지가 이 번호의 방에 붙는다(src/apps/corkboard-app.js)
     place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
       layer: $('#windows'),
@@ -101,6 +102,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
     return own && own.owner ? own : null;
   }
+  // 이 컴퓨터에 사는 사람의 닉네임. 손님으로 쪽지를 붙일 때 닉네임 칸에 미리 넣는다(src/apps/corkboard-app.js)
+  os.ownName = () => ownHome()?.owner || '';
 
   // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
   // 짧은 링크(#s=)로 온 친구 집은 서버에서 받아야 해서 여기 없고, cloudHome이 받은 뒤에 따로 미리 받는다.
@@ -131,7 +134,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     cloudHome(id).then(friend => {
       if (my !== run || !tile.isConnected) return;
       if (friend) {
-        tile.replaceWith(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
+        tile.replaceWith(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my, id)));
         return;
       }
       tile.remove();
@@ -200,7 +203,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     };
     const ask = () => box.replaceChildren(
       h('p', {}, sharedId()
-        ? '이 컴퓨터의 집과 게임 기록, 짧은 링크의 방을 지웁니다. 되돌릴 수 없습니다.'
+        ? '이 컴퓨터의 집과 게임 기록, 짧은 링크의 방과 쪽지를 지웁니다. 되돌릴 수 없습니다.'
         : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
       h('div', { className: 'reset-row' },
         h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),
@@ -253,11 +256,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     return form;
   }
 
-  async function enter(mode, home, my) {
+  // boardId: 짧은 링크(#s=)로 온 손님이면 그 방 번호(코르크 보드의 쪽지가 붙는 곳). 긴 링크와 이웃집 손님은 없다.
+  async function enter(mode, home, my, boardId = null) {
     if (my !== run) return;
     os.mode = mode;
     os.home = home;
     os.hasOwnHome = mode === 'edit' || !!ownHome();
+    os.boardId = mode === 'visit' ? boardId : null;
     if (mode === 'edit') syncLater(() => encodeHome(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침이 있으면 올린다(src/cloud.js)
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
@@ -265,6 +270,21 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     el.login.classList.remove('entering');
     if (my !== run) return;
     showDesktop();
+    if (mode === 'edit') checkNotes(my);
+  }
+
+  // 주인이 내 컴퓨터로 들어오면 코르크 보드에 새 쪽지가 붙었는지 본다. 서버에서 가장 최근 쪽지 한 장만 읽는다(src/cloud.js의 latestNoteAt).
+  // 짧은 링크가 있고 보드를 방에 걸어 두었을 때만 묻는다. 걷는 법 안내가 떠 있으면 그 안내가 사라진 뒤에 알리고,
+  // 그사이에 주인이 보드를 열어 쪽지를 봤으면(notesSeenAt) 알리지 않는다.
+  function checkNotes(my) {
+    const hung = Object.values(os.home.scenes).flat().some(it => BY_ID[it.id]?.gimmick === 'app:corkboard');
+    if (!hung || !sharedId()) return;
+    latestNoteAt().then(latest => {
+      if (latest <= notesSeenAt() || my !== run) return;
+      setTimeout(() => {
+        if (my === run && !el.desktop.hidden && latest > notesSeenAt()) toast('코르크 보드에 새 쪽지가 있습니다.', 5000);
+      }, Math.max(0, toastEnds - Date.now()));
+    }, err => console.warn('새 쪽지를 확인하지 못했다', err));
   }
 
   const clearHash = () => {
@@ -552,11 +572,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // ---------- 알림 ----------
   let toastTimer = 0;
+  let toastEnds = 0; // 지금 알림이 사라지는 시각. 기다릴 수 있는 알림(새 쪽지)은 앞의 알림을 덮지 않고 이 뒤에 띄운다
   function toast(msg, ms = 2400) {
     el.toast.textContent = msg;
     el.toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(hideToast, ms);
+    toastEnds = Date.now() + ms;
   }
   function hideToast() {
     el.toast.classList.remove('show');

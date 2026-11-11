@@ -101,7 +101,7 @@ export function openShareApp(os, app) {
         w.refreshLink();
       };
       const askRemove = () => {
-        cloudTip.replaceChildren('서버에서 방을 지웁니다. 보낸 짧은 링크는 더는 ', nw('열리지 않습니다.'));
+        cloudTip.replaceChildren('서버에서 방과 쪽지를 지웁니다. ', nw('보낸 짧은 링크는 더는 열리지 않습니다.'));
         cloudRow.replaceChildren(button('지우기', remove), button('그대로 두기', () => w.refreshLink()));
       };
 

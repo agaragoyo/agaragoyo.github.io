@@ -534,6 +534,28 @@ def check_cloud():
     col = re.search(r"const HOMES = '(\w+)'", js)
     if not col or f'match /{col.group(1)}/' not in rules:
         err('firestore.rules', 'src/cloud.js의 컬렉션 이름(HOMES)에 맞는 match 줄이 없다')
+    # 코르크 보드 쪽지: NOTE의 닉네임, 글 글자 수와 색 수가 규칙(validNote)과 같고, 한 번에 받는 쪽지 수가 규칙의 읽기 한도 안인지 본다
+    notes = re.search(r"const NOTES = '(\w+)'", js)
+    if not notes or f'match /{notes.group(1)}/' not in rules:
+        err('firestore.rules', 'src/cloud.js의 쪽지 컬렉션 이름(NOTES)에 맞는 match 줄이 없다')
+    block = re.search(r'export const NOTE = \{(.*?)\};', js, re.S)
+    vals = {k: int(v) for k, v in re.findall(r'(\w+):\s*(\d+)', block.group(1))} if block else {}
+    found = {
+        'name': re.search(r'd\.name\.size\(\) <= (\d+)', rules),
+        'text': re.search(r'd\.text\.size\(\) <= (\d+)', rules),
+        'colors': re.search(r'd\.color <= (\d+)', rules),
+        'page': re.search(r'request\.query\.limit <= (\d+)', rules),
+    }
+    if not block or any(k not in vals for k in found) or not all(found.values()):
+        err('src/cloud.js', '쪽지 한도(NOTE의 name, text, colors, page와 firestore.rules의 쪽지 규칙)를 찾지 못했다. 모양을 바꿨다면 tools/check.py의 check_cloud도 고친다')
+        return
+    for k in ('name', 'text'):
+        if vals[k] != int(found[k].group(1)):
+            err('src/cloud.js', f'NOTE.{k}({vals[k]})가 firestore.rules의 쪽지 한도({found[k].group(1)})와 다르다. 규칙을 고쳤다면 콘솔에도 게시한다')
+    if vals['colors'] != int(found['colors'].group(1)) + 1:
+        err('src/cloud.js', f"NOTE.colors({vals['colors']})가 firestore.rules의 색 번호 한도(0~{found['colors'].group(1)})와 맞지 않다")
+    if vals['page'] + 1 > int(found['page'].group(1)):
+        err('src/cloud.js', f"NOTE.page({vals['page']})에 한 장을 더 받으면 firestore.rules의 읽기 한도({found['page'].group(1)}장)를 넘는다")
 
 
 # ---------- 방 그림(PNG) 바탕 색 ----------
