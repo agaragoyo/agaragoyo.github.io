@@ -741,6 +741,8 @@ body.moving-window iframe { pointer-events: none; }
 .app-icon.pixel { overflow: visible; place-content: center; }
 .app-icon.pixel svg { width: var(--art, 100%); height: var(--art, 100%); shape-rendering: var(--render, crispEdges); }
 .app-icon.pixel[data-slot="48"] { --art: var(--pixel-48); --render: var(--pixel-48-render); }
+.app-icon.pixel[data-slot="40"] { --art: var(--pixel-40); --render: var(--pixel-40-render); }
+.app-icon.pixel[data-slot="32"] { --art: var(--pixel-32); --render: var(--pixel-32-render); }
 .app-icon.pixel[data-slot="24"] { --art: var(--pixel-24); --render: var(--pixel-24-render); }
 .app-icon.pixel[data-slot="16"] { --art: var(--pixel-16); --render: var(--pixel-16-render); }
 
@@ -830,6 +832,8 @@ body.moving-window iframe { pointer-events: none; }
   line-height: 1;
   text-shadow: none;
 }
+/* 픽셀 아이콘(추억의 플래시 게임)은 그림이 상자 끝까지 차서, 화살표를 상자 바깥으로 조금 빼 그림을 덜 가린다 */
+.desk-icon.external .app-icon.pixel::after { right: -6px; bottom: -6px; }
 
 /* ---------- 작업 표시줄과 시작 메뉴 ---------- */
 .taskbar {
@@ -873,12 +877,8 @@ body.moving-window iframe { pointer-events: none; }
   box-shadow: inset -2px 0 3px #0004;
 }
 .start-btn:active { background: linear-gradient(#2b7a28, #2f8a2b); }
-/* 시작 버튼 로고: 작은 집(우리 개념). 실제 윈도우 로고를 닮은 네 칸 사각형은 쓰지 않는다 */
-.start-logo {
-  width: 18px;
-  height: 18px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M1.5 10 10 2.5 18.5 10Z' fill='%23c56c96' stroke='%235a4632'/%3E%3Cpath d='M4 10h12v8.5H4Z' fill='%23f7f3e8' stroke='%235a4632'/%3E%3Cpath d='M8.5 13h3v5.5h-3Z' fill='%23e8b84a'/%3E%3C/svg%3E") center / contain no-repeat;
-}
+/* 시작 버튼 로고: 작은 집(우리 개념). os.js가 집으로 아이콘의 16칸 픽셀 그림을 넣는다. 실제 윈도우 로고를 닮은 네 칸 깃발은 쓰지 않는다 */
+.start-logo { display: grid; place-items: center; width: 18px; height: 18px; }
 .tasks { flex: 1; display: flex; gap: 4px; min-width: 0; }
 .task {
   width: 190px;
@@ -1520,6 +1520,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   font-weight: 700;
   line-height: 1;
 }
+.console-game.external .app-icon.pixel::after { right: -10px; bottom: -4px; }
 .console-pick {
   position: absolute;
   left: 6px;
