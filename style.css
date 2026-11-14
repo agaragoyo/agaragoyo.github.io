@@ -687,6 +687,27 @@ body.moving-window iframe { pointer-events: none; }
 .music-group legend { padding: 0 4px; font-size: 14px; }
 .music-pick { display: flex; align-items: center; gap: 8px; font-size: 15px; cursor: pointer; }
 
+/* 실험실 앱: 배경음악 앱과 같은 묶음(fieldset) 안에 항목마다 확인란, 이름, 한 줄 설명 */
+.labs-app { display: flex; flex-direction: column; gap: 8px; }
+.labs-app .meta { margin: 0; font-size: 13px; }
+.labs-group {
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--bev-mid);
+  box-shadow: inset 1px 1px 0 var(--bev-hi), 1px 1px 0 var(--bev-hi);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.labs-group legend { padding: 0 4px; font-size: 14px; }
+.labs-item { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; cursor: pointer; }
+.labs-item input { margin-top: 3px; flex: none; }
+.labs-item > span { display: flex; flex-direction: column; gap: 2px; }
+.labs-item .meta { white-space: pre-line; }
+.labs-item b { font-weight: normal; }
+.labs-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.labs-foot .btn { flex: none; }
+
 /* 게임 폴더. 묶음마다 제목 줄(.folder-group)과 아이콘 상자(.folder-icons)가 이어진다 */
 .folder { display: flex; flex-direction: column; padding: 10px; }
 .folder-grid {

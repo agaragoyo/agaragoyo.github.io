@@ -23,7 +23,8 @@ const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
 const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
-const OPEN = ['games', 'room', 'share', 'music', 'shu-ramen'];
+// labs(실험실)는 암호를 말해야 아이콘이 생기므로, 열기 전에 설정으로 실험실을 연다(openLabs).
+const OPEN = ['games', 'room', 'share', 'music', 'labs', 'shu-ramen'];
 // 가구를 두 번 눌러 여는 화면(가구 가까이 보기와 가구 창). 점검용 집의 가구로 연다.
 // [이름, 가구 id, 다 열렸는지 보는 선택자, 그 화면에서 차례로 눌러 더 열어 볼 단추의 글자]
 // 가구 화면을 새로 만들면 여기에 한 줄을 더하고, 그 가구가 점검용 집에 없으면 TEST_HOME에도 놓는다.
@@ -77,6 +78,12 @@ function openIcon(id) {
   icon.click(); // 두 번 누르기는 클릭 간격으로 판정한다(os.js의 renderIcons)
   icon.click();
   return true;
+}
+
+// 실험실을 연다(말풍선에 암호를 말한 것과 같다, src/labs.js). 바탕화면에 실험실 아이콘이 생긴다
+async function openLabs() {
+  const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
+  settings.set({ labsOpen: true });
 }
 
 // 낮으로 돌려놓는다.
@@ -309,6 +316,8 @@ async function main() {
   if (!(await page.run(newUser, '밤점검'))) throw new Stop('로그인 화면에 새 사용자 만들기 칸이 없다(저장된 집이 있는 사용자 폴더로 열렸다).');
   await until(page, s => s.desktop, '새 사용자를 만들어도 바탕화면이 뜨지 않았다');
 
+  await page.run(openLabs);
+  await sleep(100);
   for (const id of OPEN) {
     if (!(await page.run(openIcon, id))) throw new Stop(`바탕화면에서 ${id} 아이콘을 찾지 못했다. data/apps.js의 id가 바뀌었으면 tools/night-contrast.mjs의 OPEN도 고친다.`);
     await sleep(300);

@@ -18,6 +18,7 @@ export const DESK_W = STAGE_W;       // 바탕화면(창이 움직이는 곳) �
 export const DESK_H = STAGE_H - 40;
 export const DOUBLE_CLICK_MS = 400;  // 이 시간 안에 두 번 누르면 더블클릭(예전 볼록 화면이 dblclick을 넘기지 못해 직접 재게 만들었다)
 export const SAVER_MS = 120000;      // 바탕화면을 이만큼(2분) 그냥 두면 화면 보호기가 돈다(src/screensaver.js)
+export const SAVER_FAST_MS = 20000;  // 실험실의 '화면 보호기 빨리 보기'를 켜면 SAVER_MS 대신 쓴다(src/labs.js)
 
 // 집 안의 공간들. 'indoor'는 벽과 바닥이 있는 방, 'outdoor'는 울타리와 땅만 있는 바깥이다.
 // 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다. 바탕화면은 첫 공간(내 방)에서 시작한다.

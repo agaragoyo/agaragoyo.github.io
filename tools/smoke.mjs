@@ -598,6 +598,42 @@ async function walk(page, base) {
   check('서버에 닿지 못하면 친구 방 자리를 지우고 알린다', await until(page, () => !document.querySelector('.users .user[disabled]')
     && document.getElementById('toast').textContent.includes('불러오지 못했습니다'), 3000));
 
+  // ---------- 실험실 ----------
+  // 암호를 말하기 전에는 흔적이 없고, 말하면 아이콘이 생긴다. 켠 항목은 새로 고침해도 남고, 실험실 닫기는 처음으로 돌린다(src/labs.js)
+  const labsState = () => { const s = JSON.parse(localStorage.getItem('agarago.settings') || '{}'); return `${!!s.labsOpen}/${(s.labs || []).join()}`; };
+  const enterMine = async () => {
+    await open();
+    await powerOn();
+    await page.run(clickOnce, '.users .user:not(.neighbor)');
+    return desktop();
+  };
+  check('실험실: 내 사용자로 다시 들어간다', await enterMine());
+  check('암호를 말하기 전에는 바탕화면에 실험실 아이콘이 없다', await page.run(() => !document.querySelector('#icons [data-app="labs"]')));
+  await page.run(clickOnce, '.start-btn');
+  check('암호를 말하기 전에는 시작 메뉴에도 실험실이 없다', await page.run(() => ![...document.querySelectorAll('.start-item')].some(i => i.textContent.includes('실험실'))));
+  await page.run(clickOnce, '.start-btn');
+  await page.run(() => document.querySelector('#desktop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  await press(page, 'Enter');
+  await page.run(() => { document.querySelector('.say-input').value = '  실험실 열려라 '; });
+  await press(page, 'Enter');
+  check('말풍선에 암호를 말하면(앞뒤 공백 무시) 실험실 아이콘과 알림이 뜬다', await until(page, () => !!document.querySelector('#icons [data-app="labs"]')
+    && document.getElementById('toast').textContent.includes('실험실'), 2000));
+  await openIcon('labs');
+  check('실험실 아이콘이 창을 연다', await until(page, () => !!document.querySelector('#windows .labs-app input[type="checkbox"]'), 3000));
+  await probe('창 labs');
+  await page.run(() => document.querySelector('.labs-item[data-lab="fast-saver"] input').click());
+  check('화면 보호기 빨리 보기를 켜면 설정에 남는다', (await page.run(labsState)) === 'true/fast-saver', await page.run(labsState));
+  await closeWindows();
+  await page.run(() => document.querySelector('#desktop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  check('화면 보호기 빨리 보기를 켜면 20초 뒤에 화면 보호기가 돈다', await until(page, () => !document.querySelector('.saver').hidden, 23000));
+  await press(page, 'Escape'); // 화면 보호기 걷기
+  check('새로 고침해도 실험실 아이콘이 남는다', (await enterMine()) && await until(page, () => !!document.querySelector('#icons [data-app="labs"]'), 2000));
+  await openIcon('labs');
+  check('새로 고침해도 켠 항목이 켜져 있다', await until(page, () => document.querySelector('.labs-item[data-lab="fast-saver"] input')?.checked === true, 3000));
+  await page.run(clickText, '.labs-app .btn', '실험실 닫기');
+  check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
+    && (await page.run(labsState)) === 'false/', await page.run(labsState));
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;

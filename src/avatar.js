@@ -180,6 +180,7 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   input          바닥 클릭을 받는 요소. 이 요소 자체를 누른 것만 바닥으로 본다(아이콘, 창, 가구는 건너뛴다)
 //   sayRoot        말하기 입력 칸을 넣을 상자
 //   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
+//   onSay(text)    사용자가 말하기 칸에 쳐서 말했을 때(앞뒤 공백을 뺀 글). 가구가 시킨 혼잣말(say)에는 부르지 않는다
 // 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, destroy
 export function mountAvatar(host, avatarId = 'basic') {
   const el = avatarEl(avatarId);
@@ -428,6 +429,7 @@ export function mountAvatar(host, avatarId = 'basic') {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       say(input.value);
+      host.onSay?.(input.value.trim());
       closeSay();
     } else if (e.key === 'Escape') {
       closeSay();
