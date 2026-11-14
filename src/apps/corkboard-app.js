@@ -2,8 +2,8 @@
 // 요구 사항의 "가구와 인터랙션"대로 주인이 아니라 손님이 쓴다. 손님은 포스트잇 색을 고르고 닉네임과 짧은 글을 써서 붙이고,
 // 주인은 쪽지마다 있는 지우기 단추로 쪽지를 지운다. 쪽지를 쓴 손님도 같은 브라우저에서는 자기 쪽지를 지울 수 있다.
 // 손님끼리도 서로의 쪽지를 읽는다(동물의 숲 게시판, 패들렛처럼). 나쁜 쪽지는 주인이 지운다.
-// 쪽지는 서버(src/cloud.js)의 방 문서 아래에 있어서 짧은 링크(#s=)를 만든 방에서만 쓴다. 주인이 짧은 링크를 만들지 않았으면
-// 공유하기로 가는 단추를, 긴 링크(#r=)와 이웃집으로 온 손님에게는 쪽지를 남길 수 없다는 안내를 띄운다.
+// 쪽지는 서버(src/cloud.js)의 방 문서 아래에 있어서 주인이 공유하기에서 링크(#s=)를 만든 방에서만 쓴다. 주인이 링크를 만들지 않았으면
+// 공유하기로 가는 단추를, 예전 긴 링크(#r=)와 이웃집으로 온 손님에게는 쪽지를 남길 수 없다는 안내를 띄운다.
 // 쪽지는 보드를 열 때만 한 장(NOTE.page장)씩 받는다(Firestore는 받은 문서마다 읽기를 센다).
 // 받은 글은 누구든 쓸 수 있는 값이라 글자 수를 다시 줄이고 h()의 자식(글자)으로만 넣는다.
 import { h } from '../util.js';
@@ -72,10 +72,10 @@ export function openCorkboardApp(os, app) {
 
       if (!boardId) {
         if (owner) {
-          message(h('p', {}, '짧은 링크를 만들면 친구가 쪽지를 남길 수 있습니다.'),
+          message(h('p', {}, '링크를 만들면 친구가 쪽지를 남길 수 있습니다.'),
             button('공유하기 열기', () => { os.closeup?.close(); os.openApp('share'); }));
         } else if (linkCode(location.hash)) {
-          message(h('p', {}, '이 링크로는 쪽지를 남길 수 없습니다.'), h('p', {}, '주인에게 짧은 링크를 받아 주세요.'));
+          message(h('p', {}, '이 링크로는 쪽지를 남길 수 없습니다.'), h('p', {}, '주인에게 새 링크를 받아 주세요.'));
         } else {
           message(h('p', {}, '이 집의 코르크 보드에는 쪽지를 남길 수 없습니다.'));
         }
@@ -115,7 +115,7 @@ export function openCorkboardApp(os, app) {
       function render() {
         if (notes.length) area.replaceChildren(h('div', { className: 'cork-notes' }, ...notes.map(noteEl)));
         else if (page || more) message(h('p', {}, '이 장의 쪽지를 모두 지웠습니다.')); // 가장 최근 장을 다 지워도 지난 쪽지가 남아 있으면 빈 보드라고 하지 않는다
-        else if (owner) message(h('p', {}, '아직 붙은 쪽지가 없습니다.'), h('p', {}, '짧은 링크를 받은 친구가 여기에 쪽지를 남길 수 있습니다.'));
+        else if (owner) message(h('p', {}, '아직 붙은 쪽지가 없습니다.'), h('p', {}, '링크를 받은 친구가 여기에 쪽지를 남길 수 있습니다.'));
         else message(h('p', {}, '아직 붙은 쪽지가 없습니다.'));
         fresh = null;
         tools.replaceChildren(...[

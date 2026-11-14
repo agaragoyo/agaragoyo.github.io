@@ -1140,7 +1140,6 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
 .pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
-.pic-app .pic-app-tip { margin-top: 2px; padding-left: 4px; } /* 글자색은 .meta(밤에는 밤 짝)를 따른다 */
 
 .toast {
   position: absolute;
