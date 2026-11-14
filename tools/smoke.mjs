@@ -672,7 +672,7 @@ async function walk(page, base) {
   await page.run(clickOnce, '.start-btn');
   await page.run(() => document.querySelector('#desktop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
   await press(page, 'Enter');
-  await page.run(() => { document.querySelector('.say-input').value = '  실험실 열려라 '; });
+  await page.run(() => { document.querySelector('.say-input').value = '  엔믹스지우 '; });
   await press(page, 'Enter');
   check('말풍선에 암호를 말하면(앞뒤 공백 무시) 실험실 아이콘과 알림이 뜬다', await until(page, () => !!document.querySelector('#icons [data-app="labs"]')
     && document.getElementById('toast').textContent.includes('실험실'), 2000));

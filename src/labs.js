@@ -13,7 +13,7 @@
 import { settings } from './settings.js';
 
 // 말풍선에 이 말을 하면 실험실이 열린다(앞뒤 공백은 뺀다)
-export const PASSWORD = '실험실 열려라';
+export const PASSWORD = '엔믹스지우';
 
 // title: 창에 나오는 이름, desc: 켜면 무엇이 달라지는지 한 줄(창이 좁으면 \n을 넣어 뜻이 끊기는 자리에서 줄을 바꾼다)
 export const LABS = [
