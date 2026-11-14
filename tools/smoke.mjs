@@ -90,12 +90,17 @@ function fakeCloud(how, code) {
   return true;
 }
 
-// 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 다른 영상은 이름을 담아 답한다
+// 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
+// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
 function fakeYouTube() {
   const real = window.fetch;
+  window.__oembed = {};
   window.fetch = async (url, opts) => {
     if (!String(url).startsWith('https://www.youtube.com/oembed')) return real(url, opts);
-    if (String(url).includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
+    const asked = decodeURIComponent(String(url).split('url=')[1]);
+    window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
+    if (asked.includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
+    if (asked.includes('Private')) return new Response('Not Found', { status: 404 });
     return new Response(JSON.stringify({ title: '점검용 유튜브 노래', thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }));
   };
   return true;
@@ -427,6 +432,14 @@ async function walk(page, base) {
     document.querySelector('.closeup form').requestSubmit();
   });
   check('유튜브에 없는 영상은 넣지 않고 안내가 뜬다', await until(page, () => /찾을 수 없는 영상/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  // 찾을 수 없다는 답은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤 넣기를 다시 누르면 다시 묻는다(known-issues 71)
+  await page.run(() => document.querySelector('.closeup form').requestSubmit());
+  check('유튜브가 찾지 못한 주소는 넣기를 다시 누르면 다시 묻는다', await until(page, () => window.__oembed['https://www.youtube.com/watch?v=aaaaaaaaaaa'] === 2, 4000));
+  await page.run(() => {
+    document.querySelector('.closeup form input').value = 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke';
+    document.querySelector('.closeup form').requestSubmit();
+  });
+  check('비공개 재생목록은 넣지 않고 일부 공개로 바꾸라고 알린다', await until(page, () => /일부 공개로 바꿔/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
   // 유튜브 뮤직 주소를 넣으면 이름 칸이 채워지고, CD는 같은 영상의 유튜브 주소로 저장된다
   await page.run(() => {
     const [url, name] = document.querySelectorAll('.closeup form input');
