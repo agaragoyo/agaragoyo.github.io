@@ -341,6 +341,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // ---------- 작업 표시줄과 시작 메뉴 ----------
   const startBtn = el.taskbar.querySelector('.start-btn');
+  // 시작 단추의 그림은 집으로 아이콘의 16칸 픽셀 그림이다(src/icons.js). 실제 윈도우 로고를 닮은 네 칸 깃발은 쓰지 않는다
+  startBtn.querySelector('.start-logo').replaceChildren(iconEl({ title: '시작', icon: 'builtin:home' }, 16));
   startBtn.addEventListener('click', () => {
     if (el.startMenu.hidden) openStartMenu();
     else el.startMenu.hidden = true;
@@ -373,11 +375,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       h('div', { className: 'start-head' }, head, os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner),
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
-      item({ title: '밤', color: '#2c2a6b' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
-      item({ title: '소리', color: '#3d7a72' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
+      // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)
+      item({ title: '밤', icon: settings.get('night') ? 'builtin:day' : 'builtin:night' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
+      item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
-      item({ title: '로그아웃', color: '#6b6f8f' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
-      item({ title: '끄기', color: '#b5483f' }, '컴퓨터 끄기', requestPowerOff),
+      item({ title: '로그아웃', icon: 'builtin:logout' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
+      item({ title: '끄기', icon: 'builtin:power' }, '컴퓨터 끄기', requestPowerOff),
     );
     menu.hidden = false;
   }
