@@ -245,13 +245,14 @@ async function walk(page, base) {
   await sleep(600);
   check('바탕화면의 방에 가구가 모두 그려진다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === HOME.scenes.room.length);
   await probe('바탕화면');
-  // 화면보다 크게 깔린 층(디가우스)이 있어도 화면은 스크롤되지 않는다. 스크롤되면 초점이나 scrollIntoView에 화면 전체가 밀린다(known-issues 66)
-  check('화면(#screen)은 스크롤되지 않는다', await page.run(() => {
-    const s = document.getElementById('screen');
+  // 화면보다 크게 깔린 층(디가우스)이 있어도 화면은 스크롤되지 않는다. 스크롤되면 초점이나 scrollIntoView에 화면 전체가 밀린다(known-issues 66).
+  // 바탕화면도 같다. 가구 가까이 보기와 게임기의 큰 화면이 움직이는 동안 바탕화면보다 커진다
+  check('화면(#screen)과 바탕화면(#desktop)은 스크롤되지 않는다', await page.run(() => ['screen', 'desktop'].every(id => {
+    const s = document.getElementById(id);
     s.scrollTop = 200;
     s.scrollLeft = 200;
     return s.scrollTop === 0 && s.scrollLeft === 0;
-  }));
+  })));
 
   // 아이콘: 한 번 누르면 고르기만 하고, 간격이 벌어지거나 다른 아이콘을 누르면 열지 않고, 이어서 두 번 누르면 연다
   await page.run(clickOnce, '#icons .desk-icon[data-app="music"]');
