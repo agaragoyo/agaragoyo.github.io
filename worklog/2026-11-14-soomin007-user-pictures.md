@@ -13,6 +13,7 @@
 - `src/main.js`, `src/config.js`: `fit`에서 `fitUserPictures`를 부르고, 저장 키 `STORAGE_PICTURE`(`agarago.picture`)를 둠
 - `style.css`: 로그인 절 끝의 "사용자 사진" 규칙
 - `tools/check.py`: `check_user_pictures`(줄 수와 칸 수, colors에 없는 글자, id)
+- `known-issues.md` 68번, `tools/check.py`의 `check_feature_numbers`: 같은 날 다른 작업이 F23, F24를 먼저 써서 번호를 두 번 고친 일과, 기능 번호가 겹치면 알리는 점검
 - `tools/smoke.mjs`: 사진 고르기, 로그인 화면과 시작 메뉴의 사진, 사진 바꾸기 창, 연습 방과 손님의 시작 메뉴, 초기화의 사진 지우기
 - `tools/night-contrast.mjs`: 사진 바꾸기 창도 열어 잰다. 그래서 `AGENTS.md`, `docs/checklists.md`의 대비 점검 설명도 고침
 - `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`
