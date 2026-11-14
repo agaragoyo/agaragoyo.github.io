@@ -1648,8 +1648,23 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .cd-pick.in .cd { border-style: dashed; border-color: #8a8f9c; background: none; box-shadow: none; }
 .cd-pick.in .cd > * { visibility: hidden; }
 .cd-pick.in .cd-name { color: #b3ada0; }
-.cd-name { max-width: 124px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-/* CD: 은빛 무지개 원판 가운데에 앨범 표지를 둥글게 깐다 */
+/* CD 이름(LIMIT.cdName, 한글 16자)은 두 줄까지 쓴다. 이름 길이와 관계없이 자리를 두 줄로 잡아 CD마다 기우는 중심이 같다.
+   줄은 띄어쓰기에서 바꾼다("플레이리 / 스트"로 꺾이지 않게). 그러면 두 줄을 넘는 이름에만 src/apps/radio-app.js의 fitName이
+   .tight를 붙여 글자 사이에서도 바꾼다. 이름 칸이 생기기 전에 넣은 CD처럼 서비스에서 받은 긴 이름은 두 줄 뒤를 말줄임표로 줄인다 */
+.cd-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 124px;
+  height: 32px;
+  overflow: hidden;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 16px;
+  text-align: center;
+}
+.cd-name.tight { word-break: break-all; }
+/* CD: 색을 입힌 무지개 원판 가운데에 앨범 표지를 둥글게 깐다 */
 .cd {
   position: relative;
   display: block;
@@ -1659,9 +1674,17 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   overflow: hidden;
   border: 3px solid #5e5548;
   border-radius: 50%;
-  background: conic-gradient(from 30deg, #e9eef2, #cfd8e8, #f3e3ee, #d9efe6, #f6efd9, #e9eef2);
+  background: var(--cd-face);
   box-shadow: 0 4px 0 #0005;
 }
+/* CD 색(likes의 color 번호, src/apps/radio-app.js의 CD_COLORS 순서). 0번 은색은 원래 CD이고, 나머지는 색 있는 공CD처럼 무지개 빛을 그 색으로 물들인다.
+   개수는 src/likes.js의 LIMIT.cdColors와 같다(tools/check.py가 본다). 넣는 칸의 색 고르기(.cd-swatch)도 같은 색을 쓴다 */
+.cd, .cd-swatch { --cd-face: conic-gradient(from 30deg, #e9eef2, #cfd8e8, #f3e3ee, #d9efe6, #f6efd9, #e9eef2); }
+.cd[data-color="1"], .cd-swatch[data-color="1"] { --cd-face: conic-gradient(from 30deg, #f7e6a6, #e3c15c, #fbf0c8, #d6ad45, #f2d98a, #f7e6a6); }
+.cd[data-color="2"], .cd-swatch[data-color="2"] { --cd-face: conic-gradient(from 30deg, #b3cbf3, #7096dc, #d3e1fb, #5f86cf, #9fbcef, #b3cbf3); }
+.cd[data-color="3"], .cd-swatch[data-color="3"] { --cd-face: conic-gradient(from 30deg, #bfe6cd, #73c197, #dbf4e3, #5fae86, #a8dcbb, #bfe6cd); }
+.cd[data-color="4"], .cd-swatch[data-color="4"] { --cd-face: conic-gradient(from 30deg, #f8cddd, #e48fb0, #fce2eb, #d97ca1, #f3b9cf, #f8cddd); }
+.cd[data-color="5"], .cd-swatch[data-color="5"] { --cd-face: conic-gradient(from 30deg, #d6c8f2, #9a80d8, #e8dffa, #8a6fcd, #c3b0ec, #d6c8f2); }
 .cd-art { position: absolute; left: 16%; top: 16%; width: 68%; height: 68%; border-radius: 50%; object-fit: cover; }
 .cd-art[hidden] { display: none; }
 .cd-hole { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 3px solid #c8ccd4; border-radius: 50%; background: #2f3542; }
@@ -1695,14 +1718,16 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .radio-middle { display: grid; justify-items: center; gap: 12px; }
 .radio-slot { display: grid; place-items: center; width: 140px; height: 140px; border: 4px solid #5e5548; border-radius: 50%; background: #3b3631; box-shadow: inset 0 4px 10px #0008; }
 .radio-slot .cd { width: 122px; height: 122px; }
+/* 표시창: 갈무리11이 또렷한 12px로 써서 CD 이름(한글 16자, 192px)이 한 줄에 다 들어간다 */
 .radio-lcd {
   width: 220px;
-  padding: 3px 10px;
+  padding: 3px 8px;
   overflow: hidden;
   border: 3px solid #5e5548;
   border-radius: 6px;
   background: #b9c9a8;
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 18px;
   color: #1f2a18;
   text-align: center;
   white-space: nowrap;
@@ -1726,6 +1751,18 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .radio-eject { display: inline-block; width: 12px; height: 11px; vertical-align: -1px; background: linear-gradient(currentColor, currentColor) 0 100% / 100% 3px no-repeat; }
 .radio-eject::before { content: ''; display: block; height: 6px; background: currentColor; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .radio-tools { display: flex; gap: 8px; min-height: 34px; }
+/* CD 넣는 칸의 색 고르기: 색마다 작은 CD 하나. 가운데 구멍은 카드 바탕색이다 */
+.cd-swatches { display: flex; gap: 10px; }
+.cd-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #5e5548;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffaf0 0 3px, #c8ccd4 3px 5px, transparent 5px), var(--cd-face);
+  cursor: var(--cur-hand);
+}
+.cd-swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px #fffaf0, 0 0 0 5px #2f231b; }
 /* 음악 창: 서비스의 공식 플레이어와 미리 듣기 안내. 창 바탕(.flush)이 밤낮 없이 어두워 글자색을 고정한다 */
 .radio-player { display: flex; flex-direction: column; }
 .radio-player iframe { display: block; width: 100%; border: 0; }
