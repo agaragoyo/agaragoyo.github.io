@@ -17,6 +17,16 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 errors = []
 warnings = []
 
+# 레포 전체를 도는 순회가 건너뛰는 맨 위 폴더. .claude/ 에는 Claude Code가 이 PC에 만든 다른 작업 폴더
+# (.claude/worktrees/<이름>/, 레포를 통째로 한 벌씩 받은 것)가 있어 레포에 올라가지 않는다. 읽으면 같은 파일을 여러 벌 본다.
+# 반드시 ROOT 기준 상대 경로로 거른다. 작업 폴더 안에서 돌릴 때는 ROOT 자체의 경로에 .claude가 들어 있다(known-issues 70).
+SKIP_TOP = ('.git', '.claude')
+
+
+def in_repo(p):
+    """ROOT 아래의 레포 파일이면 True. .git과 .claude 아래는 False."""
+    return p.relative_to(ROOT).parts[0] not in SKIP_TOP
+
 
 def err(where, msg):
     errors.append(f'{where}: {msg}')
@@ -52,7 +62,7 @@ def check_no_build_tools():
     for name in ['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'node_modules',
                  'vite.config.js', 'webpack.config.js', 'tsconfig.json']:
         for p in ROOT.rglob(name):
-            if '.git' not in p.parts:
+            if in_repo(p):
                 err(p.relative_to(ROOT).as_posix(), '빌드 도구나 npm 파일은 쓰지 않는다(AGENTS.md "지켜야 할 것")')
 
 
@@ -640,11 +650,7 @@ def check_secrets():
     # 다른 곳에 있는 구글 API 키는 지도나 Gemini처럼 막아 둬야 하는 키일 수 있다.
     google = re.compile(r'AIza[0-9A-Za-z_-]{35}')
     for p in ROOT.rglob('*'):
-        if '.git' in p.parts or not p.is_file() or p.suffix not in ('.js', '.html', '.css', '.md', '.json', '.yml', '.py', '.rules'):
-            continue
-        # .claude/worktrees/ 는 Claude Code가 이 PC에 만든 다른 작업 폴더(레포를 통째로 한 벌씩 받은 것)라 레포에 올라가지 않는다.
-        # 그 안의 src/cloud.js 까지 읽으면 키가 여러 곳에 있다고 잘못 알린다
-        if p.relative_to(ROOT).parts[:2] == ('.claude', 'worktrees'):
+        if not in_repo(p) or not p.is_file() or p.suffix not in ('.js', '.html', '.css', '.md', '.json', '.yml', '.py', '.rules'):
             continue
         text = p.read_text(encoding='utf-8', errors='ignore')
         rel = p.relative_to(ROOT).as_posix()
