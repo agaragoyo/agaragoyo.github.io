@@ -48,6 +48,7 @@
 | 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
+| 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 암호를 듣는 곳은 `src/os.js`의 `onSay` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 긴 링크(`#r=`)는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`. 짧은 링크(`#s=`)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules` |
@@ -77,8 +78,9 @@
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼과 그 OSD, 전원 연출(켤 때 디가우스)을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위 | `play`, `setPlace`, `holdMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
-| `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
-| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간, 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `STORAGE_*` 등 |
+| `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악, 실험실) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
+| `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 열리는 암호, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `PASSWORD`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
+| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간(실험실의 빨리 보기 포함), 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `SAVER_FAST_MS`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기, 두 번 누르기 판정(바탕화면 아이콘, 가구와 문, 창 제목 줄이 같이 쓴다), 글을 치는 칸인지 보기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion`, `doubleClick`, `isField` |
 
 ## src/: 컴퓨터(OS)
@@ -93,7 +95,7 @@
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아이콘 여덟 개(방 꾸미기, 나도 만들기, 내 컴퓨터로, 놀이터, 집으로, 미니게임, 공유하기, 배경음악)는 한 글자가 한 칸인 글자 격자로 그린 픽셀 그림이다(`PIXEL`, 24칸과 창 제목용 16칸). 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다 | `iconEl`, `fitPixelIcons` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
-| `src/screensaver.js` | 화면 보호기. 바탕화면을 2분 동안 그냥 두면 검은 화면에 주인의 인사말(없으면 "주인 이름의 컴퓨터")이 흘러가고, 마우스나 키로 걷힌다. 언제 돌지는 `os.js`가 정한다 | `createScreensaver` |
+| `src/screensaver.js` | 화면 보호기. 바탕화면을 2분 동안 그냥 두면 검은 화면에 주인의 인사말(없으면 "주인 이름의 컴퓨터")이 흘러가고, 마우스나 키로 걷힌다. 실험실의 화면 보호기 빨리 보기를 켜면 20초를 기다린다. 언제 돌지는 `os.js`가 정한다 | `createScreensaver` |
 | `src/cursors.js` | 화면 안 커서 그림(화살표, 손, 잡는 손, 모래시계)을 만들어 `--cur-*` CSS 변수로 넣는다. 2005년식 그림 한 벌뿐이고 직접 그린 것이다 | `initCursors`, `cursorSet` |
 
 ## src/: 방 그리기
@@ -122,6 +124,7 @@
 | `src/apps/share-app.js` | 공유하기. 화면 보호기 인사말을 적고 미리 보며, 지금 방을 담은 링크를 만들어 복사하고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
 | `src/apps/mine-app.js` | 나도 만들기와 내 컴퓨터로. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 이 컴퓨터에 내 집이 없으면 로그인 화면으로, 있으면 곧장 내 바탕화면으로 보낸다 |
 | `src/apps/music-app.js` | 배경음악. 내 방에서 틀 곡 고르기와 배경음악만 끄고 켜기. 창이 열려 있는 동안은 고른 곡을 들려준다 |
+| `src/apps/labs-app.js` | 실험실. 말풍선에 암호를 말한 뒤에만 아이콘이 보이고(`data/apps.js`의 `labs: true`), 실험실 항목(`src/labs.js`)을 확인란으로 켜고 끈다. "실험실 닫기"는 모든 항목을 끄고 아이콘을 숨긴다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다. 안내와 단추(`linkPrompt`)는 옛날 컴퓨터도 같이 쓴다 |
 | `src/apps/console-app.js` | 가구 기믹: 게임기. 가까이 보기 화면에 게임기를 들고 미니게임 폴더의 게임을 늘어놓는다. 단추 셋(십자 단추 고르기, A 시작, B 나가기)의 하는 일을 단추 아래에 새긴다. 고른 게임은 게임기 화면 안에서 하고(다른 사이트 게임은 줄여서), B로 첫 화면에 돌아오며 첫 화면의 B는 게임기를 내려놓는다. 주인은 추천 게임 하나를 고른다 |
