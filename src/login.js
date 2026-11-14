@@ -5,7 +5,7 @@ import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare } from './cloud.js';
-import { NEIGHBOR_LIST, neighborHome } from './neighbors.js';
+import { NEIGHBOR_LIST, neighborHome, neighborNow } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
@@ -24,10 +24,10 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
   }
 
   // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
-  // 짧은 링크(#s=)로 온 친구 집은 서버에서 받아야 해서 여기 없고, cloudHome이 받은 뒤에 따로 미리 받는다.
+  // 짧은 링크(#s=)로 온 친구 집과 link 이웃집은 서버에서 받아야 해서 여기 없고, 받은 뒤에 따로 미리 받는다(src/os.js의 boot).
   function loginHomes() {
     const m = linkCode(location.hash);
-    return [ownHome(), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborHome)].filter(Boolean);
+    return [ownHome(), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborNow)].filter(Boolean);
   }
 
   // 짧은 링크(#s=번호)의 방을 서버에서 받아 온다(src/cloud.js). 링크마다 한 번만 받는다.
@@ -62,6 +62,23 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return tile;
   }
 
+  // 이웃집의 자리. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 문패 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
+  // 서버에 방이 없거나 받지 못하면 그 이웃집을 뺀다. 사용자가 부른 집이 아니라서 따로 알리지 않는다. 서버에 방이 없다고 이미 알면 null이다.
+  function neighborTile(n, my) {
+    const ready = home => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my), 'neighbor', home.picture);
+    const now = neighborNow(n);
+    if (now !== undefined) return now && ready(now);
+    const tile = h('button', { type: 'button', className: 'user neighbor', disabled: true },
+      h('span', { className: 'avatar' }, '…'),
+      h('span', { className: 'user-name' }, n.name, h('small', {}, '불러오는 중')));
+    neighborHome(n).then(home => {
+      if (!isCurrent(my) || !tile.isConnected) return;
+      if (home) tile.replaceWith(ready(home));
+      else tile.remove();
+    });
+    return tile;
+  }
+
   function showLogin() {
     const my = nextRun();
     os.wm.closeAll();
@@ -83,7 +100,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
     // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
     const linked = !!(m || sid);
-    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor', neighborHome(n).picture));
+    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => neighborTile(n, my)).filter(Boolean);
     if (own) {
       users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
@@ -122,7 +139,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     };
     const ask = () => box.replaceChildren(
       h('p', {}, sharedId()
-        ? '이 컴퓨터의 집과 게임 기록, 짧은 링크의 방과 쪽지를 지웁니다. 되돌릴 수 없습니다.'
+        ? '이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지를 지웁니다. 되돌릴 수 없습니다.'
         : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
       h('div', { className: 'reset-row' },
         h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),

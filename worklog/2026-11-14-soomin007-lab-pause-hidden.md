@@ -2,7 +2,7 @@
 
 ## 한 일
 실험실(F24)에 "최소화하면 게임 멈추기"(`pause-hidden`)를 넣었다. 지금은 미니게임 창을 최소화해도 게임이 그대로 돌아서,
-다른 창을 보는 사이에 파일 정리 10의 100초가 흘러 버린다(known-issues 74). 이 항목을 켜면 창을 최소화할 때 OS가 그 창의 게임에 가려졌다고 알리고,
+다른 창을 보는 사이에 파일 정리 10의 100초가 흘러 버린다(known-issues 75). 이 항목을 켜면 창을 최소화할 때 OS가 그 창의 게임에 가려졌다고 알리고,
 짐 정리와 파일 정리 10이 앱 SDK의 `AGA.onHide`, `AGA.onShow`로 알림을 받아 멈춘다. 스위치를 끄면 알림이 가지 않아 지금과 똑같다.
 
 ## 바꾼 파일
@@ -16,7 +16,7 @@
 - `tools/smoke.mjs`: 미니게임 창을 다루는 `miniGame` 도우미와 두 흐름. 켜면 3초 동안 남은 시간이 그대로이고 이어서 하기 카드가 뜨며 짐 정리의 물건이 서는지,
   끄면 그동안에도 시계가 흐르는지 본다
 - `assets/fonts/aga-ui*.woff2`, `aga-ui.txt`: 새 글자 2개(띄춘)를 작은 글꼴에 넣음
-- `known-issues.md`(74), `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`
+- `known-issues.md`(75), `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`
 
 ## 정한 것과 이유
 - 만들기 전에 다른 게임이 가려졌다 돌아올 때 어떻게 하는지 봤다. 윈도우 7 지뢰 찾기는 창을 내리면 시계가 서고 다시 띄우면 그대로 이어 가는데,

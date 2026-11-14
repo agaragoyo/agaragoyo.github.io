@@ -51,17 +51,12 @@ export function saveOwnPicture(v) {
   if (isPicture(v)) saveJSON(STORAGE_PICTURE, v);
 }
 
-// 공유 링크에 담을 집. 내 집에 내 사진을 붙인다. 링크를 만드는 곳(공유하기 창, 짧은 링크의 방을 서버에 올리는 os.js)은 모두 이걸 거친다.
+// 공유 링크의 방에 담을 집. 내 집에 내 사진을 붙인다. 서버에 방을 올리는 곳(공유하기 창, 고친 방을 따라 올리는 os.js)은 모두 이걸 거친다.
 // 링크로 온 손님은 로그인 화면과 시작 메뉴에서 이 사진을 본다(src/share.js가 사진 번호나 내 그림을 담는다).
-// link: 'short'(짧은 링크의 방, 기본값)나 'long'(주소에 방을 통째로 담는 긴 링크). 내 그림은 짧은 링크에만 담는다.
-// 긴 링크에 더하면 200~300자가 늘어 카카오톡에서 잘리기 쉽다(known-issues 57). 긴 링크로 온 손님은 내 그림 대신 이름의 첫 글자를 본다.
-export function withPicture(home, link = 'short') {
-  const picture = ownPicture(home.owner);
-  return link === 'long' && isCustom(picture) ? { ...home } : { ...home, picture };
+// 2026-11-14에 공유하기 창에서 긴 링크를 빼서, 내 그림을 긴 링크에서 빼던 갈래도 같이 없앴다. 예전 긴 링크로 온 손님은 링크에 담긴 사진이나 이름의 첫 글자를 본다.
+export function withPicture(home) {
+  return { ...home, picture: ownPicture(home.owner) };
 }
-
-// 이 컴퓨터 사용자가 그림 파일로 만든 사진을 쓰는지(공유하기 창이 긴 링크에는 담기지 않는다고 알린다)
-export const usesCustomPicture = name => isCustom(ownPicture(name));
 
 // 새 사용자 만들기 칸에 미리 골라 두는 사진. 그 시절 컴퓨터처럼 아무 사진이나 하나를 준다.
 export const randomPicture = () => USER_PICTURES[Math.floor(Math.random() * USER_PICTURES.length)].id;
@@ -154,9 +149,8 @@ export function picturePicker(current, onPick, toast) {
 
 // 사진 바꾸기 창. 시작 메뉴 맨 위의 내 사진을 누르면 열린다. 사진을 누르거나 그림 파일을 고르면 바로 저장하고 창 위의 큰 사진을 바꾼다.
 // 시작 메뉴와 로그인 화면은 열 때마다 새로 그리므로 다음에 열면 바꾼 사진이 나온다.
-// 짧은 링크를 만들어 둔 방이면 os.saveHome이 서버의 방도 새 사진으로 고친다(긴 링크는 이미 보낸 것이라 그대로다).
-// 내 그림은 긴 링크에 담기지 않으므로(withPicture) 고르기 전에 알 수 있게 단추 아래에 한 줄로 적어 둔다.
-// 사진 크기가 무대 배율마다 달라서 창 크기는 열 때의 사진 크기로 정한다. 사진 둘레의 테두리와 여백, 그림 파일 찾아보기와 안내 줄,
+// 링크를 만들어 둔 방이면 os.saveHome이 서버의 방도 새 사진으로 고친다(예전 긴 링크는 이미 보낸 것이라 그대로다).
+// 사진 크기가 무대 배율마다 달라서 창 크기는 열 때의 사진 크기로 정한다. 사진 둘레의 테두리와 여백, 그림 파일 찾아보기,
 // 닫기 단추 줄, 창 안쪽 여백을 더한 값이다
 export function openPictureWindow(os) {
   const owner = os.home.owner;
@@ -167,7 +161,7 @@ export function openPictureWindow(os) {
     app: { title: '사진 바꾸기', color: '#b8577f' },
     title: '사진 바꾸기',
     width: Math.max(400, Math.ceil(8 * (small + 6) + 7 * 4 + 32 + 4)),
-    height: Math.ceil(big + small + 145),
+    height: Math.ceil(big + small + 121),
     build(body) {
       body.classList.add('pic-app');
       const face = h('span', { className: 'avatar has-pic' }, pictureEl(ownPicture(owner), 48));
@@ -179,7 +173,6 @@ export function openPictureWindow(os) {
       body.append(
         h('div', { className: 'pic-app-head' }, face, h('b', {}, owner)),
         picker,
-        h('p', { className: 'meta pic-app-tip' }, '그림 파일로 만든 사진은 짧은 링크에만 담깁니다.'),
         h('div', { className: 'link-row' }, h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
       );
     },

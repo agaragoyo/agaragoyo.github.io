@@ -165,7 +165,7 @@ async function upload(code) {
   return id;
 }
 
-// 공유하기 창의 "짧은 링크 만들기". 방을 올리고 번호를 돌려준다.
+// 공유하기 창의 "링크 만들기". 방을 올리고 번호를 돌려준다.
 export const share = code => queue(() => upload(code));
 
 // 서버의 방과 그 방에 붙은 쪽지를 지우고 번호를 잊는다. 이미 보낸 짧은 링크는 더는 열리지 않는다.

@@ -7,16 +7,18 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
-// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림과 공유하기 창의 안내),
-// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(링크에 담긴 주인 사진), 깨진 링크와 HTML이 든 링크,
-// 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
+// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림),
+// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
+// 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
-// 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방은 페이지 안의 fetch를 바꿔 껴서 서버 대신 답하고(fakeCloud),
-// 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube). 유튜브 플레이어와 API 스크립트는 받지 않게 막는다(main의 BLOCKED).
+// 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
+// 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
+// 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
-// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
+// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { sleep, startServer, launchChrome, runTool, TEST_HOME as HOME, plantHome } from './headless.mjs';
 
@@ -71,27 +73,73 @@ function overflowing() {
   return [...new Set(out)].slice(0, 8);
 }
 
-// 집을 긴 링크(#r= 뒤의 글자)로 바꾼다
+// 집을 링크 글자로 바꾼다. 예전 긴 링크(#r=)의 뒤이고, 짧은 링크의 서버에도 같은 글자가 들어간다
 async function linkOf(home, owner) {
   const { sanitizeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
   return encodeHome(sanitizeHome({ ...home, owner: owner || home.owner }));
 }
 
-// 서버(Firebase)로 가는 요청을 페이지 안에서 가로채, 짧은 링크(#s=)의 방을 서버 대신 답한다. 서버에는 요청이 나가지 않는다.
-// how: hold(window.__cloudAnswer()를 부를 때까지 기다렸다가 code의 방을 준다), missing(그런 방이 없다는 404), offline(연결 실패)
-// 물은 횟수는 window.__cloudCalls에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다
-function fakeCloud(how, code) {
+// 서버(Firebase)로 가는 요청을 페이지 안에서 가로채 서버 대신 답한다. 서버에는 요청이 나가지 않는다.
+// rooms: 방 번호마다 방 글자. 목록에 없는 방은 그런 방이 없다는 404로 답한다
+// how: hold(방 읽기를 window.__cloudAnswer()를 부를 때까지 기다렸다가 답한다), serve(바로 답한다), missing(모든 방이 404), offline(연결 실패),
+//   write(serve에 더해 익명 로그인, 방 올리기, 쪽지 찾기, 방 지우기에도 답한다. 올린 방 글자는 window.__cloudSent에 차례로 남긴다)
+// 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다
+function fakeCloud(how, rooms = {}) {
   const real = window.fetch;
-  window.__cloudCalls = 0;
-  window.fetch = async (url, opts) => {
-    if (!String(url).includes('googleapis.com')) return real(url, opts);
-    window.__cloudCalls++;
+  const held = [];
+  window.__cloudCalls = {};
+  window.__cloudSent = [];
+  window.__cloudAnswer = () => held.splice(0).forEach(done => done());
+  const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
+  window.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (!u.includes('googleapis.com')) return real(url, opts);
     if (how === 'offline') throw new TypeError('Failed to fetch');
-    if (how === 'missing') return new Response('{}', { status: 404 });
-    await new Promise(done => { window.__cloudAnswer = done; });
-    return new Response(JSON.stringify({ fields: { code: { stringValue: code } } }));
+    const write = how === 'write';
+    if (u.includes('accounts:signUp')) return write ? reply({ idToken: 'fake-token', localId: 'fake-uid', refreshToken: 'fake-refresh', expiresIn: '3600' }) : reply({}, 403);
+    if (u.includes('securetoken.googleapis.com')) return write ? reply({ id_token: 'fake-token', user_id: 'fake-uid', refresh_token: 'fake-refresh', expires_in: '3600' }) : reply({}, 403);
+    if (u.includes(':runQuery')) return reply([]);
+    if (u.includes(':commit')) {
+      if (!write) return reply({}, 403);
+      for (const w of JSON.parse(opts.body).writes) {
+        const code = w.update?.fields?.code?.stringValue;
+        if (code) {
+          window.__cloudSent.push(code);
+          rooms[w.update.name.split('/').pop()] = code;
+        }
+      }
+      return reply({});
+    }
+    const id = (u.match(/\/homes\/([0-9A-Za-z]+)/) || [])[1];
+    if ((opts.method || 'GET') === 'DELETE') {
+      if (!write) return reply({}, 403);
+      delete rooms[id];
+      return reply({});
+    }
+    window.__cloudCalls[id] = (window.__cloudCalls[id] || 0) + 1;
+    if (how === 'hold') await new Promise(done => held.push(done));
+    if (how === 'missing' || !(id in rooms)) return reply({}, 404);
+    return reply({ fields: { code: { stringValue: rooms[id] } } });
   };
   return true;
+}
+
+// data/neighbors.js를 받을 때 목록 맨 앞에 row(이웃집 한 줄)를 더해 준다. 레포의 목록에 link 줄이 없어도 link 이웃집을 볼 수 있다.
+// row 자리에 null을 넣으면 가로채기를 푼다. 바꾼 목록은 다음에 여는 페이지부터 쓰인다
+async function extraNeighbor(page, row) {
+  if (!row) {
+    page.on('Fetch.requestPaused', null);
+    return page.send('Fetch.disable');
+  }
+  const text = fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8')
+    .replace('export const NEIGHBORS = [', `export const NEIGHBORS = [\n  ${JSON.stringify(row)},`);
+  page.on('Fetch.requestPaused', ({ requestId }) => page.send('Fetch.fulfillRequest', {
+    requestId,
+    responseCode: 200,
+    responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }, { name: 'Cache-Control', value: 'no-store' }],
+    body: Buffer.from(text).toString('base64'),
+  }).catch(() => {}));
+  return page.send('Fetch.enable', { patterns: [{ urlPattern: '*/data/neighbors.js*', requestStage: 'Request' }] });
 }
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
@@ -115,6 +163,25 @@ async function gameIds() {
   const { APPS } = await import(new URL('data/apps.js', document.baseURI).href);
   const games = APPS.filter(a => a.folder === 'games');
   return { own: games.filter(a => a.src?.startsWith('apps/')).map(a => a.id), link: games.find(a => a.href)?.id || null };
+}
+
+// 소리: 이 페이지에서 play()로 트는 소리를 모두 window.__audios에 적어 둔다(src/sound.js의 효과음과 배경음악). 페이지를 새로 열면 풀린다
+function catchAudio() {
+  window.__audios = new Set();
+  const play = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function () { window.__audios.add(this); return play.call(this); };
+}
+// 지금 흐르는 배경음악(되풀이해 트는 소리)이 want인가. 'on' 소리가 난다, 'muted' 곡은 흐르는데 소리만 꺼졌다, 'none' 흐르는 곡이 없다
+function musicIs(want) {
+  const a = [...(window.__audios || [])].find(x => x.loop && !x.paused);
+  return want === 'none' ? !a : !!a && a.muted === (want === 'muted');
+}
+const effectCount = () => [...(window.__audios || [])].filter(a => !a.loop).length;
+async function playEffect(name) {
+  (await import(new URL('src/sound.js', document.baseURI).href)).play(name);
+}
+async function setSettings(patch) {
+  (await import(new URL('src/settings.js', document.baseURI).href)).settings.set(patch);
 }
 
 // 튜토리얼에서 놓는 가구(data/furniture.js의 TUTORIAL_FURNITURE)와 그 이름
@@ -394,11 +461,34 @@ async function walk(page, base) {
     check(`바탕화면의 ${id} 아이콘이 창을 연다`, await until(page, () => document.querySelectorAll('#windows .win').length === 1, 3000));
     await sleep(400);
     await probe(`창 ${id}`);
-    if (id === 'share') check('공유하기 창의 링크에 내 사진이 담긴다', await page.run(async pic => {
-      const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
-      const link = document.querySelector('#windows .win input[aria-label="공유 링크"]')?.value || '';
-      return decodeHome(link.split('#r=')[1] || '')?.picture === pic;
-    }, firstPic));
+    if (id === 'share') {
+      // 링크는 "링크 만들기"로 만드는 짧은 링크 하나다. 서버는 fakeCloud가 대신하고, 끝에 링크를 지워 뒤의 점검이 서버를 부르지 않게 한다
+      const winText = () => document.querySelector('#windows .win')?.textContent || '';
+      check('공유하기 창에는 링크 만들기 단추가 있고 긴 링크와 링크 칸은 보이지 않는다', await page.run(() => {
+        const win = document.querySelector('#windows .win');
+        return [...win.querySelectorAll('.btn')].some(b => b.textContent === '링크 만들기') && !win.querySelector('input[aria-label="공유 링크"]')
+          && !win.textContent.includes('긴 링크') && !win.textContent.includes('짧은 링크') && win.textContent.includes('Firebase(구글) 서버에 저장됩니다');
+      }));
+      await page.run(fakeCloud, 'offline');
+      await page.run(clickText, '#windows .win .btn', '링크 만들기');
+      check('링크를 만들지 못하면 다시 누르거나 방 그림을 PNG로 내려받으라고 알린다', await until(page, () => /만들지 못했습니다.*PNG/.test(document.getElementById('toast').textContent)
+        && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기' && !b.disabled), 5000));
+      await page.run(fakeCloud, 'write');
+      await page.run(clickText, '#windows .win .btn', '링크 만들기');
+      check('링크 만들기를 누르면 링크 칸에 #s= 링크가 나온다', await until(page, () => /#s=[0-9A-Za-z]{8}$/.test(document.querySelector('#windows .win input[aria-label="공유 링크"]')?.value || ''), 5000));
+      check('서버에 올린 방에 내 사진이 담긴다', await page.run(async pic => {
+        const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+        return window.__cloudSent.length === 1 && decodeHome(window.__cloudSent[0])?.picture === pic;
+      }, firstPic));
+      check('링크를 만든 뒤에는 링크 지우기 단추가 보인다', (await page.run(winText)).includes('링크 지우기'));
+      await probe('링크를 만든 공유하기 창');
+      await page.run(clickText, '#windows .win .btn', '링크 지우기');
+      check('링크 지우기를 누르면 지우기 전에 이 링크가 더는 열리지 않는다고 알린다', (await page.run(winText)).includes('이 링크는 더는 열리지 않습니다.'));
+      await page.run(clickText, '#windows .win .btn', '지우기');
+      check('지우기를 누르면 링크 칸이 사라지고 링크 만들기로 돌아간다', await until(page, () => !document.querySelector('#windows .win input[aria-label="공유 링크"]')
+        && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기')
+        && !JSON.parse(localStorage.getItem('agarago.cloud') || '{}').id, 5000));
+    }
     await closeWindows();
   }
   // 게임 폴더 안의 우리 게임과 새 탭 안내 창
@@ -416,6 +506,63 @@ async function walk(page, base) {
   check('폴더 안의 게임과 새 탭 안내가 창으로 열린다', (await page.run(winCount)) === 1 + games.own.length + (games.link ? 1 : 0));
   check('우리 게임 창에 게임 페이지가 뜬다', await until(page, () => [...document.querySelectorAll('#windows iframe')].every(f => { try { return f.contentDocument.readyState === 'complete' && !!f.contentDocument.querySelector('canvas'); } catch { return false; } }), 8000));
   await closeWindows();
+
+  // ---------- 창이 뒤로 가면 소리 끄기(F27) ----------
+  // 화면 없는 크롬은 첫 진짜 입력 전까지 재생을 막고 페이지에 초점도 주지 않는다. 위에서 창 제목 줄을 진짜로 눌러(tap) 둘 다 풀려 있다.
+  // 탭이 가려지는 것은 새 탭을 앞에 열어 진짜로 만든다. 다른 프로그램으로 넘어가는 것은 흉내 낼 수 없어서(초점 흉내 Emulation.setFocusEmulationEnabled를 꺼도 한번 받은 초점이 남는다)
+  // document.hasFocus를 바꿔 끼우고 blur를 보낸다. 게임 창 안은 진짜로 누른다
+  await page.run(catchAudio);
+  await page.run(setSettings, { musicOn: false });
+  await page.run(setSettings, { musicOn: true }); // 진짜로 누른 뒤에 배경음악을 다시 틀게 한다
+  check('바탕화면의 방에서 배경음악이 난다', await until(page, musicIs, 3000, 'on'));
+  let tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  check('다른 탭으로 넘어가면 1초 안에 배경음악이 꺼지고 곡은 멈추지 않는다', await until(page, musicIs, 1000, 'muted'));
+  await page.send('Page.bringToFront');
+  check('이 탭으로 돌아오면 1초 안에 배경음악이 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.send('Target.closeTarget', { targetId: tab });
+  await page.run(() => { document.hasFocus = () => false; window.dispatchEvent(new Event('blur')); });
+  check('다른 프로그램으로 넘어가면 1초 안에 배경음악이 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  const fx0 = await page.run(effectCount);
+  await page.run(playEffect, 'mouse');
+  check('뒤에 있는 동안에는 효과음을 내지 않는다', (await page.run(effectCount)) === fx0);
+  await page.run(() => { delete document.hasFocus; window.dispatchEvent(new Event('focus')); });
+  check('창으로 돌아오면 1초 안에 배경음악이 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.run(playEffect, 'mouse');
+  check('창으로 돌아오면 효과음도 난다', (await page.run(effectCount)) === fx0 + 1);
+  // 게임 창 안을 누르면 이 문서에 blur가 오지만 초점은 페이지 안(iframe)에 있으므로 끄지 않는다
+  await openIcon('games');
+  await sleep(300);
+  await page.run(clickTwice, '.folder-grid .desk-icon[data-app="file-ten"]');
+  check('파일 정리 10 창을 열면 그 게임의 배경음악이 난다', await until(page, () => {
+    const f = document.querySelector('#windows iframe');
+    const a = [...window.__audios].find(x => x.loop && !x.paused && !x.muted);
+    try { return !!f.contentDocument.querySelector('canvas') && a.src.endsWith('bgm-file-ten.mp3'); } catch { return false; }
+  }, 8000));
+  await tap(page, await page.run(centreOf, '#windows iframe'));
+  await sleep(1200);
+  check('게임 창 안을 누르면 초점이 게임으로 가도 소리는 그대로 난다', (await page.run(() => document.activeElement?.tagName === 'IFRAME')) && (await page.run(musicIs, 'on')));
+  // 초점이 게임 안에 있으면 다른 프로그램으로 넘어가거나 돌아와도 이 문서에 blur와 focus가 오지 않는다(known-issues 74). hasFocus만 바꿔 끼운다
+  await page.run(() => { document.hasFocus = () => false; });
+  check('초점이 게임 안에 있을 때 다른 프로그램으로 넘어가면 알림이 없어도 1초 안에 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  await page.run(() => { delete document.hasFocus; });
+  check('초점이 게임 안에 있을 때 돌아오면 알림이 없어도 1초 안에 다시 난다', await until(page, musicIs, 1000, 'on'));
+  tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  check('초점이 게임 안에 있어도 다른 탭으로 넘어가면 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  await page.send('Page.bringToFront');
+  check('초점이 게임 안에 있어도 돌아오면 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.send('Target.closeTarget', { targetId: tab });
+  await closeWindows();
+  // 소리를 꺼 둔 사용자는 창을 오가도 꺼진 그대로다(저장된 설정을 바꾸지 않는다)
+  await page.run(setSettings, { sound: false });
+  check('소리를 끄면 배경음악이 멈춘다', await until(page, musicIs, 2000, 'none'));
+  tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  await sleep(300);
+  await page.send('Page.bringToFront');
+  await page.send('Target.closeTarget', { targetId: tab });
+  await sleep(1200);
+  check('소리를 꺼 둔 채 탭을 오가도 소리는 꺼진 그대로다', (await page.run(musicIs, 'none'))
+    && (await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || '{}').sound)) === false);
+  await page.run(setSettings, { sound: true });
   await page.run(clickOnce, '.start-btn');
   check('시작 단추를 누르면 시작 메뉴가 열린다', await page.run(() => !document.getElementById('start-menu').hidden && document.querySelectorAll('.start-item').length >= 8));
   await probe('시작 메뉴');
@@ -423,8 +570,8 @@ async function walk(page, base) {
   await page.run(clickOnce, '#start-menu .start-pic');
   check('내 사진을 누르면 시작 메뉴가 닫히고 사진 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .pic-app'), 3000));
   await probe('사진 바꾸기 창');
-  // 내 그림: 창에서 그림 파일을 고르면 줄여서 바로 저장하고, 시작 메뉴에 보인다. 긴 링크에는 담기지 않고(손님은 이름의 첫 글자)
-  // 공유하기 창이 그렇다고 알리며, 짧은 링크의 방에 올리는 글에는 담긴다. 그 뒤 목록의 사진으로 돌아가 아래 점검을 잇는다
+  // 내 그림: 창에서 그림 파일을 고르면 줄여서 바로 저장하고, 시작 메뉴에 보인다. 공유하기의 "링크 만들기"가 서버에 올리는 글에도 담긴다.
+  // 그 뒤 목록의 사진으로 돌아가 아래 점검을 잇는다
   await setFile(page, '.pic-app input[type="file"]', TEST_IMAGE);
   check('창에서 그림 파일을 고르면 내 그림으로 줄여 바로 저장하고 창 위의 사진이 바뀐다', await until(page, () => document.querySelector('.pic-app-head .user-pic')?.dataset.pic === 'my'
     && String(JSON.parse(localStorage.getItem('agarago.picture'))).startsWith('my:') && !document.querySelector('.pic-app .pic-choice[aria-pressed="true"]'), 5000));
@@ -432,14 +579,7 @@ async function walk(page, base) {
   await page.run(clickOnce, '.start-btn');
   check('내 그림이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === 'my');
   await page.run(clickOnce, '.start-btn');
-  await openIcon('share');
-  check('내 그림은 긴 링크에 담기지 않고 공유하기 창이 그렇다고 알린다', await until(page, async () => {
-    const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
-    const win = document.querySelector('#windows .win');
-    const home = decodeHome((win?.querySelector('input[aria-label="공유 링크"]')?.value || '').split('#r=')[1] || '');
-    return !!home && !('picture' in home) && win.textContent.includes('그림 파일로 만든 사진은 짧은 링크에만 담깁니다');
-  }, 3000));
-  check('짧은 링크의 방에 올리는 글에는 내 그림이 담긴다', await page.run(async () => {
+  check('서버에 올리는 방 글자에는 내 그림이 담긴다', await page.run(async () => {
     const { decodeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
     const { withPicture } = await import(new URL('src/user-pictures.js', document.baseURI).href);
     return decodeHome(encodeHome(withPicture(JSON.parse(localStorage.getItem('agarago.home.v3')))))?.picture === JSON.parse(localStorage.getItem('agarago.picture'));
@@ -691,18 +831,58 @@ async function walk(page, base) {
   check('내 컴퓨터로를 두 번 누르면 내 바탕화면으로 돌아온다', await until(page, () => document.getElementById('stage').dataset.mode === 'edit' && !document.getElementById('desktop').hidden && !!document.querySelector('#icons [data-app="room"]'), 5000));
   check('돌아오면 주소의 친구 링크가 지워진다', await page.run(() => location.hash === ''));
 
-  // 이웃집 목록이 있으면 로그인 화면과 놀이터 울타리에 나온다
-  const neighbors = await page.run(async () => (await import(new URL('src/neighbors.js', document.baseURI).href)).NEIGHBOR_LIST.length);
-  if (neighbors) {
+  // ---------- 이웃집 ----------
+  // data/neighbors.js 맨 앞에 link 이웃집 한 집을 더해 받게 하고(extraNeighbor), 그 집의 방은 서버 대신 답한다(fakeCloud).
+  // 받는 동안의 자리, 받은 뒤의 주인 사진과 문패 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
+  const LINK_NEIGHBOR = { id: 'smoke-link', name: '링크이웃', link: 'NbHd5678' };
+  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, '서버의이름'); // 화면에는 목록의 문패 이름이 보여야 한다
+  const linkTile = name => {
+    const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
+    return t ? { disabled: t.disabled, text: t.textContent, pic: t.querySelector('.user-pic')?.dataset.pic ?? null } : null;
+  };
+  const neighborGates = () => document.querySelectorAll('#wallpaper .neighbor-hit').length;
+  const toPlayground = async () => {
+    await page.run(clickOnce, '.users .user:not(.neighbor)');
+    await desktop();
     await page.run(clickTwice, '#wallpaper .door-hit');
-    await until(page, () => !!document.querySelector('#wallpaper .gate-hit'), 15000);
-    check('놀이터 울타리에 이웃집 문이 집마다 하나씩 있다', (await page.run(() => document.querySelectorAll('#wallpaper .neighbor-hit').length)) === neighbors);
-    await page.run(clickTwice, '#wallpaper .neighbor-hit');
-    check('이웃집 문을 두 번 누르면 어느 집으로 가는지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
-    await probe('이웃집 놀러 가기 창');
-    await page.run(clickText, '#windows .btn', '놀러 가기');
-    check('놀러 가기를 누르면 그 집에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden, 5000));
-  }
+    return until(page, () => !!document.querySelector('#wallpaper .gate-hit'), 15000);
+  };
+  await extraNeighbor(page, LINK_NEIGHBOR);
+  await open();
+  await page.run(fakeCloud, 'hold', { [LINK_NEIGHBOR.link]: neighborCode });
+  await powerOn();
+  const neighbors = await page.run(async () => (await import(new URL('src/neighbors.js', document.baseURI).href)).NEIGHBOR_LIST.length);
+  check('link 이웃집은 서버에서 방을 받는 동안 문패 이름만 보이고 눌리지 않는다', await page.run(linkTile, LINK_NEIGHBOR.name)
+    .then(t => !!t && t.disabled && t.text.includes('불러오는 중')));
+  check('부팅할 때 link 이웃집의 방을 서버에 한 번 묻는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
+  await probe('이웃집 방을 받는 로그인 화면');
+  await page.run(() => window.__cloudAnswer());
+  check('받으면 이웃집 구경하기 자리가 되고 서버의 방에 담긴 주인 사진이 보인다', await until(page, name => {
+    const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
+    return !!t && !t.disabled && t.textContent.includes('이웃집 구경하기') && t.querySelector('.user-pic')?.dataset.pic === 'cake';
+  }, 3000, LINK_NEIGHBOR.name));
+  check('link 이웃집은 서버의 주인 이름 대신 목록의 문패 이름으로 보인다', !(await page.run(() => document.getElementById('login').textContent.includes('서버의이름'))));
+  check('이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('놀이터 울타리에 이웃집 문이 집마다 하나씩 있다', (await page.run(neighborGates)) === neighbors);
+  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LINK_NEIGHBOR.id}"]`);
+  check('이웃집 문을 두 번 누르면 어느 집으로 가는지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
+  await probe('이웃집 놀러 가기 창');
+  check('놀러 가기 창이 그 집의 문패 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${LINK_NEIGHBOR.name}의 집에 놀러 갑니다.`));
+  await page.run(clickText, '#windows .btn', '놀러 가기');
+  check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
+    && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
+  check('로그인 화면과 놀이터가 받아 둔 방을 같이 써서 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
+  // 주인이 링크를 지워 서버에 방이 없으면 로그인 화면과 놀이터에서 빠진다
+  await open();
+  await page.run(fakeCloud, 'missing');
+  await powerOn();
+  check('서버에 방이 없는 link 이웃집은 로그인 화면에서 빠진다', await until(page, (name, n) => {
+    const tiles = [...document.querySelectorAll('.users .user.neighbor')];
+    return tiles.length === n - 1 && !tiles.some(t => t.textContent.includes(name));
+  }, 3000, LINK_NEIGHBOR.name, neighbors));
+  check('서버에 방이 없을 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - 1);
+  await extraNeighbor(page, null);
 
   // ---------- 깨진 링크와 HTML이 든 링크 ----------
   await open('#r=!!!깨진링크');
@@ -755,14 +935,14 @@ async function walk(page, base) {
   });
   const shortCode = await page.run(linkOf, { ...HOME, picture: shortPic }, '짧은친구');
   await open(SHORT);
-  await page.run(fakeCloud, 'hold', shortCode);
+  await page.run(fakeCloud, 'hold', { [SHORT.slice(3)]: shortCode });
   await powerOn();
   check('짧은 링크로 오면 방을 받는 동안 친구 방 자리가 눌리지 않는다', await page.run(() => {
     const t = document.querySelector('.users .user');
     return !!t && t.disabled && t.textContent.includes('불러오는 중');
   }));
   await probe('짧은 링크의 방을 받는 로그인 화면');
-  check('부팅할 때 서버에 방을 한 번 묻는다', (await page.run(() => window.__cloudCalls)) === 1);
+  check('부팅할 때 서버에 방을 한 번 묻는다', (await page.run(id => window.__cloudCalls[id], SHORT.slice(3))) === 1);
   await page.run(() => document.getElementById('power').click());
   check('전원을 끄면 로그인 화면이 꺼진다', await until(page, () => document.getElementById('login').hidden && document.getElementById('boot').hidden, 10000));
   await page.run(() => window.__cloudAnswer());
@@ -773,7 +953,7 @@ async function walk(page, base) {
     .some(t => !t.disabled && t.textContent.includes('짧은친구') && t.textContent.includes('손님으로 구경하기')), 3000));
   check('짧은 링크의 친구 방에도 서버의 방에 담긴 주인의 내 그림이 보인다', await page.run(() => [...document.querySelectorAll('.users .user')]
     .find(t => t.textContent.includes('짧은친구'))?.querySelector('.user-pic')?.dataset.pic === 'my'));
-  check('다시 켜도 서버에 다시 묻지 않는다', (await page.run(() => window.__cloudCalls)) === 1);
+  check('다시 켜도 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], SHORT.slice(3))) === 1);
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('짧은 링크의 손님 자리를 누르면 친구 방에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit'
     && !document.getElementById('desktop').hidden && document.getElementById('toast').textContent.includes('짧은친구'), 5000));
@@ -913,6 +1093,60 @@ async function walk(page, base) {
   check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
     && (await page.run(labsState)) === 'false/', await page.run(labsState));
 
+  // ---------- 담긴 가구 반짝임(like-sparkle) ----------
+  // 켜면 주인이 무언가 담아 둔 가구 위에만 별이 뜨고(src/os.js의 markLiked, style.css의 .has-like::after) 끄면 바로 사라진다. 내 집, 친구 집, 이웃집에서 같고 방 꾸미기 창에는 뜨지 않는다.
+  // 앞 절이 실험실을 닫았으므로 이 페이지에서 다시 연다(열림과 켠 항목은 설정에 남아 다음에 여는 친구 집과 이웃집에도 적용된다). 끝나면 앞 절이 끝난 설정으로 돌려놓는다.
+  const labSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const liked = () => page.run(() => [...document.querySelectorAll('#wallpaper .furn.has-like')].map(f => f.dataset.id).sort().join());
+  const sparkleBox = '.labs-item[data-lab="like-sparkle"] input';
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  check('담긴 가구 반짝임은 켜기 전에는 하나도 없다', (await liked()) === '');
+  await openIcon('labs');
+  check('실험실 창에 담긴 가구 반짝임 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, sparkleBox));
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  // 점검용 집에서 담긴 것은 컴퓨터, 게임기, 책장, TV다. 앞의 점검이 라디오에 CD를 넣었다면 라디오도 담긴 가구다. 그래서 저장된 집에서 담긴 가구를 구해 견준다.
+  // 코르크 보드(쪽지는 서버에 있어 알 수 없다)와 담는 것이 없는 가구에는 뜨지 않는다
+  const mine = await page.run(savedHome);
+  const want = mine.scenes.room.map(i => i.id).filter(id => Object.hasOwn(mine.likes || {}, id)).sort().join();
+  check('켜면 담아 둔 가구(컴퓨터, 게임기, 책장, TV를 포함해 저장된 집에서 담긴 가구)에만 반짝임이 뜬다',
+    ['bookshelf', 'computer', 'console', 'tv'].every(id => want.split(',').includes(id)) && (await liked()) === want, `${await liked()} / ${want}`);
+  check('반짝임은 12~20px의 별이고 누르기를 가리지 않고 깜박인다', await page.run(() => {
+    const s = getComputedStyle(document.querySelector('#wallpaper .furn.has-like'), '::after');
+    return parseFloat(s.width) >= 12 && parseFloat(s.width) <= 20 && s.pointerEvents === 'none' && s.animationName === 'like-sparkle';
+  }));
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  check('끄면 반짝임이 바로 사라진다', (await liked()) === '');
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  await openIcon('room');
+  check('방 꾸미기 창에는 반짝임이 뜨지 않는다', await until(page, () => document.querySelectorAll('#windows .room-app .furn').length > 0, 3000)
+    && await page.run(() => !document.querySelector('#windows .room-app .has-like')));
+  await closeWindows();
+  check('새로 고침해도 반짝임이 그대로 뜬다', (await enterMine()) && await until(page, n => document.querySelectorAll('#wallpaper .furn.has-like').length === n, 3000, want.split(',').length));
+  // 친구 집: 가구는 있지만 아무것도 담지 않은 집에는 하나도 뜨지 않는다
+  const bare = await page.run(linkOf, { scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] } }, '빈집');
+  await open(`#r=${bare}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  await sleep(600);
+  check('아무것도 담지 않은 친구 집에는 반짝임이 하나도 뜨지 않는다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 3 && (await liked()) === '');
+  // 이웃집 관리인(가구 다섯 개에 내용이 담겨 있다)은 집 데이터에서 담긴 가구를 구해 견준다. 관리인이 목록에서 빠졌다면 보지 않는다
+  const keeper = await page.run(async () => {
+    const { NEIGHBOR_LIST, neighborHome } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    const n = NEIGHBOR_LIST.find(x => x.name === '관리인');
+    const home = n && await neighborHome(n); // link 이웃집이면 서버에서 받으므로 기다린다
+    return home ? home.scenes.room.map(i => i.id).filter(id => Object.hasOwn(home.likes, id)).sort().join() : null;
+  });
+  if (keeper) {
+    await open();
+    await powerOn();
+    await page.run(clickText, '.users .user.neighbor', '관리인');
+    await desktop();
+    await sleep(600);
+    check('이웃집 관리인의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', (await liked()) === keeper && keeper.split(',').length >= 1, `${await liked()} / ${keeper}`);
+  }
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;
@@ -946,7 +1180,9 @@ async function main() {
   await page.send('Page.enable');
   await page.send('Runtime.enable');
   // 유튜브 CD의 플레이어(iframe)와 IFrame Player API 스크립트는 받지 않는다. 음악 창이 열리고 화면 효과가 꺼지는 것까지만 본다
-  const BLOCKED = ['*youtube.com/*', '*youtube-nocookie.com/*', '*ytimg.com/*', '*googlevideo.com/*'];
+  // Firebase 주소도 막는다. 서버 대신 답하는 fakeCloud는 페이지 안에서 fetch를 가로채므로 막아도 그대로 돈다
+  const BLOCKED = ['*youtube.com/*', '*youtube-nocookie.com/*', '*ytimg.com/*', '*googlevideo.com/*',
+    '*firestore.googleapis.com/*', '*identitytoolkit.googleapis.com/*', '*securetoken.googleapis.com/*'];
   await page.send('Network.enable');
   await page.send('Network.setBlockedURLs', { urls: BLOCKED });
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
