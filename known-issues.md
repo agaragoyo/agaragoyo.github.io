@@ -615,3 +615,11 @@
   일부 공개인 재생목록과 영상에는 oEmbed가 공개와 똑같이 200으로 답한다(배포 주소에서 일부 공개 재생목록을 넣어 재생까지 확인했다).
 - 규칙: 바깥 서비스가 "넣을 수 없다"고 한 답 가운데 사용자가 고칠 수 있는 것(공개 범위, 퍼가기 설정)은 받아 두지 않고 다시 묻는다.
   받아 두는 것은 이름과 표지처럼 낡아도 해가 없는 답뿐이다. 고칠 방법을 알리는 안내를 쓰면, 그대로 고친 뒤 같은 화면에서 다시 해 보는 데까지 시험한다.
+
+## 72. 창을 최소화해도 그 안의 미니게임은 보일 때처럼 돈다 (iframe에는 visibilitychange가 오지 않음)
+
+- 증상: 미니게임 창을 최소화해도 파일 정리 10의 100초가 그대로 흘렀다(2026-11-11에 잼). 최소화한 동안 게임 페이지의 `document.visibilityState`는 계속 `visible`이었다.
+- 원인: 최소화는 창 상자에 hidden(display: none)을 거는 것뿐이라 브라우저 탭은 여전히 보이는 중이다. 페이지가 보이는지(Page Visibility)는 탭 단위로 정해져서
+  iframe 안에는 `visibilitychange`가 오지 않고, 같은 사이트의 iframe은 숨겨져도 requestAnimationFrame이 그대로 돈다(화면 없는 크롬에서 재 봄).
+- 규칙: 창이 가려진 것은 앱 SDK의 `AGA.onHide`, `AGA.onShow`로 받는다(`src/win.js`의 minimize와 restore가 `src/sdk-host.js`를 거쳐 알린다).
+  게임 안에서 `document.hidden`이나 `visibilitychange`로 최소화를 알아내려 하지 않는다. 2026-11-14 지금은 실험실의 `pause-hidden`을 켠 동안만 알림이 간다.

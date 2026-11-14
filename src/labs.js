@@ -18,6 +18,7 @@ export const PASSWORD = '엔믹스지우';
 // title: 창에 나오는 이름, desc: 켜면 무엇이 달라지는지 한 줄(창이 좁으면 \n을 넣어 뜻이 끊기는 자리에서 줄을 바꾼다)
 export const LABS = [
   { id: 'fast-saver', title: '화면 보호기 빨리 보기', desc: '바탕화면을 2분 대신 20초 동안 그냥 두면\n화면 보호기가 나옵니다.' },
+  { id: 'pause-hidden', title: '최소화하면 게임 멈추기', desc: '미니게임 창을 최소화하면 게임이 멈추고,\n다시 띄우면 멈춘 곳에서 이어서 할 수 있습니다.' },
 ];
 
 export const labsOpen = () => !!settings.get('labsOpen');
