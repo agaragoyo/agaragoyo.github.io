@@ -6,8 +6,8 @@
 // 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
-// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
-// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기,
+// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
+// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림과 공유하기 창의 안내),
 // 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(링크에 담긴 주인 사진), 깨진 링크와 HTML이 든 링크,
 // 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
@@ -17,9 +17,13 @@
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
+import { fileURLToPath } from 'node:url';
 import { sleep, startServer, launchChrome, runTool, TEST_HOME as HOME, plantHome } from './headless.mjs';
 
 const SHOW_ALL = process.argv.includes('--all');
+// 그림 파일 찾아보기(내 그림, src/custom-picture.js)에 넣는 파일. 레포의 가구 그림(투명한 바탕의 PNG)과 그림이 아닌 파일이다
+const TEST_IMAGE = fileURLToPath(new URL('../assets/furniture/radio.png', import.meta.url));
+const NOT_IMAGE = fileURLToPath(new URL('../README.md', import.meta.url));
 
 // 손님 화면에서 스크립트가 돌지 않는지 볼 집. 이름과 글에 HTML을, 주소에 javascript:를 넣는다
 const EVIL = {
@@ -165,9 +169,9 @@ function nextToOwner() {
   return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
 }
 const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
-// 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js)
-function pickOther(scope) {
-  const b = [...document.querySelectorAll(`${scope} .pic-choice`)].find(c => c.getAttribute('aria-pressed') !== 'true');
+// 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
+function pickOther(scope, avoid = null) {
+  const b = [...document.querySelectorAll(`${scope} .pic-choice`)].find(c => c.getAttribute('aria-pressed') !== 'true' && c.querySelector('.user-pic').dataset.pic !== avoid);
   if (!b) return null;
   b.click();
   return b.querySelector('.user-pic').dataset.pic;
@@ -196,6 +200,14 @@ async function press(page, code, text) {
   await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: KEYS[code] });
 }
 const mouse = (page, type, p) => page.send('Input.dispatchMouseEvent', { type, x: p.x, y: p.y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 });
+// 숨겨 둔 파일 고르는 칸(sel)에 파일을 넣는다. 사람이 파일 창에서 고른 것처럼 change가 온다
+async function setFile(page, sel, file) {
+  await page.send('DOM.enable');
+  const { root } = await page.send('DOM.getDocument', { depth: 0 });
+  const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector: sel });
+  if (!nodeId) throw new Error(`${sel}이 화면에 없다`);
+  await page.send('DOM.setFileInputFiles', { nodeId, files: [file] });
+}
 async function tap(page, p) {
   await mouse(page, 'mousePressed', p);
   await mouse(page, 'mouseReleased', p);
@@ -241,12 +253,19 @@ async function walk(page, base) {
   // 사용자 사진: 한 장이 미리 골라져 있고, 다른 사진을 누르면 고른 표시와 왼쪽 큰 사진이 따라온다
   check('새 사용자 만들기에 사진 여덟 장이 있고 한 장이 골라져 있다', await page.run(() => document.querySelectorAll('.user.new .pic-choice').length === 8
     && document.querySelectorAll('.user.new .pic-choice[aria-pressed="true"]').length === 1));
+  // 내 그림: 그림이 아닌 파일은 열지 못했다고 알리고, 그림 파일은 픽셀 그림으로 줄여 왼쪽 큰 사진 자리에 띄운다(src/custom-picture.js)
+  await setFile(page, '.user.new input[type="file"]', NOT_IMAGE);
+  check('새 사용자 만들기에서 그림이 아닌 파일을 고르면 열지 못했다고 알린다', await until(page, () => document.getElementById('toast').textContent.includes('그림 파일을 열지 못했습니다'), 5000));
+  await setFile(page, '.user.new input[type="file"]', TEST_IMAGE);
+  check('새 사용자 만들기에서 그림 파일을 고르면 왼쪽 큰 사진 자리에 내 그림이 뜨고 고른 표시가 빠진다', await until(page, () => document.querySelector('.user.new > .avatar .user-pic')?.dataset.pic === 'my'
+    && !document.querySelector('.user.new .pic-choice[aria-pressed="true"]'), 5000));
+  await probe('내 그림을 고른 로그인 화면');
   const firstPic = await page.run(pickOther, '.user.new');
   check('사진을 누르면 그 사진이 골라지고 왼쪽 큰 사진이 바뀐다', firstPic && (await page.run(shownPic, '.user.new > .avatar')) === firstPic
     && (await page.run(p => document.querySelector(`.user.new .pic-choice[aria-pressed="true"] [data-pic="${p}"]`) !== null, firstPic)), firstPic);
   await page.run(() => { const f = document.querySelector('.user.new'); f.requestSubmit(); });
   check('빈 닉네임으로 확인을 누르면 안내가 뜬다', await page.run(() => !document.querySelector('.name-tip').hidden));
-  await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input').value = '점검'; f.requestSubmit(); });
+  await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '점검'; f.requestSubmit(); });
   check('새 사용자를 만들면 바탕화면이 뜬다', await desktop());
   check('새 사용자를 만들면 고른 사진이 저장된다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === firstPic);
   check('새 사용자에게 튜토리얼 안내 카드가 뜬다', await until(page, () => { const c = document.querySelector('.coach-card'); return !!c && !c.hidden; }, 3000));
@@ -268,13 +287,14 @@ async function walk(page, base) {
   await sleep(600);
   check('바탕화면의 방에 가구가 모두 그려진다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === HOME.scenes.room.length);
   await probe('바탕화면');
-  // 화면보다 크게 깔린 층(디가우스)이 있어도 화면은 스크롤되지 않는다. 스크롤되면 초점이나 scrollIntoView에 화면 전체가 밀린다(known-issues 66)
-  check('화면(#screen)은 스크롤되지 않는다', await page.run(() => {
-    const s = document.getElementById('screen');
+  // 화면보다 크게 깔린 층(디가우스)이 있어도 화면은 스크롤되지 않는다. 스크롤되면 초점이나 scrollIntoView에 화면 전체가 밀린다(known-issues 66).
+  // 바탕화면도 같다. 가구 가까이 보기와 게임기의 큰 화면이 움직이는 동안 바탕화면보다 커진다
+  check('화면(#screen)과 바탕화면(#desktop)은 스크롤되지 않는다', await page.run(() => ['screen', 'desktop'].every(id => {
+    const s = document.getElementById(id);
     s.scrollTop = 200;
     s.scrollLeft = 200;
     return s.scrollTop === 0 && s.scrollLeft === 0;
-  }));
+  })));
 
   // 아이콘: 한 번 누르면 고르기만 하고, 간격이 벌어지거나 다른 아이콘을 누르면 열지 않고, 이어서 두 번 누르면 연다
   await page.run(clickOnce, '#icons .desk-icon[data-app="music"]');
@@ -370,7 +390,32 @@ async function walk(page, base) {
   await page.run(clickOnce, '#start-menu .start-pic');
   check('내 사진을 누르면 시작 메뉴가 닫히고 사진 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .pic-app'), 3000));
   await probe('사진 바꾸기 창');
-  const nextPic = await page.run(pickOther, '.pic-app');
+  // 내 그림: 창에서 그림 파일을 고르면 줄여서 바로 저장하고, 시작 메뉴에 보인다. 긴 링크에는 담기지 않고(손님은 이름의 첫 글자)
+  // 공유하기 창이 그렇다고 알리며, 짧은 링크의 방에 올리는 글에는 담긴다. 그 뒤 목록의 사진으로 돌아가 아래 점검을 잇는다
+  await setFile(page, '.pic-app input[type="file"]', TEST_IMAGE);
+  check('창에서 그림 파일을 고르면 내 그림으로 줄여 바로 저장하고 창 위의 사진이 바뀐다', await until(page, () => document.querySelector('.pic-app-head .user-pic')?.dataset.pic === 'my'
+    && String(JSON.parse(localStorage.getItem('agarago.picture'))).startsWith('my:') && !document.querySelector('.pic-app .pic-choice[aria-pressed="true"]'), 5000));
+  await closeWindows();
+  await page.run(clickOnce, '.start-btn');
+  check('내 그림이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === 'my');
+  await page.run(clickOnce, '.start-btn');
+  await openIcon('share');
+  check('내 그림은 긴 링크에 담기지 않고 공유하기 창이 그렇다고 알린다', await until(page, async () => {
+    const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+    const win = document.querySelector('#windows .win');
+    const home = decodeHome((win?.querySelector('input[aria-label="공유 링크"]')?.value || '').split('#r=')[1] || '');
+    return !!home && !('picture' in home) && win.textContent.includes('그림 파일로 만든 사진은 짧은 링크에만 담깁니다');
+  }, 3000));
+  check('짧은 링크의 방에 올리는 글에는 내 그림이 담긴다', await page.run(async () => {
+    const { decodeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+    const { withPicture } = await import(new URL('src/user-pictures.js', document.baseURI).href);
+    return decodeHome(encodeHome(withPicture(JSON.parse(localStorage.getItem('agarago.home.v3')))))?.picture === JSON.parse(localStorage.getItem('agarago.picture'));
+  }));
+  await closeWindows();
+  await page.run(clickOnce, '.start-btn');
+  await page.run(clickOnce, '#start-menu .start-pic');
+  await until(page, () => !!document.querySelector('#windows .pic-app'), 3000);
+  const nextPic = await page.run(pickOther, '.pic-app', firstPic);
   check('창에서 사진을 누르면 바로 저장되고 창 위의 사진이 바뀐다', nextPic && nextPic !== firstPic
     && (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === nextPic && (await page.run(shownPic, '.pic-app-head')) === nextPic, nextPic);
   await closeWindows();
@@ -670,7 +715,12 @@ async function walk(page, base) {
   // 서버 대신 페이지 안에서 답한다(fakeCloud). 받는 동안의 자리, 받기 전에 전원을 끄면 늦게 온 답을 버리는지(src/login.js의 isCurrent),
   // 다시 켜면 받아 둔 방을 쓰는지, 없는 방과 연결 실패의 알림을 본다
   const SHORT = '#s=AbCd1234';
-  const shortCode = await page.run(linkOf, { ...HOME, picture: 'rocket' }, '짧은친구');
+  // 짧은 링크의 방에는 주인이 그림 파일로 만든 사진(내 그림)도 담긴다. 네 색 가로 줄무늬 그림을 담는다
+  const shortPic = await page.run(async () => {
+    const { customValue } = await import(new URL('src/custom-picture.js', document.baseURI).href);
+    return customValue([0xf00, 0x0f0, 0x00f, 0xff0], Uint8Array.from({ length: 576 }, (_, i) => Math.floor(i / 48) % 4));
+  });
+  const shortCode = await page.run(linkOf, { ...HOME, picture: shortPic }, '짧은친구');
   await open(SHORT);
   await page.run(fakeCloud, 'hold', shortCode);
   await powerOn();
@@ -688,12 +738,15 @@ async function walk(page, base) {
   await powerOn();
   check('다시 켜면 받아 둔 친구 방이 손님 자리로 나온다', await until(page, () => [...document.querySelectorAll('.users .user')]
     .some(t => !t.disabled && t.textContent.includes('짧은친구') && t.textContent.includes('손님으로 구경하기')), 3000));
-  check('짧은 링크의 친구 방에도 서버의 방에 담긴 주인 사진이 보인다', await page.run(() => [...document.querySelectorAll('.users .user')]
-    .find(t => t.textContent.includes('짧은친구'))?.querySelector('.user-pic')?.dataset.pic === 'rocket'));
+  check('짧은 링크의 친구 방에도 서버의 방에 담긴 주인의 내 그림이 보인다', await page.run(() => [...document.querySelectorAll('.users .user')]
+    .find(t => t.textContent.includes('짧은친구'))?.querySelector('.user-pic')?.dataset.pic === 'my'));
   check('다시 켜도 서버에 다시 묻지 않는다', (await page.run(() => window.__cloudCalls)) === 1);
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('짧은 링크의 손님 자리를 누르면 친구 방에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit'
     && !document.getElementById('desktop').hidden && document.getElementById('toast').textContent.includes('짧은친구'), 5000));
+  await page.run(clickOnce, '.start-btn');
+  check('짧은 링크의 손님 시작 메뉴에 주인의 내 그림이 보인다', (await page.run(shownPic, '#start-menu .start-head')) === 'my');
+  await page.run(clickOnce, '.start-btn');
   await open(SHORT);
   await page.run(fakeCloud, 'missing');
   await powerOn();

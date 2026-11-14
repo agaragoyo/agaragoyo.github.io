@@ -149,8 +149,9 @@ function renderShade(container, items) {
 
 // 바탕화면 배경의 공간 그림 한 장. container 는 1280×720 크기여야 한다. scene: config.js의 SCENES 한 줄.
 // 두 번 누르면 on에 넘긴 함수를 부른다(아바타가 그 옆으로 걸어가 쓴다).
-//   on.use(item)      가구          on.gate(gate)   바깥 공간의 아파트 문
+//   on.use(item, el)  가구          on.gate(gate)   바깥 공간의 아파트 문
 //   on.door(door)     방의 현관문    on.neighbor(n)  놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js의 neighborGates 한 줄)
+// on.use의 el은 그 가구의 상자다. 가까이 보기가 그 자리에서 커지며 다가온다(src/closeup.js).
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
 // 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(src/util.js의 doubleClick).
 // owner: 이 집의 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다(src/neighbors.js의 neighborGates).
@@ -171,7 +172,7 @@ export function renderStatic(container, items, scene, on = {}, owner = '', decor
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
-    el.addEventListener('click', onTwice(item, () => on.use?.(item)));
+    el.addEventListener('click', onTwice(item, () => on.use?.(item, el)));
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
     container.append(el);
