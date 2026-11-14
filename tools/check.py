@@ -599,6 +599,44 @@ def check_cloud():
         err('src/cloud.js', f"NOTE.page({vals['page']})에 한 장을 더 받으면 firestore.rules의 읽기 한도({found['page'].group(1)}장)를 넘는다")
 
 
+# ---------- 실험실 ----------
+# 실험실 항목(src/labs.js의 LABS)은 팀이 아직 정하지 않은 기능이라, 항목마다 docs/requirements.md의 "아직 정하지 않은 것"에
+# 그 id가 든 줄이 있어야 한다(정하면 기본으로 켜거나 지운다). 코드가 묻는 labOn('<id>')은 LABS에 있어야 하고,
+# 집 저장 형식과 공유 링크, 서버를 다루는 파일은 실험실 스위치를 쓰지 않는다(한번 나간 링크와 서버의 방은 스위치를 꺼도 되돌릴 수 없다).
+LABS_FORBIDDEN = ('src/share.js', 'src/likes.js', 'src/rules.js', 'src/cloud.js', 'firestore.rules')
+
+
+def check_labs():
+    where = 'src/labs.js'
+    block = re.search(r'export const LABS = \[(.*?)^\];', read(where), re.S | re.M)
+    if not block:
+        err(where, 'LABS(실험실 항목 목록)를 찾지 못했다. 모양을 바꿨다면 tools/check.py의 check_labs도 고친다')
+        return
+    ids = re.findall(r"\{\s*id:\s*'([^']+)'", block.group(1))
+    for i in ids:
+        if not KEBAB.match(i):
+            err(where, f"실험실 항목 '{i}'의 id는 영어 소문자, 숫자, 하이픈만 쓴다")
+    if len(ids) != len(set(ids)):
+        err(where, '실험실 항목의 id가 겹친다')
+    req = read('docs/requirements.md')
+    todo = re.search(r'^## 아직 정하지 않은 것\n(.*?)^## ', req, re.S | re.M)
+    if not todo:
+        err('docs/requirements.md', '"## 아직 정하지 않은 것" 절을 찾지 못했다')
+    else:
+        for i in ids:
+            if f'`{i}`' not in todo.group(1):
+                err('docs/requirements.md', f"실험실 항목 `{i}`가 \"아직 정하지 않은 것\"에 없다. 무엇을 정할지 한 줄 적는다(정했으면 기본으로 켜거나 src/labs.js에서 지운다)")
+    for path in sorted(ROOT.glob('src/**/*.js')):
+        rel = path.relative_to(ROOT).as_posix()
+        code = re.sub(r'^\s*//.*$', '', path.read_text(encoding='utf-8'), flags=re.M)  # 주석 속 예시는 뺀다
+        for used in re.findall(r"labOn\(\s*'([^']+)'", code):
+            if used not in ids:
+                err(rel, f"labOn('{used}')의 항목이 src/labs.js의 LABS에 없다")
+    for rel in LABS_FORBIDDEN:
+        if (ROOT / rel).exists() and re.search(r'\blabOn\b|labs\.js', read(rel)):
+            err(rel, '집 저장 형식, 공유 링크, 서버를 다루는 파일은 실험실 스위치(labOn)를 쓰지 않는다. 팀이 정한 뒤에 바로 넣는다')
+
+
 # ---------- 방 그림(PNG) 바탕 색 ----------
 # 공유하기의 PNG(src/room-image.js)는 .room의 바탕 그라디언트를 캔버스에 따로 그린다. CSS 그라디언트는 JS로 값을 읽어 올 수 없어서
 # 두 곳에 같은 값을 적어 두므로, style.css의 배경이 BACKDROP과 다르면 오류로 알린다(known-issues 33).
@@ -720,6 +758,7 @@ def main():
     check_cloud()
     check_room_image()
     check_cd_colors()
+    check_labs()
     check_sounds()
     check_file_map()
     check_js_syntax()

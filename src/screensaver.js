@@ -2,8 +2,10 @@
 // 검은 화면 위로 주인의 인사말(공유하기 창에서 적는다)이 오른쪽에서 왼쪽으로 흘러간다. 지나갈 때마다 높이와 색이 바뀐다.
 // 마우스를 움직이거나 누르거나 키를 누르면 걷힌다. 걷는 데 쓴 누르기와 키는 화면 안으로 전하지 않는다(가구나 아이콘이 눌리지 않게).
 // 언제 돌지는 부르는 쪽(os.js)이 canRun으로 정한다. 창을 쓰는 중이나 가구를 가까이 보는 중에는 돌지 않는다(음악, 영상, 게임을 가리지 않게).
-import { SAVER_MS, STAGE_W, STAGE_H } from './config.js';
+import { SAVER_MS, SAVER_FAST_MS, STAGE_W, STAGE_H } from './config.js';
 import { h, reduceMotion } from './util.js';
+import { settings } from './settings.js';
+import { labOn } from './labs.js';
 
 const COLORS = ['#ffe36e', '#7ef0ff', '#ff9ad5', '#9dff8a', '#ffffff'];
 const SPEED = 180;      // 1초에 흐르는 무대 px
@@ -49,9 +51,11 @@ export function createScreensaver({ stage, canRun, text }) {
     anim = null;
   }
 
+  // 실험실의 '화면 보호기 빨리 보기'를 켜면 2분 대신 20초를 기다린다(src/labs.js)
+  const delay = () => (labOn('fast-saver') ? SAVER_FAST_MS : SAVER_MS);
   function arm() {
     clearTimeout(timer);
-    timer = setTimeout(() => (canRun() ? show(false) : arm()), SAVER_MS);
+    timer = setTimeout(() => (canRun() ? show(false) : arm()), delay());
   }
 
   const wake = e => {
@@ -74,7 +78,9 @@ export function createScreensaver({ stage, canRun, text }) {
     e.preventDefault();
     e.stopPropagation();
   }, { capture: true });
+  // 실험실 항목을 켜고 끄면 기다리는 시간을 새로 잰다
+  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) arm(); });
   arm();
 
-  return { show, hide };
+  return { show, hide, delay };
 }

@@ -8,7 +8,8 @@ import { STORAGE_SETTINGS } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
 // sound: 효과음과 배경음악을 틀지, musicOn: 그 가운데 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
-const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop' };
+// labsOpen: 실험실을 열었는지, labs: 실험실에서 켠 항목의 id 목록(src/labs.js)
+const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop', labsOpen: false, labs: [] };
 // 2026-11-10에 뺀 설정(그레인, 볼록, 시대, 마우스 앱의 커서). 예전에 저장된 값은 읽을 때 버린다.
 const DROPPED = ['grain', 'curve', 'era', 'cursor'];
 const state = { ...DEFAULTS, ...loadJSON(STORAGE_SETTINGS) };

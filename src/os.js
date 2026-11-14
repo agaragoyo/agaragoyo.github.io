@@ -12,6 +12,7 @@ import { mountAvatar } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
+import { PASSWORD, labsOpen, openLabs } from './labs.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
@@ -184,6 +185,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       input: el.desktop,
       sayRoot: el.desktop,
       active: () => !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup, // 가구를 가까이 보는 동안의 방향키는 그 화면 것이다(책장 넘기기)
+      // 내 컴퓨터에서 암호를 말하면 실험실이 열린다(src/labs.js). 아이콘은 아래 설정 구독이 그린다
+      onSay: text => {
+        if (os.mode !== 'edit' || text !== PASSWORD || labsOpen()) return;
+        openLabs();
+        toast('바탕화면에 실험실 아이콘이 생겼습니다.', 4000);
+      },
     });
     renderWallpaper();
     // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
@@ -201,12 +208,19 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기, 내 컴퓨터로)은 그때만 보인다.
   // ownHome이 적힌 앱은 이 컴퓨터에 내 집이 있는 손님(true)이나 없는 손님(false)에게만 보인다.
   // 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
+  // 실험실 앱(labs: true)은 실험실을 연 브라우저에서만 보인다(src/labs.js).
   os.canSee = app => (os.mode === 'visit'
     ? !app.editOnly && (app.ownHome === undefined || app.ownHome === os.hasOwnHome)
-    : !app.visitOnly) && app.scene !== os.place;
+    : !app.visitOnly) && app.scene !== os.place && (!app.labs || labsOpen());
   function renderDesktopIcons() {
     os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
   }
+  // 실험실을 열거나 닫으면 아이콘을 다시 그리고, 닫을 때는 실험실 창도 닫는다
+  settings.subscribe(patch => {
+    if (!('labsOpen' in patch)) return;
+    if (!patch.labsOpen) os.wm.get('labs')?.close();
+    if (os.mode && !el.desktop.hidden) renderDesktopIcons();
+  });
 
   // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
