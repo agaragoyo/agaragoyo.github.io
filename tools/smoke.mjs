@@ -86,7 +86,7 @@ function fakeCloud(how, code) {
   return true;
 }
 
-// 미니게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
+// 게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
 async function gameIds() {
   const { APPS } = await import(new URL('data/apps.js', document.baseURI).href);
   const games = APPS.filter(a => a.folder === 'games');
@@ -288,7 +288,7 @@ async function walk(page, base) {
     await probe(`창 ${id}`);
     await closeWindows();
   }
-  // 미니게임 폴더 안의 우리 게임과 새 탭 안내 창
+  // 게임 폴더 안의 우리 게임과 새 탭 안내 창
   const games = await page.run(gameIds);
   await openIcon('games');
   await sleep(300);

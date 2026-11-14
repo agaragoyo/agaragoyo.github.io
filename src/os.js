@@ -4,7 +4,7 @@
 // 앱은 src/apps/(기본 앱)와 apps/(팀원 앱, iframe)에 있고, 여기서는 목록대로 열어 주기만 한다.
 import { STORAGE_ROOM, SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { APPS, APP_BY_ID } from '../data/apps.js';
+import { APPS, APP_BY_ID, hostTip } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
@@ -302,13 +302,15 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const twice = doubleClick();
     for (const app of apps) {
       // 새 탭으로 열리는 앱(href)은 누르기 전에 알 수 있게 아이콘에 바깥 화살표를 달고, 마우스를 올리면 열리는 곳을 보여 준다(known-issues 32).
+      // 다른 사이트의 게임을 창에 띄우는 앱(src가 https)도 마우스를 올리면 그 사이트 주소를 보여 준다.
       const b = h('button', {
         type: 'button',
         className: app.href ? 'desk-icon external' : 'desk-icon',
         dataset: { app: app.id },
-        title: app.href ? `새 탭에서 열립니다(${new URL(app.href).host})` : null,
+        title: hostTip(app),
         onclick: () => {
-          for (const o of container.querySelectorAll('.desk-icon')) o.classList.toggle('selected', o === b);
+          // 폴더 창은 묶음마다 아이콘 상자가 따로라서, 고른 표시는 창 전체(.folder-grid)에서 하나만 남긴다
+          for (const o of (container.closest('.folder-grid') || container).querySelectorAll('.desk-icon')) o.classList.toggle('selected', o === b);
           if (twice(app.id)) os.openApp(app.id);
         },
         onkeydown: e => {

@@ -103,7 +103,13 @@ def check_apps():
         if icon and not icon.startswith(('builtin:', 'http', '$')) and not (ROOT / icon).exists():
             err(where, f'아이콘 {icon} 파일이 없다')
         if a.get('folder') not in (None, 'null', 'games', 'furniture'):
-            err(where, "folder 는 'games'(미니게임 폴더), 'furniture'(가구로만 열림) 중 하나다")
+            err(where, "folder 는 'games'(게임 폴더), 'furniture'(가구로만 열림) 중 하나다")
+        # 게임 폴더의 앱은 묶음(group)을 적어야 폴더와 게임기 화면에 나온다. 묶음 이름은 data/apps.js 의 GAME_GROUPS 에 있다
+        groups = re.findall(r"group:\s*'([^']+)'", read('data/apps.js').split('export const GAME_GROUPS = [', 1)[1].split('];', 1)[0])
+        if a.get('folder') == 'games' and a.get('group') not in groups:
+            err(where, f"folder: 'games' 인 앱은 group 을 {groups} 가운데 하나로 적는다")
+        if a.get('group') and a.get('folder') != 'games':
+            err(where, "group 은 folder: 'games' 인 앱에만 쓴다")
     # apps/ 아래 폴더는 목록에 올라가 있어야 한다(_로 시작하는 폴더는 틀이라 뺀다)
     listed = {a.get('src', '').split('/')[1] for a in apps if a.get('src', '').startswith('apps/')}
     for d in sorted(p for p in (ROOT / 'apps').iterdir() if p.is_dir()):
