@@ -18,12 +18,17 @@
       user-select: none;
     }
     /* 점수나 다음 물건 이름이 길어져도 한 줄을 지킨다(두 줄이 되면 아래 게임판이 밀린다). */
-    header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; white-space: nowrap; overflow: hidden; background: #2a211d; font-size: 14px; }
+    header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; white-space: nowrap; overflow: hidden; background: #2a211d; font-size: 14px; }
     header > * { flex: none; }
     header .grow { flex: 1; }
     button { font: inherit; font-size: 13px; padding: 4px 10px; cursor: var(--aga-hand, pointer); }
     #wrap { flex: 1; display: grid; place-items: center; min-height: 0; }
     canvas { display: block; touch-action: none; cursor: crosshair; }
+    /* 시작 카드의 물건 순서 한 줄 */
+    .tiers { display: grid; gap: 4px; width: 100%; font-size: 11px; }
+    .tiers-dots { display: flex; align-items: center; justify-content: space-between; }
+    .tiers-dots i { flex: none; box-sizing: border-box; border: 2px solid #2a211d; border-radius: 50%; }
+    .tiers-ends { display: flex; justify-content: space-between; }
   </style>
 </head>
 <body>
@@ -32,6 +37,7 @@
     <span>최고 <b id="best">0</b></span>
     <span class="grow"></span>
     <span>다음 <b id="next" style="display:inline-block; min-width: 3.2em"></b></span>
+    <button id="help">게임 방법</button>
     <button id="restart">다시</button>
     <button id="quit">끝내기</button>
   </header>
@@ -67,6 +73,10 @@
     $('best').textContent = best;
 
     let bodies, score, aimX, current, nextTier, lastDrop, overTimer, over;
+    // 첫 판 안내: 처음 하는 사람에게만 단추를 주고 떨어뜨리기와 합치기를 한 번씩 짚어 준다.
+    // 'drop'(떨어뜨려 보기) → 'merge'(단추 위에 떨어뜨려 합치기) → null. 끝내거나 건너뛰면 'tidy-up.tutored'에 남긴다
+    let tutor = null;
+    let tipUntil = 0; // 합친 뒤 "지우개가 됐어요!"를 보여 주는 끝 시각
 
     function randTier() {
       const r = Math.random();
@@ -77,13 +87,33 @@
       bodies = [];
       score = 0;
       aimX = W / 2;
-      current = randTier();
-      nextTier = randTier();
+      tutor = AGA.load('tutored', false) ? null : 'drop';
+      current = tutor ? 0 : randTier();
+      nextTier = tutor ? 0 : randTier();
       lastDrop = 0;
       overTimer = 0;
       over = false;
+      tipUntil = 0;
       $('score').textContent = 0;
       $('next').textContent = TIERS[nextTier].name;
+      showTip();
+    }
+
+    // ---------- 첫 판 안내 ----------
+    // 안내 한 줄은 카드가 떠 있는 동안 숨긴다
+    function showTip() {
+      if (card.isOpen) card.tip(null);
+      else if (tutor === 'drop') card.tip('눌러서 떨어뜨려 보세요', { at: 0.3, onSkip: endTutor });
+      else if (tutor === 'merge') card.tip('단추 위에 떨어뜨려요', { at: 0.3, onSkip: endTutor });
+      else if (tipUntil) card.tip('지우개가 됐어요!', { at: 0.3, onSkip: () => { tipUntil = 0; } });
+      else card.tip(null);
+    }
+    function endTutor() {
+      tutor = null;
+      AGA.save('tutored', true);
+      nextTier = randTier();
+      $('next').textContent = TIERS[nextTier].name;
+      showTip();
     }
 
     // ---------- 화면 크기 ----------
@@ -104,10 +134,15 @@
       bodies.push({ x, y: LINE - r - 6, vx: 0, vy: 0, t: current, r, born: now });
       lastDrop = now;
       current = nextTier;
-      nextTier = randTier();
+      nextTier = tutor ? 0 : randTier(); // 안내 중에는 합칠 때까지 단추만 준다
       $('next').textContent = TIERS[nextTier].name;
+      if (tutor === 'drop') {
+        tutor = 'merge';
+        showTip();
+      }
     });
     $('restart').addEventListener('click', reset);
+    $('help').addEventListener('click', () => { if (!card.isOpen) openCard(true); });
     $('quit').addEventListener('click', () => AGA.close());
 
     // ---------- 물리 ----------
@@ -177,6 +212,11 @@
           bodies.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, vx: 0, vy: -120, t, r, born: performance.now() });
           score += (t + 1) * (t + 2) / 2;
         }
+        if (tutor === 'merge') {
+          endTutor();
+          tipUntil = performance.now() + 1500;
+          showTip();
+        }
       }
       $('score').textContent = score;
       if (score > best) {
@@ -197,26 +237,42 @@
     }
 
     // ---------- 그리기 ----------
-    function drawBody(x, y, t, alpha = 1) {
+    // g: 그릴 캔버스(시작 카드의 시범 그림도 같은 함수로 그린다), scale: 합쳐질 때 부풀리는 배율
+    function drawBody(x, y, t, alpha = 1, g = ctx, scale = 1) {
       const tier = TIERS[t];
-      ctx.globalAlpha = alpha;
+      const r = tier.r * scale;
+      g.globalAlpha = alpha;
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = tier.c;
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = '#2a211d';
+      g.stroke();
+      g.beginPath();
+      g.arc(x - r * 0.3, y - r * 0.35, r * 0.25, 0, Math.PI * 2);
+      g.fillStyle = '#ffffff55';
+      g.fill();
+      g.fillStyle = '#2a211d';
+      g.font = `${Math.max(10, Math.min(18, tier.r * 0.5))}px Galmuri11, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(tier.name, x, y + 1);
+      g.globalAlpha = 1;
+    }
+
+    // 안내 중에 바닥에 놓인 단추 위로 오르내리는 화살표(여기에 떨어뜨리면 합쳐진다)
+    function drawPointer() {
+      const b = bodies.filter(o => o.t === 0).sort((p, q) => q.y - p.y)[0];
+      if (!b) return;
+      const y = b.y - b.r - 8 - Math.abs(Math.sin(performance.now() / 220)) * 10;
+      ctx.fillStyle = '#c5483f';
       ctx.beginPath();
-      ctx.arc(x, y, tier.r, 0, Math.PI * 2);
-      ctx.fillStyle = tier.c;
+      ctx.moveTo(b.x, y);
+      ctx.lineTo(b.x - 9, y - 12);
+      ctx.lineTo(b.x + 9, y - 12);
+      ctx.closePath();
       ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#2a211d';
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x - tier.r * 0.3, y - tier.r * 0.35, tier.r * 0.25, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff55';
-      ctx.fill();
-      ctx.fillStyle = '#2a211d';
-      ctx.font = `${Math.max(10, Math.min(18, tier.r * 0.5))}px Galmuri11, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tier.name, x, y + 1);
-      ctx.globalAlpha = 1;
     }
 
     function draw() {
@@ -235,6 +291,7 @@
       ctx.stroke();
       ctx.setLineDash([]);
       for (const b of bodies) drawBody(b.x, b.y, b.t);
+      if (tutor === 'merge' && !card.isOpen) drawPointer();
       if (!over) {
         const r = TIERS[current].r;
         const x = Math.max(r, Math.min(W - r, aimX));
@@ -260,15 +317,88 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
-      if (!over) {
+      // 시작 카드가 떠 있는 동안은 물건이 멈춘다
+      if (!over && !card.isOpen) {
         for (let i = 0; i < 4; i++) step(dt / 4);
         checkOver(dt);
+      }
+      if (tipUntil && now > tipUntil) {
+        tipUntil = 0;
+        showTip();
       }
       draw();
       requestAnimationFrame(loop);
     }
 
+    // ---------- 시작 카드 ----------
+    // 시범 그림: 단추 하나가 떨어져 바닥의 단추에 닿으면 지우개가 된다. 2.6초마다 되풀이한다
+    function drawDemo(g, t) {
+      const floor = 96;
+      g.fillStyle = '#d8b07a';
+      g.fillRect(0, 0, 240, 100);
+      const ax = 104;
+      const ay = floor - 14;
+      const bx = 128;
+      const hit = ay - Math.sqrt(28 * 28 - 24 * 24); // 두 단추가 닿는 높이
+      if (t < 1000) {
+        const k = t < 400 ? 0 : Math.min(1, (t - 400) / 500) ** 2;
+        const by = 18 + (hit - 18) * k;
+        if (t < 400) {
+          g.strokeStyle = '#7a553066';
+          g.lineWidth = 2;
+          g.beginPath();
+          g.moveTo(bx, by);
+          g.lineTo(bx, floor);
+          g.stroke();
+        }
+        drawBody(ax, ay, 0, 1, g);
+        drawBody(bx, by, 0, 1, g);
+      } else {
+        const k = Math.min(1, (t - 1000) / 200);
+        const pop = 1 + 0.25 * Math.sin(k * Math.PI);
+        const fade = t > 2200 ? 1 - (t - 2200) / 400 : 1;
+        drawBody((ax + bx) / 2, floor - 19, 1, Math.max(0, fade), g, pop);
+      }
+    }
+
+    // 물건 순서 한 줄: 단추부터 옷장까지 작은 동그라미 11개
+    const tiers = document.createElement('div');
+    tiers.className = 'tiers';
+    const dots = document.createElement('div');
+    dots.className = 'tiers-dots';
+    TIERS.forEach((tier, i) => {
+      const d = document.createElement('i');
+      const size = Math.round(8 + i * 1.3);
+      Object.assign(d.style, { width: size + 'px', height: size + 'px', background: tier.c });
+      d.title = tier.name;
+      dots.append(d);
+    });
+    const ends = document.createElement('div');
+    ends.className = 'tiers-ends';
+    ends.innerHTML = '<span>단추</span><span>합칠수록 커져요</span><span>옷장</span>';
+    tiers.append(dots, ends);
+
+    const card = AGA.gameCard(cv, {
+      title: '짐 정리',
+      how: '같은 물건끼리 닿게 떨어뜨려 보세요.', // 줄이 바뀌어도 "떨어뜨려 보세요"는 붙여 둔다
+      demo: { width: 240, height: 100, period: 2600, draw: drawDemo },
+      extra: tiers,
+      width: 300,
+      colors: { bg: '#fdf6e3', fg: '#2a211d', accent: '#e07a5f', line: '#2a211d', onAccent: '#fff' },
+      onOpen: () => showTip(),
+      onClose: () => showTip(),
+    });
+    // midGame: 게임 방법 단추로 다시 연 카드는 하던 판을 이어서 한다(Esc도 같다)
+    function openCard(midGame) {
+      card.open({
+        note: `최고 ${best}점`,
+        rows: [{ buttons: [{ text: midGame ? '이어서 하기' : '게임 시작', main: true, onClick() {} }] }],
+        onEscape: midGame ? () => {} : null,
+      });
+    }
+
     reset();
+    openCard(false);
     requestAnimationFrame(loop);
   </script>
 </body>
