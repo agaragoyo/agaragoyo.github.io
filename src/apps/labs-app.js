@@ -12,7 +12,7 @@ export function openLabsApp(os, app) {
     app,
     title: '실험실',
     width: 400,
-    height: 250,
+    height: 174 + 76 * LABS.length, // 항목이 하나 늘 때마다 76px(항목 68px와 사이 8px)씩 길어진다. 항목이 하나일 때 250px
     build(body) {
       body.classList.add('labs-app');
 
