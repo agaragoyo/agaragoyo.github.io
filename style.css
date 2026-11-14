@@ -360,6 +360,25 @@ button { font-family: inherit; }
    .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). 누르면 말하기 */
 .room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: auto; cursor: var(--cur-hand); }
 .room-avatar.flip { transform: scaleX(-1); }
+/* 친구 집의 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner)는 한 자리에 계속 서 있어서 누르기를 받지 않는다.
+   받으면 뒤에 가려진 가구를 두 번 눌러 쓸 수 없다. .owner는 방 꾸미기 창이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24) */
+.room-avatar.room-owner { pointer-events: none; cursor: auto; }
+/* 주인 아바타 머리 위의 이름표. 높이는 src/avatar.js의 TAG_H와 같다. 말풍선(10000) 바로 아래 층이라 가구에 가리지 않는다 */
+.room-owner-name {
+  position: absolute;
+  z-index: 9999;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #2b2b33cc;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
 /* 말풍선은 가구(z-index 100부터)에 가리지 않게 그 위에 둔다. 바탕화면 배경 안이라 창과 아이콘보다는 아래다 */
 .room-avatar-say {
   position: absolute;
@@ -753,7 +772,7 @@ body.moving-window iframe { pointer-events: none; }
   top: 0;
   width: 1280px;
   height: 800px;
-  overflow: hidden;
+  overflow: clip; /* 가까이 보기와 게임기가 움직이는 동안 바탕화면보다 커져도 스크롤되지 않게(known-issues 66) */
   background: radial-gradient(ellipse at 50% 45%, #cfe6ea, #8fb8c4 75%);
 }
 .desktop[hidden], .taskbar[hidden], .boot[hidden], .login[hidden], .start-menu[hidden] { display: none; }
@@ -1077,6 +1096,11 @@ form.user { cursor: var(--cur-arrow); }
 .pic-choice:hover { border-color: #ffffff80; }
 .pic-choice[aria-pressed="true"] { border-color: #fff; }
 .user.new .user-name { gap: 6px; }
+/* 사진 줄 아래의 "그림 파일 찾아보기"(내 그림, src/custom-picture.js). XP의 사용자 그림 고르기처럼 그림 목록 아래에 밑줄 글자로 둔다.
+   로그인 화면의 파란 바탕에서는 흰 글자, 창 안에서는 링크처럼 파란 글자다 */
+.pic-picker-box { display: grid; gap: 4px; justify-items: start; }
+.pic-browse { padding: 2px 4px; border: 0; background: none; font-size: 15px; text-decoration: underline; color: inherit; cursor: var(--cur-hand); }
+.pic-browse:disabled { text-decoration: none; opacity: 0.7; cursor: default; }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
@@ -1088,6 +1112,8 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
+.pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
+.pic-app .pic-app-tip { margin-top: 2px; padding-left: 4px; } /* 글자색은 .meta(밤에는 밤 짝)를 따른다 */
 
 .toast {
   position: absolute;
@@ -1320,6 +1346,7 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .win-body input::placeholder { color: #a3a1b3; }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
 .stage[data-theme="night"] .win-body .like-error { color: #ffb4a8; } /* 창 바탕만 밤에 어두워진다. 가까이 보기의 종이 카드는 밤에도 밝다 */
+.stage[data-theme="night"] .pic-app .pic-browse { color: #9cc0ff; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
 
 /* 방 꾸미기: 돌리기 안내 */
@@ -1414,7 +1441,8 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 /* ---------- 가구 가까이 보기 (src/closeup.js) ---------- */
 /* 바탕화면 아이콘(2)보다 위, 창 층(20)보다 아래. 라디오의 음악 창처럼 옆에 띄우는 OS 창은 그 위에 뜬다.
    가구 그림은 밤에도 낮 색 그대로라 글자색도 바탕과 한 짝으로 고정한다(--win-text를 쓰지 않는다, known-issues 47) */
-.closeup {
+/* .closeup-out은 닫히며 가구 자리로 줄어드는 0.2초 동안의 같은 화면이다(src/closeup.js의 leave). 바탕색은 closeup.js의 DIM과 같다 */
+.closeup, .closeup-out {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -1424,51 +1452,83 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   justify-content: center;
   gap: 14px;
   background: #0d0b14b3;
-  animation: closeup-in 0.14s ease-out;
 }
+.closeup { animation: closeup-in 0.14s ease-out; }
 .closeup-panel { position: relative; animation: closeup-lift 0.18s ease-out; }
-.closeup.still, .closeup.still .closeup-panel { animation: none; }
+/* 가구를 두 번 눌러 열면(.zoom) 판이 가구 자리에서 커지는 움직임을 closeup.js가 직접 돌린다 */
+.closeup.still, .closeup.still .closeup-panel, .closeup.zoom, .closeup.zoom .closeup-panel, .closeup-out .closeup-panel { animation: none; }
 @keyframes closeup-in { from { opacity: 0; } }
 @keyframes closeup-lift { from { transform: translateY(18px) scale(0.96); } }
+/* 열 때 처음 0.15초 동안 판 위에 겹쳐 함께 커지는 방의 가구 그림(.furn img와 같은 맞춤) */
+.closeup-ghost { position: absolute; pointer-events: none; }
+.closeup-ghost img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; image-rendering: pixelated; }
+.closeup-ghost img.mirror { transform: scaleX(-1); }
 .closeup-foot { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #fff; text-shadow: 0 1px 2px #000; }
 .closeup-foot .btn { text-shadow: none; }
 
-/* 게임기: 가구 그림(assets/furniture/console.png)처럼 분홍 휴대용 게임기를 앞에서 본 모습 */
+/* 게임기: 가구 그림(assets/furniture/console.png)처럼 연보라 휴대용 게임기를 앞에서 본 모습.
+   바탕화면(1280×800)에 1240×700으로 들고, 가운데 화면(게임 고르기)은 940×600이다 */
 .console-device {
   display: grid;
-  grid-template-columns: 150px 792px 150px;
+  grid-template-columns: 130px 972px 130px;
   align-items: center;
-  width: 1100px;
-  height: 560px;
-  border: 4px solid #6a4a52;
-  border-radius: 150px / 210px;
-  background: linear-gradient(#f6d3d7, #ecbcc3);
-  box-shadow: inset -8px -10px 0 #dba5ae, inset 6px 6px 0 #fbe4e7, 0 16px 0 #0005;
+  width: 1240px;
+  height: 700px;
+  border: 4px solid #584c78;
+  border-radius: 170px / 262px;
+  background: linear-gradient(#e2d5ff, #d1befe);
+  box-shadow: inset -8px -10px 0 #bda7f0, inset 6px 6px 0 #ede5ff, 0 16px 0 #0005;
 }
-.console-bezel { width: 792px; height: 502px; padding: 12px; border: 4px solid #6a4a52; border-radius: 18px; background: #3a3340; }
+.console-bezel { width: 972px; height: 632px; padding: 12px; border: 4px solid #584c78; border-radius: 18px; background: #3a3340; }
 .console-screen {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 760px;
-  height: 470px;
+  width: 940px;
+  height: 600px;
   overflow: hidden;
   border-radius: 4px;
   background: #1e2433;
   color: #f3efe4;
 }
+/* 게임하는 동안: 게임기 화면 쪽으로 한 번 더 당겨 바탕화면을 거의 채운 큰 화면(console-app.js의 PLAY_W, PLAY_H).
+   화면 1120×700에 테두리를 둘러 1174×784, 가운데에 놓는다((1280 - 1174) / 2, (800 - 784) / 2). 아래 줄에 게임 이름과 B(나가기) */
+.console-big {
+  position: absolute;
+  left: 53px;
+  top: 8px;
+  display: grid;
+  grid-template-rows: auto 40px;
+  justify-items: center;
+  width: 1174px;
+  height: 784px;
+  padding: 10px 10px 0;
+  border: 4px solid #584c78;
+  border-radius: 28px;
+  background: linear-gradient(#e2d5ff, #d1befe);
+  box-shadow: inset -6px -8px 0 #bda7f0, inset 5px 5px 0 #ede5ff, 0 12px 0 #0005;
+}
+.console-big[hidden] { display: none; }
+.console-big .console-bezel { width: 1146px; height: 726px; padding: 10px; border-width: 3px; }
+.console-screen.play { width: 1120px; height: 700px; }
+.console-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 8px; }
+.console-bar-title { display: flex; align-items: center; gap: 8px; min-width: 0; font: 700 16px var(--font); color: #4a3e66; }
+.console-bar .console-key.b { grid-auto-flow: column; align-items: center; gap: 8px; margin: 0; }
+.console-bar .console-face { width: 30px; height: 30px; border-width: 2px; box-shadow: 0 2px 0 #584c78; font-size: 14px; }
+/* 큰 화면이 떠 있는 동안 들고 있던 게임기와 아래 줄(내려놓기)은 그 뒤에 숨긴다 */
+.closeup.console-playing .console-device, .closeup.console-playing .closeup-foot { visibility: hidden; }
 .console-left, .console-right { display: grid; justify-items: center; align-content: center; gap: 10px; height: 100%; }
 /* 단추 아래에 새긴 하는 일(십자 단추는 고르기, A는 시작, B는 나가기). 게임기 몸체는 밤에도 밝아 글자색을 고정한다 */
-.console-key-word { font: 700 14px var(--font); color: #5a3d44; }
+.console-key-word { font: 700 14px var(--font); color: #4a3e66; }
 /* 십자 단추: 가운데가 빈 3×3 칸에 네 방향 단추를 놓는다 */
 .console-dpad { display: grid; grid-template: repeat(3, 34px) / repeat(3, 34px); }
-.console-pad { padding: 0; border: 3px solid #6a4a52; background: #8c7a82; cursor: var(--cur-hand); }
-.console-pad:active { background: #6a4a52; }
+.console-pad { padding: 0; border: 3px solid #584c78; background: #807c96; cursor: var(--cur-hand); }
+.console-pad:active { background: #584c78; }
 .console-pad.up { grid-area: 1 / 2; border-radius: 6px 6px 0 0; border-bottom: 0; }
 .console-pad.down { grid-area: 3 / 2; border-radius: 0 0 6px 6px; border-top: 0; }
 .console-pad.left { grid-area: 2 / 1; border-radius: 6px 0 0 6px; border-right: 0; }
 .console-pad.right { grid-area: 2 / 3; border-radius: 0 6px 6px 0; border-left: 0; }
-.console-dpad::after { content: ''; grid-area: 2 / 2; background: #8c7a82; }
+.console-dpad::after { content: ''; grid-area: 2 / 2; background: #807c96; }
 /* A와 B: 게임보이처럼 B는 왼쪽 아래, A는 오른쪽 위(26px씩 엇갈림). 단추 지름 46px */
 .console-keys { display: grid; grid-template-columns: repeat(2, 56px); gap: 0 10px; }
 .console-key { display: grid; justify-items: center; gap: 6px; }
@@ -1480,32 +1540,32 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   width: 46px;
   height: 46px;
   padding: 0;
-  border: 3px solid #6a4a52;
+  border: 3px solid #584c78;
   border-radius: 50%;
-  box-shadow: 0 3px 0 #6a4a52;
+  box-shadow: 0 3px 0 #584c78;
   font: 700 17px var(--font);
-  color: #4a3238;
+  color: #3d3354;
   cursor: var(--cur-hand);
 }
 .console-key.a .console-face { background: #f2a6a0; }
 .console-key.b .console-face { background: #f6d37a; }
-.console-face:active { transform: translateY(2px); box-shadow: 0 1px 0 #6a4a52; }
+.console-face:active { transform: translateY(2px); box-shadow: 0 1px 0 #584c78; }
 /* 첫 화면: 게임 목록 */
-.console-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px 8px; font-size: 18px; font-weight: 700; }
-.console-hint { font-size: 13px; font-weight: 400; color: #c9d2e6; }
+.console-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 18px 8px; font-size: 20px; font-weight: 700; }
+.console-hint { font-size: 14px; font-weight: 400; color: #c9d2e6; }
 .console-grid {
   flex: 1;
   min-height: 0;
-  padding: 0 16px 16px;
+  padding: 0 18px 18px;
   overflow-y: auto;
 }
 /* 게임 폴더와 같은 묶음 이름. 묶음마다 제목 줄 아래에 한 줄 네 칸씩 늘어선다 */
 .console-group + .console-group { margin-top: 12px; }
-.console-group-title { margin: 0 0 6px; padding-bottom: 3px; border-bottom: 1px solid #4d5d80; font-size: 14px; font-weight: 700; color: #c9d2e6; }
+.console-group-title { margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #4d5d80; font-size: 15px; font-weight: 700; color: #c9d2e6; }
 .console-tiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 92px;
+  grid-auto-rows: 112px;
   gap: 10px;
   align-content: start;
 }
@@ -1521,7 +1581,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   border: 2px solid #4d5d80;
   border-radius: 8px;
   background: #2e3a52;
-  font: 14px/1.25 var(--font);
+  font: 15px/1.25 var(--font);
   color: #f3efe4;
   text-align: center;
   word-break: keep-all;
@@ -1583,7 +1643,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   max-width: 720px;
   margin: auto;
   padding: 16px 18px;
-  border: 3px solid #6a4a52;
+  border: 3px solid #584c78;
   border-radius: 10px;
   background: #fffaf0;
   font-size: 16px;
@@ -1718,7 +1778,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 }
 .radio-closeup .like-card { margin: 40px auto; }
 /* 음악 창이 열리면 라디오는 왼쪽으로 비켜 오른쪽 위의 창(src/apps/radio-app.js의 openPlayer)과 나란히 선다 */
-.closeup.beside { align-items: flex-start; padding-left: 40px; }
+.closeup.beside, .closeup-out.beside { align-items: flex-start; padding-left: 40px; }
 .radio-fan { display: flex; justify-content: center; align-items: flex-start; gap: 4px; min-height: 168px; }
 .radio-empty { margin: auto; font-size: 16px; }
 .cd-pick {
