@@ -62,10 +62,16 @@ function randomHome() {
   if (rnd() < 0.5) likes.console = pick(['file-ten', 'tidy-up', 'room', 'nope']);
   if (rnd() < 0.7) likes.bookshelf = Array.from({ length: int(7) }, () => ({ title: text(8), author: text(5), note: text(30), color: int(10) - 1 }));
   if (rnd() < 0.5) {
-    likes.radio = Array.from({ length: int(8) }, () => ({ url: pick([
-      'https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp', 'https://open.spotify.com/intl-ko/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc',
-      'https://music.apple.com/kr/album/abc/1440857781', 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'https://evil.example/album/1',
-    ]) }));
+    // 이름과 색은 없을 때(이름 칸이 생기기 전의 CD)와 받지 않는 값(긴 이름, 범위 밖이나 정수가 아닌 색 번호)을 섞는다
+    likes.radio = Array.from({ length: int(8) }, () => ({
+      url: pick([
+        'https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp', 'https://open.spotify.com/intl-ko/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc',
+        'https://music.apple.com/kr/album/abc/1440857781', 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'https://evil.example/album/1',
+        'https://music.apple.com/kr/playlist/y/pl.u-zyxwvuts', 'https://open.spotify.com/playlist/0123456789abcdefABCDEF',
+      ]),
+      ...(rnd() < 0.7 ? { name: text(12) } : {}),
+      ...(rnd() < 0.7 ? { color: pick([0, 1, 2, 3, 4, 5, 6, -1, 1.5, '2', null]) } : {}),
+    }));
   }
   if (rnd() < 0.7) {
     likes.tv = Array.from({ length: int(8) }, () => ({
@@ -94,7 +100,11 @@ function invariants(home, where) {
   const l = home.likes;
   if (l.computer && !/^https?:\/\//.test(l.computer.url)) fail(`${where}: 컴퓨터 주소`, l.computer);
   if (l.bookshelf && (l.bookshelf.length > LIMIT.books || l.bookshelf.some(b => !b.title || !(b.color >= 0 && b.color < LIMIT.bookColors)))) fail(`${where}: 책`, l.bookshelf);
-  if (l.radio && (l.radio.length > LIMIT.cds || l.radio.some(c => !parseMusic(c.url)))) fail(`${where}: CD`, l.radio);
+  // CD: 링크는 알아보는 것만 한 번씩, 이름은 있으면 비지 않고 길이 안이며 반쪽 글자가 없고, 색은 있으면 1부터 LIMIT.cdColors - 1까지(0번 은색은 적지 않는다)
+  const badCd = c => !parseMusic(c.url)
+    || ('name' in c && (!c.name || Array.from(c.name).length > LIMIT.cdName || !wellFormed(c.name)))
+    || ('color' in c && !(Number.isInteger(c.color) && c.color > 0 && c.color < LIMIT.cdColors));
+  if (l.radio && (l.radio.length > LIMIT.cds || new Set(l.radio.map(c => c.url)).size !== l.radio.length || l.radio.some(badCd))) fail(`${where}: CD`, l.radio);
   if (l.tv && (l.tv.length > LIMIT.works || l.tv.some(w => !w.title || (w.link && !/^https?:\/\//.test(w.link)) || (w.poster && !w.poster.startsWith('https://'))))) fail(`${where}: 작품`, l.tv);
 }
 

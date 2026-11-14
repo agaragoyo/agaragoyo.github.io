@@ -5,7 +5,9 @@
 //   console    '<앱 id>'         미니게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 하나
 //   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
 //              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
-//   radio      [{ url }]        CD 6장까지. 스포티파이, 애플 뮤직의 앨범이나 플레이리스트 링크(parseMusic이 알아보는 것만)
+//   radio      [{ url, name, color }]   CD 6장까지. url은 스포티파이, 애플 뮤직의 앨범이나 플레이리스트 링크(parseMusic이 알아보는 것만),
+//              name은 주인이 붙인 CD 이름, color는 CD 색 번호(1부터 LIMIT.cdColors - 1). 0번 색(은색)이면 color를, 이름이 없으면 name을 적지 않는다.
+//              이름 칸이 생기기 전(2026-11-14)에 넣은 CD는 { url }뿐이고, 화면은 서비스에서 받은 이름을 쓴다
 //   tv         [{ title, year, by, link, poster, why, color }]   영화나 TV 시리즈 6편까지. by는 감독, link는 보러 갈 곳,
 //              poster는 포스터 그림 주소(https), why는 추천 이유. 포스터가 없으면 color 색의 제목 카드를 건다
 //
@@ -23,6 +25,8 @@ export const LIMIT = {
   bookNote: 120, // 좋아하는 구절이나 고른 이유
   bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다). TV의 제목 카드도 같은 색을 쓴다
   cds: 6,        // 라디오의 CD 장수
+  cdName: 16,    // CD 이름. 펼친 CD 아래 라벨(124px, 13px 글자 두 줄)과 라디오 표시창(194px, 12px 글자 한 줄)에 한글 16자가 다 들어간다
+  cdColors: 6,   // CD 색 가짓수(src/apps/radio-app.js의 CD_COLORS, style.css의 .cd[data-color]와 같아야 한다. tools/check.py가 본다)
   works: 6,      // TV의 작품 수
   workTitle: 40,
   workYear: 9,   // 2019, 2015~2016
@@ -120,8 +124,18 @@ const SANITIZE = {
   },
   radio(raw) {
     if (!Array.isArray(raw)) return null;
-    const links = [...new Set(raw.map(c => parseMusic(c?.url)?.link).filter(Boolean))].slice(0, LIMIT.cds);
-    return links.length ? links.map(url => ({ url })) : null;
+    const cds = [];
+    for (const c of raw) {
+      const url = parseMusic(c?.url)?.link;
+      if (!url || cds.some(cd => cd.url === url)) continue; // 같은 CD가 둘이면 앞의 것만 남긴다
+      const cd = { url };
+      const name = line(c.name, LIMIT.cdName);
+      if (name) cd.name = name;
+      if (Number.isInteger(c.color) && c.color > 0 && c.color < LIMIT.cdColors) cd.color = c.color;
+      cds.push(cd);
+      if (cds.length === LIMIT.cds) break;
+    }
+    return cds.length ? cds : null;
   },
   tv(raw) {
     if (!Array.isArray(raw)) return null;

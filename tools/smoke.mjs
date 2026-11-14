@@ -23,10 +23,12 @@ const SHOW_ALL = process.argv.includes('--all');
 // 손님 화면에서 스크립트가 돌지 않는지 볼 집. 이름과 글에 HTML을, 주소에 javascript:를 넣는다
 const EVIL = {
   owner: '<img src=x>',
-  scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }] },
+  scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] },
   likes: {
     bookshelf: [{ title: '<b>굵게</b><script>window.__xss=1</script>', note: '<img src=x onerror="window.__xss=1">' }],
     computer: { url: 'javascript:alert(1)' },
+    // 애플 뮤직 플레이리스트는 이름과 표지를 받으러 가지 않아 서버에 묻지 않는다
+    radio: [{ url: 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', name: '<img src=x onerror=window.__xss=1>', color: 2 }],
   },
   greeting: '<i>안녕</i>',
 };
@@ -337,6 +339,26 @@ async function walk(page, base) {
   await use('radio', () => !!document.querySelector('.closeup form'), 'CD가 없는 라디오는 넣는 칸이 열린다');
   await page.run(() => { const f = document.querySelector('.closeup form'); f.querySelector('input').value = 'https://example.com/'; f.requestSubmit(); });
   check('라디오에 음악 서비스가 아닌 주소를 넣으면 안내가 뜬다', await page.run(() => !document.querySelector('.closeup .like-error').hidden));
+  // 애플 뮤직 플레이리스트는 이름을 받아 올 길이 없다(서버에 묻지 않는다). 이름을 비우면 안내가 뜨고, 이름과 색을 넣으면 그대로 저장되고 보인다
+  await page.run(() => { const f = document.querySelector('.closeup form'); f.querySelector('input').value = 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh'; f.requestSubmit(); });
+  check('이름을 받아 올 수 없는 CD를 이름 없이 넣으면 이름을 넣으라고 한다', await until(page, () => /이름을 넣어/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  await page.run(() => {
+    const f = document.querySelector('.closeup form');
+    f.querySelectorAll('input')[1].value = '비 오는 날 듣는 노래';
+    f.querySelector('.cd-swatch[data-color="3"]').click();
+    f.requestSubmit();
+  });
+  const cd = (await page.run(savedHome)).likes.radio?.[0];
+  check('CD 이름과 색이 저장된다', cd?.name === '비 오는 날 듣는 노래' && cd?.color === 3, JSON.stringify(cd));
+  check('펼친 CD에 넣은 이름과 색이 보인다', await page.run(() => {
+    const pick = document.querySelector('.closeup .cd-pick');
+    return pick?.querySelector('.cd-name').textContent === '비 오는 날 듣는 노래' && pick.querySelector('.cd').dataset.color === '3';
+  }));
+  await probe('CD 한 장을 넣은 라디오');
+  await page.run(clickText, '.closeup .radio-tools .btn', 'CD 넣기');
+  await sleep(200);
+  check('다음 CD는 다른 CD가 쓰지 않은 색이 먼저 골라져 있다', await page.run(() => document.querySelector('.closeup .cd-swatch[aria-pressed="true"]')?.dataset.color === '0'));
+  await probe('두 번째 CD 넣기');
   await page.run(() => document.activeElement?.blur());
   await press(page, 'Escape');
 
@@ -487,6 +509,13 @@ async function walk(page, base) {
     const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
     return !decodeHome(location.hash.slice(3)).likes.computer;
   }));
+  await press(page, 'Escape');
+  await page.run(clickTwice, '#wallpaper .furn[data-id="radio"]');
+  await until(page, () => !!document.querySelector('.closeup .cd-pick'), 15000);
+  check('손님 화면의 CD 이름도 글자로만 보이고 주인이 고른 색이다', await page.run(() => !window.__xss
+    && !document.querySelector('#stage img[src="x"]')
+    && document.querySelector('.closeup .cd-name').textContent.startsWith('<img')
+    && document.querySelector('.closeup .cd-pick .cd').dataset.color === '2'));
 
   // ---------- 짧은 링크(#s=)의 방 ----------
   // 서버 대신 페이지 안에서 답한다(fakeCloud). 받는 동안의 자리, 받기 전에 전원을 끄면 늦게 온 답을 버리는지(src/login.js의 isCurrent),
