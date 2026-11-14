@@ -82,11 +82,14 @@ const KEY_SHORT = {
 };
 const KEY_LONG = Object.fromEntries(Object.entries(KEY_SHORT).map(([k, v]) => [v, k]));
 // ~w 뒤의 위키백과 문서 이름은 퍼센트 인코딩을 풀어 한글 그대로 담는다(한 글자가 9자에서 4자 남짓으로 준다)
+// 새 표시를 더해도 옛 링크는 그대로 열린다. 원래 ~로 시작하는 글은 ~~로 담아 왔으므로 옛 링크에는 새 표시가 나올 수 없다.
+// 앞의 것부터 맞춰 보므로 ~h(https:// 전부)는 늘 맨 끝에 둔다. ~p는 2026-11-14에 라디오의 유튜브 재생목록 CD 때문에 더했다.
 const URL_SHORT = [
   ['~w', 'https://ko.wikipedia.org/wiki/'],
   ['~s', 'https://open.spotify.com/'],
   ['~a', 'https://music.apple.com/'],
   ['~y', 'https://www.youtube.com/watch?v='],
+  ['~p', 'https://www.youtube.com/playlist?list='],
   ['~h', 'https://'],
 ];
 const WIKI = 'https://ko.wikipedia.org/wiki/';

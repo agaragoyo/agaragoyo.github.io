@@ -5,7 +5,7 @@
 //   console    '<앱 id>'         미니게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 하나
 //   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
 //              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
-//   radio      [{ url, name, color }]   CD 6장까지. url은 스포티파이, 애플 뮤직의 앨범이나 플레이리스트 링크(parseMusic이 알아보는 것만),
+//   radio      [{ url, name, color }]   CD 6장까지. url은 스포티파이, 애플 뮤직의 앨범이나 플레이리스트, 유튜브의 영상이나 재생목록 링크(parseMusic이 알아보는 것만),
 //              name은 주인이 붙인 CD 이름, color는 CD 색 번호(1부터 LIMIT.cdColors - 1). 0번 색(은색)이면 color를, 이름이 없으면 name을 적지 않는다.
 //              이름 칸이 생기기 전(2026-11-14)에 넣은 CD는 { url }뿐이고, 화면은 서비스에서 받은 이름을 쓴다
 //   tv         [{ title, year, by, link, poster, why, color }]   영화나 TV 시리즈 6편까지. by는 감독, link는 보러 갈 곳,
@@ -77,10 +77,17 @@ export function safeImage(value) {
   return href.startsWith('https:') ? href : '';
 }
 
-// 라디오 CD 링크. 스포티파이와 애플 뮤직의 앨범, 플레이리스트만 알아보고 { service, kind, id, link, embed }를 돌려준다.
+// 라디오 CD 링크. 스포티파이와 애플 뮤직의 앨범, 플레이리스트와 유튜브의 영상 하나, 재생목록만 알아보고 { service, kind, id, link, embed }를 돌려준다.
 // 주인이 넣은 주소를 그대로 창에 띄우지 않고, 알아본 id로 공식 플레이어 주소(embed)를 새로 만든다. 다른 페이지가 창에 뜨지 않게 하려는 것이다.
 //   https://open.spotify.com/album/<22자 id>?si=...        https://open.spotify.com/intl-ko/playlist/<id>
 //   https://music.apple.com/kr/album/<이름>/<숫자 id>      https://music.apple.com/kr/playlist/<이름>/pl.<id>
+//   https://www.youtube.com/watch?v=<11자 id>              https://youtu.be/<id>?si=...    https://music.youtube.com/watch?v=<id>
+//   https://www.youtube.com/playlist?list=<id>             https://music.youtube.com/playlist?list=<id>(유튜브 뮤직의 앨범도 이 모양이다)
+// 유튜브 뮤직 주소는 같은 영상, 같은 재생목록의 유튜브 주소로 바꿔 둔다. 그래서 같은 노래가 두 번 들어가지 않고 공유 링크에서도 짧게 줄어든다.
+// watch 주소에 list가 같이 붙어 있으면(재생목록을 듣다가 주소창에서 복사한 것) v의 영상 하나로 본다.
+// 유튜브 플레이어는 개인정보 보호 모드 주소(youtube-nocookie.com)로 띄운다. 유튜브의 퍼가기 창에서 "개인정보 보호 모드 사용"을 켜면 나오는 주소다.
+const YT_HOSTS = ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'music.youtube.com'];
+const YT_EMBED = 'https://www.youtube-nocookie.com/embed/';
 export function parseMusic(value) {
   let u;
   try { u = new URL(String(value).trim()); } catch { return null; }
@@ -95,6 +102,17 @@ export function parseMusic(value) {
     if (!m || (m[2] === 'album') !== /^\d/.test(m[4])) return null; // 앨범은 숫자 id, 플레이리스트는 pl. id
     const path = `${m[1]}/${m[2]}/${m[3] ? m[3] + '/' : ''}${m[4]}`;
     return { service: 'apple', kind: m[2], id: m[4], cc: m[1], link: `https://music.apple.com/${path}`, embed: `https://embed.music.apple.com/${path}` };
+  }
+  if (u.host === 'youtu.be' || YT_HOSTS.includes(u.host)) {
+    const path = u.pathname.replace(/\/$/, '');
+    const v = u.host === 'youtu.be' ? path.slice(1) : path === '/watch' ? u.searchParams.get('v') : null;
+    if (v != null) {
+      if (!/^[A-Za-z0-9_-]{11}$/.test(v)) return null;
+      return { service: 'youtube', kind: 'video', id: v, link: `https://www.youtube.com/watch?v=${v}`, embed: YT_EMBED + v };
+    }
+    const list = path === '/playlist' ? u.searchParams.get('list') : null;
+    if (!list || !/^[A-Za-z0-9_-]{10,64}$/.test(list)) return null;
+    return { service: 'youtube', kind: 'playlist', id: list, link: `https://www.youtube.com/playlist?list=${list}`, embed: `${YT_EMBED}videoseries?list=${list}` };
   }
   return null;
 }

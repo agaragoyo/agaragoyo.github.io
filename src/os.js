@@ -23,7 +23,7 @@ import { batchim, h, wait, reduceMotion, saveJSON, doubleClick } from './util.js
 import { play, setPlace } from './sound.js';
 
 export function createOS({ stage, toStage, requestPowerOff, settings }) {
-  const $ = sel => stage.querySelector(sel);
+  const $ = sel => stage.querySelector(sel); // 무대(#stage) 안에서만 찾는다. 화면(#screen)과 화면 효과(.fx)는 무대 바깥이다
   const el = {
     boot: $('#boot'),
     login: $('#login'),
@@ -440,11 +440,19 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 앱(iframe)과 주고받는 메시지
   os.sdk = createSdkHost(os);
 
+  // 유튜브 플레이어가 떠 있는 동안에는 그 앞에 아무것도 그리지 않는다(유튜브의 최소 기능 요건: 플레이어 앞에 다른 그림을 겹치지 않는다).
+  // 화면 전체에 겹친 깜빡임과 구석 그늘(.fx)을 끄고 화면 보호기를 돌리지 않는다. 라디오의 음악 창이 켜고 끈다(src/apps/radio-app.js)
+  os.videoOn = false;
+  os.showingVideo = on => {
+    os.videoOn = on;
+    stage.closest('#screen').classList.toggle('video-on', on); // 화면 효과는 무대 바깥(#screen)에 있다
+  };
+
   // 화면 보호기(src/screensaver.js). 바탕화면을 그냥 둘 때만 돈다. 앞에 고른 창이 있거나(음악, 영상, 게임을 쓰는 중)
   // 가구를 가까이 보는 중, 튜토리얼 중에는 돌지 않는다. 인사말이 없으면 "주인 이름의 컴퓨터"가 흘러간다.
   os.saver = createScreensaver({
     stage,
-    canRun: () => !!os.mode && !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup && !os.tutorial?.active && document.visibilityState === 'visible',
+    canRun: () => !!os.mode && !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup && !os.tutorial?.active && !os.videoOn && document.visibilityState === 'visible',
     text: () => os.home?.greeting || `${os.home?.owner || ''}의 컴퓨터`,
   });
 

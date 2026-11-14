@@ -1,10 +1,15 @@
 // 가구 기믹: 라디오(F12). 누르면 라디오를 가까이 보며 주인이 넣어 둔 CD가 위에 펼쳐진다.
-// CD 하나를 고르면 그 CD가 라디오의 CD 창으로 들어간 뒤 재생 단추가 꾹 눌리고 CD가 돈다. 그러면 스포티파이나 애플 뮤직의
-// 공식 플레이어가 옆의 작은 창(OS 창)에 열린다. 미리 듣기 길이는 서비스가 정한다(로그인하지 않으면 노래마다 30초쯤, 2026-11-10 정함).
+// CD 하나를 고르면 그 CD가 라디오의 CD 창으로 들어간 뒤 재생 단추가 꾹 눌리고 CD가 돈다. 그러면 스포티파이, 애플 뮤직, 유튜브의
+// 공식 플레이어가 옆의 작은 창(OS 창)에 열린다. 미리 듣기 길이는 서비스가 정한다(스포티파이와 애플 뮤직은 로그인하지 않으면 노래마다 30초쯤, 2026-11-10 정함).
+// 유튜브(2026-11-14)는 로그인 없이 끝까지 듣고 광고가 나올 수 있다. 유튜브 API 서비스의 최소 기능 요건
+// (developers.google.com/youtube/terms/required-minimum-functionality)에 따라 플레이어를 200×200px보다 작게 띄우지 않고,
+// 플레이어 앞에 다른 그림을 겹치지 않는다(os.showingVideo가 화면 전체의 효과를 끄고 화면 보호기를 멈춘다).
+// 재생을 시작하는 섬네일은 120×70px보다 커야 하는데 CD 가운데 그림은 76px이라, 유튜브 CD에는 섬네일을 깔지 않고 주인이 고른 색과 이름만 쓴다.
+// 일부 공식 뮤직비디오처럼 다른 사이트에서 재생을 막아 둔 영상은 플레이어가 오류를 알린다(IFrame Player API의 onError). 그러면 아래 안내 줄에 할 일을 쓴다.
 // 다른 CD를 고르면 든 CD와 바뀌고, 꺼내기 단추(삼각형과 막대)는 음악을 멈추고 든 CD를 펼친 줄의 제자리로 돌려놓는다.
 // 든 CD의 제자리는 점선 동그라미로 남긴다. 아예 비우면 CD가 한 장뿐일 때 펼친 줄이 텅 비어 고장 난 것처럼 보였다.
 // 라디오를 내려놓아도 음악 창은 남아서 방을 걸으며 듣고, 음악 창이 열려 있는 동안 사이트 배경음악은 멈춘다.
-// CD 가운데의 앨범 표지는 볼 때마다 서비스의 공개 정보(스포티파이 oEmbed, 애플 iTunes 조회)에서 받는다. 키가 필요 없다.
+// CD 가운데의 앨범 표지는 볼 때마다 서비스의 공개 정보(스포티파이 oEmbed, 애플 iTunes 조회)에서 받는다. 키가 필요 없다. 유튜브는 oEmbed에서 이름만 받는다.
 // CD마다 주인이 이름과 색을 정한다(2026-11-14). 애플 뮤직 플레이리스트는 표지와 이름을 받을 길이 없어서, 여러 장을 넣으면
 // 모두 "애플 뮤직 플레이리스트"라는 같은 이름과 같은 그림이라 어느 CD가 어느 플레이리스트인지 알 수 없다는 제보가 있었다.
 // 넣는 칸은 받아 온 이름을 이름 칸에 미리 채우고, 색은 다른 CD가 쓰지 않은 색을 먼저 골라 둔다. 그래서 주인이 손대지 않아도 CD가 서로 달라 보인다.
@@ -18,7 +23,11 @@ import { holdMusic } from '../sound.js';
 import { openCloseup } from '../closeup.js';
 import { LIMIT, parseMusic, setLike, isOwner, line } from '../likes.js';
 
-const KIND = { spotify: { album: '스포티파이 앨범', playlist: '스포티파이 플레이리스트' }, apple: { album: '애플 뮤직 앨범', playlist: '애플 뮤직 플레이리스트' } };
+const KIND = {
+  spotify: { album: '스포티파이 앨범', playlist: '스포티파이 플레이리스트' },
+  apple: { album: '애플 뮤직 앨범', playlist: '애플 뮤직 플레이리스트' },
+  youtube: { video: '유튜브 영상', playlist: '유튜브 재생목록' },
+};
 const label = m => KIND[m.service][m.kind];
 // CD 색 이름(likes의 color 번호 순서). 색은 style.css의 .cd[data-color]에 있고, 개수는 LIMIT.cdColors와 같다(tools/check.py가 본다)
 const CD_COLORS = ['은색', '금색', '파란색', '초록색', '분홍색', '보라색'];
@@ -42,10 +51,23 @@ function fitName(el) {
   el.classList.remove('tight');
   if (el.scrollHeight > el.clientHeight + 1) el.classList.add('tight');
 }
-// 공식 플레이어 높이(서비스가 권하는 크기). 창 안쪽은 플레이어와 아래 안내 한 줄이다
-const PLAYER = { spotify: 352, apple: 450 };
+// 공식 플레이어 높이(서비스가 권하는 크기). 창 안쪽은 플레이어와 아래 안내 줄이다.
+// 유튜브는 16:9 영상이라 폭 340px이면 191px이 맞지만, 플레이어를 200×200px보다 작게 띄우지 말라는 요건에 맞춰 200px로 둔다
+const PLAYER = { spotify: 352, apple: 450, youtube: 200 };
 const PLAYER_W = 340;
-const NOTE_H = 34; // 플레이어 아래 안내 한 줄
+const NOTE_H = 34; // 플레이어 아래 안내 한 줄. 두 줄이 되는 안내(유튜브 오류)는 창을 그만큼 늘린다
+// 플레이어 아래 안내: 로그인하지 않은 사람이 어디까지 듣는지
+const NOTE = {
+  spotify: '로그인하지 않으면 노래마다 30초쯤 미리 듣습니다.',
+  apple: '로그인하지 않으면 노래마다 30초쯤 미리 듣습니다.',
+  youtube: '로그인 없이 끝까지 듣고, 광고가 나올 수 있습니다.',
+};
+// 넣는 칸에서 유튜브 oEmbed가 재생할 수 없다고 알린 CD(fetchMeta의 gone)
+const GONE = {
+  blocked: '다른 사이트에서는 재생할 수 없는 영상입니다. 다른 영상의 주소를 넣어 주세요.',
+  video: '찾을 수 없는 영상입니다. 공유 링크를 다시 복사해 넣어 주세요.',
+  playlist: '찾을 수 없는 재생목록입니다. 공개된 재생목록인지 확인해 주세요.',
+};
 
 // CD 이름과 표지. 링크마다 한 번만 받는다. 못 받으면 이름 대신 서비스 이름을 쓴다
 const meta = new Map();
@@ -58,6 +80,13 @@ async function fetchMeta(m) {
   if (m.service === 'spotify') {
     const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(m.link)}`);
     if (r.ok) { const d = await r.json(); info = { title: d.title, art: d.thumbnail_url }; }
+  } else if (m.service === 'youtube') {
+    // 유튜브 oEmbed는 키 없이 이 사이트에서 바로 부를 수 있다(CORS). 재생목록은 목록 이름이 온다. 섬네일은 깔지 않는다(맨 위 설명).
+    // 없는 영상은 400, 없거나 비공개인 재생목록은 404, 퍼가기를 막은 영상은 401로 답한다. 넣는 칸은 이것(gone)을 보고 넣지 않는다
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(m.link)}`);
+    if (r.status === 401) return { title: '', art: '', gone: 'blocked' };
+    if (r.status === 400 || r.status === 404) return { title: '', art: '', gone: m.kind };
+    if (r.ok) info = { title: (await r.json()).title, art: '' };
   } else if (m.kind === 'album') {
     const r = await fetch(`https://itunes.apple.com/lookup?id=${m.id}&country=${m.cc}`);
     const a = r.ok ? (await r.json()).results?.[0] : null;
@@ -70,23 +99,68 @@ async function fetchMeta(m) {
   return { title, art };
 }
 
+// 유튜브 IFrame Player API(유튜브의 공식 스크립트). 플레이어가 알리는 오류를 받으려고 한 번만 받아 둔다.
+// 못 받아도(막혔거나 끊겼다) 플레이어는 돌고, 오류는 플레이어 안의 유튜브 안내로만 보인다
+let ytApi = null;
+function youtubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  ytApi ||= new Promise((resolve, reject) => {
+    const before = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { before?.(); resolve(window.YT); };
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { ytApi = null; s.remove(); reject(new Error('youtube iframe api')); };
+    document.head.append(s);
+  });
+  return ytApi;
+}
+
+// 플레이어 주소. 유튜브는 IFrame Player API로 오류를 받으려고 enablejsapi와 이 사이트 주소(origin)를 붙이고, 재생 단추가 눌린 뒤에 여는 창이라
+// 바로 흘러나오게 autoplay를 켠다(자동 재생은 플레이어가 보일 때 하라는 요건대로, 창이 열리며 보인다). hl=ko는 플레이어 안의 글을 한국어로 띄운다
+function playerSrc(m) {
+  if (m.service !== 'youtube') return m.embed;
+  const u = new URL(m.embed);
+  for (const [k, v] of Object.entries({ enablejsapi: '1', origin: location.origin, autoplay: '1', hl: 'ko' })) u.searchParams.set(k, v);
+  return u.href;
+}
+
+// 유튜브 플레이어(iframe)에 API를 이어 붙여 재생하지 못한 영상을 알린다(onError). 돌려준 함수는 이어 붙인 것을 뗀다(그 iframe도 문서에서 빠진다).
+// 문서는 100(없거나 비공개)과 101, 150(다른 사이트에서 재생을 막음)을 나누지만, 2026-11-14에 재 보니 없는 영상도 150으로 왔다.
+// 라벨이 막아 둔 공식 뮤직비디오(릭 애슬리, 데스파시토)는 127.0.0.1에서 띄우면 150이고 localhost에서는 재생된다(사이트마다 막는다).
+// 재생목록 안의 막힌 곡은 유튜브가 목록에서 빼고 틀어서 오류가 오지 않는다
+function watchYouTube(frame, onError) {
+  let yt = null;
+  let gone = false;
+  youtubeApi().then(YT => {
+    if (!gone) yt = new YT.Player(frame, { host: 'https://www.youtube-nocookie.com', events: { onError: e => onError(e.data) } });
+  }).catch(() => {});
+  return () => {
+    gone = true;
+    try { yt?.destroy(); } catch { /* 이미 떼어진 플레이어 */ }
+  };
+}
+
+// 유튜브가 재생하지 못한 CD의 안내: 일어난 일과 할 일. 플레이어 안에는 유튜브의 안내("이 동영상은 볼 수 없습니다", "YouTube에서 보기")가 따로 뜬다.
+// 막혔는지 지워졌는지는 오류 번호로 가릴 수 없어(위) 한 문장으로 쓴다. 주인은 CD를 바꾸고, 손님은 유튜브에서 듣는다.
+// 두 문장을 한 줄씩 쓴다(이어 쓰면 340px 창에서 "들어 / 주세요"처럼 꺾인다)
+const youtubeError = (m, owner) => [
+  `이 ${m.kind === 'playlist' ? '재생목록' : '영상'}은 여기서 재생할 수 없습니다.`,
+  owner ? '이 CD를 지우고 다른 주소를 넣어 주세요.' : '유튜브에서 들어 주세요.',
+];
+
 // 음악 창은 라디오 화면보다 오래 산다(라디오를 내려놓아도 남는다)
-let player = null;   // { win, frame, m } 열려 있는 음악 창
+let player = null;   // { win, frame, note, m, stop, load } 열려 있는 음악 창
 let onPlayerGone = null; // 열려 있는 라디오 화면이 음악 창이 닫힌 것을 알 때 부를 함수
 
 function openPlayer(os, app, m) {
   if (player) {
     // 다른 CD로 바꾸면 같은 창에서 플레이어만 바꾼다. 같은 CD면 창만 앞으로 가져온다(듣던 곳에서 끊기지 않게)
-    if (player.m.link !== m.link) {
-      player.m = m;
-      player.frame.src = m.embed;
-      player.frame.style.height = `${PLAYER[m.service]}px`;
-      if (!player.win.maximized) player.win.el.style.height = `${PLAYER[m.service] + NOTE_H + CHROME_H}px`;
-    }
+    if (player.m.link !== m.link) player.load(m);
     player.win.focus();
     return;
   }
   let release = null;
+  const owner = isOwner(os);
   const win = os.wm.open({
     key: 'radio-player',
     app,
@@ -96,24 +170,50 @@ function openPlayer(os, app, m) {
     flush: true,
     build(body) {
       body.classList.add('radio-player');
-      const frame = h('iframe', {
-        title: '음악 플레이어',
-        allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture',
-        loading: 'eager',
-      });
-      frame.style.height = `${PLAYER[m.service]}px`;
-      frame.src = m.embed;
-      body.append(frame, h('p', { className: 'radio-player-note' }, '로그인하지 않으면 노래마다 30초쯤 미리 듣습니다.'));
-      player = { win: null, frame, m };
+      const note = h('p', { className: 'radio-player-note' });
+      body.append(note);
+      // 창 높이를 플레이어와 안내 줄에 맞춘다(키운 창은 그대로 둔다)
+      const fit = () => {
+        if (player?.win && !player.win.maximized) player.win.el.style.height = `${PLAYER[player.m.service] + note.offsetHeight + CHROME_H}px`;
+      };
+      // CD 하나의 플레이어를 띄운다. 서비스마다 주소와 높이가 달라 CD를 바꿀 때마다 새로 만든다
+      const load = cd => {
+        const frame = h('iframe', {
+          title: '음악 플레이어',
+          allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture',
+          referrerPolicy: 'strict-origin-when-cross-origin', // 유튜브는 이 사이트 주소(Referer)가 오지 않으면 재생하지 않는다(오류 153)
+          loading: 'eager',
+        });
+        frame.style.height = `${PLAYER[cd.service]}px`;
+        frame.src = playerSrc(cd);
+        if (player.frame) player.frame.replaceWith(frame);
+        else body.prepend(frame);
+        player.stop?.(); // 앞 CD의 플레이어에 이어 붙인 API를 뗀다(새 iframe을 넣은 뒤에 떼야 새것이 빠지지 않는다)
+        Object.assign(player, { frame, m: cd, stop: null });
+        note.textContent = NOTE[cd.service];
+        if (cd.service === 'youtube') {
+          player.stop = watchYouTube(frame, () => {
+            const [what, todo] = youtubeError(cd, owner);
+            note.replaceChildren(what, h('br'), todo);
+            fit();
+          });
+        }
+        os.showingVideo(cd.service === 'youtube');
+        fit();
+      };
+      player = { win: null, frame: null, note, m, stop: null, load };
       release = holdMusic('radio', 'own'); // 사이트 배경음악과 겹치지 않게 멈춘다
       return () => {
         release?.();
+        player.stop?.();
+        os.showingVideo(false);
         player = null;
         onPlayerGone?.();
       };
     },
   });
   player.win = win;
+  player.load(m);
   // 옆의 작은 창: 바탕화면 오른쪽 위에 둔다(라디오 화면은 왼쪽으로 비킨다)
   win.el.style.left = `${DESK_W - (PLAYER_W + CHROME_W) - 28}px`;
   win.el.style.top = '72px';
@@ -235,6 +335,7 @@ export function openRadioApp(os, app) {
       // 펼친 CD에서 하나를 고르면 라디오 CD 창으로 날아 들어간 뒤 재생 단추가 눌린다. 날아가는 동안 제자리는 빈자리로 둔다
       function choose(m, item) {
         settle();
+        if (m.service === 'youtube') youtubeApi().catch(() => {}); // CD가 날아가는 동안 미리 받아 두면 플레이어가 뜰 때 바로 이어 붙는다
         if (!reduceMotion) {
           flyDisc(m, item.querySelector('.cd'), true);
           item.classList.add('in');
@@ -275,7 +376,7 @@ export function openRadioApp(os, app) {
         const list = cds();
         let color = old ? old.color : freeColor(list);
         let waiting = false;
-        const url = h('input', { type: 'text', inputMode: 'url', placeholder: 'https://open.spotify.com/album/...' });
+        const url = h('input', { type: 'text', inputMode: 'url', placeholder: 'https://...' });
         url.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다
         const name = h('input', { type: 'text', maxLength: LIMIT.cdName, value: old?.name || '', placeholder: `${LIMIT.cdName}자까지` });
         const error = h('p', { className: 'like-error', hidden: true });
@@ -286,6 +387,7 @@ export function openRadioApp(os, app) {
         const fill = m => loadMeta(m).then(info => {
           const title = line(info?.title, LIMIT.cdName);
           if (title && name.value === filled && (old || parseMusic(url.value)?.link === m.link)) name.value = filled = title;
+          return info;
         });
         url.addEventListener('input', () => { const m = parseMusic(url.value); if (m) fill(m); });
         if (old && !old.name) fill(old); // 이름 칸이 생기기 전에 넣은 CD
@@ -303,14 +405,17 @@ export function openRadioApp(os, app) {
           e.preventDefault();
           if (waiting) return;
           const m = old || parseMusic(url.value);
-          if (!m) return fail('스포티파이나 애플 뮤직의 앨범, 플레이리스트 주소가 아닙니다. 공유 링크를 다시 복사해 넣어 주세요.', url);
+          if (!m) return fail('CD로 넣을 수 없는 주소입니다. 공유 링크를 다시 복사해 넣어 주세요.', url);
           if (!old && list.some(c => c.link === m.link)) return fail('이미 넣은 CD입니다.', url);
-          if (!name.value.trim()) {
-            // 주소를 붙여 넣자마자 넣기를 누르면 이름을 받기 전이다. 받아 올 수 있는 CD면 3초까지 기다려 받은 이름을 쓴다
+          // 주소를 붙여 넣자마자 넣기를 누르면 이름을 받기 전이다. 받아 올 수 있는 CD면 3초까지 기다려 받은 이름을 쓴다.
+          // 새 유튜브 CD는 이름이 있어도 기다려, 없는 영상이나 퍼가기를 막은 영상이면 넣지 않는다(답을 못 받으면 그대로 넣는다)
+          const check = !old && m.service === 'youtube';
+          if (!name.value.trim() || check) {
             waiting = true;
-            await Promise.race([fill(m), new Promise(r => setTimeout(r, 3000))]);
+            const info = await Promise.race([fill(m), new Promise(r => setTimeout(r, 3000))]);
             waiting = false;
             if (!card.isConnected) return; // 기다리는 동안 칸이나 라디오를 닫았다
+            if (check && info?.gone) return fail(GONE[info.gone], url);
             if (!name.value.trim()) return fail('CD 이름이 비어 있습니다. 이름을 넣어 주세요.', name);
           }
           const cd = { ...m, name: name.value, color };
@@ -319,7 +424,7 @@ export function openRadioApp(os, app) {
         };
         const card = h('form', { className: 'like-form like-card', onsubmit: submit },
           h('p', { className: 'like-card-head' }, old ? 'CD 고치기' : 'CD 넣기'),
-          old ? null : h('p', {}, '스포티파이나 애플 뮤직에서 앨범이나 플레이리스트의 공유 링크를 복사해 넣어 주세요.'),
+          old ? null : h('p', {}, '스포티파이나 애플 뮤직은 앨범이나 플레이리스트, 유튜브는 영상이나 재생목록의 공유 링크를 복사해 넣어 주세요.'),
           old ? null : h('label', { className: 'like-field' }, h('span', {}, '주소'), url),
           h('label', { className: 'like-field' }, h('span', {}, '이름'), name),
           h('div', { className: 'like-field' }, h('span', {}, '색'), h('div', { className: 'cd-swatches', role: 'group', 'aria-label': 'CD 색' }, ...swatches)),
