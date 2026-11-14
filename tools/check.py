@@ -469,6 +469,54 @@ def check_avatars():
             err(where, f"그림 '{sheet}' 이 레포에 없다")
 
 
+def check_feature_numbers():
+    """docs/requirements.md 기능 표의 번호(F1, F2 ...)가 겹치지 않는지 본다.
+    같은 날 따로 만든 기능이 같은 번호를 붙인 일이 있었다(known-issues 68)."""
+    where = 'docs/requirements.md'
+    nums = re.findall(r'^\| F(\d+) \|', read(where), re.M)
+    if not nums:
+        err(where, '기능 표에서 번호(| F1 |)를 하나도 읽지 못했다(표 모양이 바뀌었으면 tools/check.py 의 check_feature_numbers 도 고친다)')
+        return
+    seen = set()
+    for n in nums:
+        if n in seen:
+            err(where, f'기능 번호 F{n} 이 두 번 나온다. origin/main 의 기능 표를 보고 비어 있는 다음 번호를 붙인다')
+        seen.add(n)
+
+
+def check_user_pictures():
+    """data/user-pictures.js 의 사용자 사진이 24×24칸이고 colors 에 있는 글자만 쓰는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
+    저장된 사진은 id로 찾으므로 id가 겹치지 않는지도 본다."""
+    where = 'data/user-pictures.js'
+    blocks = re.findall(r'^  \{\n(.*?)^  \},', read(where), re.S | re.M)
+    if not blocks:
+        err(where, '사진을 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_user_pictures 도 고친다)')
+        return
+    ids = set()
+    for body in blocks:
+        m = re.search(r"^    id: '([^']*)',", body, re.M)
+        pid = m.group(1) if m else '?'
+        if pid in ids:
+            err(where, f'{pid}: id가 겹친다')
+        ids.add(pid)
+        if not KEBAB.match(pid):
+            err(where, f'{pid}: id는 영어 소문자, 숫자, 하이픈만 쓴다')
+        if not re.search(r"^    name: '[^']+',", body, re.M):
+            err(where, f'{pid}: 이름(name)이 없다. 고르는 줄에서 마우스를 올리면 보이는 이름이다')
+        if not re.search(r"^    bg: '#[0-9a-fA-F]{6}',", body, re.M):
+            err(where, f"{pid}: 바탕 색(bg)이 '#rrggbb' 모양이 아니다")
+        colors_text = re.search(r'^    colors: \{(.*?)\},', body, re.S | re.M)
+        colors = set(re.findall(r"(\w): '#[0-9a-fA-F]{3,8}'", colors_text.group(1))) if colors_text else set()
+        rows_text = re.search(r'^    rows: \[\n(.*?)^    \],', body, re.S | re.M)
+        rows = re.findall(r"'([^']*)'", rows_text.group(1)) if rows_text else []
+        if len(rows) != 24 or any(len(r) != 24 for r in rows):
+            bad = [i for i, r in enumerate(rows) if len(r) != 24]
+            err(where, f'{pid}: 사진은 24줄이고 줄마다 24칸이다(지금 {len(rows)}줄, 길이가 다른 줄 {bad[:5]})')
+        extra = set(''.join(rows)) - colors - {'.'}
+        if extra:
+            err(where, f"{pid}: colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
+
+
 # ---------- 저장소 키 ----------
 def check_storage_keys():
     for p in sorted(ROOT.glob('apps/*/**/*')):
@@ -750,6 +798,8 @@ def main():
     check_tutorial()
     check_neighbors()
     check_avatars()
+    check_user_pictures()
+    check_feature_numbers()
     check_storage_keys()
     check_imports()
     check_stamp()

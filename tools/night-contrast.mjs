@@ -9,7 +9,7 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
-// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 시작 메뉴를 연 채로 settings.set({ night })로
+// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 사진 바꾸기 창(시작 메뉴 맨 위의 내 사진으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
@@ -128,6 +128,15 @@ function openStartMenu() {
   const menu = document.getElementById('start-menu');
   if (menu.hidden) document.querySelector('#taskbar .start-btn').click();
   return !menu.hidden;
+}
+
+// 시작 메뉴를 열어 맨 위의 내 사진을 누른다. 사진 바꾸기 창(src/user-pictures.js)이 열리고 시작 메뉴는 닫힌다
+function openPictureWindow() {
+  if (document.getElementById('start-menu').hidden) document.querySelector('#taskbar .start-btn').click();
+  const pic = document.querySelector('#start-menu .start-pic');
+  if (!pic) return false;
+  pic.click();
+  return true;
 }
 
 // 낮에 한 번, 밤으로 바꿔 한 번 잰다. 두 번 모두 같은 자바스크립트 실행 안이라 그사이에 화면이 바뀌지 않는다.
@@ -314,6 +323,8 @@ async function main() {
     await sleep(300);
   }
   await until(page, s => s.windows >= OPEN.length, `창 ${OPEN.length}개가 열리지 않았다`, 5000);
+  if (!(await page.run(openPictureWindow))) throw new Stop('시작 메뉴 맨 위에 내 사진 단추(.start-pic)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openPictureWindow도 고친다.');
+  await until(page, s => s.windows >= OPEN.length + 1, '사진 바꾸기 창이 열리지 않았다', 5000);
 
   const results = [];
   for (const era of ERAS) {
