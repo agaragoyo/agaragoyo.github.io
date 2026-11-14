@@ -12,6 +12,7 @@
 // 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방은 페이지 안의 fetch를 바꿔 껴서 서버 대신 답하고(fakeCloud),
+// 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube). 유튜브 플레이어와 API 스크립트는 받지 않게 막는다(main의 BLOCKED).
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
@@ -27,8 +28,8 @@ const EVIL = {
   likes: {
     bookshelf: [{ title: '<b>굵게</b><script>window.__xss=1</script>', note: '<img src=x onerror="window.__xss=1">' }],
     computer: { url: 'javascript:alert(1)' },
-    // 애플 뮤직 플레이리스트는 이름과 표지를 받으러 가지 않아 서버에 묻지 않는다
-    radio: [{ url: 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', name: '<img src=x onerror=window.__xss=1>', color: 2 }],
+    // 애플 뮤직 플레이리스트는 이름과 표지를 받으러 가지 않아 서버에 묻지 않는다. 유튜브 CD는 음악 창을 띄워 보기만 한다(재생은 보지 않는다)
+    radio: [{ url: 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', name: '<img src=x onerror=window.__xss=1>', color: 2 }, { url: 'https://youtu.be/96URE_-aj-8', name: '유튜브 CD', color: 1 }],
   },
   greeting: '<i>안녕</i>',
 };
@@ -56,6 +57,9 @@ function overflowing() {
   for (const el of document.querySelectorAll('#windows .win-body, #windows .win-body *, .closeup *, #start-menu *, #login *')) {
     if (!(el instanceof HTMLElement) || !el.offsetParent || ['INPUT', 'TEXTAREA', 'I'].includes(el.tagName)) continue;
     if (el.matches('.app-icon.pixel')) continue;
+    // 펼친 CD는 부채꼴로 기울여 놓았고(두 장부터) 라디오에 든 CD는 음악이 나오는 동안 돈다(transform). 기울거나 도는 네모가 상자 밖으로 조금 나오는데,
+    // 보이는 것은 그 안의 동그라미뿐이라 일부러 그대로 둔다. 도는 CD는 재는 순간의 각도에 따라 넘침이 달라 점검이 들쭉날쭉해진다
+    if (el.matches('.radio-fan, .radio-slot')) continue;
     if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible') {
       out.push(`${el.tagName.toLowerCase()}.${String(el.className).replace(/\s+/g, '.')} ${el.scrollWidth}>${el.clientWidth} "${(el.textContent || '').trim().slice(0, 24)}"`);
     }
@@ -82,6 +86,17 @@ function fakeCloud(how, code) {
     if (how === 'missing') return new Response('{}', { status: 404 });
     await new Promise(done => { window.__cloudAnswer = done; });
     return new Response(JSON.stringify({ fields: { code: { stringValue: code } } }));
+  };
+  return true;
+}
+
+// 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 다른 영상은 이름을 담아 답한다
+function fakeYouTube() {
+  const real = window.fetch;
+  window.fetch = async (url, opts) => {
+    if (!String(url).startsWith('https://www.youtube.com/oembed')) return real(url, opts);
+    if (String(url).includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
+    return new Response(JSON.stringify({ title: '점검용 유튜브 노래', thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }));
   };
   return true;
 }
@@ -395,6 +410,28 @@ async function walk(page, base) {
   await sleep(200);
   check('다음 CD는 다른 CD가 쓰지 않은 색이 먼저 골라져 있다', await page.run(() => document.querySelector('.closeup .cd-swatch[aria-pressed="true"]')?.dataset.color === '0'));
   await probe('두 번째 CD 넣기');
+  // 새 유튜브 CD는 넣기 전에 유튜브 oEmbed로 재생할 수 있는지 본다(fakeYouTube가 대신 답한다). 없는 영상은 넣지 않는다
+  await page.run(fakeYouTube);
+  await page.run(() => {
+    const [url, name] = document.querySelectorAll('.closeup form input');
+    url.value = 'https://youtu.be/aaaaaaaaaaa';
+    name.value = '없는 노래';
+    document.querySelector('.closeup form').requestSubmit();
+  });
+  check('유튜브에 없는 영상은 넣지 않고 안내가 뜬다', await until(page, () => /찾을 수 없는 영상/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  // 유튜브 뮤직 주소를 넣으면 이름 칸이 채워지고, CD는 같은 영상의 유튜브 주소로 저장된다
+  await page.run(() => {
+    const [url, name] = document.querySelectorAll('.closeup form input');
+    name.value = '';
+    url.value = 'https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=smoke';
+    url.dispatchEvent(new Event('input'));
+  });
+  check('유튜브 주소를 넣으면 받아 온 이름이 이름 칸에 채워진다', await until(page, () => document.querySelectorAll('.closeup form input')[1].value === '점검용 유튜브 노래', 3000));
+  await page.run(() => document.querySelector('.closeup form').requestSubmit());
+  check('유튜브 뮤직 주소의 CD는 같은 영상의 유튜브 주소로 저장된다', await until(page, () => {
+    const cd = JSON.parse(localStorage.getItem('agarago.home.v3')).likes.radio?.[1];
+    return cd?.url === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' && cd.name === '점검용 유튜브 노래';
+  }, 5000));
   await page.run(() => document.activeElement?.blur());
   await press(page, 'Escape');
 
@@ -560,6 +597,15 @@ async function walk(page, base) {
     && !document.querySelector('#stage img[src="x"]')
     && document.querySelector('.closeup .cd-name').textContent.startsWith('<img')
     && document.querySelector('.closeup .cd-pick .cd').dataset.color === '2'));
+  // 유튜브 CD는 개인정보 보호 모드 플레이어로 열고, 떠 있는 동안 화면 전체의 효과를 끈다(플레이어 앞에 겹치지 않는다는 유튜브의 요건)
+  await page.run(clickText, '.closeup .cd-pick', '유튜브 CD');
+  check('유튜브 CD를 고르면 개인정보 보호 모드 플레이어가 열린다', await until(page, () => /^https:\/\/www\.youtube-nocookie\.com\/embed\/96URE_-aj-8\?/.test(document.querySelector('#windows .radio-player iframe')?.src || ''), 5000));
+  // 아래 안내는 유튜브의 것이다(영상이 막히거나 지워져 오류가 오면 오류 안내로 바뀐다)
+  check('유튜브 플레이어가 떠 있는 동안 화면 효과가 꺼지고 플레이어가 200px 이상이다', await page.run(() => getComputedStyle(document.querySelector('.fx-vignette')).display === 'none'
+    && document.querySelector('#windows .radio-player iframe').offsetHeight >= 200 && /끝까지|재생할 수 없습니다/.test(document.querySelector('.radio-player-note').textContent)));
+  await probe('유튜브 음악 창');
+  await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
+  check('음악 창을 닫으면 화면 효과가 돌아온다', await page.run(() => getComputedStyle(document.querySelector('.fx-vignette')).display !== 'none'));
 
   // ---------- 짧은 링크(#s=)의 방 ----------
   // 서버 대신 페이지 안에서 답한다(fakeCloud). 받는 동안의 자리, 받기 전에 전원을 끄면 늦게 온 답을 버리는지(src/login.js의 isCurrent),
@@ -666,6 +712,10 @@ async function main() {
   const page = await launchChrome({ width: 1440, height: 900 });
   await page.send('Page.enable');
   await page.send('Runtime.enable');
+  // 유튜브 CD의 플레이어(iframe)와 IFrame Player API 스크립트는 받지 않는다. 음악 창이 열리고 화면 효과가 꺼지는 것까지만 본다
+  const BLOCKED = ['*youtube.com/*', '*youtube-nocookie.com/*', '*ytimg.com/*', '*googlevideo.com/*'];
+  await page.send('Network.enable');
+  await page.send('Network.setBlockedURLs', { urls: BLOCKED });
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   try {
     await walk(page, base);

@@ -1109,6 +1109,8 @@ form.user { cursor: var(--cur-arrow); }
 
 /* ---------- 화면 효과 (클릭은 그대로 통과) ---------- */
 .fx { position: absolute; inset: 0; z-index: 50; pointer-events: none; }
+/* 유튜브 플레이어가 떠 있는 동안에는 플레이어 앞에 겹치지 않게 끈다(src/os.js의 showingVideo, 유튜브의 최소 기능 요건) */
+.screen.video-on .fx { display: none; }
 /* 구석 그늘: 브라운관은 가운데보다 구석이 조금 어두웠다. 글자가 많은 가운데와 가장자리 한가운데는 그대로 두고 구석만 아주 옅게 어둡게 한다.
    지직거리는 그레인은 2005년 PC 모니터에 없던 것이라 2026-11-11에 뺐다. */
 .fx-vignette { background: radial-gradient(ellipse at center, transparent 70%, #0000001f 100%); }

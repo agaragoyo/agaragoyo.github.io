@@ -68,6 +68,11 @@ function randomHome() {
         'https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp', 'https://open.spotify.com/intl-ko/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc',
         'https://music.apple.com/kr/album/abc/1440857781', 'https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'https://evil.example/album/1',
         'https://music.apple.com/kr/playlist/y/pl.u-zyxwvuts', 'https://open.spotify.com/playlist/0123456789abcdefABCDEF',
+        // 유튜브: 같은 영상이 여러 주소로 온다(검사가 한 주소로 맞추고 앞의 것만 남긴다). 받지 않는 모양도 섞는다
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXcQ?si=abc', 'https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RDAMVMx',
+        'https://www.youtube.com/playlist?list=PLBB231211A4F62143', 'https://music.youtube.com/playlist?list=OLAK5uy_mBIYLofi3F8soTWU_LSWDQbbu6Bb9_Czc',
+        'https://m.youtube.com/watch?v=a-b_c-d_e-f', 'https://www.youtube.com/watch?v=short', 'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+        'http://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube.com.evil.example/watch?v=dQw4w9WgXcQ', 'https://youtube.com/playlist?list=LL',
       ]),
       ...(rnd() < 0.7 ? { name: text(12) } : {}),
       ...(rnd() < 0.7 ? { color: pick([0, 1, 2, 3, 4, 5, 6, -1, 1.5, '2', null]) } : {}),
@@ -168,6 +173,25 @@ if (line('가나다\ud83d', 12) !== '가나다') fail('line이 반쪽 글자를 
 if (para('a\r\n\r\n\r\n\r\nb', 20) !== 'a\n\nb') fail('para가 빈 줄을 하나로 줄이지 않는다', para('a\r\n\r\n\r\n\r\nb', 20));
 if (linkId('#s=abcDEF12') !== 'abcDEF12' || linkId('#s=abc') || linkId('#s=abcDEF12x') || linkId('#s=abcDEF1!')) fail('linkId가 방 번호를 잘못 읽는다', '');
 if (new Set(LINK_CODES).size !== LINK_CODES.length) fail('LINK_CODES에 같은 id가 둘 있다', '');
+// 라디오 CD 주소: 유튜브 주소 다섯 모양은 유튜브 주소 하나와 공식 퍼가기 주소로 바뀐다
+for (const [input, link, embed] of [
+  ['https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'],
+  ['https://youtu.be/dQw4w9WgXcQ?si=abc', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'],
+  ['https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=abc', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'],
+  ['https://www.youtube.com/playlist?list=PLBB231211A4F62143', 'https://www.youtube.com/playlist?list=PLBB231211A4F62143', 'https://www.youtube-nocookie.com/embed/videoseries?list=PLBB231211A4F62143'],
+  ['https://music.youtube.com/playlist?list=OLAK5uy_mBIYLofi3F8soTWU_LSWDQbbu6Bb9_Czc&si=x', 'https://www.youtube.com/playlist?list=OLAK5uy_mBIYLofi3F8soTWU_LSWDQbbu6Bb9_Czc',
+    'https://www.youtube-nocookie.com/embed/videoseries?list=OLAK5uy_mBIYLofi3F8soTWU_LSWDQbbu6Bb9_Czc'],
+]) {
+  const m = parseMusic(input);
+  if (m?.link !== link || m?.embed !== embed) fail('parseMusic이 유튜브 주소를 다르게 읽는다', { input, got: m && [m.link, m.embed] });
+}
+for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc', 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'https://www.youtube.com/playlist?list=PL"><', 'https://youtube.evil.example/watch?v=dQw4w9WgXcQ'])
+  if (parseMusic(input)) fail('parseMusic이 받지 않을 주소를 받는다', input);
+// 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.
+// 라디오 CD 두 장(이름과 색이 없는 것, 있는 것)과 유튜브 영상, 재생목록 주소를 담은 TV 작품 두 편이다(재생목록 주소는 ~h로 담겨 있다)
+const OLD_LINK = 'BArsmJsg66eB7YGsBuyViOuFlQIAAHsiUiI6W3sidSI6In5zYWxidW0vNVY4bjZmcXlBUHh2RlRpYlBoUVZjcCJ9LHsidSI6In5ha3IvcGxheWxpc3QveC9wbC51LWFiY2RlZmdoIiwibSI6Iuy2nOq3vOq4uCIsImMiOjJ9XSwiVCI6W3sidCI6IuyYgeyDgSIsImwiOiJ-eWRRdzR3OVdnWGNRIiwiYyI6MH0seyJ0Ijoi66qp66GdIiwibCI6In5od3d3LnlvdXR1YmUuY29tL3BsYXlsaXN0P2xpc3Q9UExCQjIzMTIxMUE0RjYyMTQzIiwiYyI6MH1dfQ';
+const OLD_HOME = '{"v":3,"owner":"옛 링크","scenes":{"room":[],"playground":[]},"likes":{"radio":[{"url":"https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp"},{"url":"https://music.apple.com/kr/playlist/x/pl.u-abcdefgh","name":"출근길","color":2}],"tv":[{"title":"영상","link":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","color":0},{"title":"목록","link":"https://www.youtube.com/playlist?list=PLBB231211A4F62143","color":0}]},"greeting":"안녕"}';
+if (JSON.stringify(decodeHome(OLD_LINK)) !== OLD_HOME) fail('옛 링크가 다른 집으로 열린다', decodeHome(OLD_LINK));
 
 console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자`);
 for (const e of examples) console.log(`실패 ${e}`);
