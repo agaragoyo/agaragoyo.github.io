@@ -29,8 +29,6 @@
     #timebar { width: 160px; height: 10px; border: 2px solid #fff; }
     #timebar i { display: block; height: 100%; background: #f6cf6a; }
     button { font: inherit; font-size: 13px; padding: 4px 10px; cursor: var(--aga-hand, pointer); }
-    .modes { display: flex; }
-    .modes button[aria-pressed="true"] { background: #f6cf6a; color: #1f2b2a; }
     #wrap { flex: 1; display: grid; place-items: center; min-height: 0; }
     canvas { display: block; touch-action: none; }
   </style>
@@ -43,10 +41,7 @@
     <span class="grow"></span>
     <span id="timebar"><i></i></span>
     <span id="remain-box" hidden>남은 파일 <b id="remain">0</b></span>
-    <span class="modes" role="group" aria-label="모드">
-      <button type="button" data-mode="normal">보통</button>
-      <button type="button" data-mode="casual">시간 제한 없음</button>
-    </span>
+    <button id="help">게임 방법</button>
     <button id="restart">다시</button>
     <button id="quit">끝내기</button>
   </header>
@@ -82,7 +77,9 @@
 
     // end: 끝났을 때 { at, kind: 'time' | 'clear' | 'stuck', title, groups, cells }
     // swapAt: 보통 모드에서 막혀 새 판을 기다리기 시작한 시각, banner: 판 가운데 알림 { text, at }
-    let grid, score, timeLeft, started, sel, over, flash, end, swapAt, banner;
+    // used: 보통 모드에서 흐른 시간(초). 시작 카드가 떠 있거나 첫 판 안내를 기다리는 동안에는 흐르지 않는다
+    // tutor: 첫 판 안내에서 짚어 주는 묶음 [r0, c0, r1, c1]. 처음 하는 사람의 첫 판에만 있고, 묶음을 하나 지우면 null
+    let grid, score, timeLeft, used, sel, over, flash, end, swapAt, banner, tutor;
 
     // ---------- 지울 수 있는 묶음 찾기 ----------
     // 네모 안의 합을 한 번에 구하는 누적 합. f로 칸 값을 바꿔 셀 수 있다.
@@ -237,15 +234,36 @@
       deal();
       score = 0;
       timeLeft = TIME;
-      started = performance.now();
+      used = 0;
       sel = null;
       over = false;
       end = null;
       swapAt = 0;
       banner = null;
       flash = [];
+      tutor = AGA.load('tutored', false) ? null : easiestGroup();
       $('score').textContent = 0;
       showMode();
+      showTip();
+    }
+
+    // ---------- 첫 판 안내 ----------
+    // 지금 판에서 파일 수가 가장 적은 묶음(같으면 네모가 작은 것). 처음 하는 사람에게 짚어 준다
+    function easiestGroup() {
+      const area = ([r0, c0, r1, c1]) => (r1 - r0 + 1) * (c1 - c0 + 1);
+      const list = findGroups(grid).map(g => ({ g, n: cellsIn(g).length, a: area(g) }));
+      list.sort((p, q) => p.n - q.n || p.a - q.a);
+      return list.length ? list[0].g : null;
+    }
+    // 안내 한 줄은 짚은 묶음을 가리지 않게 판의 반대쪽에 띄운다. 카드가 떠 있는 동안은 숨긴다
+    function showTip() {
+      if (!tutor || card.isOpen) card.tip(null);
+      else card.tip('끌어서 감싸 보세요', { at: tutor[0] < ROWS / 2 ? 0.88 : 0.12, onSkip: endTutor });
+    }
+    function endTutor() {
+      tutor = null;
+      AGA.save('tutored', true);
+      showTip();
     }
 
     // ---------- 머리줄과 아랫줄 ----------
@@ -263,18 +281,16 @@
       $('timebar').hidden = casual;
       $('clears-box').hidden = !casual;
       $('remain-box').hidden = !casual;
-      for (const b of document.querySelectorAll('.modes button')) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
       say(casual ? '시간 제한 없이, 끝까지 다 지울 수 있는 판이에요.' : '합이 10이 되게 끌어서 지워 보세요.');
     }
 
-    // 모드를 바꾸면 그 모드의 새 판으로 시작한다. 고른 모드는 다음에 열 때도 그대로다.
-    for (const b of document.querySelectorAll('.modes button')) {
-      b.addEventListener('click', () => {
-        if (b.dataset.mode === mode) return;
-        mode = b.dataset.mode;
-        AGA.save('mode', mode);
-        reset();
-      });
+    // 시작 카드의 모드 단추가 곧 시작 단추다. 고른 모드는 다음에 열 때도 그대로다.
+    // fresh: 하던 판을 버리고 새 판으로(게임 방법으로 다시 연 카드). 처음 연 카드는 이미 깔아 둔 판을 그대로 쓴다
+    function startMode(m, fresh) {
+      if (m === mode && !fresh) return;
+      mode = m;
+      AGA.save('mode', mode);
+      reset();
     }
 
     // ---------- 화면 크기 ----------
@@ -337,9 +353,11 @@
         AGA.save('best', best);
       }
       countRemain();
+      if (tutor) endTutor(); // 묶음을 하나 지웠으니 안내는 끝. 보통 모드의 시계는 이때부터 흐른다
       afterMove(now);
     });
     $('restart').addEventListener('click', reset);
+    $('help').addEventListener('click', () => { if (!card.isOpen) openCard(true); });
     $('quit').addEventListener('click', () => AGA.close());
 
     // 지운 뒤 판에 더 지울 묶음이 남았는지 본다
@@ -384,30 +402,95 @@
     }
 
     // ---------- 그리기 ----------
-    function drawFile(x, y, v, alpha = 1) {
-      ctx.globalAlpha = alpha;
+    // g: 그릴 캔버스(시작 카드의 시범 그림도 같은 함수로 그린다). v가 0이면 숫자와 색 띠를 감춘 파일
+    // (카드가 떠 있는 동안 판을 미리 보고 묶음을 찾아 두지 못하게 한다)
+    function drawFile(x, y, v, alpha = 1, g = ctx) {
+      g.globalAlpha = alpha;
       const w = CELL - 10;
       const h = CELL - 6;
       const fold = 9;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + w - fold, y);
-      ctx.lineTo(x + w, y + fold);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x, y + h);
-      ctx.closePath();
-      ctx.fillStyle = '#fbf8ef';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#1f2b2a';
-      ctx.stroke();
-      ctx.fillStyle = COLORS[v];
-      ctx.fillRect(x + 4, y + h - 12, w - 8, 8);
-      ctx.fillStyle = '#1f2b2a';
-      ctx.font = '18px Galmuri11, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(v, x + w / 2, y + h / 2 - 3);
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + w - fold, y);
+      g.lineTo(x + w, y + fold);
+      g.lineTo(x + w, y + h);
+      g.lineTo(x, y + h);
+      g.closePath();
+      g.fillStyle = '#fbf8ef';
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = '#1f2b2a';
+      g.stroke();
+      if (v) {
+        g.fillStyle = COLORS[v];
+        g.fillRect(x + 4, y + h - 12, w - 8, 8);
+        g.fillStyle = '#1f2b2a';
+        g.font = '18px Galmuri11, sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(v, x + w / 2, y + h / 2 - 3);
+      }
+      g.globalAlpha = 1;
+    }
+
+    // 끌어서 고르는 네모. 판의 진짜 네모, 첫 판 안내의 시범, 시작 카드의 시범이 같이 쓴다
+    function drawSelect(g, x0, y0, x1, y1, s, showSum = true) {
+      const x = Math.min(x0, x1);
+      const y = Math.min(y0, y1);
+      g.fillStyle = s === 10 ? '#f6cf6a40' : '#5b8def33';
+      g.fillRect(x, y, Math.abs(x1 - x0), Math.abs(y1 - y0));
+      g.setLineDash([5, 4]);
+      g.strokeStyle = s === 10 ? '#f6cf6a' : '#ffffff';
+      g.lineWidth = 2;
+      g.strokeRect(x, y, Math.abs(x1 - x0), Math.abs(y1 - y0));
+      g.setLineDash([]);
+      if (!showSum) return;
+      g.fillStyle = s === 10 ? '#f6cf6a' : s > 10 ? '#ff8a80' : '#ffffff';
+      g.font = '16px Galmuri11, sans-serif';
+      g.textAlign = 'left';
+      g.textBaseline = 'alphabetic';
+      g.fillText(`합 ${s}`, x1 + 10, y1 + 14);
+    }
+
+    // 마우스 화살표(시범에서 끄는 손 대신)
+    function drawArrow(g, x, y) {
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x, y + 17);
+      g.lineTo(x + 4.5, y + 13);
+      g.lineTo(x + 8, y + 20);
+      g.lineTo(x + 10.5, y + 19);
+      g.lineTo(x + 7, y + 12);
+      g.lineTo(x + 12, y + 12);
+      g.closePath();
+      g.fillStyle = '#fff';
+      g.fill();
+      g.lineWidth = 1.5;
+      g.strokeStyle = '#1f2b2a';
+      g.stroke();
+    }
+
+    // 첫 판 안내: 짚은 묶음에 깜빡이는 2px 테두리를 두르고, 그 묶음을 끌어 감싸는 시범을 2초마다 되풀이한다
+    function drawTutor(now) {
+      const [r0, c0, r1, c1] = tutor;
+      const x0 = PAD + c0 * CELL + 1;
+      const y0 = PAD + r0 * CELL;
+      const x1 = PAD + (c1 + 1) * CELL - 1;
+      const y1 = PAD + (r1 + 1) * CELL;
+      if (Math.floor(now / 450) % 2 === 0) {
+        ctx.strokeStyle = '#f6cf6a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      }
+      if (sel) return; // 사용자가 끄는 동안은 시범을 멈춘다
+      const t = now % 2000;
+      const k = Math.min(1, Math.max(0, (t - 200) / 1000));
+      const e = k * k * (3 - 2 * k);
+      const px = x0 - 6 + (x1 - x0 + 12) * e;
+      const py = y0 - 6 + (y1 - y0 + 12) * e;
+      ctx.globalAlpha = t > 1700 ? (2000 - t) / 300 : 1;
+      if (t > 200) drawSelect(ctx, x0 - 6, y0 - 6, px, py, k === 1 ? 10 : 0, false);
+      drawArrow(ctx, px, py);
       ctx.globalAlpha = 1;
     }
 
@@ -446,9 +529,10 @@
             ctx.fillStyle = '#ffffff40';
             ctx.fillRect(x - 3, y - 2, CELL - 4, CELL - 2);
           }
-          if (grid[r][c]) drawFile(x, y, grid[r][c], review && !end.cells.has(r * COLS + c) ? 0.3 : 1);
+          if (grid[r][c]) drawFile(x, y, card.isOpen && !over ? 0 : grid[r][c], review && !end.cells.has(r * COLS + c) ? 0.3 : 1);
         }
       }
+      if (tutor && !card.isOpen) drawTutor(now);
       if (review) {
         ctx.strokeStyle = '#f6cf6a';
         ctx.lineWidth = 2;
@@ -462,24 +546,7 @@
         const k = clamp01((now - f.t) / 400);
         drawFile(PAD + f.c * CELL + 5, PAD + f.r * CELL + 3 - k * 14, f.v, 1 - k);
       }
-      if (sel) {
-        const x = Math.min(sel.x0, sel.x1);
-        const y = Math.min(sel.y0, sel.y1);
-        const w = Math.abs(sel.x1 - sel.x0);
-        const h = Math.abs(sel.y1 - sel.y0);
-        const s = sumOf(picked());
-        ctx.fillStyle = s === 10 ? '#f6cf6a40' : '#5b8def33';
-        ctx.fillRect(x, y, w, h);
-        ctx.setLineDash([5, 4]);
-        ctx.strokeStyle = s === 10 ? '#f6cf6a' : '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, w, h);
-        ctx.setLineDash([]);
-        ctx.fillStyle = s === 10 ? '#f6cf6a' : s > 10 ? '#ff8a80' : '#ffffff';
-        ctx.font = '16px Galmuri11, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`합 ${s}`, sel.x1 + 10, sel.y1 + 14);
-      }
+      if (sel) drawSelect(ctx, sel.x0, sel.y0, sel.x1, sel.y1, sumOf(picked()));
       if (banner) {
         const t = now - banner.at;
         if (t > BANNER) banner = null;
@@ -504,9 +571,14 @@
       }
     }
 
+    let last = performance.now();
     function loop(now) {
-      if (!over && mode === 'normal') {
-        timeLeft = Math.max(0, TIME - (now - started) / 1000);
+      const dt = (now - last) / 1000;
+      last = now;
+      // 시계는 시작 카드가 떠 있거나 첫 판 안내로 첫 묶음을 기다리는 동안 멈춘다
+      if (!over && mode === 'normal' && !card.isOpen && !tutor) {
+        used += Math.min(dt, 0.1); // 탭이 뒤에 있다 돌아온 긴 틈은 한 번에 세지 않는다
+        timeLeft = Math.max(0, TIME - used);
         if (timeLeft === 0) finish('time', performance.now());
       }
       if (swapAt && performance.now() - swapAt > SWAP_AFTER) {
@@ -518,7 +590,59 @@
       requestAnimationFrame(loop);
     }
 
+    // ---------- 시작 카드 ----------
+    // 시범 그림: 화살표가 3과 7을 네모로 끌어 감싸면 합 10이 되어 두 파일이 지워진다. 3초마다 되풀이한다
+    const DEMO = [5, 3, 7, 2, 6];
+    const DEMO_W = 300;
+    const DEMO_H = 84;
+    function drawDemo(g, t) {
+      g.fillStyle = '#3a807b';
+      g.fillRect(0, 0, DEMO_W, DEMO_H);
+      const left = (DEMO_W - DEMO.length * CELL) / 2;
+      const top = 16;
+      const x0 = left + CELL - 4;
+      const y0 = top - 8;
+      const x1 = left + 3 * CELL + 2;
+      const y1 = top + CELL + 4;
+      const k = Math.min(1, Math.max(0, (t - 300) / 1000));
+      const e = k * k * (3 - 2 * k);
+      const px = x0 + (x1 - x0) * e;
+      const py = y0 + (y1 - y0) * e;
+      const gone = t > 1700; // 손을 떼면 지워진다
+      DEMO.forEach((v, i) => {
+        const fx = left + i * CELL + 5;
+        if (i !== 1 && i !== 2) drawFile(fx, top, v, 1, g);
+        else if (!gone) drawFile(fx, top, v, 1, g);
+        else if (t < 2100) drawFile(fx, top - ((t - 1700) / 400) * 14, v, 1 - (t - 1700) / 400, g);
+      });
+      // 네모가 3의 가운데를 넘으면 합 3, 7의 가운데를 넘으면 합 10이 되어 노랗게 바뀐다
+      if (t > 300 && !gone) drawSelect(g, x0, y0, px, py, px > left + 2.5 * CELL ? 10 : px > left + 1.5 * CELL ? 3 : 0, px > left + 1.5 * CELL);
+      if (t < 2600) drawArrow(g, gone ? x1 : px, gone ? y1 : py);
+    }
+
+    const card = AGA.gameCard(cv, {
+      title: '파일 정리 10',
+      how: '합이 10이 되게 끌어서 지워 보세요.', // 줄이 바뀌어도 "지워 보세요"는 붙여 둔다
+      demo: { width: DEMO_W, height: DEMO_H, period: 3000, draw: drawDemo },
+      width: 460,
+      colors: { bg: '#1f4d4a', fg: '#fff', accent: '#f6cf6a', line: '#f6cf6a', onAccent: '#1f2b2a' },
+      onOpen: () => showTip(),
+      onClose: () => showTip(),
+    });
+    // 모드 단추 둘. 지난번에 고른 모드가 강조된다. 단추 아래 작은 글은 그 모드의 기록
+    const modeButtons = fresh => [
+      { text: '보통', sub: `100초, 최고 ${best}개`, main: mode === 'normal', onClick: () => startMode('normal', fresh) },
+      { text: '시간 제한 없음', sub: `다 정리 ${clears}번`, main: mode === 'casual', onClick: () => startMode('casual', fresh) },
+    ];
+    // midGame: 게임 방법 단추로 다시 연 카드. 하던 판을 이어서 하거나, 모드를 골라 새 판을 시작한다(Esc는 이어서 하기)
+    function openCard(midGame) {
+      card.open(midGame
+        ? { rows: [{ buttons: [{ text: '이어서 하기', main: true, onClick() {} }] }, { label: '새 판 시작', buttons: modeButtons(true).map(b => ({ ...b, main: false })) }], onEscape: () => {} }
+        : { rows: [{ buttons: modeButtons(false) }] });
+    }
+
     reset();
+    openCard(false);
     requestAnimationFrame(loop);
   </script>
 </body>
