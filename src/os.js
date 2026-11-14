@@ -43,6 +43,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     home: null,
     realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
     closeup: null, // 가구를 가까이 보는 화면(src/closeup.js)이 열려 있으면 그 화면
+    closeupFrom: null, // 가구를 두 번 눌러 가까이 보기를 여는 동안만 그 가구의 상자. 판이 그 자리에서 커지며 다가온다(src/closeup.js)
     mode: null,
     hasOwnHome: false, // 이 컴퓨터에 저장된 내 집이 있는지. 손님 바탕화면에서 나도 만들기와 내 컴퓨터로 가운데 무엇을 보일지 정한다
     boardId: null, // 짧은 링크(#s=)로 온 손님이면 그 방 번호. 코르크 보드의 쪽지가 이 번호의 방에 붙는다(src/apps/corkboard-app.js)
@@ -69,7 +70,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     syncTheme();
     el.startMenu.hidden = true;
     if (!names.includes('desktop')) {
-      os.closeup?.close();
+      os.closeup?.close(true);
       walker?.destroy();
       walker = null;
       os.tutorial.hide();
@@ -170,7 +171,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // ---------- 바탕화면 ----------
   function showDesktop() {
-    os.closeup?.close();
+    os.closeup?.close(true);
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
     os.place = SCENES[0].id;
@@ -259,7 +260,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.goScene = id => {
     const scene = SCENES.find(s => s.id === id);
     if (!scene || id === os.place) return;
-    os.closeup?.close(); // 시작 메뉴의 놀이터처럼 가구를 가까이 보는 동안에도 공간을 옮길 수 있다
+    os.closeup?.close(true); // 시작 메뉴의 놀이터처럼 가구를 가까이 보는 동안에도 공간을 옮길 수 있다
     os.place = id;
     play('enter'); // 방과 놀이터를 오갈 때 같은 소리를 낸다
     setPlace(id);
@@ -377,7 +378,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     }, iconEl(app, 24), h('span', {}, label));
     // 맨 위의 사용자 그림. 내 컴퓨터에서는 내 사진이고, 누르면 사진 바꾸기 창이 열린다(src/user-pictures.js).
     // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
-    // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것)면 주인 이름의 첫 글자가 보인다
+    // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것, 내 그림을 쓰는 주인의 긴 링크)면 주인 이름의 첫 글자가 보인다
     const mine = os.mode === 'edit';
     const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : os.home.picture);
     const head = mine && !os.realHome
@@ -422,9 +423,15 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // 바탕화면에서 가구를 두 번 눌렀을 때. 아바타가 그 옆으로 걸어간 뒤 기믹을 쓴다(심즈처럼 캐릭터가 가서 쓴다).
-  os.useFurniture = item => {
+  // from은 그 가구의 상자다. 가까이 보기를 열면 판이 그 자리에서 커지며 다가온다(src/closeup.js가 여는 동안에만 읽는다)
+  os.useFurniture = (item, from) => {
     const use = () => {
-      os.openFurniture(item);
+      os.closeupFrom = from || null;
+      try {
+        os.openFurniture(item);
+      } finally {
+        os.closeupFrom = null;
+      }
       os.tutorial.used(item.id);
     };
     if (walker) walker.approach(item, use);

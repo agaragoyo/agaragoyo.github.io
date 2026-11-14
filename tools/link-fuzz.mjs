@@ -4,7 +4,7 @@
 //   node tools/link-fuzz.mjs --seed=7   다른 씨앗으로 돌린다(같은 씨앗이면 같은 시험이다)
 //
 // 필요한 것: Node 22.7 이상(확장자가 .js인 모듈을 그대로 불러온다). 브라우저와 서버는 쓰지 않는다.
-// `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
+// `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
 // 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants에도 그 칸을 더해야 그 칸까지 두드린다.
 // 방 꾸밈(decor, 지금은 벽지)이나 주인 사진(picture)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
 //
@@ -25,6 +25,7 @@ const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
 const { WALL_PATTERNS } = await load('data/wall-patterns.js');
 const { USER_PICTURES } = await load('data/user-pictures.js');
+const { customValue, customBytes, customFromBytes, readCustom, MAX_BYTES } = await load('src/custom-picture.js');
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -90,9 +91,35 @@ function randomHome() {
   }
   // 벽지: 목록의 벽지와 기본 벽, 목록에 없는 이름을 섞는다(기본 벽과 없는 이름은 검사가 decor째 지운다)
   const decor = rnd() < 0.6 ? { decor: { wall: pick([...WALL_PATTERNS.map(w => w.id), 'nope', '__proto__', 3]) } } : {};
-  // 주인 사진: 목록의 사진과 목록에 없는 값을 섞는다(없는 값은 검사가 picture째 지운다)
-  const picture = rnd() < 0.6 ? { picture: pick([...USER_PICTURES.map(p => p.id), 'nope', '__proto__', 3, null]) } : {};
+  // 주인 사진: 목록의 사진, 내 그림(그림 파일로 만든 사진), 받지 않는 값을 섞는다(받지 않는 값은 검사가 picture째 지운다)
+  const picture = rnd() < 0.6 ? { picture: pick([...USER_PICTURES.map(p => p.id), 'nope', '__proto__', 3, null, randomCustom(), randomCustom(), brokenCustom()]) } : {};
   return { owner: text(4) || '주인', scenes, likes, greeting: text(8), ...decor, ...picture };
+}
+
+// 무작위 내 그림. 칸 576개를 1~16색으로 칠한다. 이웃한 칸과 같은 색이 적으면 240바이트를 넘어 null이 나오는데, 그 값도 검사가 걸러 내야 한다
+function randomCustom() {
+  const n = 1 + int(16);
+  const colors = Array.from({ length: n }, () => int(4096));
+  const cells = new Uint8Array(576);
+  const change = rnd() * 0.6;
+  let c = int(n);
+  for (let i = 0; i < 576; i++) {
+    if (rnd() < change) c = int(n);
+    cells[i] = i >= 24 && rnd() < 0.4 ? cells[i - 24] : c;
+  }
+  return customValue(colors, cells);
+}
+
+// 망가진 내 그림: 표시만 있는 값, base64가 아닌 글, 바이트 하나를 바꾸거나 자르거나 늘린 그림, 색 수가 16을 넘는 머리
+function brokenCustom() {
+  const good = randomCustom() || 'my:AAAA';
+  const bytes = customBytes(good) || new Uint8Array([0, 0]);
+  const b64 = list => `my:${Buffer.from(list).toString('base64url')}`;
+  const at = int(bytes.length);
+  return pick([
+    'my:', 'my:!!', `my:${'A'.repeat(400)}`, good.slice(0, int(good.length)), good.toUpperCase(),
+    b64(bytes.map((v, i) => (i === at ? int(256) : v))), b64(bytes.subarray(0, at)), b64([...bytes, int(256)]), b64([16 + int(240), ...bytes.subarray(1)]),
+  ]);
 }
 
 // 검사를 통과한 집이 규칙을 지키는지
@@ -118,7 +145,9 @@ function invariants(home, where) {
     || ('color' in c && !(Number.isInteger(c.color) && c.color > 0 && c.color < LIMIT.cdColors));
   if (l.radio && (l.radio.length > LIMIT.cds || new Set(l.radio.map(c => c.url)).size !== l.radio.length || l.radio.some(badCd))) fail(`${where}: CD`, l.radio);
   if ('decor' in home && (home.decor.wall === 'plain' || !WALL_PATTERNS.some(w => w.id === home.decor.wall) || Object.keys(home.decor).length !== 1)) fail(`${where}: 벽지`, home.decor);
-  if ('picture' in home && !USER_PICTURES.some(p => p.id === home.picture)) fail(`${where}: 주인 사진`, home.picture);
+  // 주인 사진은 목록의 사진이거나, 풀리고 240바이트 안이며 같은 바이트를 늘 같은 글로 적은 내 그림이다
+  if ('picture' in home && !USER_PICTURES.some(p => p.id === home.picture)
+    && !(readCustom(home.picture) && customBytes(home.picture).length <= MAX_BYTES && customFromBytes(customBytes(home.picture)) === home.picture)) fail(`${where}: 주인 사진`, String(home.picture).slice(0, 60));
   if (l.tv && (l.tv.length > LIMIT.works || l.tv.some(w => !w.title || (w.link && !/^https?:\/\//.test(w.link)) || (w.poster && !w.poster.startsWith('https://'))))) fail(`${where}: 작품`, l.tv);
 }
 
@@ -162,7 +191,7 @@ const junk = () => pick([null, undefined, 0, -1, 1.5, 1e9, NaN, '', 'x', [], {},
 for (let i = 0; i < ROUNDS; i++) {
   const raw = pick([
     junk(),
-    { owner: junk(), scenes: junk(), likes: junk(), greeting: junk(), decor: pick([junk(), { wall: junk() }]) },
+    { owner: junk(), scenes: junk(), likes: junk(), greeting: junk(), decor: pick([junk(), { wall: junk() }]), picture: pick([junk(), brokenCustom()]) },
     { owner: 'a', scenes: { room: Array.from({ length: int(6) }, junk), playground: junk() }, likes: { computer: junk(), console: junk(), bookshelf: [junk(), junk()], radio: junk(), tv: [junk()] } },
     { owner: 'a', items: [junk(), { id: pick(FURNITURE).id, x: int(14) - 1, y: int(14) - 1, wall: junk(), r: junk() }] },
   ]);
@@ -227,6 +256,35 @@ for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc
   }
   const json = Buffer.from(JSON.stringify({ v: 3, o: '사진', s: {}, p: 'cat' })).toString('base64url');
   if (decodeHome(json)?.picture !== 'cat') fail('예전 형식 링크의 사진이 열리지 않는다', decodeHome(json));
+}
+// 내 그림: 짧은 형식 5의 덧붙임 바이트가 [벽지 번호] [255] [그림 바이트 수] [그림 바이트]이고, 덧붙임 바이트를 건너뛰면 공간 수가 나온다
+// (내 그림을 넣기 전의 페이지는 255를 모르는 사진 번호로 읽고 덧붙임 바이트를 건너뛰므로 사진만 빼고 연다).
+// 그림 바이트 수가 덧붙임 바이트를 넘는 링크는 사진 없이 열리고, 그림 뒤에 덧붙임 바이트가 늘어도 같은 집으로 열린다. 예전 형식(JSON)의 p 칸도 열린다
+{
+  const cells = Uint8Array.from({ length: 576 }, (_, i) => (Math.floor(i / 24) + (i % 24 > 11 ? 1 : 0)) % 5);
+  const mine = customValue([0xf00, 0x0f0, 0x00f, 0xff0, 0x0ff], cells);
+  const blob = customBytes(mine);
+  if (!blob) fail('줄무늬 내 그림이 240바이트 안에 들지 않는다', mine);
+  else {
+    for (const decor of [undefined, { wall: 'cloud' }]) {
+      const home = sanitizeHome({ owner: '내그림', picture: mine, decor });
+      const bytes = Buffer.from(encodeHome(home), 'base64url');
+      const at = 3 + bytes[1] + bytes[2 + bytes[1]];
+      const want = [Math.max(WALL_PATTERNS.findIndex(w => w.id === decor?.wall), 0), 255, blob.length, ...blob];
+      if (bytes[0] !== 5 || bytes[at] !== want.length || want.some((v, i) => bytes[at + 1 + i] !== v)) fail('내 그림이 든 집이 짧은 형식 5의 덧붙임 바이트로 만들어지지 않는다', [...bytes.subarray(0, at + 6)]);
+      if (bytes[at + 1 + bytes[at]] !== SCENES.length) fail('내 그림이 든 링크에서 덧붙임 바이트를 건너뛰면 공간 수가 나오지 않는다', bytes[at + 1 + bytes[at]]);
+      if (JSON.stringify(decodeHome(encodeHome(home))) !== JSON.stringify(home)) fail('내 그림이 든 링크가 다른 집으로 열린다', decodeHome(encodeHome(home)));
+      const cut = Uint8Array.from(bytes);
+      cut[at + 3] = blob.length + 1;
+      const opened = decodeHome(Buffer.from(cut).toString('base64url'));
+      if (!opened || 'picture' in opened || opened.decor?.wall !== decor?.wall) fail('그림 바이트 수가 덧붙임 바이트를 넘는 링크가 사진만 빼고 열리지 않는다', opened);
+      const end = at + 1 + bytes[at];
+      const more = Buffer.from([...bytes.subarray(0, at), bytes[at] + 1, ...bytes.subarray(at + 1, end), 7, ...bytes.subarray(end)]);
+      if (JSON.stringify(decodeHome(more.toString('base64url'))) !== JSON.stringify(home)) fail('내 그림 뒤에 덧붙임 바이트가 늘어난 링크가 같은 집으로 열리지 않는다', [...more.subarray(0, 12)]);
+    }
+    const json = Buffer.from(JSON.stringify({ v: 3, o: '내그림', s: {}, p: mine })).toString('base64url');
+    if (decodeHome(json)?.picture !== mine) fail('예전 형식 링크의 내 그림이 열리지 않는다', decodeHome(json));
+  }
 }
 // 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.
 // 라디오 CD 두 장(이름과 색이 없는 것, 있는 것)과 유튜브 영상, 재생목록 주소를 담은 TV 작품 두 편이다(재생목록 주소는 ~h로 담겨 있다)

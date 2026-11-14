@@ -1,12 +1,14 @@
 // 집 상태 검사와 공유 링크(#r=..., 예전 #room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
 // 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말,
-//           decor: { wall: 벽지 id }, picture: 주인 사진 id }. decor는 기본 벽이 아닌 벽지를 골랐을 때만 있다(F13).
+//           decor: { wall: 벽지 id }, picture: 주인 사진 값 }. decor는 기본 벽이 아닌 벽지를 골랐을 때만 있다(F13).
 // picture는 링크로 연 친구 집에만 있다(F25). 내 사진은 집과 따로 저장하고, 링크를 만들 때 withPicture(src/user-pictures.js)로 붙인다.
+// picture는 목록 사진의 id이거나, 그림 파일로 만든 내 그림('my:'로 시작하는 글, src/custom-picture.js, F26)이다.
 // likes의 칸과 검사는 src/likes.js에 있다.
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
+import { customBytes, customFromBytes } from './custom-picture.js';
 import { canPlace } from './rules.js';
 import { sanitizeLikes, line } from './likes.js';
 
@@ -36,8 +38,9 @@ function sanitizeDecor(raw) {
   return wall !== 'plain' && WALL_PATTERNS.some(w => w.id === wall) ? { wall } : null;
 }
 
-// 주인 사진. 목록(data/user-pictures.js)에 있는 id만 남기고, 아니면 null이라 집 상태에 picture를 두지 않는다.
-const sanitizePicture = id => (USER_PICTURES.some(p => p.id === id) ? id : null);
+// 주인 사진. 목록(data/user-pictures.js)에 있는 id와 풀 수 있는 내 그림만 남기고, 아니면 null이라 집 상태에 picture를 두지 않는다.
+// 내 그림은 푼 바이트로 글을 다시 적는다(같은 그림이 늘 같은 글이 된다).
+const sanitizePicture = v => (USER_PICTURES.some(p => p.id === v) ? v : customFromBytes(customBytes(v)));
 
 // 저장본이나 링크에서 온 집 상태는 손으로 고쳐졌을 수 있으므로 항상 이걸 거친다.
 // 공간이 하나뿐이던 옛 형식({ owner, items })은 내 방으로 옮긴다.
@@ -141,14 +144,20 @@ function grow(v) {
 //   가구: [LINK_CODES 번호(7비트) + 표시(0x80)] [x * 16 + y]. 표시는 바닥 가구면 돌려 놓았는지, 벽 가구면 오른쪽 벽인지다
 // 짧은 형식(5): 방을 꾸몄거나(decor) 주인 사진(picture)이 있는 집이다. 인사말 뒤에 [덧붙임 바이트 수]와 덧붙임 바이트가 붙고 나머지는 4와 같다.
 //   덧붙임 바이트: [벽지 번호(data/wall-patterns.js의 순서, 0은 기본 벽)] [주인 사진 번호 + 1(data/user-pictures.js의 순서, 0은 사진 없음)]
-//   사진이 없으면 벽지 번호 하나만 담는다(벽지를 넣을 때 정한 모양). 바닥 같은 칸이 늘면 뒤에 더한다.
-//   푸는 쪽은 아는 바이트만 읽고 나머지는 건너뛴다. 그래서 사진을 넣기 전의 페이지도 사진이 든 링크를 사진 없이 연다.
+//   사진 번호 + 1 자리가 255(MY_PICTURE)면 주인 사진은 내 그림이고, 뒤에 [내 그림 바이트 수] [내 그림 바이트(src/custom-picture.js)]가 온다.
+//   내 그림은 짧은 링크의 방에만 담긴다(withPicture). 긴 링크에 담으면 200~300자가 늘어 카카오톡에서 잘리기 쉽다(known-issues 57).
+//   사진이 없으면 벽지 번호 하나만 담는다(벽지를 넣을 때 정한 모양). 바닥 같은 칸이 늘면 뒤에 더한다(내 그림이 있으면 그 바이트 뒤).
+//   푸는 쪽은 아는 바이트만 읽고 나머지는 건너뛴다. 그래서 사진을 넣기 전의 페이지도 사진이 든 링크를 사진 없이 열고,
+//   내 그림을 넣기 전의 페이지는 255를 모르는 사진 번호로 읽어 사진 없이 연다. 덧붙임 바이트는 모두 255개까지라 내 그림은 240바이트까지다.
 //   벽지도 사진도 없는 집은 벽지를 넣기 전과 같은 형식 4로 만든다(그 전의 페이지로 열어도 열린다).
 // 담을 수 없는 집(좌표가 15를 넘거나 글이 255바이트를 넘음)이면 RangeError를 던지고, encodeHome이 예전 형식으로 만든다.
+const MY_PICTURE = 255;
 function encodeShort(home) {
   const wall = WALL_PATTERNS.findIndex(w => w.id === home.decor?.wall);
   const pic = USER_PICTURES.findIndex(p => p.id === home.picture);
-  const extra = pic >= 0 ? [Math.max(wall, 0), pic + 1] : wall > 0 ? [wall] : [];
+  const mine = customBytes(home.picture);
+  const extra = mine ? [Math.max(wall, 0), MY_PICTURE, mine.length, ...mine]
+    : pic >= 0 ? [Math.max(wall, 0), pic + 1] : wall > 0 ? [wall] : [];
   const out = [extra.length ? 5 : 4];
   const text = str => {
     const b = utf8(str || '');
@@ -200,7 +209,8 @@ function decodeShort(b) {
   if (b[0] === 5) {
     const d = bytes(byte());
     if (d.length) decor.wall = WALL_PATTERNS[d[0]]?.id; // 모르는 번호면 기본 벽(sanitizeHome이 지운다)
-    if (d.length > 1) picture = USER_PICTURES[d[1] - 1]?.id; // 0이나 모르는 번호면 사진 없음
+    if (d.length > 1 && d[1] === MY_PICTURE) picture = customFromBytes(d.length > 2 && d.length >= 3 + d[2] ? d.slice(3, 3 + d[2]) : null);
+    else if (d.length > 1) picture = USER_PICTURES[d[1] - 1]?.id; // 0이나 모르는 번호면 사진 없음
   }
   const count = byte();
   const scenes = {};
@@ -223,7 +233,7 @@ function decodeShort(b) {
   return { owner, greeting, scenes, likes: rest ? grow(JSON.parse(rest)) : undefined, decor, picture };
 }
 
-// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말, d: decor, p: 주인 사진 id }
+// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말, d: decor, p: 주인 사진 값 }
 const pack = items => items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : it.r ? [it.id, it.x, it.y, 1] : [it.id, it.x, it.y]));
 const unpack = list => (Array.isArray(list)
   ? list.filter(Array.isArray).map(([id, x, y, extra]) => (typeof extra === 'string' ? { id, x, y, wall: extra } : { id, x, y, r: extra === 1 ? 1 : 0 }))

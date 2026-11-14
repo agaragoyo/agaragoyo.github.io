@@ -5,7 +5,7 @@
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
-import { withPicture } from '../user-pictures.js';
+import { withPicture, usesCustomPicture } from '../user-pictures.js';
 import { sharedId, share, unshare, syncNow } from '../cloud.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
@@ -28,9 +28,11 @@ function saveFile(blob, name) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다
-  const code = () => encodeHome(withPicture(home())); // 링크에 담는 글자. 내 사진도 담는다(F25)
+  // 링크에 담는 글자. 내 사진도 담는다(F25). 짧은 링크의 방(서버)에는 그림 파일로 만든 사진(내 그림, F26)까지 담고,
+  // 긴 링크에는 담지 않는다(200~300자가 늘어 카카오톡에서 잘리기 쉽다, known-issues 57)
+  const code = () => encodeHome(withPicture(home()));
   const base = () => `${location.origin}${location.pathname}`;
-  const longLink = () => `${base()}#r=${code()}`; // 예전 링크는 #room=(src/share.js의 linkCode)
+  const longLink = () => `${base()}#r=${encodeHome(withPicture(home(), 'long'))}`; // 예전 링크는 #room=(src/share.js의 linkCode)
   const shortLink = id => `${base()}#s=${id}`;
   const button = (label, onclick, title) => h('button', { type: 'button', className: 'btn', onclick, title }, label);
   const win = os.wm.open({
@@ -123,7 +125,9 @@ export function openShareApp(os, app) {
           );
         } else {
           const cut = long.length > MESSENGER_LIMIT ? `이 링크는 ${long.length.toLocaleString('ko-KR')}자라 카카오톡에서 잘립니다. ` : '';
-          cloudTip.replaceChildren(`${cut}짧은 링크를 만들면 방이 Firebase(구글) 서버에 저장됩니다.`);
+          // 내 그림을 쓰는 주인에게는 긴 링크로 온 친구가 내 그림을 보지 못한다는 것을 알린다(친구에게는 이름의 첫 글자가 보인다)
+          const mine = usesCustomPicture(home().owner) ? ' 그림 파일로 만든 사진은 짧은 링크에만 담깁니다.' : '';
+          cloudTip.replaceChildren(`${cut}짧은 링크를 만들면 방이 Firebase(구글) 서버에 저장됩니다.${mine}`);
           cloudRow.replaceChildren(button('짧은 링크 만들기', create));
         }
       };
