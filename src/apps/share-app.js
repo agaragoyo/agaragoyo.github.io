@@ -27,7 +27,7 @@ function saveFile(blob, name) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다(known-issues 40)
-  const code = () => encodeHome(withPicture(home())); // 서버에 올리는 방 글자. 내 사진도 담는다(F25)
+  const code = () => encodeHome(withPicture(home())); // 서버에 올리는 방 글자. 내 사진도 담는다(F25, 그림 파일로 만든 사진은 F26)
   const link = id => `${location.origin}${location.pathname}#s=${id}`;
   const button = (label, onclick, title) => h('button', { type: 'button', className: 'btn', onclick, title }, label);
   const win = os.wm.open({

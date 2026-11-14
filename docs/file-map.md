@@ -39,7 +39,7 @@
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | 부팅은 `src/os.js`의 `os.boot`, 로그인 화면(사용자 목록, 새 사용자 만들기, 이 컴퓨터 초기화)은 `src/login.js`의 `showLogin`, 고른 집으로 들어가기(환영 화면)는 `src/os.js`의 `enter` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
-| 사용자 사진(로그인 화면과 시작 메뉴의 프로필 사진) 그림 고치기와 더하기 | `data/user-pictures.js`. 한 글자가 한 칸이고 '.'은 바탕 색이다. 고르는 줄과 사진 바꾸기 창(시작 메뉴 맨 위의 사진을 누르면 열린다)은 `src/user-pictures.js` |
+| 사용자 사진(로그인 화면과 시작 메뉴의 프로필 사진) 그림 고치기와 더하기 | `data/user-pictures.js`. 한 글자가 한 칸이고 '.'은 바탕 색이다. 고르는 줄과 사진 바꾸기 창(시작 메뉴 맨 위의 사진을 누르면 열린다)은 `src/user-pictures.js`. 그림 파일로 만드는 사진(내 그림)을 줄이고 링크에 담는 바이트로 바꾸는 곳은 `src/custom-picture.js` |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
@@ -91,10 +91,11 @@
 | --- | --- | --- |
 | `src/os.js` | 부팅, 고른 집으로 들어가기(로그인 화면은 `login.js`가 만든다), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기, 유튜브 플레이어가 떠 있는 동안 화면 효과와 화면 보호기 끄기(`showingVideo`) | `createOS` |
 | `src/login.js` | 로그인 화면. 내 집, 링크로 온 친구 집(짧은 링크의 방은 서버에서 받아 온다), 이웃집(link 이웃집은 받는 동안 이름과 "불러오는 중"만 보인다)을 사용자처럼 늘어놓고, 맨 끝에 새 사용자 만들기(닉네임과 사진)나 이 컴퓨터 초기화를 둔다. 내 사용자에는 고른 사진이, 친구 집과 이웃집에는 링크에 담긴 주인 사진(사진이 없는 옛 링크면 이름의 첫 글자)이 보인다. 화면 바꾸기와 고른 집으로 들어가기는 `os.js`에서 넘겨받는다 | `createLogin` |
-| `src/user-pictures.js` | 사용자 사진(프로필 사진). `data/user-pictures.js`의 글자 격자를 SVG로 그리고, 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다. 새 사용자 만들기와 사진 바꾸기 창이 같이 쓰는 고르는 줄, 시작 메뉴에서 여는 사진 바꾸기 창, 내 사진 id의 저장(`agarago.picture`)과 고른 적 없는 사용자의 사진 정하기, 공유 링크에 담을 집에 내 사진 붙이기(`withPicture`) | `fitUserPictures`, `ownPicture`, `saveOwnPicture`, `withPicture`, `randomPicture`, `pictureEl`, `picturePicker`, `openPictureWindow` |
+| `src/user-pictures.js` | 사용자 사진(프로필 사진). `data/user-pictures.js`의 글자 격자를 SVG로 그리고, 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다. 새 사용자 만들기와 사진 바꾸기 창이 같이 쓰는 고르는 줄(그 아래의 그림 파일 찾아보기 포함), 시작 메뉴에서 여는 사진 바꾸기 창, 내 사진 값(목록 사진의 id나 내 그림)의 저장(`agarago.picture`)과 고른 적 없는 사용자의 사진 정하기, 서버에 올리는 방에 내 사진 붙이기(`withPicture`) | `fitUserPictures`, `ownPicture`, `saveOwnPicture`, `withPicture`, `randomPicture`, `pictureEl`, `picturePicker`, `openPictureWindow` |
+| `src/custom-picture.js` | 내 그림(그림 파일로 만든 프로필 사진, F26). 고른 그림 파일의 가운데를 잘라 24×24칸, 16색 이하(4096색 가운데서)로 줄이고, 링크의 덧붙임 바이트에 들어가는 240바이트 이하의 바이트로 적고 푼다. 사진 값은 'my:' 뒤에 그 바이트를 base64url로 적은 글이다. Node에서도 불러오므로(`tools/link-fuzz.mjs`) 캔버스는 함수 안에서만 쓴다 | `makeCustom`, `customValue`, `customBytes`, `customFromBytes`, `readCustom`, `isCustom`, `CUSTOM`, `MAX_BYTES` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 깨진 줄을 빼고 여섯 집까지 고르기, link 이웃집의 방을 서버에서 한 번 받아 두기(로그인 화면과 놀이터가 같이 쓴다), 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패와 서버에 방이 없는 집은 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborNow`, `prefetchNeighbors`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
-| `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
+| `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 가구를 두 번 눌러 열면 그 가구 자리에서 커지며 다가오고(0.4초, 방의 가구 그림이 처음 0.15초 함께 커지다 사라지고 열린 동안 그 가구는 숨긴다), 닫으면 그 자리로 줄어 돌아간다(0.2초). 바닥에 누운 게임기는 눕혀진 채 시작해 일어선다(`lift`). 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 아홉 개(방 꾸미기, 나도 만들기, 내 컴퓨터로, 놀이터, 집으로, 게임, 공유하기, 배경음악, 실험실), 시작 메뉴 아래쪽 항목, 가구 화면 앱, 튜토리얼과 이웃집 창, 추억의 플래시 게임, 시작 단추의 그림은 한 글자가 한 칸인 글자 격자로 그린 픽셀 그림이다(`PIXEL`, 48px와 24px 자리용 24칸, 16px와 게임기 화면용 16칸). 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다 | `iconEl`, `fitPixelIcons` |
 | `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`) | `createSdkHost` |
@@ -111,7 +112,7 @@
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문과 벽지 무늬, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함), 벽지 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
-| `src/share.js` | 집 상태 검사와 방 글자 만들기, 읽기. 서버에 두는 방 글자이고, 예전 긴 링크(`#r=...`, 그 전에는 `#room=...`)도 같은 글자라 여기서 연다. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말과 고른 벽지, 주인 사진 번호(둘 가운데 하나라도 있으면 형식 5)도 담긴다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
+| `src/share.js` | 집 상태 검사와 방 글자 만들기, 읽기. 서버에 두는 방 글자이고, 예전 긴 링크(`#r=...`, 그 전에는 `#room=...`)도 같은 글자라 여기서 연다. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말과 고른 벽지, 주인 사진 번호(둘 가운데 하나라도 있으면 형식 5)도 담긴다. 주인 사진이 내 그림이면 사진 번호 자리에 255와 그림 바이트를 담는다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다 | `sanitizeHome`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
 | `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기(링크로 온 친구 집과 link 이웃집). SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 링크를 지우면 쪽지도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `NOTE`, `MAX_CODE`, `CloudError` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 새 책과 작품의 색 고르기(`nextColor`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `nextColor`, `line`, `para`, `isOwner`, `LIMIT` |
 
@@ -130,7 +131,7 @@
 | `src/apps/labs-app.js` | 실험실. 말풍선에 암호를 말한 뒤에만 아이콘이 보이고(`data/apps.js`의 `labs: true`), 실험실 항목(`src/labs.js`)을 확인란으로 켜고 끈다. "실험실 닫기"는 모든 항목을 끄고 아이콘을 숨긴다 |
 | `src/apps/frame-app.js` | 팀원 앱(`apps/`의 웹페이지)을 iframe 창으로 띄운다. 엉뚱한 페이지로 넘어가면 다시 열기 안내 |
 | `src/apps/link-app.js` | `href`가 있는 앱. 새 탭에서 열린다는 것과 주소를 보여 준 뒤 "새 탭에서 열기"로 연다(창 안에서 돌지 않는 남의 게임). 주소가 여럿이면(`links`, 난이도 등) 단추를 하나씩 둔다. 안내와 단추(`linkPrompt`)는 옛날 컴퓨터도 같이 쓴다 |
-| `src/apps/console-app.js` | 가구 기믹: 게임기. 가까이 보기 화면에 게임기를 들고 게임 폴더의 게임을 폴더와 같은 묶음으로 늘어놓는다. 단추 셋(십자 단추 고르기, A 시작, B 나가기)의 하는 일을 단추 아래에 새긴다. 고른 게임은 게임기 화면 안에서 하고(다른 사이트 게임은 줄여서), B로 첫 화면에 돌아오며 첫 화면의 B는 게임기를 내려놓는다. 주인은 추천 게임 하나를 고른다 |
+| `src/apps/console-app.js` | 가구 기믹: 게임기. 가까이 보기 화면에 게임기를 들고 게임 폴더의 게임을 폴더와 같은 묶음으로 늘어놓는다. 단추 셋(십자 단추 고르기, A 시작, B 나가기)의 하는 일을 단추 아래에 새긴다. 게임 고르기 화면은 940×600이고, 고른 게임은 게임기 화면 쪽으로 한 번 더 당겨 바탕화면을 거의 채운 큰 화면(1120×700)에서 한다(다른 사이트 게임이 그보다 크면 줄여서), B로 첫 화면에 돌아오며 첫 화면의 B는 게임기를 내려놓는다. 주인은 추천 게임 하나를 고른다 |
 | `src/apps/bookshelf-app.js` | 가구 기믹: 책장. 고른 책의 표지(같은 디자인에 제목과 작가, 무작위 색)와 남긴 구절이 크게 뜨고, 선반의 책등이나 방향키로 넘긴다. 주인은 5권까지 넣고 고치고 뺀다 |
 | `src/apps/radio-app.js` | 가구 기믹: 라디오. 주인이 넣은 CD(스포티파이, 애플 뮤직, 유튜브 링크)를 펼치고, 고른 CD가 라디오에 들어가 돌면 공식 플레이어를 옆의 작은 창에 띄운다. 음악 창은 라디오를 내려놓아도 남고 그동안 사이트 배경음악을 멈춘다. 주인은 CD마다 이름과 색(`CD_COLORS`)을 정하고 고친다. 유튜브 플레이어는 IFrame Player API로 재생하지 못한 영상을 알아채 아래 안내 줄에 할 일을 쓰고, 떠 있는 동안 `os.showingVideo`로 화면 효과와 화면 보호기를 끈다 |
 | `src/apps/tv-app.js` | 가구 기믹: TV. 주인이 고른 영화와 TV 시리즈의 포스터를 추천 줄로 늘어놓고 휠과 방향키로 넘긴다. 주인은 위키데이터로 이름을 찾아 연도, 감독, 링크를 채우고 포스터 그림 주소와 추천 이유를 넣는다 |
@@ -177,8 +178,8 @@
 | `tools/check.py` | 자동 점검. 목록과 파일 경로, 가구 그림 이름, 가구 그림이 칸에 맞는지(경고. PNG를 직접 풀어 바닥 튀어나옴, 칸 채움, 벽 가구 정면을 잰다), 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 라디오 CD 색의 개수, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요). 글자 모으는 부분은 check.py도 쓴다 |
-| `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문), 기본 앱 창(공유하기의 링크 만들기와 지우기 포함)과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크), 이웃집(link 이웃집의 받는 동안 자리, 놀이터 문패, 서버에 방이 없을 때), 깨진 링크와 HTML이 든 링크, 짧은 링크(`#s=`)의 방, 이 컴퓨터 초기화의 지우기를 차례로 눌러 본다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자도 센다. 서버와 다른 사이트에는 요청을 보내지 않고(서버의 방과 링크 만들기, 유튜브 oEmbed는 페이지 안의 `fetch`를 바꿔 껴서 대신 답하고, Firebase 주소와 유튜브 플레이어는 받지 않게 막는다. link 이웃집은 `data/neighbors.js`를 가로채 한 줄을 더해 본다), 그림의 모양과 소리는 보지 않는다 |
-| `tools/link-fuzz.mjs` | 공유 링크 무작위 점검. `node tools/link-fuzz.mjs`로 돌린다(3초쯤, Node 22.7 이상). 무작위로 꾸민 집 2만 개를 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값을 넣어도 멈추지 않고 규칙을 지키는 집만 돌려주는지 본다. `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것의 칸을 더했을 때 돌린다 |
+| `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자(사진 고르기와 그림 파일 찾아보기)와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문), 기본 앱 창(공유하기의 링크 만들기와 지우기 포함)과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크), 이웃집(link 이웃집의 받는 동안 자리, 놀이터 문패, 서버에 방이 없을 때), 깨진 링크와 HTML이 든 링크, 짧은 링크(`#s=`)의 방, 이 컴퓨터 초기화의 지우기를 차례로 눌러 본다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자도 센다. 서버와 다른 사이트에는 요청을 보내지 않고(서버의 방과 링크 만들기, 유튜브 oEmbed는 페이지 안의 `fetch`를 바꿔 껴서 대신 답하고, Firebase 주소와 유튜브 플레이어는 받지 않게 막는다. link 이웃집은 `data/neighbors.js`를 가로채 한 줄을 더해 본다), 그림의 모양과 소리는 보지 않는다 |
+| `tools/link-fuzz.mjs` | 공유 링크 무작위 점검. `node tools/link-fuzz.mjs`로 돌린다(3초쯤, Node 22.7 이상). 무작위로 꾸민 집 2만 개를 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값을 넣어도 멈추지 않고 규칙을 지키는 집만 돌려주는지 본다. `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`를 고치거나 가구에 담는 것의 칸을 더했을 때 돌린다 |
 | `tools/css-diff.mjs` | 모양 비교. `node tools/css-diff.mjs`로 돌린다(5분쯤, Node 22 이상과 크롬이나 엣지, git 필요). 화면 99가지(꺼진 화면부터 손님 화면까지, 단추에 마우스를 올리거나 누른 상태 포함)를 열어, 같은 페이지에서 스타일시트만 마지막 커밋의 것으로 바꿔 끼우고 모든 요소의 계산된 속성을 낮과 밤에서 견준다. 모양을 바꾸지 않는 `style.css` 정리라면 "다른 곳 0개"가 나와야 하고, 모양을 일부러 바꿨다면 바뀐 요소와 속성의 목록이 나온다. `--base=<커밋이나 브랜치>`로 견줄 대상을 바꾼다 |
 | `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. 가구와 담아 둔 것이 있는 점검용 집(`TEST_HOME`)과 그 집을 내 집으로 심는 함수, 요청 가로채기 같은 크롬 이벤트를 받는 `on`도 여기에 있다. `tools/smoke.mjs`, `tools/night-contrast.mjs`, `tools/css-diff.mjs`가 같이 쓴다 |
 | `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 사진 바꾸기 창, 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 이어서 점검용 집을 심어 가구를 두 번 눌러 여는 화면 여섯 개(책장, TV, 게임기, 라디오, 코르크 보드, 컴퓨터)와 그 안의 넣는 칸도 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 방 그림 안의 글자(문패, 그림 없는 가구의 이름)는 재지 않는다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에, 가구 화면은 `SCREENS`에 적는다 |
@@ -216,7 +217,7 @@
 index.html
 └─ src/main.js ─── settings.js, cursors.js
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
-      ├─ src/login.js ── share.js, cloud.js, neighbors.js, user-pictures.js ── data/user-pictures.js
+      ├─ src/login.js ── share.js, cloud.js, neighbors.js, user-pictures.js ── data/user-pictures.js, custom-picture.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js
