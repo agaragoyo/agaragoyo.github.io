@@ -313,12 +313,19 @@
       }
     }
 
+    // ---------- 창을 최소화했을 때 ----------
+    // 실험실의 "최소화하면 게임 멈추기"를 켜면 창을 최소화할 때 알림이 온다(AGA.onHide, AGA.onShow).
+    // 가려진 동안은 떨어지던 물건이 그 자리에 멈추고, 다시 띄우면 바로 이어진다. 시계가 없는 게임이라 카드로 기다리게 하지 않는다
+    let hidden = false;
+    AGA.onHide(() => { hidden = true; });
+    AGA.onShow(() => { hidden = false; });
+
     let last = performance.now();
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
-      // 시작 카드가 떠 있는 동안은 물건이 멈춘다
-      if (!over && !card.isOpen) {
+      // 시작 카드가 떠 있거나 창이 가려진 동안은 물건이 멈춘다
+      if (!over && !card.isOpen && !hidden) {
         for (let i = 0; i < 4; i++) step(dt / 4);
         checkOver(dt);
       }

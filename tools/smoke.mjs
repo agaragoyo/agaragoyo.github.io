@@ -247,6 +247,39 @@ function pickOther(scope, avoid = null) {
 const shownPic = sel => document.querySelector(`${sel} .user-pic`)?.dataset.pic ?? null;
 const clickOnce = sel => { const el = document.querySelector(sel); if (!el) return false; el.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true; };
 const clickText = (sel, text) => { const el = [...document.querySelectorAll(sel)].find(b => b.textContent.includes(text)); if (!el) return false; el.click(); return true; };
+
+// 미니게임 창(제목이 title로 시작)에서 act를 한 뒤 게임 페이지의 상태를 돌려준다. 창이나 게임 페이지가 아직 없으면 null
+//   act: 'card:<글>' 떠 있는 카드에서 글로 시작하는 단추, 'min' 최소화 단추, 'task' 작업 표시줄 단추, 'drop' 판 가운데를 누르고 바로 최소화
+//   돌려주는 것: left 파일 정리 10의 남은 시간(초, 시간 막대 폭), y 짐 정리에서 맨 처음 떨어뜨린 물건의 높이, card 떠 있는 카드의 단추 글
+//   want를 주면 상태 대신 그 조건이 맞는지만 돌려준다(until로 기다릴 때). { card: 글 } 떠 있는 카드의 단추 글에 그 글이 있다,
+//   { leftBelow: 초 } 남은 시간이 그보다 적다, { fellFrom: 높이 } 물건이 그 높이보다 아래로 내려갔다
+function miniGame(title, act = '', want = null) {
+  const win = [...document.querySelectorAll('#windows .win')].find(w => w.querySelector('.win-title')?.textContent.startsWith(title));
+  const frame = win?.querySelector('iframe');
+  let doc = null;
+  try { doc = frame.contentDocument; } catch { /* 다른 문서 */ }
+  const cv = doc?.querySelector('canvas');
+  if (!cv || doc.readyState !== 'complete') return null;
+  const buttons = () => [...doc.querySelectorAll('.aga-card:not([hidden]) button')];
+  if (act.startsWith('card:')) buttons().find(b => b.textContent.startsWith(act.slice(5)))?.click();
+  if (act === 'min') win.querySelector('.win-min').click();
+  if (act === 'task') [...document.querySelectorAll('#tasks .task')].find(t => t.textContent.includes(title))?.click();
+  if (act === 'drop') {
+    const r = cv.getBoundingClientRect();
+    cv.dispatchEvent(new frame.contentWindow.PointerEvent('pointerdown', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+    win.querySelector('.win-min').click();
+  }
+  const bar = doc.querySelector('#timebar i');
+  const state = {
+    left: bar ? parseFloat(bar.style.width) : null,
+    y: frame.contentWindow.eval('typeof bodies === "object" && bodies.length ? bodies[0].y : null'),
+    card: buttons().map(b => b.textContent).join('/'),
+  };
+  if (!want) return state;
+  if ('card' in want) return state.card.includes(want.card);
+  if ('leftBelow' in want) return state.left < want.leftBelow;
+  return state.y > want.fellFrom;
+}
 const centreOf = sel => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
 
 // ---------- 크롬을 모는 도우미 ----------
@@ -1001,6 +1034,61 @@ async function walk(page, base) {
   check('실험실: 내 집으로 돌아온다', await enterMine());
   await openIcon('labs');
   await until(page, () => !!document.querySelector('#windows .labs-app'), 3000);
+
+  // 최소화하면 게임 멈추기(pause-hidden): 켜고 미니게임 창을 최소화하면 게임이 멈춘다. 파일 정리 10은 다시 띄울 때 이어서 하기 카드를 띄우고,
+  // 짐 정리는 바로 이어진다. 끄면 지금처럼 최소화한 동안에도 시계가 흐른다. 다른 항목은 끈다(빨리 보기의 화면 보호기가 재는 동안 뜨지 않게).
+  // 흘러야 하는 것은 정해진 시간만 기다리지 않고 움직일 때까지 기다린다. 컴퓨터가 바쁘면 화면 없는 크롬의 프레임이 1초 넘게 멎기도 했다
+  const TEN = '파일 정리 10';
+  const openGame = async (id, title, word) => {
+    await closeWindows();
+    await openIcon('games');
+    await sleep(300);
+    await page.run(clickTwice, `.folder-grid .desk-icon[data-app="${id}"]`);
+    return until(page, miniGame, 8000, title, '', { card: word });
+  };
+  await page.run(want => document.querySelectorAll('.labs-item').forEach(row => { const box = row.querySelector('input'); if (box.checked !== want.includes(row.dataset.lab)) box.click(); }), ['pause-hidden']);
+  check('최소화하면 게임 멈추기를 켜면 설정에 남는다', (await page.run(labsState)) === 'true/pause-hidden', await page.run(labsState));
+  await page.run(() => { localStorage.setItem('file-ten.tutored', 'true'); localStorage.setItem('file-ten.mode', '"normal"'); }); // 첫 판 안내 없이 시계가 바로 흐르게
+  check('파일 정리 10이 시작 카드와 함께 뜬다', await openGame('file-ten', TEN, '보통'), JSON.stringify(await page.run(miniGame, TEN)));
+  await page.run(miniGame, TEN, 'card:보통');
+  check('파일 정리 10을 시작하면 시계가 흐른다', await until(page, miniGame, 5000, TEN, '', { leftBelow: 99.8 }), JSON.stringify(await page.run(miniGame, TEN)));
+  const ten1 = await page.run(miniGame, TEN, 'min');
+  await sleep(3000);
+  await page.run(miniGame, TEN, 'task');
+  check('켜고 최소화했다 다시 띄우면 이어서 하기 카드가 뜬다', await until(page, miniGame, 2000, TEN, '', { card: '이어서 하기' }));
+  const ten2 = await page.run(miniGame, TEN);
+  check('켜고 최소화한 3초 동안 남은 시간이 그대로다(1초 안쪽)', Math.abs(ten1.left - ten2.left) < 1, `${ten1.left} → ${ten2.left}`);
+  await sleep(800);
+  check('이어서 하기 카드가 떠 있는 동안 시계가 멈춰 있다', Math.abs((await page.run(miniGame, TEN)).left - ten2.left) < 0.05);
+  await page.run(miniGame, TEN, 'card:이어서 하기');
+  check('이어서 하기를 누르면 시계가 다시 흐른다', await until(page, miniGame, 5000, TEN, '', { leftBelow: ten2.left - 0.2 }), `${ten2.left} → ${JSON.stringify(await page.run(miniGame, TEN))}`);
+  check('짐 정리가 시작 카드와 함께 뜬다', await openGame('tidy-up', '짐 정리', '게임 시작'));
+  await page.run(miniGame, '짐 정리', 'card:게임 시작');
+  await sleep(600); // 게임 페이지가 뜨고 0.45초(DROP_GAP) 안에는 떨어뜨리지 않는다
+  await page.run(miniGame, '짐 정리', 'drop');
+  await sleep(200);
+  const tidy1 = await page.run(miniGame, '짐 정리');
+  await sleep(1000);
+  const tidy2 = await page.run(miniGame, '짐 정리');
+  check('켜고 최소화하면 짐 정리의 떨어지던 물건이 그 자리에 멈춘다', tidy1?.y != null && tidy1.y === tidy2.y, `${tidy1?.y} → ${tidy2?.y}`);
+  await page.run(miniGame, '짐 정리', 'task');
+  check('짐 정리는 다시 띄우면 카드 없이 바로 이어진다', await until(page, miniGame, 5000, '짐 정리', '', { fellFrom: tidy2.y }) && !(await page.run(miniGame, '짐 정리')).card,
+    JSON.stringify(await page.run(miniGame, '짐 정리')));
+  await closeWindows();
+  await openIcon('labs');
+  await until(page, () => !!document.querySelector('.labs-item[data-lab="pause-hidden"] input'), 3000);
+  await page.run(() => document.querySelector('.labs-item[data-lab="pause-hidden"] input').click());
+  await openGame('file-ten', TEN, '보통');
+  await page.run(miniGame, TEN, 'card:보통');
+  const ten3 = await page.run(miniGame, TEN, 'min');
+  check('끄고 최소화하면 그동안에도 시계가 흐른다', await until(page, miniGame, 5000, TEN, '', { leftBelow: ten3.left - 1 }), `${ten3.left} → ${JSON.stringify(await page.run(miniGame, TEN))}`);
+  await page.run(miniGame, TEN, 'task');
+  await sleep(300);
+  check('끄고 최소화했다 다시 띄우면 카드가 뜨지 않는다', !(await page.run(miniGame, TEN)).card);
+  await closeWindows();
+  await openIcon('labs');
+  await until(page, () => !!document.querySelector('.labs-app .btn'), 3000);
+
   await page.run(clickText, '.labs-app .btn', '실험실 닫기');
   check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
     && (await page.run(labsState)) === 'false/', await page.run(labsState));

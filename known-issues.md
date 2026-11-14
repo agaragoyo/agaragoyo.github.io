@@ -650,3 +650,11 @@
   화면 없는 크롬에서는 첫 진짜 입력(`Input.dispatchMouseEvent`) 전까지 `hasFocus()`가 false이고 소리 재생도 막힌다. 한번 받은 초점은 초점 흉내(`Emulation.setFocusEmulationEnabled`)를 꺼도,
   다른 탭을 앞으로 내도 그대로 남는다. 초점 흉내를 켜 둔 동안에는 다른 탭을 앞으로 내도 이 탭이 가려지지 않는다.
   그래서 점검에서 초점을 잃는 것은 `document.hasFocus`를 바꿔 끼워 흉내 내고, 탭이 가려지는 것은 초점 흉내 없이 `Target.createTarget`으로 새 탭을 앞에 열어 만든다(`tools/smoke.mjs`).
+
+## 75. 창을 최소화해도 그 안의 미니게임은 보일 때처럼 돈다 (iframe에는 visibilitychange가 오지 않음)
+
+- 증상: 미니게임 창을 최소화해도 파일 정리 10의 100초가 그대로 흘렀다(2026-11-11에 잼). 최소화한 동안 게임 페이지의 `document.visibilityState`는 계속 `visible`이었다.
+- 원인: 최소화는 창 상자에 hidden(display: none)을 거는 것뿐이라 브라우저 탭은 여전히 보이는 중이다. 페이지가 보이는지(Page Visibility)는 탭 단위로 정해져서
+  iframe 안에는 `visibilitychange`가 오지 않고, 같은 사이트의 iframe은 숨겨져도 requestAnimationFrame이 그대로 돈다(화면 없는 크롬에서 재 봄).
+- 규칙: 창이 가려진 것은 앱 SDK의 `AGA.onHide`, `AGA.onShow`로 받는다(`src/win.js`의 minimize와 restore가 `src/sdk-host.js`를 거쳐 알린다).
+  게임 안에서 `document.hidden`이나 `visibilitychange`로 최소화를 알아내려 하지 않는다. 2026-11-14 지금은 실험실의 `pause-hidden`을 켠 동안만 알림이 간다.

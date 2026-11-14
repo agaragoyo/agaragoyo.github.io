@@ -52,6 +52,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       layer: $('#windows'),
       tasks: $('#tasks'),
       toLocal: toStage,
+      onVisible: (win, visible) => os.sdk?.tellVisible(win, visible), // 실험실의 pause-hidden을 켜면 미니게임이 멈춘다
     }),
   };
   os.tutorial = createTutorial(os);

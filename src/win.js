@@ -7,7 +7,8 @@ import { clamp, doubleClick } from './util.js';
 export const CHROME_W = 14;
 export const CHROME_H = 47;
 
-export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
+// onVisible(창, 보이는지): 창을 최소화하거나 다시 띄울 때 불린다. 앱(iframe)에 알리는 일은 src/sdk-host.js가 한다
+export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible = () => {} }) {
   const wins = new Map(); // key -> win
   let topZ = 1;
   let cascade = 0;
@@ -46,6 +47,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
   function minimize(win) {
     win.minimized = true;
     win.el.hidden = true;
+    onVisible(win, false);
     if (focused === win) {
       focused = [...wins.values()].filter(w => !w.minimized).sort((a, b) => b.el.style.zIndex - a.el.style.zIndex)[0] || null;
       if (focused) focus(focused);
@@ -58,6 +60,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {} }) {
   function restore(win) {
     win.minimized = false;
     win.el.hidden = false;
+    onVisible(win, true);
     onChange();
   }
 

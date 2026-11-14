@@ -571,12 +571,30 @@
       }
     }
 
+    // ---------- 창을 최소화했을 때 ----------
+    // 실험실의 "최소화하면 게임 멈추기"를 켜면 창을 최소화할 때 알림이 온다(AGA.onHide, AGA.onShow). 가려진 동안은 시계를 멈추고,
+    // 시계가 흐르던 판이면 다시 띄웠을 때 이어서 하기 카드를 띄운다. 작업 표시줄을 누른 손이 판으로 돌아오는 동안 시간을 잃지 않고,
+    // 카드가 떠 있는 동안은 숫자가 가려져서 멈춘 시간에 묶음을 찾아 둘 수도 없다
+    let hidden = false;
+    let stopped = false; // 가려질 때 시계가 흐르고 있었는지
+    AGA.onHide(() => {
+      stopped = ticking();
+      hidden = true;
+      sel = null;
+    });
+    AGA.onShow(() => {
+      hidden = false;
+      if (stopped && !card.isOpen) openCard(true);
+      stopped = false;
+    });
+
+    // 시계는 시작 카드가 떠 있거나, 첫 판 안내로 첫 묶음을 기다리거나, 창이 가려진 동안 멈춘다
+    const ticking = () => !over && mode === 'normal' && !card.isOpen && !tutor && !hidden;
     let last = performance.now();
     function loop(now) {
       const dt = (now - last) / 1000;
       last = now;
-      // 시계는 시작 카드가 떠 있거나 첫 판 안내로 첫 묶음을 기다리는 동안 멈춘다
-      if (!over && mode === 'normal' && !card.isOpen && !tutor) {
+      if (ticking()) {
         used += Math.min(dt, 0.1); // 탭이 뒤에 있다 돌아온 긴 틈은 한 번에 세지 않는다
         timeLeft = Math.max(0, TIME - used);
         if (timeLeft === 0) finish('time', performance.now());
