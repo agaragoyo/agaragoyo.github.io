@@ -110,12 +110,14 @@ export function pictureEl(id, slot = 48) {
 // 파일 고르는 칸은 숨겨 두고 단추로 연다. 같은 파일을 다시 골라도 바뀐 것으로 알도록 고른 뒤에 칸을 비운다.
 // toast(글, ms): 그림 파일을 열지 못했을 때 알림을 띄우는 함수
 export function picturePicker(current, onPick, toast) {
+  let turn = 0; // 고를 때마다 하나씩 는다. 그림을 줄이는 동안 다른 사진을 눌렀으면 늦게 끝난 그림은 버린다
   const buttons = USER_PICTURES.map(p => h('button', {
     type: 'button',
     className: 'pic-choice',
     title: p.name,
     'aria-label': p.name,
     onclick: () => {
+      turn++;
       mark(p.id);
       onPick(p.id);
     },
@@ -129,10 +131,12 @@ export function picturePicker(current, onPick, toast) {
     const chosen = file.files[0];
     file.value = '';
     if (!chosen) return;
+    const mine = ++turn;
     browse.disabled = true;
     browse.textContent = '그림을 줄이는 중';
     try {
       const v = await makeCustom(chosen);
+      if (mine !== turn) return;
       mark(null);
       onPick(v);
     } catch (err) {
