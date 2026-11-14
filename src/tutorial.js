@@ -22,7 +22,7 @@ const LESSONS = ['가구 놓기', '가구 쓰기', '놀이터 가기'];
 const ARROW_H = 56; // 화살표가 차지하는 높이(그림 48px, 튀는 폭 8px). 대상 위쪽에 이만큼 자리가 없으면 아래에 둔다
 const CARD = { left: 860, top: 470, bottom: 628 }; // 안내 카드의 기본 자리(style.css의 .coach-card). 대상이 여기에 걸리면 카드가 왼쪽으로 비킨다
 
-const APP = { title: '튜토리얼', color: '#3f7a4f' }; // 시작 메뉴와 안내 창의 아이콘
+const APP = { title: '튜토리얼', icon: 'builtin:tutorial' }; // 시작 메뉴와 안내 창의 아이콘(src/icons.js)
 
 const eul = word => `${word}${batchim(word) ? '을' : '를'}`;
 const newState = active => ({ active, passed: {} });

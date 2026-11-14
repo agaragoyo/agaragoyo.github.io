@@ -46,7 +46,7 @@ export function askVisit(os, n) {
   ].filter(Boolean);
   os.wm.open({
     key: 'neighbor',
-    app: { title: '이웃집', color: '#8a5a32' },
+    app: { title: '이웃집', icon: 'builtin:neighbor' },
     title: '이웃집 놀러 가기',
     width: 360,
     height: 150 + notes.length * 22,

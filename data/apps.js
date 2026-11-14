@@ -8,7 +8,7 @@
 //   id       영소문자와 하이픈. 겹치면 안 된다
 //   title    아이콘 아래와 창 제목에 쓰는 이름
 //   icon     그림 경로(png, svg, webp). 없으면 color 색 타일에 제목 첫 글자를 쓴다
-//            'builtin:<이름>'은 src/icons.js의 PIXEL에 글자로 그린 픽셀 아이콘이다(기본 앱만 쓴다)
+//            'builtin:<이름>'은 src/icons.js의 PIXEL에 글자로 그린 픽셀 아이콘이다(기본 앱, 가구 화면 앱, 추억의 플래시 게임이 쓴다)
 //   color    아이콘 타일 색 (icon 이 없을 때)
 //   src      창 안에 띄울 페이지 주소. 같은 사이트 안의 apps/<앱이름>/index.html 이 가장 좋다
 //            (다른 사이트 주소도 되지만, 그 페이지가 엉뚱한 곳으로 넘어가도 알아채지 못하고,
@@ -41,13 +41,13 @@ export const APPS = [
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },
 
   // 가구 기믹. 아이콘 없이 data/furniture.js의 gimmick: 'app:<id>'로만 열린다. 주인이 가구에 담아 둔 것을 보여 준다(src/likes.js)
-  { id: 'computer', title: '컴퓨터', color: '#8f8a7c', builtin: 'computer', folder: 'furniture' },
-  { id: 'console', title: '게임기', color: '#c97b8a', builtin: 'console', folder: 'furniture' },
-  { id: 'bookshelf', title: '책장', color: '#685447', builtin: 'bookshelf', folder: 'furniture' },
-  { id: 'radio', title: '라디오', color: '#8a7f63', builtin: 'radio', folder: 'furniture' },
-  { id: 'tv', title: 'TV', color: '#6f7d63', builtin: 'tv', folder: 'furniture' },
+  { id: 'computer', title: '컴퓨터', icon: 'builtin:pc', builtin: 'computer', folder: 'furniture' },
+  { id: 'console', title: '게임기', icon: 'builtin:games', builtin: 'console', folder: 'furniture' },
+  { id: 'bookshelf', title: '책장', icon: 'builtin:bookshelf', builtin: 'bookshelf', folder: 'furniture' },
+  { id: 'radio', title: '라디오', icon: 'builtin:radio', builtin: 'radio', folder: 'furniture' },
+  { id: 'tv', title: 'TV', icon: 'builtin:tv', builtin: 'tv', folder: 'furniture' },
   // 코르크 보드는 주인이 아니라 손님이 쪽지를 붙인다(방명록, 시험). 쪽지는 서버(src/cloud.js)에 있다
-  { id: 'corkboard', title: '코르크 보드', color: '#a87b4f', builtin: 'corkboard', folder: 'furniture' },
+  { id: 'corkboard', title: '코르크 보드', icon: 'builtin:corkboard', builtin: 'corkboard', folder: 'furniture' },
 
   // 미니게임 폴더. 아가라고요용으로 만든 게임 둘과, 자리 채우기로 넣은 레포 밖의 기존 게임들.
   // 레포 밖 게임 다섯 개는 게임 안에 배경음악이 있어서 music: 'own' 이다.
@@ -62,16 +62,16 @@ export const APPS = [
 
   // 추억의 플래시 게임. 남의 게임이라 파일을 레포로 옮기지 않고 원작 주소를 새 탭으로 연다.
   // 와플래시 게임 아카이브의 플레이어는 다른 사이트의 창 안에서 게임을 시작하지 않고, friv.com은 창에 띄우는 것을 막아 두었다(known-issues 31).
-  { id: 'shu-ramen', title: '슈의 라면가게', color: '#c0703a', href: 'https://waflash.org/36', folder: 'games' },
-  { id: 'prison-escape', title: '감옥탈출', color: '#55606e', href: 'https://waflash.org/155', folder: 'games' },
-  { id: 'eye-signal', title: '눈빛보내기', color: '#b0577f', href: 'https://waflash.org/203', folder: 'games' },
-  { id: 'fireboy-watergirl', title: 'Fireboy and Watergirl', color: '#4a78b5', href: 'https://www.friv.com/z/games/fireboyandwatergirlforest/game.html', folder: 'games' },
+  { id: 'shu-ramen', title: '슈의 라면가게', icon: 'builtin:ramen', href: 'https://waflash.org/36', folder: 'games' },
+  { id: 'prison-escape', title: '감옥탈출', icon: 'builtin:prison', href: 'https://waflash.org/155', folder: 'games' },
+  { id: 'eye-signal', title: '눈빛보내기', icon: 'builtin:eye', href: 'https://waflash.org/203', folder: 'games' },
+  { id: 'fireboy-watergirl', title: 'Fireboy and Watergirl', icon: 'builtin:firewater', href: 'https://www.friv.com/z/games/fireboyandwatergirlforest/game.html', folder: 'games' },
   // 2026-11-10 피그마 플래시 게임 표에 더해진 것. 크라라 공주는 난이도마다, 아바타 스타 슈는 1화와 전체 목록 주소가 따로 있어 links로 고른다.
-  { id: 'gogunbuntu', title: '고군분투', color: '#8a6d3b', href: 'https://waflash.org/85', folder: 'games' },
-  { id: 'animal-rescue', title: '동물구출 대작전', color: '#5f8f4e', href: 'https://waflash.org/315', folder: 'games' },
-  { id: 'krara-room', title: '크라라 공주와 이상한 방', color: '#b05a8a', href: 'https://waflash.org/451', folder: 'games', links: [{ label: '초급으로 열기', href: 'https://waflash.org/451' }, { label: '중급으로 열기', href: 'https://waflash.org/902' }, { label: '고급으로 열기', href: 'https://waflash.org/903' }] },
-  { id: 'number-song', title: '숫자쏭', color: '#d4a12a', href: 'https://waflash.org/239', folder: 'games' },
-  { id: 'avatar-star-shu', title: '아바타 스타 슈 1화', color: '#7b5fb0', href: 'https://waflash.org/1179', folder: 'games', noun: '영상', links: [{ label: '1화 보기', href: 'https://waflash.org/1179' }, { label: '전체 목록 보기', href: 'https://waflash.org/search/%EC%95%84%EB%B0%94%ED%83%80%20%EC%8A%A4%ED%83%80%20%EC%8A%88' }] },
+  { id: 'gogunbuntu', title: '고군분투', icon: 'builtin:shield', href: 'https://waflash.org/85', folder: 'games' },
+  { id: 'animal-rescue', title: '동물구출 대작전', icon: 'builtin:rescue', href: 'https://waflash.org/315', folder: 'games' },
+  { id: 'krara-room', title: '크라라 공주와 이상한 방', icon: 'builtin:crown', href: 'https://waflash.org/451', folder: 'games', links: [{ label: '초급으로 열기', href: 'https://waflash.org/451' }, { label: '중급으로 열기', href: 'https://waflash.org/902' }, { label: '고급으로 열기', href: 'https://waflash.org/903' }] },
+  { id: 'number-song', title: '숫자쏭', icon: 'builtin:blocks', href: 'https://waflash.org/239', folder: 'games' },
+  { id: 'avatar-star-shu', title: '아바타 스타 슈 1화', icon: 'builtin:clapper', href: 'https://waflash.org/1179', folder: 'games', noun: '영상', links: [{ label: '1화 보기', href: 'https://waflash.org/1179' }, { label: '전체 목록 보기', href: 'https://waflash.org/search/%EC%95%84%EB%B0%94%ED%83%80%20%EC%8A%A4%ED%83%80%20%EC%8A%88' }] },
 ];
 
 export const APP_BY_ID = Object.fromEntries(APPS.map(a => [a.id, a]));
