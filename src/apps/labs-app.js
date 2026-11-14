@@ -4,9 +4,8 @@
 import { h } from '../util.js';
 import { LABS, setLab, labOn, closeLabs } from '../labs.js';
 
-// 창 높이는 항목이 늘어도 아래의 실험실 닫기 단추가 창 밖으로 밀리지 않게 항목마다 더한다.
-// 항목 하나는 이름 한 줄(24px), 설명 한 줄마다 21px, 사이 간격 10px이다
-const windowHeight = () => 150 + LABS.reduce((sum, lab) => sum + 34 + 21 * lab.desc.split('\n').length, 0);
+// 항목 하나(이름 한 줄과 두 줄 설명)는 68px, 항목 사이는 8px이다. 항목이 늘면 창도 그만큼 늘려 실험실 닫기 단추가 스크롤 아래로 밀리지 않게 한다
+const ITEM_H = 76;
 
 export function openLabsApp(os, app) {
   const { settings } = os;
@@ -16,7 +15,7 @@ export function openLabsApp(os, app) {
     app,
     title: '실험실',
     width: 400,
-    height: windowHeight(),
+    height: 250 + ITEM_H * (LABS.length - 1),
     build(body) {
       body.classList.add('labs-app');
 
