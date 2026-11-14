@@ -66,13 +66,19 @@ const NOTE = {
 const GONE = {
   blocked: '다른 사이트에서는 재생할 수 없는 영상입니다. 다른 영상의 주소를 넣어 주세요.',
   video: '찾을 수 없는 영상입니다. 공유 링크를 다시 복사해 넣어 주세요.',
-  playlist: '찾을 수 없는 재생목록입니다. 공개된 재생목록인지 확인해 주세요.',
+  playlist: '찾을 수 없는 재생목록입니다. 비공개라면 일부 공개로 바꿔 주세요.',
 };
 
-// CD 이름과 표지. 링크마다 한 번만 받는다. 못 받으면 이름 대신 서비스 이름을 쓴다
+// CD 이름과 표지. 링크마다 한 번만 받는다. 못 받으면 이름 대신 서비스 이름을 쓴다.
+// 재생할 수 없다는 답(gone)만은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤(비공개 재생목록을 일부 공개로) 넣기를 다시 누르면 다시 묻는다(known-issues 71)
 const meta = new Map();
 function loadMeta(m) {
-  if (!meta.has(m.link)) meta.set(m.link, fetchMeta(m).catch(() => null));
+  if (!meta.has(m.link)) {
+    meta.set(m.link, fetchMeta(m).catch(() => null).then(info => {
+      if (info?.gone) meta.delete(m.link);
+      return info;
+    }));
+  }
   return meta.get(m.link);
 }
 async function fetchMeta(m) {
@@ -82,7 +88,8 @@ async function fetchMeta(m) {
     if (r.ok) { const d = await r.json(); info = { title: d.title, art: d.thumbnail_url }; }
   } else if (m.service === 'youtube') {
     // 유튜브 oEmbed는 키 없이 이 사이트에서 바로 부를 수 있다(CORS). 재생목록은 목록 이름이 온다. 섬네일은 깔지 않는다(맨 위 설명).
-    // 없는 영상은 400, 없거나 비공개인 재생목록은 404, 퍼가기를 막은 영상은 401로 답한다. 넣는 칸은 이것(gone)을 보고 넣지 않는다
+    // 없는 영상은 400, 없거나 비공개인 재생목록은 404, 퍼가기를 막은 영상은 401로 답한다. 넣는 칸은 이것(gone)을 보고 넣지 않는다.
+    // 일부 공개인 재생목록과 영상은 공개와 똑같이 200으로 답한다(2026-11-14 확인)
     const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(m.link)}`);
     if (r.status === 401) return { title: '', art: '', gone: 'blocked' };
     if (r.status === 400 || r.status === 404) return { title: '', art: '', gone: m.kind };
