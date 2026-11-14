@@ -67,7 +67,7 @@ function pressPower() {
 function newUser(name) {
   const form = document.querySelector('.user.new');
   if (!form) return false;
-  form.querySelector('input').value = name;
+  form.querySelector('input[aria-label="닉네임"]').value = name;
   form.requestSubmit();
   return true;
 }

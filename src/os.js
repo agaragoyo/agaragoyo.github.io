@@ -360,7 +360,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     }, iconEl(app, 24), h('span', {}, label));
     // 맨 위의 사용자 그림. 내 컴퓨터에서는 내 사진이고, 누르면 사진 바꾸기 창이 열린다(src/user-pictures.js).
     // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
-    // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것)면 주인 이름의 첫 글자가 보인다
+    // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것, 내 그림을 쓰는 주인의 긴 링크)면 주인 이름의 첫 글자가 보인다
     const mine = os.mode === 'edit';
     const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : os.home.picture);
     const head = mine && !os.realHome
