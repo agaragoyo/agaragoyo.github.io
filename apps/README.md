@@ -12,17 +12,17 @@
 다 만들었으면 `data/apps.js`의 목록에 한 줄을 추가합니다.
 
 ```js
-{ id: 'sand-dig', title: '모래 파기', icon: 'apps/sand-dig/icon.png', src: 'apps/sand-dig/index.html', size: [480, 360], folder: 'games' },
+{ id: 'sand-dig', title: '모래 파기', icon: 'apps/sand-dig/icon.png', src: 'apps/sand-dig/index.html', size: [480, 360], folder: 'games', group: 'mini' },
 ```
 
 `id`는 폴더 이름과 같게 씁니다. `size`는 창 안쪽 크기이고, 바탕화면 전체가 1280×800입니다.
-`folder: 'games'`를 붙이면 미니게임 폴더 안에 들어가고, 빼면 바탕화면에 아이콘이 생깁니다.
+`folder: 'games'`를 붙이면 게임 폴더 안에 들어가고, 빼면 바탕화면에 아이콘이 생깁니다. 게임 폴더에 넣을 때는 `group: 'mini'`도 적습니다(작은 게임이 나오는 묶음 "미니게임"이고, 다른 묶음은 `data/apps.js` 맨 위 설명에 있습니다).
 아이콘 그림이 없으면 `icon`을 빼고 `color: '#e3cf98'`처럼 색만 적어도 됩니다. 그러면 그 색 타일에 제목 첫 글자가 들어간 아이콘이 만들어집니다.
 
 ## 가구에 붙이기
 
 냉장고를 두 번 누르면 요리 게임이 열리는 것처럼, 바탕화면에서 가구를 두 번 눌렀을 때 내 앱이 열리게 할 수 있습니다(아바타가 가구 옆으로 걸어간 뒤 열립니다).
-앱을 위와 같이 만들어 목록에 넣고, `folder: 'furniture'`를 붙입니다. 그러면 바탕화면이나 미니게임 폴더에는 나오지 않고 가구로만 열립니다.
+앱을 위와 같이 만들어 목록에 넣고, `folder: 'furniture'`를 붙입니다. 그러면 바탕화면이나 게임 폴더에는 나오지 않고 가구로만 열립니다.
 그다음 `data/furniture.js`에서 그 가구 줄에 `gimmick: 'app:<내 앱 id>'`를 더합니다.
 
 ```js
