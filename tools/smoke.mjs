@@ -324,6 +324,9 @@ async function walk(page, base) {
   const games = await page.run(gameIds);
   await openIcon('games');
   await sleep(300);
+  // 게임이 늘어 아이콘 칸이 다시 잘리면(스크롤이 생기면) 알린다. 창이 창 영역(1280×800px) 안에 드는지도 본다
+  check('게임 폴더의 아이콘이 스크롤 없이 다 보인다', await page.run(() => { const g = document.querySelector('.folder-grid'); return !!g && g.scrollHeight <= g.clientHeight; }));
+  check('게임 폴더 창이 창 영역 안에 든다', await page.run(() => { const r = document.querySelector('#windows .win').getBoundingClientRect(), s = document.querySelector('#windows').getBoundingClientRect(); return r.left >= s.left - 1 && r.right <= s.right + 1 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1; }));
   for (const id of [...games.own, games.link].filter(Boolean)) {
     await page.run(clickTwice, `.folder-grid .desk-icon[data-app="${id}"]`);
     await sleep(600);
