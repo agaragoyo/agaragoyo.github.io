@@ -15,7 +15,7 @@ import { play } from './sound.js';
 // nextRun(): 새 실행 번호 받기(전원을 끄거나 로그아웃하면 번호가 바뀐다). isCurrent(my): my가 아직 지금 실행인지
 // 돌려주는 것: 부팅할 때 미리 받기(loginHomes, cloudHome), 내 집(ownHome), 로그인 화면(showLogin), 시작 메뉴의 사용자 그림(avatar)
 // 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집과 이웃집에는 링크에 담긴 주인 사진이 보인다.
-// 사진을 넣기 전에 만든 링크는 사진이 없으므로 이름의 첫 글자가 보인다.
+// 사진을 넣기 전에 만든 링크와, 그림 파일로 만든 사진(내 그림)을 쓰는 주인의 긴 링크는 사진이 없으므로 이름의 첫 글자가 보인다.
 export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, isCurrent }) {
   // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
   function ownHome() {
@@ -133,7 +133,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return box;
   }
 
-  // 사용자 그림. picture(사진 id)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다
+  // 사용자 그림. picture(사진 값: 사진 id나 내 그림)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다
   const avatar = (name, picture = null) => (picture
     ? h('span', { className: 'avatar has-pic' }, pictureEl(picture, 48))
     : h('span', { className: 'avatar' }, [...name][0] || '?'));
@@ -144,15 +144,16 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
       h('span', { className: 'user-name' }, name, h('small', {}, sub)));
   }
 
-  // 새 사용자 만들기. 닉네임 칸 위에 사진을 고르는 줄이 있고, 왼쪽의 큰 그림이 고른 사진을 보여 준다.
-  // 아무 사진이나 하나를 미리 골라 두므로 사진을 고르지 않고 확인을 눌러도 된다. onCreate(닉네임, 사진 id)
+  // 새 사용자 만들기. 닉네임 칸 위에 사진을 고르는 줄과 그림 파일 찾아보기가 있고, 왼쪽의 큰 그림이 고른 사진을 보여 준다.
+  // 그림 파일을 고르면 픽셀 그림으로 줄인 내 그림이 큰 그림 자리에 뜨고, 확인을 누를 때 저장한다(src/custom-picture.js).
+  // 아무 사진이나 하나를 미리 골라 두므로 사진을 고르지 않고 확인을 눌러도 된다. onCreate(닉네임, 사진 값)
   function newUserTile(onCreate) {
     let picture = randomPicture();
     const face = avatar('', picture);
-    const picker = picturePicker(picture, id => {
-      picture = id;
-      face.replaceChildren(pictureEl(id, 48));
-    });
+    const picker = picturePicker(picture, v => {
+      picture = v;
+      face.replaceChildren(pictureEl(v, 48));
+    }, toast);
     const input = h('input', { maxLength: 12, autocomplete: 'off', placeholder: '닉네임 (최대 12글자)', 'aria-label': '닉네임' });
     // 아이디를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드"). 누르고 있어 되풀이되는 키와 Enter, 조합 키는 빼고, 한글 입력 중(Process)도 소리를 낸다.
     input.addEventListener('keydown', e => {

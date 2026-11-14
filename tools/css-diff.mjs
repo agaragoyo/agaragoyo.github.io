@@ -131,7 +131,7 @@ async function main() {
   await check('로그인(처음 온 사람)', false);
   await page.run(() => { const f = document.querySelector('.user.new'); f.requestSubmit(); });
   await check('빈 닉네임 안내', false);
-  await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input').value = '점검'; f.requestSubmit(); });
+  await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '점검'; f.requestSubmit(); });
   await sleep(1200);
   await check('새 사용자의 바탕화면과 튜토리얼 카드');
   await page.run(() => document.getElementById('sound-key').click());

@@ -1077,6 +1077,11 @@ form.user { cursor: var(--cur-arrow); }
 .pic-choice:hover { border-color: #ffffff80; }
 .pic-choice[aria-pressed="true"] { border-color: #fff; }
 .user.new .user-name { gap: 6px; }
+/* 사진 줄 아래의 "그림 파일 찾아보기"(내 그림, src/custom-picture.js). XP의 사용자 그림 고르기처럼 그림 목록 아래에 밑줄 글자로 둔다.
+   로그인 화면의 파란 바탕에서는 흰 글자, 창 안에서는 링크처럼 파란 글자다 */
+.pic-picker-box { display: grid; gap: 4px; justify-items: start; }
+.pic-browse { padding: 2px 4px; border: 0; background: none; font-size: 15px; text-decoration: underline; color: inherit; cursor: var(--cur-hand); }
+.pic-browse:disabled { text-decoration: none; opacity: 0.7; cursor: default; }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
@@ -1088,6 +1093,8 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
+.pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
+.pic-app .pic-app-tip { margin-top: 2px; padding-left: 4px; } /* 글자색은 .meta(밤에는 밤 짝)를 따른다 */
 
 .toast {
   position: absolute;
@@ -1320,6 +1327,7 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .win-body input::placeholder { color: #a3a1b3; }
 .stage[data-theme="night"] .folder-hint, .stage[data-theme="night"] .win-body .meta { color: #a9a5c2; }
 .stage[data-theme="night"] .win-body .like-error { color: #ffb4a8; } /* 창 바탕만 밤에 어두워진다. 가까이 보기의 종이 카드는 밤에도 밝다 */
+.stage[data-theme="night"] .pic-app .pic-browse { color: #9cc0ff; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
 
 /* 방 꾸미기: 돌리기 안내 */
