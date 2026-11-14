@@ -615,3 +615,15 @@
   일부 공개인 재생목록과 영상에는 oEmbed가 공개와 똑같이 200으로 답한다(배포 주소에서 일부 공개 재생목록을 넣어 재생까지 확인했다).
 - 규칙: 바깥 서비스가 "넣을 수 없다"고 한 답 가운데 사용자가 고칠 수 있는 것(공개 범위, 퍼가기 설정)은 받아 두지 않고 다시 묻는다.
   받아 두는 것은 이름과 표지처럼 낡아도 해가 없는 답뿐이다. 고칠 방법을 알리는 안내를 쓰면, 그대로 고친 뒤 같은 화면에서 다시 해 보는 데까지 시험한다.
+
+## 74. 게임 창 안을 누른 뒤에는 다른 프로그램으로 넘어가도 바깥 문서에 blur가 오지 않는다 (창이 뒤로 가면 소리 끄기)
+
+- 증상: 게임 창이나 라디오 플레이어(iframe) 안을 누른 다음 다른 프로그램으로 넘어가면 바깥 문서의 window에 blur가 오지 않아, blur만 듣는 코드는 창이 뒤로 간 것을 모른다.
+  돌아올 때도 focus가 오지 않는다. 2026-11-14에 창이 뒤로 가면 소리를 끄는 기능(F27)을 만들며 찾았다.
+- 원인: blur와 focus는 키보드 초점을 가진 문서의 window에 온다. iframe 안을 누르는 순간 바깥 window의 blur는 이미 왔고(36번), 그 뒤로 창을 오가는 알림은 iframe의 window가 받는다.
+  다른 출처의 iframe이면 바깥에서 들을 수도 없다. 대신 바깥 문서의 `document.hasFocus()`는 초점이 iframe 안에 있어도 true이고, 창이 뒤로 가면 false가 된다
+  (크롬 157에서 같은 출처와 다른 출처 모두 iframe을 누른 blur의 순간에 이미 true였다).
+- 규칙: 창이 앞에 있는지는 `document.hidden || !document.hasFocus()`로 보고, visibilitychange, focus, blur에 더해 짧은 간격으로 다시 본다(`src/sound.js`의 `checkAway`, 0.5초).
+  화면 없는 크롬에서는 첫 진짜 입력(`Input.dispatchMouseEvent`) 전까지 `hasFocus()`가 false이고 소리 재생도 막힌다. 한번 받은 초점은 초점 흉내(`Emulation.setFocusEmulationEnabled`)를 꺼도,
+  다른 탭을 앞으로 내도 그대로 남는다. 초점 흉내를 켜 둔 동안에는 다른 탭을 앞으로 내도 이 탭이 가려지지 않는다.
+  그래서 점검에서 초점을 잃는 것은 `document.hasFocus`를 바꿔 끼워 흉내 내고, 탭이 가려지는 것은 초점 흉내 없이 `Target.createTarget`으로 새 탭을 앞에 열어 만든다(`tools/smoke.mjs`).

@@ -8,13 +8,13 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기,
-// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(링크에 담긴 주인 사진), 깨진 링크와 HTML이 든 링크,
+// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(링크에 담긴 주인 사진), 깨진 링크와 HTML이 든 링크,
 // 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방은 페이지 안의 fetch를 바꿔 껴서 서버 대신 답하고(fakeCloud),
 // 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube). 유튜브 플레이어와 API 스크립트는 받지 않게 막는다(main의 BLOCKED).
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
-// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
+// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
 import { sleep, startServer, launchChrome, runTool, TEST_HOME as HOME, plantHome } from './headless.mjs';
@@ -111,6 +111,25 @@ async function gameIds() {
   const { APPS } = await import(new URL('data/apps.js', document.baseURI).href);
   const games = APPS.filter(a => a.folder === 'games');
   return { own: games.filter(a => a.src?.startsWith('apps/')).map(a => a.id), link: games.find(a => a.href)?.id || null };
+}
+
+// 소리: 이 페이지에서 play()로 트는 소리를 모두 window.__audios에 적어 둔다(src/sound.js의 효과음과 배경음악). 페이지를 새로 열면 풀린다
+function catchAudio() {
+  window.__audios = new Set();
+  const play = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function () { window.__audios.add(this); return play.call(this); };
+}
+// 지금 흐르는 배경음악(되풀이해 트는 소리)이 want인가. 'on' 소리가 난다, 'muted' 곡은 흐르는데 소리만 꺼졌다, 'none' 흐르는 곡이 없다
+function musicIs(want) {
+  const a = [...(window.__audios || [])].find(x => x.loop && !x.paused);
+  return want === 'none' ? !a : !!a && a.muted === (want === 'muted');
+}
+const effectCount = () => [...(window.__audios || [])].filter(a => !a.loop).length;
+async function playEffect(name) {
+  (await import(new URL('src/sound.js', document.baseURI).href)).play(name);
+}
+async function setSettings(patch) {
+  (await import(new URL('src/settings.js', document.baseURI).href)).settings.set(patch);
 }
 
 // 튜토리얼에서 놓는 가구(data/furniture.js의 TUTORIAL_FURNITURE)와 그 이름
@@ -345,6 +364,63 @@ async function walk(page, base) {
   check('폴더 안의 게임과 새 탭 안내가 창으로 열린다', (await page.run(winCount)) === 1 + games.own.length + (games.link ? 1 : 0));
   check('우리 게임 창에 게임 페이지가 뜬다', await until(page, () => [...document.querySelectorAll('#windows iframe')].every(f => { try { return f.contentDocument.readyState === 'complete' && !!f.contentDocument.querySelector('canvas'); } catch { return false; } }), 8000));
   await closeWindows();
+
+  // ---------- 창이 뒤로 가면 소리 끄기(F27) ----------
+  // 화면 없는 크롬은 첫 진짜 입력 전까지 재생을 막고 페이지에 초점도 주지 않는다. 위에서 창 제목 줄을 진짜로 눌러(tap) 둘 다 풀려 있다.
+  // 탭이 가려지는 것은 새 탭을 앞에 열어 진짜로 만든다. 다른 프로그램으로 넘어가는 것은 흉내 낼 수 없어서(초점 흉내 Emulation.setFocusEmulationEnabled를 꺼도 한번 받은 초점이 남는다)
+  // document.hasFocus를 바꿔 끼우고 blur를 보낸다. 게임 창 안은 진짜로 누른다
+  await page.run(catchAudio);
+  await page.run(setSettings, { musicOn: false });
+  await page.run(setSettings, { musicOn: true }); // 진짜로 누른 뒤에 배경음악을 다시 틀게 한다
+  check('바탕화면의 방에서 배경음악이 난다', await until(page, musicIs, 3000, 'on'));
+  let tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  check('다른 탭으로 넘어가면 1초 안에 배경음악이 꺼지고 곡은 멈추지 않는다', await until(page, musicIs, 1000, 'muted'));
+  await page.send('Page.bringToFront');
+  check('이 탭으로 돌아오면 1초 안에 배경음악이 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.send('Target.closeTarget', { targetId: tab });
+  await page.run(() => { document.hasFocus = () => false; window.dispatchEvent(new Event('blur')); });
+  check('다른 프로그램으로 넘어가면 1초 안에 배경음악이 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  const fx0 = await page.run(effectCount);
+  await page.run(playEffect, 'mouse');
+  check('뒤에 있는 동안에는 효과음을 내지 않는다', (await page.run(effectCount)) === fx0);
+  await page.run(() => { delete document.hasFocus; window.dispatchEvent(new Event('focus')); });
+  check('창으로 돌아오면 1초 안에 배경음악이 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.run(playEffect, 'mouse');
+  check('창으로 돌아오면 효과음도 난다', (await page.run(effectCount)) === fx0 + 1);
+  // 게임 창 안을 누르면 이 문서에 blur가 오지만 초점은 페이지 안(iframe)에 있으므로 끄지 않는다
+  await openIcon('games');
+  await sleep(300);
+  await page.run(clickTwice, '.folder-grid .desk-icon[data-app="file-ten"]');
+  check('파일 정리 10 창을 열면 그 게임의 배경음악이 난다', await until(page, () => {
+    const f = document.querySelector('#windows iframe');
+    const a = [...window.__audios].find(x => x.loop && !x.paused && !x.muted);
+    try { return !!f.contentDocument.querySelector('canvas') && a.src.endsWith('bgm-file-ten.mp3'); } catch { return false; }
+  }, 8000));
+  await tap(page, await page.run(centreOf, '#windows iframe'));
+  await sleep(1200);
+  check('게임 창 안을 누르면 초점이 게임으로 가도 소리는 그대로 난다', (await page.run(() => document.activeElement?.tagName === 'IFRAME')) && (await page.run(musicIs, 'on')));
+  // 초점이 게임 안에 있으면 다른 프로그램으로 넘어가거나 돌아와도 이 문서에 blur와 focus가 오지 않는다(known-issues 74). hasFocus만 바꿔 끼운다
+  await page.run(() => { document.hasFocus = () => false; });
+  check('초점이 게임 안에 있을 때 다른 프로그램으로 넘어가면 알림이 없어도 1초 안에 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  await page.run(() => { delete document.hasFocus; });
+  check('초점이 게임 안에 있을 때 돌아오면 알림이 없어도 1초 안에 다시 난다', await until(page, musicIs, 1000, 'on'));
+  tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  check('초점이 게임 안에 있어도 다른 탭으로 넘어가면 꺼진다', await until(page, musicIs, 1000, 'muted'));
+  await page.send('Page.bringToFront');
+  check('초점이 게임 안에 있어도 돌아오면 다시 난다', await until(page, musicIs, 1000, 'on'));
+  await page.send('Target.closeTarget', { targetId: tab });
+  await closeWindows();
+  // 소리를 꺼 둔 사용자는 창을 오가도 꺼진 그대로다(저장된 설정을 바꾸지 않는다)
+  await page.run(setSettings, { sound: false });
+  check('소리를 끄면 배경음악이 멈춘다', await until(page, musicIs, 2000, 'none'));
+  tab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  await sleep(300);
+  await page.send('Page.bringToFront');
+  await page.send('Target.closeTarget', { targetId: tab });
+  await sleep(1200);
+  check('소리를 꺼 둔 채 탭을 오가도 소리는 꺼진 그대로다', (await page.run(musicIs, 'none'))
+    && (await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || '{}').sound)) === false);
+  await page.run(setSettings, { sound: true });
   await page.run(clickOnce, '.start-btn');
   check('시작 단추를 누르면 시작 메뉴가 열린다', await page.run(() => !document.getElementById('start-menu').hidden && document.querySelectorAll('.start-item').length >= 8));
   await probe('시작 메뉴');
