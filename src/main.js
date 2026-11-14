@@ -5,6 +5,7 @@ import { reduceMotion } from './util.js';
 import { initCursors } from './cursors.js';
 import { createOS } from './os.js';
 import { fitPixelIcons } from './icons.js';
+import { fitUserPictures } from './user-pictures.js';
 import { play, setPlace } from './sound.js';
 
 const $ = sel => document.querySelector(sel);
@@ -56,6 +57,7 @@ function fit() {
   root.setProperty('--pad', PAD * s + 'px');
   root.setProperty('--ctrl', CTRL * s + 'px');
   fitPixelIcons(root, s, devicePixelRatio || 1);
+  fitUserPictures(root, s, devicePixelRatio || 1);
   mon.scale = s;
   const screen = $('#screen');
   screen.style.width = STAGE_W * s + 'px';

@@ -1,11 +1,12 @@
 // 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓고,
-// 맨 끝에 내 집이 있으면 이 컴퓨터 초기화를, 없으면 새 사용자 만들기를 둔다.
+// 맨 끝에 내 집이 있으면 이 컴퓨터 초기화를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
 import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare } from './cloud.js';
 import { NEIGHBOR_LIST, neighborHome } from './neighbors.js';
+import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
 
@@ -13,6 +14,7 @@ import { play } from './sound.js';
 // show(...names): 보일 화면 고르기. enter(mode, home, my, boardId): 고른 집으로 들어가기. toast(msg, ms): 알림. clearHash(): 주소의 방 링크 지우기
 // nextRun(): 새 실행 번호 받기(전원을 끄거나 로그아웃하면 번호가 바뀐다). isCurrent(my): my가 아직 지금 실행인지
 // 돌려주는 것: 부팅할 때 미리 받기(loginHomes, cloudHome), 내 집(ownHome), 로그인 화면(showLogin), 시작 메뉴의 사용자 그림(avatar)
+// 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집과 이웃집은 사진을 모르므로 이름의 첫 글자가 보인다.
 export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, isCurrent }) {
   // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
   function ownHome() {
@@ -85,14 +87,15 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
       users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
         enter('edit', own, my);
-      }));
+      }, '', ownPicture(own.owner)));
       users.append(...nearby, resetButton());
     } else {
       users.append(...nearby);
-      users.append(newUserTile(name => {
+      users.append(newUserTile((name, picture) => {
         clearHash();
         const home = sanitizeHome({ owner: name });
         saveJSON(STORAGE_ROOM, home);
+        saveOwnPicture(picture);
         os.tutorial.arm();
         enter('edit', home, my);
       }));
@@ -129,15 +132,26 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return box;
   }
 
-  const avatar = name => h('span', { className: 'avatar' }, [...name][0] || '?');
+  // 사용자 그림. picture(사진 id)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다
+  const avatar = (name, picture = null) => (picture
+    ? h('span', { className: 'avatar has-pic' }, pictureEl(picture, 48))
+    : h('span', { className: 'avatar' }, [...name][0] || '?'));
 
-  function userTile(name, sub, onPick, kind = '') {
+  function userTile(name, sub, onPick, kind = '', picture = null) {
     return h('button', { type: 'button', className: kind ? `user ${kind}` : 'user', onclick: onPick },
-      avatar(name),
+      avatar(name, picture),
       h('span', { className: 'user-name' }, name, h('small', {}, sub)));
   }
 
+  // 새 사용자 만들기. 닉네임 칸 위에 사진을 고르는 줄이 있고, 왼쪽의 큰 그림이 고른 사진을 보여 준다.
+  // 아무 사진이나 하나를 미리 골라 두므로 사진을 고르지 않고 확인을 눌러도 된다. onCreate(닉네임, 사진 id)
   function newUserTile(onCreate) {
+    let picture = randomPicture();
+    const face = avatar('', picture);
+    const picker = picturePicker(picture, id => {
+      picture = id;
+      face.replaceChildren(pictureEl(id, 48));
+    });
     const input = h('input', { maxLength: 12, autocomplete: 'off', placeholder: '닉네임 (최대 12글자)', 'aria-label': '닉네임' });
     // 아이디를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드"). 누르고 있어 되풀이되는 키와 Enter, 조합 키는 빼고, 한글 입력 중(Process)도 소리를 낸다.
     input.addEventListener('keydown', e => {
@@ -157,15 +171,16 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
       onsubmit: e => {
         e.preventDefault();
         const name = input.value.trim().slice(0, 12);
-        if (name) onCreate(name);
+        if (name) onCreate(name, picture);
         else {
           showTip(true);
           input.focus();
         }
       },
     },
-    h('span', { className: 'avatar' }, '+'),
+    face,
     h('span', { className: 'user-name' }, '새 사용자 만들기',
+      picker,
       h('span', { className: 'new-row' }, input, h('button', { type: 'submit', className: 'btn' }, '확인'), tip)));
     setTimeout(() => input.focus(), 50);
     return form;

@@ -38,3 +38,4 @@ export const STORAGE_ROOM_OLD = 'agarago.room.v2'; // 공간이 하나뿐이던 
 export const STORAGE_SETTINGS = 'agarago.settings';
 export const STORAGE_TUTORIAL = 'agarago.tutorial'; // 튜토리얼 진행 상태(src/tutorial.js)
 export const STORAGE_CLOUD = 'agarago.cloud'; // 서버에 올린 방의 번호와 익명 로그인(src/cloud.js)
+export const STORAGE_PICTURE = 'agarago.picture'; // 내 사용자 사진의 id(data/user-pictures.js, src/user-pictures.js)
