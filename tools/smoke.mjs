@@ -825,6 +825,60 @@ async function walk(page, base) {
   check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
     && (await page.run(labsState)) === 'false/', await page.run(labsState));
 
+  // ---------- 담긴 가구 반짝임(like-sparkle) ----------
+  // 켜면 주인이 무언가 담아 둔 가구 위에만 별이 뜨고(src/os.js의 markLiked, style.css의 .has-like::after) 끄면 바로 사라진다. 내 집, 친구 집, 이웃집에서 같고 방 꾸미기 창에는 뜨지 않는다.
+  // 앞 절이 실험실을 닫았으므로 이 페이지에서 다시 연다(열림과 켠 항목은 설정에 남아 다음에 여는 친구 집과 이웃집에도 적용된다). 끝나면 앞 절이 끝난 설정으로 돌려놓는다.
+  const labSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const liked = () => page.run(() => [...document.querySelectorAll('#wallpaper .furn.has-like')].map(f => f.dataset.id).sort().join());
+  const sparkleBox = '.labs-item[data-lab="like-sparkle"] input';
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  check('담긴 가구 반짝임은 켜기 전에는 하나도 없다', (await liked()) === '');
+  await openIcon('labs');
+  check('실험실 창에 담긴 가구 반짝임 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, sparkleBox));
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  // 점검용 집에서 담긴 것은 컴퓨터, 게임기, 책장, TV다. 앞의 점검이 라디오에 CD를 넣었다면 라디오도 담긴 가구다. 그래서 저장된 집에서 담긴 가구를 구해 견준다.
+  // 코르크 보드(쪽지는 서버에 있어 알 수 없다)와 담는 것이 없는 가구에는 뜨지 않는다
+  const mine = await page.run(savedHome);
+  const want = mine.scenes.room.map(i => i.id).filter(id => Object.hasOwn(mine.likes || {}, id)).sort().join();
+  check('켜면 담아 둔 가구(컴퓨터, 게임기, 책장, TV를 포함해 저장된 집에서 담긴 가구)에만 반짝임이 뜬다',
+    ['bookshelf', 'computer', 'console', 'tv'].every(id => want.split(',').includes(id)) && (await liked()) === want, `${await liked()} / ${want}`);
+  check('반짝임은 12~20px의 별이고 누르기를 가리지 않고 깜박인다', await page.run(() => {
+    const s = getComputedStyle(document.querySelector('#wallpaper .furn.has-like'), '::after');
+    return parseFloat(s.width) >= 12 && parseFloat(s.width) <= 20 && s.pointerEvents === 'none' && s.animationName === 'like-sparkle';
+  }));
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  check('끄면 반짝임이 바로 사라진다', (await liked()) === '');
+  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  await openIcon('room');
+  check('방 꾸미기 창에는 반짝임이 뜨지 않는다', await until(page, () => document.querySelectorAll('#windows .room-app .furn').length > 0, 3000)
+    && await page.run(() => !document.querySelector('#windows .room-app .has-like')));
+  await closeWindows();
+  check('새로 고침해도 반짝임이 그대로 뜬다', (await enterMine()) && await until(page, n => document.querySelectorAll('#wallpaper .furn.has-like').length === n, 3000, want.split(',').length));
+  // 친구 집: 가구는 있지만 아무것도 담지 않은 집에는 하나도 뜨지 않는다
+  const bare = await page.run(linkOf, { scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] } }, '빈집');
+  await open(`#r=${bare}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  await sleep(600);
+  check('아무것도 담지 않은 친구 집에는 반짝임이 하나도 뜨지 않는다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 3 && (await liked()) === '');
+  // 이웃집 관리인(가구 다섯 개에 내용이 담겨 있다)은 집 데이터에서 담긴 가구를 구해 견준다. 관리인이 목록에서 빠졌다면 보지 않는다
+  const keeper = await page.run(async () => {
+    const { NEIGHBOR_LIST, neighborHome } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    const n = NEIGHBOR_LIST.find(x => x.name === '관리인');
+    const home = n && neighborHome(n);
+    return home ? home.scenes.room.map(i => i.id).filter(id => Object.hasOwn(home.likes, id)).sort().join() : null;
+  });
+  if (keeper) {
+    await open();
+    await powerOn();
+    await page.run(clickText, '.users .user.neighbor', '관리인');
+    await desktop();
+    await sleep(600);
+    check('이웃집 관리인의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', (await liked()) === keeper && keeper.split(',').length >= 1, `${await liked()} / ${keeper}`);
+  }
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;
