@@ -15,7 +15,7 @@
 - `apps/_template/index.html`, `apps/README.md`: 쓰는 법과, SDK를 쓰지 않는 다른 사이트의 게임은 이 방법으로 멈출 수 없다는 것
 - `tools/smoke.mjs`: 미니게임 창을 다루는 `miniGame` 도우미와 두 흐름. 켜면 3초 동안 남은 시간이 그대로이고 이어서 하기 카드가 뜨며 짐 정리의 물건이 서는지,
   끄면 그동안에도 시계가 흐르는지 본다
-- `assets/fonts/aga-ui*.woff2`, `aga-ui.txt`: 새 글자 2개(띄춘)를 작은 글꼴에 넣음
+- `assets/fonts/aga-ui*.woff2`, `aga-ui.txt`: 이 작업의 새 글자 2개(띄춘)와, main에서 먼저 합쳐진 문구에 있던 글자 3개(뜹언짝)를 작은 글꼴에 넣음
 - `known-issues.md`(75), `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`
 
 ## 정한 것과 이유
