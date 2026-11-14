@@ -610,6 +610,24 @@ def check_room_image():
             err('style.css', f'방 바탕(.room과 바탕화면 놀이터의 .desktop)이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
 
 
+# ---------- 라디오 CD 색 ----------
+# CD 색 번호는 likes에 담기고(src/likes.js의 LIMIT.cdColors가 받는 번호의 수), 색 이름은 src/apps/radio-app.js의 CD_COLORS,
+# 색 자체는 style.css의 .cd[data-color]에 있다. 셋의 개수가 어긋나면 고른 색이 은색으로 그려지거나 저장할 때 지워진다.
+def check_cd_colors():
+    limit = re.search(r'cdColors:\s*(\d+)', read('src/likes.js'))
+    names = re.search(r'const CD_COLORS = \[([^\]]*)\]', read('src/apps/radio-app.js'))
+    if not limit or not names:
+        err('src/likes.js', 'CD 색 수(LIMIT.cdColors와 src/apps/radio-app.js의 CD_COLORS)를 찾지 못했다. 모양을 바꿨다면 tools/check.py의 check_cd_colors도 고친다')
+        return
+    n = int(limit.group(1))
+    count = len(re.findall(r"'[^']+'", names.group(1)))
+    if count != n:
+        err('src/apps/radio-app.js', f'CD_COLORS의 색 이름 {count}개가 LIMIT.cdColors({n})와 다르다')
+    have = {int(x) for x in re.findall(r'\.cd\[data-color="(\d+)"\]', read('style.css'))}
+    if have != set(range(1, n)):
+        err('style.css', f'.cd[data-color] 색이 {sorted(have)}번에 있다. 0번(은색)은 .cd에 두고 1~{n - 1}번은 하나씩 있어야 한다(LIMIT.cdColors {n})')
+
+
 # ---------- 소리 ----------
 # src/sound.js 가 부르는 파일이 assets/sounds/ 에 있는지, 넣어 둔 mp3를 아무도 안 부르지 않는지 본다(이름을 바꾸면 소리가 조용히 안 난다).
 def check_sounds():
@@ -695,6 +713,7 @@ def main():
     check_secrets()
     check_cloud()
     check_room_image()
+    check_cd_colors()
     check_sounds()
     check_file_map()
     check_js_syntax()
