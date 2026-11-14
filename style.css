@@ -360,6 +360,25 @@ button { font-family: inherit; }
    .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). 누르면 말하기 */
 .room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: auto; cursor: var(--cur-hand); }
 .room-avatar.flip { transform: scaleX(-1); }
+/* 친구 집의 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner)는 한 자리에 계속 서 있어서 누르기를 받지 않는다.
+   받으면 뒤에 가려진 가구를 두 번 눌러 쓸 수 없다. .owner는 방 꾸미기 창이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24) */
+.room-avatar.room-owner { pointer-events: none; cursor: auto; }
+/* 주인 아바타 머리 위의 이름표. 높이는 src/avatar.js의 TAG_H와 같다. 말풍선(10000) 바로 아래 층이라 가구에 가리지 않는다 */
+.room-owner-name {
+  position: absolute;
+  z-index: 9999;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #2b2b33cc;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
 /* 말풍선은 가구(z-index 100부터)에 가리지 않게 그 위에 둔다. 바탕화면 배경 안이라 창과 아이콘보다는 아래다 */
 .room-avatar-say {
   position: absolute;

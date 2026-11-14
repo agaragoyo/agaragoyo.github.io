@@ -3,6 +3,7 @@
 // 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 상자에 그려서 가구와 앞뒤 순서를 맞춘다.
 // 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
+// 실험실의 주인 아바타 남기기(host-avatar)를 켜고 친구 집을 구경하면 그 집 주인의 아바타가 방에 서 있다(mountOwner).
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
 import { dims, isWall, supportOf, elevOf } from './rules.js';
@@ -18,6 +19,9 @@ const FOOT = 100;     // 그림 안에서 발끝의 높이 (px)
 const STEP_MS = 200;  // 한 칸 걷는 시간
 const SAY_MS = 4000;  // 말풍선이 떠 있는 시간. 글자가 길면 글자마다 60ms씩 더 둔다
 const SPAWN = { x: N - 4, y: N - 4 }; // 처음 서는 곳(이 칸이 막혀 있으면 가장 가까운 빈칸)
+const TAG_H = 18;     // 주인 아바타의 이름표 높이(style.css의 .room-owner-name). 말풍선은 이름표 위에 띄운다
+const TAG_DROP = 8;   // 이름표 아래 끝이 그림 상자 위 끝보다 내려오는 만큼. 머리는 상자 위에서 12px 아래부터 그려진다
+const GREET_MS = 600; // 손님이 방에 들어온 뒤 주인 아바타가 인사말을 하기까지 기다리는 시간
 
 // 걷는 방향(칸 좌표의 변화)마다 쓸 그림 줄과 좌우 뒤집기. 화면에서 x는 오른쪽 아래, y는 왼쪽 아래로 늘어난다.
 const FACING = {
@@ -129,10 +133,11 @@ export function depthZ(items, a, rect = spriteRect(a)) {
 }
 
 // 아바타 그림 상자 하나. 그림 파일(sheet)이 없으면 임시 그림을 배경으로 깐다.
-function avatarEl(avatarId) {
+// guest: 주인 아바타가 서 있는 친구 집의 손님이면 손님 옷 색(guestColor)의 임시 그림을 쓴다. 그림 파일은 색을 바꾸지 못해 그대로 쓴다
+function avatarEl(avatarId, guest = false) {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
   const el = h('div', { className: 'room-avatar' });
-  el.style.backgroundImage = `url("${def.sheet || placeholderSheet(def.color)}")`;
+  el.style.backgroundImage = `url("${def.sheet || placeholderSheet((guest && def.guestColor) || def.color)}")`;
   return el;
 }
 
@@ -181,9 +186,11 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   sayRoot        말하기 입력 칸을 넣을 상자
 //   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
 //   onSay(text)    사용자가 말하기 칸에 쳐서 말했을 때(앞뒤 공백을 뺀 글). 가구가 시킨 혼잣말(say)에는 부르지 않는다
+//   others()       같은 공간에 선 다른 아바타 목록(친구 집의 주인, mountOwner). 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 없어도 된다
+// guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
 // 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, destroy
-export function mountAvatar(host, avatarId = 'basic') {
-  const el = avatarEl(avatarId);
+export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
+  const el = avatarEl(avatarId, guest);
   el.title = '눌러서 말하기';
   const bubble = h('div', { className: 'room-avatar-say', hidden: true });
   const input = h('input', {
@@ -287,7 +294,11 @@ export function mountAvatar(host, avatarId = 'basic') {
   // rect: 앞뒤를 따질 가구를 고를 때 쓰는 아바타 그림의 네모(없으면 at 칸에 섰을 때의 네모)
   function draw(at, rect) {
     const c = placeAt(el, pos, facing, col);
-    if (at) el.style.zIndex = depthZ(host.items(), at, rect);
+    if (at) {
+      let z = depthZ(host.items(), at, rect);
+      for (const o of host.others?.() || []) z = o.order(at, rect || spriteRect(at), z);
+      el.style.zIndex = z;
+    }
     if (!bubble.hidden) {
       bubble.style.left = `${Math.round(c.x)}px`;
       bubble.style.top = `${Math.round(c.y - FOOT - 4)}px`;
@@ -448,9 +459,11 @@ export function mountAvatar(host, avatarId = 'basic') {
   return {
     // 방을 다시 그린 뒤 부른다. 방 그림(room.js의 renderStatic)이 상자를 비우고 다시 채우므로 아바타와 말풍선을 다시 넣는다.
     // 서 있던 칸에 가구가 놓였으면(방 꾸미기에서 옮겼으면) 가장 가까운 빈칸으로 옮긴다.
+    // 다른 아바타(친구 집의 주인)가 선 칸도 막힌 칸으로 본다. 그 아바타가 먼저 attach되어 있어야 한다.
     attach() {
       stop();
       blocked = blockedOf(host.items());
+      for (const c of (host.others?.() || []).map(o => o.cell()).filter(Boolean)) blocked.add(key(c.x, c.y));
       if (!placed || !free(me.x, me.y)) {
         const spot = nearestFree(blocked, placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
         if (!spot) { el.remove(); return; }
@@ -488,6 +501,132 @@ export function mountAvatar(host, avatarId = 'basic') {
       el.remove();
       bubble.remove();
       input.remove();
+    },
+  };
+}
+
+// 친구 집의 주인 아바타가 설 칸(실험실 host-avatar). 링크에 담지 않으므로 그 방의 가구 배치만으로 늘 같은 칸을 고른다.
+// 손님이 들어와 서는 칸(처음 서는 곳과 arrivals)과 그림이 겹치는 칸, 벽에 붙은 줄(벽 가구와 문을 쓰러 가서 서는 칸),
+// 막으면 손님이 걸어갈 수 있는 칸이 줄어드는 칸은 고르지 않는다. 남은 칸은 가구 바로 옆이 아닌 칸(주인이 가구 앞을 막지 않게),
+// 처음 서는 곳과 화면의 세로줄이 다른 칸(둘이 앞뒤로 줄 선 것처럼 보이지 않게), 방 가운데에 가까운 칸 순서로 고른다. 설 칸이 없으면 null.
+function ownerCell(items, arrivals) {
+  const blocked = blockedOf(items);
+  const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y));
+  const start = nearestFree(blocked, SPAWN.x, SPAWN.y);
+  if (!start) return null;
+  // 처음 서는 곳에서 걸어갈 수 있는 칸의 수. skip 칸은 막힌 것으로 본다
+  const reach = skip => {
+    const seen = new Set([key(start.x, start.y)]);
+    const queue = [start];
+    for (let i = 0; i < queue.length; i++) {
+      for (const [dx, dy] of DIRS) {
+        const n = { x: queue[i].x + dx, y: queue[i].y + dy };
+        if (!free(n.x, n.y) || seen.has(key(n.x, n.y)) || (n.x === skip?.x && n.y === skip?.y)) continue;
+        seen.add(key(n.x, n.y));
+        queue.push(n);
+      }
+    }
+    return seen.size;
+  };
+  const all = reach(null);
+  const mid = (N - 1) / 2;
+  const column = (a, b) => Math.abs(a.x - a.y - (b.x - b.y)) < 2; // 화면에서 두 그림의 가로 자리가 겹친다
+  const cells = [];
+  for (let x = 1; x < N; x++) {
+    for (let y = 1; y < N; y++) {
+      const c = { x, y };
+      if (!free(x, y) || [start, ...arrivals].some(a => column(a, c) && Math.abs(a.x + a.y - (x + y)) < 6)) continue;
+      cells.push({ ...c, near: DIRS.some(([dx, dy]) => blocked.has(key(x + dx, y + dy))), col: column(start, c), d: (x - mid) ** 2 + (y - mid) ** 2 });
+    }
+  }
+  cells.sort((a, b) => a.near - b.near || a.col - b.col || a.d - b.d);
+  const best = cells.find(c => reach(c) === all - 1);
+  return best ? { x: best.x, y: best.y } : null;
+}
+
+// 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/labs.js). 걷지 않고 한 칸(ownerCell)에 서서
+// 머리 위에 주인 이름표를 달고, 손님이 방에 들어오면 주인이 적어 둔 인사말을 말풍선으로 한 번 말한다.
+// 손님 아바타는 주인이 선 칸을 지나가지 못하고(mountAvatar의 host.others), 두 그림이 겹치면 앞에 선 쪽이 위에 그려진다(order).
+// 누르기는 받지 않는다. 한 자리에 계속 서 있어서, 받으면 뒤에 가려진 가구를 두 번 눌러 쓸 수 없다.
+// host: { layer, items() }(mountAvatar와 같다). name: 이름표에 쓸 주인 이름
+export function mountOwner(host, name, avatarId = 'basic') {
+  const el = avatarEl(avatarId);
+  el.classList.add('room-owner');
+  const tag = h('div', { className: 'room-owner-name' }, name);
+  const bubble = h('div', { className: 'room-avatar-say', hidden: true });
+  let cell = null; // 서 있는 칸. 주인이 없는 공간(놀이터)이거나 방이 꽉 차 설 칸이 없으면 null
+  let facing = FACING['0,1'];
+  let base = 0;    // 가구와의 앞뒤로 정한 순서(depthZ)
+  let greetTimer = 0;
+  let sayTimer = 0;
+
+  // 서 있는 그림을 그리고 이름표를 머리 위에, 말풍선을 이름표 위에 띄운다
+  function draw() {
+    const c = placeAt(el, cell, facing, 0);
+    const x = `${Math.round(c.x)}px`;
+    const tagBottom = Math.round(c.y - FOOT + TAG_DROP);
+    tag.style.left = x;
+    tag.style.top = `${tagBottom}px`;
+    bubble.style.left = x;
+    bubble.style.top = `${tagBottom - TAG_H - 9}px`; // 말풍선 꼬리(7px)가 이름표에 닿지 않게 띄운다
+  }
+
+  function hush() {
+    clearTimeout(greetTimer);
+    clearTimeout(sayTimer);
+    bubble.hidden = true;
+  }
+
+  const detach = () => {
+    el.remove();
+    tag.remove();
+    bubble.remove();
+  };
+
+  return {
+    cell: () => cell,
+    // 방을 다시 그린 뒤, 손님 아바타보다 먼저 부른다(손님이 주인이 선 칸을 피해 서야 한다).
+    // here: 주인이 서 있는 공간인지. door: 손님이 문으로 들어와 서는 칸. 주인은 그 칸과 그림이 겹치지 않는 곳에 선다
+    attach(here, door) {
+      hush();
+      cell = here ? ownerCell(host.items(), door ? [door] : []) : null;
+      if (!cell) { detach(); return; }
+      facing = FACING['0,1'];
+      base = depthZ(host.items(), cell);
+      el.style.zIndex = base;
+      host.layer.append(el, tag, bubble);
+      draw();
+    },
+    // 손님 아바타가 칸 at(걷는 동안은 두 칸을 합친 자리의 뒤쪽 모서리)에서 그림 네모 rect를 차지하고 순서 z로 그려지려 할 때 부른다.
+    // 두 그림이 겹치면 앞에 선 쪽이 위에 오게 손님의 순서를 돌려주고 주인의 순서를 고친다. 앞뒤는 가구와 같은 규칙(depthZ)으로 가린다
+    order(at, rect, z) {
+      if (!cell) return z;
+      let mine = base;
+      if (overlaps(rect, spriteRect(cell))) {
+        if (at.x >= cell.x + 1 || at.y >= cell.y + 1) z = Math.max(z, base + 1);
+        else mine = Math.max(base, z + 1);
+      }
+      el.style.zIndex = mine;
+      return z;
+    },
+    // 손님이 방에 들어왔을 때 부른다. 잠깐 뒤에 손님(칸 guest) 쪽을 보고 인사말 text를 한 번 말한다. 인사말이 비었으면 말하지 않는다
+    greet(text, guest) {
+      const t = (text || '').trim();
+      if (!cell || !t) return;
+      clearTimeout(greetTimer);
+      greetTimer = setTimeout(() => {
+        // 얼굴이 보이게 앞모습 두 방향(왼쪽 아래, 오른쪽 아래) 가운데 손님이 화면에서 있는 쪽을 본다
+        if (guest) facing = FACING[guest.x - guest.y > cell.x - cell.y ? '1,0' : '0,1'];
+        bubble.textContent = t;
+        bubble.hidden = false;
+        draw();
+        clearTimeout(sayTimer);
+        sayTimer = setTimeout(() => { bubble.hidden = true; }, SAY_MS + t.length * 60);
+      }, GREET_MS);
+    },
+    destroy() {
+      hush();
+      detach();
     },
   };
 }
