@@ -638,3 +638,15 @@
   눌러 보기 점검은 가로로 넘친 상자만 세서 세로로 넘친 창을 알려 주지 않았다.
 - 규칙: 목록이 늘면 내용이 자라는 창은 높이를 목록 수로 계산한다(`src/apps/labs-app.js`의 `ITEM_H`, 게임 폴더의 `PER_ROW`).
   그런 창을 만들면 `tools/smoke.mjs`에 그 창이 스크롤 없이 다 보이는지 보는 줄을 더한다.
+
+## 74. 게임 창 안을 누른 뒤에는 다른 프로그램으로 넘어가도 바깥 문서에 blur가 오지 않는다 (창이 뒤로 가면 소리 끄기)
+
+- 증상: 게임 창이나 라디오 플레이어(iframe) 안을 누른 다음 다른 프로그램으로 넘어가면 바깥 문서의 window에 blur가 오지 않아, blur만 듣는 코드는 창이 뒤로 간 것을 모른다.
+  돌아올 때도 focus가 오지 않는다. 2026-11-14에 창이 뒤로 가면 소리를 끄는 기능(F27)을 만들며 찾았다.
+- 원인: blur와 focus는 키보드 초점을 가진 문서의 window에 온다. iframe 안을 누르는 순간 바깥 window의 blur는 이미 왔고(36번), 그 뒤로 창을 오가는 알림은 iframe의 window가 받는다.
+  다른 출처의 iframe이면 바깥에서 들을 수도 없다. 대신 바깥 문서의 `document.hasFocus()`는 초점이 iframe 안에 있어도 true이고, 창이 뒤로 가면 false가 된다
+  (크롬 157에서 같은 출처와 다른 출처 모두 iframe을 누른 blur의 순간에 이미 true였다).
+- 규칙: 창이 앞에 있는지는 `document.hidden || !document.hasFocus()`로 보고, visibilitychange, focus, blur에 더해 짧은 간격으로 다시 본다(`src/sound.js`의 `checkAway`, 0.5초).
+  화면 없는 크롬에서는 첫 진짜 입력(`Input.dispatchMouseEvent`) 전까지 `hasFocus()`가 false이고 소리 재생도 막힌다. 한번 받은 초점은 초점 흉내(`Emulation.setFocusEmulationEnabled`)를 꺼도,
+  다른 탭을 앞으로 내도 그대로 남는다. 초점 흉내를 켜 둔 동안에는 다른 탭을 앞으로 내도 이 탭이 가려지지 않는다.
+  그래서 점검에서 초점을 잃는 것은 `document.hasFocus`를 바꿔 끼워 흉내 내고, 탭이 가려지는 것은 초점 흉내 없이 `Target.createTarget`으로 새 탭을 앞에 열어 만든다(`tools/smoke.mjs`).
