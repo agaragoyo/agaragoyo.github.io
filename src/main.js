@@ -4,6 +4,7 @@ import { settings } from './settings.js';
 import { reduceMotion } from './util.js';
 import { initCursors } from './cursors.js';
 import { createOS } from './os.js';
+import { fitPixelIcons } from './icons.js';
 import { play, setPlace } from './sound.js';
 
 const $ = sel => document.querySelector(sel);
@@ -54,6 +55,7 @@ function fit() {
   root.setProperty('--u', s + 'px');
   root.setProperty('--pad', PAD * s + 'px');
   root.setProperty('--ctrl', CTRL * s + 'px');
+  fitPixelIcons(root, s, devicePixelRatio || 1);
   mon.scale = s;
   const screen = $('#screen');
   screen.style.width = STAGE_W * s + 'px';
@@ -68,6 +70,10 @@ addEventListener('resize', () => {
   requestAnimationFrame(() => { fitQueued = false; fit(); });
 });
 PORTRAIT_PHONE.addEventListener('change', fit);
+// 화면 픽셀 비율만 바뀌고 창 크기는 그대로인 때(배율이 다른 모니터로 창을 옮길 때)도 픽셀 아이콘 크기를 다시 고른다.
+const watchPixelRatio = () => matchMedia(`(resolution: ${devicePixelRatio}dppx)`)
+  .addEventListener('change', () => { fit(); watchPixelRatio(); }, { once: true });
+watchPixelRatio();
 
 // ---------- 화면 효과 ----------
 // 아주 약한 깜빡임과 구석 그늘은 늘 켜 둔다(style.css의 "화면 효과"). 화면을 볼록하게 휘던 효과와 그레인, 볼록 켜기 버튼은

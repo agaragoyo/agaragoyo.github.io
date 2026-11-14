@@ -8,6 +8,7 @@
 //   id       영소문자와 하이픈. 겹치면 안 된다
 //   title    아이콘 아래와 창 제목에 쓰는 이름
 //   icon     그림 경로(png, svg, webp). 없으면 color 색 타일에 제목 첫 글자를 쓴다
+//            'builtin:<이름>'은 src/icons.js의 PIXEL에 글자로 그린 픽셀 아이콘이다(기본 앱만 쓴다)
 //   color    아이콘 타일 색 (icon 이 없을 때)
 //   src      창 안에 띄울 페이지 주소. 같은 사이트 안의 apps/<앱이름>/index.html 이 가장 좋다
 //            (다른 사이트 주소도 되지만, 그 페이지가 엉뚱한 곳으로 넘어가도 알아채지 못하고,
@@ -31,11 +32,11 @@ const SITE = 'https://soomin007.github.io';
 
 export const APPS = [
   { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room', editOnly: true },
-  { id: 'make-mine', title: '나도 만들기', icon: 'builtin:room', builtin: 'mine', visitOnly: true, ownHome: false },
+  { id: 'make-mine', title: '나도 만들기', icon: 'builtin:make', builtin: 'mine', visitOnly: true, ownHome: false },
   { id: 'my-computer', title: '내 컴퓨터로', icon: 'builtin:computer', builtin: 'mine', visitOnly: true, ownHome: true },
   { id: 'playground', title: '놀이터', icon: 'builtin:playground', scene: 'playground' },
   { id: 'go-home', title: '집으로', icon: 'builtin:home', scene: 'room' },
-  { id: 'games', title: '미니게임', icon: 'builtin:folder', builtin: 'folder', folder: null, opens: 'games' },
+  { id: 'games', title: '미니게임', icon: 'builtin:games', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },
 

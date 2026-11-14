@@ -49,11 +49,13 @@ function shownHidden() {
     .map(el => `${el.tagName.toLowerCase()}.${String(el.className).replace(/\s+/g, '.')}`);
 }
 
-// 창, 가까이 보기, 시작 메뉴, 로그인 화면 안에서 안의 것이 가로로 넘친 상자(장식용 i는 뺀다)
+// 창, 가까이 보기, 시작 메뉴, 로그인 화면 안에서 안의 것이 가로로 넘친 상자(장식용 i는 뺀다).
+// 픽셀 아이콘(.app-icon.pixel)은 한 칸을 화면 픽셀 정수 개로 맞추느라 상자보다 최대 1.4배까지 일부러 넘치므로 뺀다(src/icons.js의 fitPixelIcons)
 function overflowing() {
   const out = [];
   for (const el of document.querySelectorAll('#windows .win-body, #windows .win-body *, .closeup *, #start-menu *, #login *')) {
     if (!(el instanceof HTMLElement) || !el.offsetParent || ['INPUT', 'TEXTAREA', 'I'].includes(el.tagName)) continue;
+    if (el.matches('.app-icon.pixel')) continue;
     if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible') {
       out.push(`${el.tagName.toLowerCase()}.${String(el.className).replace(/\s+/g, '.')} ${el.scrollWidth}>${el.clientWidth} "${(el.textContent || '').trim().slice(0, 24)}"`);
     }

@@ -116,6 +116,41 @@ def check_apps():
     return {a['id'] for a in apps}
 
 
+# ---------- 기본 앱의 픽셀 아이콘 ----------
+
+def check_pixel_icons():
+    """src/icons.js 의 PIXEL 그림이 칸 수에 맞고 colors 에 있는 글자만 쓰는지,
+    data/apps.js 의 'builtin:<이름>' 아이콘이 PIXEL 에 있는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다)."""
+    where = 'src/icons.js'
+    m = re.search(r'^const PIXEL = \{\n(.*?)^\};', read(where), re.S | re.M)
+    if not m:
+        err(where, 'PIXEL(픽셀 아이콘 목록)을 찾지 못했다')
+        return
+    names = set()
+    for name, body in re.findall(r'^  (\w+): \{\n(.*?)^  \},', m.group(1), re.S | re.M):
+        names.add(name)
+        colors_text = re.search(r'colors: \{(.*?)\},', body, re.S)
+        colors = set(re.findall(r"(\w): '#[0-9a-fA-F]{3,8}'", colors_text.group(1))) if colors_text else set()
+        grids = re.findall(r'^    (\d+): \[\n(.*?)^    \],', body, re.S | re.M)
+        if '24' not in [g for g, _ in grids]:
+            err(where, f'{name}: 24칸 그림이 없다')
+        for g, rows_text in grids:
+            n = int(g)
+            rows = re.findall(r"'([^']*)'", rows_text)
+            if len(rows) != n or any(len(r) != n for r in rows):
+                bad = [i for i, r in enumerate(rows) if len(r) != n]
+                err(where, f'{name}: {n}칸 그림은 {n}줄이고 줄마다 {n}칸이다(지금 {len(rows)}줄, 길이가 다른 줄 {bad[:5]})')
+            extra = set(''.join(rows)) - colors - {'.'}
+            if extra:
+                err(where, f"{name}: {n}칸 그림에 colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
+    if not names:
+        err(where, 'PIXEL 에서 아이콘을 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_pixel_icons 도 고친다)')
+    for a in entries(read('data/apps.js')):
+        icon = a.get('icon', '')
+        if icon.startswith('builtin:') and icon[8:] not in names:
+            err(f"data/apps.js '{a['id']}'", f"아이콘 {icon} 이 src/icons.js 의 PIXEL 에 없다")
+
+
 def check_furniture(app_ids):
     items = entries(read('data/furniture.js'))
     known_scenes = scenes()
@@ -665,6 +700,7 @@ def check_js_syntax():
 def main():
     check_no_build_tools()
     app_ids = check_apps()
+    check_pixel_icons()
     check_furniture(app_ids)
     check_furniture_fit()
     check_tutorial()
