@@ -4,6 +4,9 @@
 import { h } from '../util.js';
 import { LABS, setLab, labOn, closeLabs } from '../labs.js';
 
+// 항목 하나(이름 한 줄과 두 줄 설명)는 68px, 항목 사이는 8px이다. 항목이 늘면 창도 그만큼 늘려 실험실 닫기 단추가 스크롤 아래로 밀리지 않게 한다
+const ITEM_H = 76;
+
 export function openLabsApp(os, app) {
   const { settings } = os;
 
@@ -12,7 +15,7 @@ export function openLabsApp(os, app) {
     app,
     title: '실험실',
     width: 400,
-    height: 174 + 76 * LABS.length, // 항목이 하나 늘 때마다 76px(항목 68px와 사이 8px)씩 길어진다. 항목이 하나일 때 250px
+    height: 250 + ITEM_H * (LABS.length - 1),
     build(body) {
       body.classList.add('labs-app');
 

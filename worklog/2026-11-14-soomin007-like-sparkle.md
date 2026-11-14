@@ -14,8 +14,7 @@
 - `src/os.js`: `markLiked`. 바탕화면의 가구 요소에 담긴 것이 있으면 `has-like` 클래스를 단다. 방을 다시 그린 뒤, 담아 둔 것이 바뀐 뒤(`saveHome(false)`), 실험실 스위치를 켜고 끌 때 부른다
 - `style.css`: `.wallpaper .item.has-like::after`. 7칸 별 두 장(큰 별과 작은 별)을 이은 SVG 그림을 배경으로 깔고 1.6초마다 바꾼다
 - `src/icons.js`: `fitPixelIcons`가 별 한 칸의 크기(`--sparkle-cell`)도 정수 화면 픽셀로 맞춘다
-- `src/apps/labs-app.js`: 항목이 둘이 되자 맨 아래 줄이 잘려서 창 높이를 항목 수에서 계산한다
-- `tools/smoke.mjs`: 실험실 켜기와 끄기, 내 집에서 담긴 가구 네 곳에만 뜨는지, 방 꾸미기 창에는 없는지, 새로 고침 뒤, 아무것도 담지 않은 친구 집, 이웃집 관리인
+- `tools/smoke.mjs`: 실험실 켜기와 끄기, 내 집에서 담아 둔 가구에만 뜨는지(기대하는 가구는 저장된 집에서 구한다), 방 꾸미기 창에는 없는지, 새로 고침 뒤, 아무것도 담지 않은 친구 집, 이웃집 관리인
 - `docs/requirements.md`, `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`, `known-issues.md`(22번과 67번에 한 줄씩)
 
 ## 정한 것과 이유

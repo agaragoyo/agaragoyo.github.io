@@ -18,6 +18,7 @@ export const PASSWORD = '엔믹스지우';
 // title: 창에 나오는 이름, desc: 켜면 무엇이 달라지는지 한 줄(창이 좁으면 \n을 넣어 뜻이 끊기는 자리에서 줄을 바꾼다)
 export const LABS = [
   { id: 'fast-saver', title: '화면 보호기 빨리 보기', desc: '바탕화면을 2분 대신 20초 동안 그냥 두면\n화면 보호기가 나옵니다.' },
+  { id: 'host-avatar', title: '주인 아바타 남기기', desc: '친구 집에 가면 주인 아바타가 방에 서 있고,\n내 아바타는 빨간 옷을 입습니다.' },
   { id: 'like-sparkle', title: '담긴 가구 반짝임', desc: '주인이 무언가 담아 둔 가구 위에\n작은 반짝임이 뜹니다.' },
 ];
 

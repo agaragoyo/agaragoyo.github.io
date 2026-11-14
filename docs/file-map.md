@@ -109,7 +109,7 @@
 | --- | --- | --- |
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 전원을 켤 때 가구 그림 미리 받기(`preloadFurniture`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `preloadFurniture`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그리고, 아바타(`avatarStill`)를 가구 사이의 앞뒤 순서에 맞춰 넣는다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`) | `mountAvatar`, `depthZ`, `spriteRect`, `avatarStill` |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`). 실험실의 주인 아바타 남기기를 켜면 친구 집의 방에 이름표를 단 주인 아바타를 세운다(`mountOwner`, 서는 칸은 `ownerCell`) | `mountAvatar`, `mountOwner`, `depthZ`, `spriteRect`, `avatarStill` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문과 벽지 무늬, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함), 벽지 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
@@ -146,7 +146,7 @@
 | `data/apps.js` | 앱 목록. 바탕화면 아이콘, 시작 메뉴, 게임 폴더가 모두 여기서 만들어진다. 게임 묶음의 이름과 순서(`GAME_GROUPS`)와 아이콘 툴팁(`hostTip`)도 여기에 있다. 칸의 뜻은 파일 맨 위에 있다 |
 | `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있고, 튜토리얼 기본 가구는 맨 아래에 있다 |
 | `data/neighbors.js` | 이웃집 목록. 문패에 쓰는 닉네임과 그 집 공유 링크(`#r=` 뒤의 글자, 예전 링크는 `#room=` 뒤). 로그인 화면과 놀이터 울타리에 나온다. 넣는 법은 파일 맨 위에 있다 |
-| `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
+| `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리), 임시 그림의 옷 색과 친구 집에서 입는 손님 옷 색. 칸의 뜻은 파일 맨 위에 있다 |
 | `data/user-pictures.js` | 사용자 사진 여덟 장(강아지, 고양이, 꽃, 축구공, 기타, 로켓, 케이크, 오리). 24×24칸 글자 격자와 바탕 색, 글자마다의 색. 새 사진은 끝에 더하고 있던 id는 바꾸지 않는다 |
 | `data/wall-patterns.js` | 방 벽지 목록(F13). 맨 앞은 기본 벽이고, 나머지는 하트, 구름, 줄무늬, 꽃무늬 임시 픽셀 무늬(팀 그림이 오기 전). 글자 격자와 바탕 색, 글자마다의 색. 공유 링크가 순서 번호를 담으므로 새 벽지는 끝에 더한다 |
 
