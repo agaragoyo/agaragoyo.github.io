@@ -1219,6 +1219,9 @@ export function fitPixelIcons(style, scale, dpr) {
     style.setProperty(`--pixel-${slot}`, (k ? grid * k / (scale * dpr) : slot) + 'px');
     style.setProperty(`--pixel-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
   }
+  // 실험실의 담긴 가구 반짝임(style.css의 .has-like::after)도 한 칸이 2px인 픽셀 그림이라 한 칸을 정수 화면 픽셀로 맞춘다.
+  // 눈에 띄는 것이 목적이라 가까운 정수가 아니라 조금 큰 쪽(0.25를 덜어 올림)을 고르고, 한 칸이 1픽셀보다 작아지는 배율에서도 1픽셀로 둔다.
+  style.setProperty('--sparkle-cell', Math.max(1, Math.ceil(2 * scale * dpr - 0.25)) / (scale * dpr) + 'px');
 }
 
 // 픽셀 그림 하나를 SVG 글로 만든다. 같은 색 칸이 가로로 이어지면 한 조각으로 묶는다.

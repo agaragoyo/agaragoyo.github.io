@@ -240,12 +240,29 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner, os.home.decor);
     ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
+    markLiked();
   }
 
   // 손님이 방에 들어오면(친구 집에 들어올 때와 놀이터에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
   function greetGuest() {
     ownerAvatar?.greet(os.home.greeting, walker?.spot());
   }
+
+  // 실험실의 '담긴 가구 반짝임'(like-sparkle, src/labs.js). 주인이 무언가 담아 둔 바탕화면 가구에 has-like를 달면 style.css가 그 가구 위에 작은 별을 띄운다.
+  // 별은 가구 요소의 ::after라서, 가구 그림이 늦게 와 가구 상자를 다시 채워도(room.js의 furnitureEl) 지워지지 않는다(known-issues 22).
+  // 방을 다시 그린 뒤, 담아 둔 것이 바뀐 뒤(saveHome), 스위치를 켜고 끌 때 부른다. 방 꾸미기 창(renderItems)에는 달지 않고, 튜토리얼 연습 방에서도 뺀다.
+  // 별마다 깜박이는 때를 0.4초씩 어긋나게 해서 한꺼번에 깜박이지 않게 한다. 담긴 것은 집 상태의 likes에서 읽기만 한다(코르크 보드의 쪽지는 서버에 있어 알 수 없다).
+  function markLiked() {
+    if (!os.home) return;
+    const on = labOn('like-sparkle') && !os.realHome;
+    let n = 0;
+    for (const furn of el.wallpaper.querySelectorAll('.furn.static')) {
+      const liked = on && Object.hasOwn(os.home.likes ?? {}, furn.dataset.id);
+      furn.classList.toggle('has-like', liked);
+      if (liked) furn.style.setProperty('--twinkle', `${-0.4 * n++}s`);
+    }
+  }
+  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) markLiked(); });
 
   // 바탕화면의 공간을 옮긴다(현관문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 그 문으로 막 들어온 칸
   // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에 선다. 놀이터는 아파트 문 앞, 내 방은 현관문 앞이다.
@@ -456,6 +473,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       syncLater(() => encodeHome(withPicture(home)));
     }
     if (redraw) renderWallpaper();
+    else markLiked(); // 담아 둔 것만 바뀌었으면 방은 그대로 두고 반짝임만 고친다
   };
 
   // 아바타가 말풍선으로 한마디 한다(가구에 담아 둔 것이 없을 때 등). 바탕화면이 아니면 아무 일도 하지 않는다.
