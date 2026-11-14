@@ -138,7 +138,7 @@ export function openShareApp(os, app) {
           b.disabled = true;
           b.textContent = '그림을 만드는 중';
           try {
-            const canvas = await renderRoomImage(home().scenes[scene.id], scene, home().owner, os.avatarSpot(scene));
+            const canvas = await renderRoomImage(home().scenes[scene.id], scene, home().owner, os.avatarSpot(scene), home().decor);
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             if (!blob) throw new Error('PNG 파일을 만들지 못했다(canvas.toBlob이 빈 값을 돌려줌)');
             saveFile(blob, file);

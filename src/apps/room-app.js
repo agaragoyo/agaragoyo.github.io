@@ -4,6 +4,8 @@ import { ROOM_W, STAGE_H, SCENES } from '../config.js';
 import { renderItems, setSceneBg } from '../room.js';
 import { mountShelf, filterShelf } from '../shelf.js';
 import { holdMusic } from '../sound.js';
+import { wallSwatchSVG } from '../iso.js';
+import { WALL_PATTERNS } from '../../data/wall-patterns.js';
 
 const ROOT_H = STAGE_H; // 공간 720 + 선반 120
 
@@ -52,6 +54,7 @@ export function openRoomApp(os, appInfo) {
           <div class="hud">
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>
+            <span class="wall-picker edit-only" role="group" aria-label="벽지"><span class="wall-picker-name">벽지</span></span>
             <button type="button" class="btn edit-only" data-act="share">공유 링크</button>
           </div>
         </div>`;
@@ -74,6 +77,7 @@ export function openRoomApp(os, appInfo) {
         get mode() { return os.mode; },
         get scene() { return scene; }, // 지금 꾸미는 공간(config.js의 SCENES 한 줄). 현관문 자리 검사에 쓴다
         get owner() { return os.home.owner; }, // 집 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다
+        get decor() { return os.home.decor; }, // 방 꾸밈(벽지). 집 상태의 decor
         // 화면 좌표 → 공간 좌표 (1280×840)
         toLocal(clientX, clientY) {
           const p = os.toStage(clientX, clientY);
@@ -103,9 +107,37 @@ export function openRoomApp(os, appInfo) {
         tabs.append(t);
       }
 
+      // 벽지(F13). 벽이 있는 공간을 꾸밀 때만 보인다. 고르면 바탕화면의 방과 저장본, 짧은 링크의 방도 따라 바뀐다(os.saveHome).
+      // 단추마다 그 무늬를 그려 두어 누르기 전에 어떤 벽이 될지 보인다.
+      const picker = root.querySelector('.wall-picker');
+      for (const w of WALL_PATTERNS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wall-swatch';
+        b.dataset.wall = w.id;
+        b.title = `${w.name} 벽지`;
+        b.setAttribute('aria-label', w.name);
+        b.innerHTML = wallSwatchSVG(w.id);
+        b.addEventListener('click', () => setWall(w.id));
+        picker.append(b);
+      }
+      function markWall() {
+        const now = os.home.decor?.wall || 'plain';
+        for (const b of picker.querySelectorAll('.wall-swatch')) b.setAttribute('aria-pressed', String(b.dataset.wall === now));
+      }
+      function setWall(id) {
+        if (id === 'plain') delete os.home.decor;
+        else os.home.decor = { wall: id };
+        os.saveHome();
+        setSceneBg(ctx, scene);
+        markWall();
+      }
+
       function showScene(id) {
         scene = SCENES.find(sc => sc.id === id) || SCENES[0];
         for (const t of tabs.children) t.setAttribute('aria-selected', String(t.dataset.scene === scene.id));
+        picker.hidden = scene.kind !== 'indoor';
+        markWall();
         setSceneBg(ctx, scene);
         filterShelf(ctx, scene.id);
         render();

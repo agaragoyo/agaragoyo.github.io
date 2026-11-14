@@ -463,6 +463,18 @@ async function walk(page, base) {
   await sleep(300);
   const shelf = (await page.run(savedHome)).scenes.room.find(i => i.id === 'bookshelf');
   check('돌린 채 놓으면 돌린 모습으로 저장된다', shelf?.r === 1, JSON.stringify(shelf));
+  // 벽지(F13): 고르면 창과 바탕화면의 벽이 그 무늬가 되고 저장된다. 놀이터 탭에서는 벽지 칸이 숨는다. 다음 단계를 위해 기본 벽으로 되돌린다
+  await page.run(clickOnce, '.room-app .wall-swatch[data-wall="heart"]');
+  await sleep(200);
+  check('벽지를 고르면 창과 바탕화면의 벽이 그 무늬가 되고 저장된다', await page.run(() => {
+    const painted = box => [...document.querySelectorAll(`${box} .room-bg polygon`)].some(p => p.style.fill.includes('url('));
+    return painted('.room-app') && painted('.wallpaper') && document.querySelector('.room-app .wall-swatch[data-wall="heart"]').getAttribute('aria-pressed') === 'true';
+  }) && (await page.run(savedHome)).decor?.wall === 'heart', JSON.stringify((await page.run(savedHome)).decor));
+  await page.run(clickOnce, '.room-app .scene-tab[data-scene="playground"]');
+  check('놀이터 탭에서는 벽지 칸이 숨는다', await page.run(() => getComputedStyle(document.querySelector('.room-app .wall-picker')).display === 'none'));
+  await page.run(clickOnce, '.room-app .scene-tab[data-scene="room"]');
+  await page.run(clickOnce, '.room-app .wall-swatch[data-wall="plain"]');
+  check('기본 벽을 고르면 저장본에서 벽지가 빠진다', !('decor' in (await page.run(savedHome))));
   await closeWindows();
 
   // ---------- 튜토리얼 다시 보기(연습 방) ----------
