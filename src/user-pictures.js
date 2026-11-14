@@ -1,7 +1,7 @@
 // 사용자 사진(프로필 사진). 그림은 data/user-pictures.js에 있고, 여기서 사진 요소와 사진을 고르는 줄, 사진 바꾸기 창을 만든다.
 // 로그인 화면(src/login.js)의 내 사용자와 새 사용자 만들기, 시작 메뉴 맨 위(src/os.js의 openStartMenu)가 쓴다.
-// 사진은 이 컴퓨터의 사용자 것이라 집(os.home)과 따로 STORAGE_PICTURE에 id만 저장한다. 그래서 공유 링크에 담기지 않고,
-// 튜토리얼 연습 방이 집을 바꿔 끼워도 그대로이며(known-issues 40), 이 컴퓨터 초기화가 다른 agarago. 키와 함께 지운다.
+// 사진은 이 컴퓨터의 사용자 것이라 집(os.home)과 따로 STORAGE_PICTURE에 id만 저장한다. 그래서 튜토리얼 연습 방이 집을 바꿔 끼워도
+// 그대로이며(known-issues 40), 이 컴퓨터 초기화가 다른 agarago. 키와 함께 지운다. 공유 링크에는 만들 때 withPicture로 붙여 담는다.
 import { STORAGE_PICTURE } from './config.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
 import { h, loadJSON, saveJSON } from './util.js';
@@ -46,6 +46,10 @@ export function ownPicture(name = '') {
 export function saveOwnPicture(id) {
   if (Object.hasOwn(BY_ID, id)) saveJSON(STORAGE_PICTURE, id);
 }
+
+// 공유 링크에 담을 집. 내 집에 내 사진을 붙인다. 링크를 만드는 곳(공유하기 창, 짧은 링크의 방을 서버에 올리는 os.js)은 모두 이걸 거친다.
+// 링크로 온 손님은 로그인 화면과 시작 메뉴에서 이 사진을 본다(src/share.js가 사진 번호를 담는다).
+export const withPicture = home => ({ ...home, picture: ownPicture(home.owner) });
 
 // 새 사용자 만들기 칸에 미리 골라 두는 사진. 그 시절 컴퓨터처럼 아무 사진이나 하나를 준다.
 export const randomPicture = () => USER_PICTURES[Math.floor(Math.random() * USER_PICTURES.length)].id;
@@ -97,6 +101,7 @@ export function picturePicker(current, onPick) {
 
 // 사진 바꾸기 창. 시작 메뉴 맨 위의 내 사진을 누르면 열린다. 사진을 누르면 바로 저장하고 창 위의 큰 사진을 바꾼다.
 // 시작 메뉴와 로그인 화면은 열 때마다 새로 그리므로 다음에 열면 바꾼 사진이 나온다.
+// 짧은 링크를 만들어 둔 방이면 os.saveHome이 서버의 방도 새 사진으로 고친다(긴 링크는 이미 보낸 것이라 그대로다).
 // 사진 크기가 무대 배율마다 달라서 창 크기는 열 때의 사진 크기로 정한다. 사진 둘레의 테두리와 여백, 닫기 단추 줄, 창 안쪽 여백을 더한 값이다
 export function openPictureWindow(os) {
   const owner = os.home.owner;
@@ -114,6 +119,7 @@ export function openPictureWindow(os) {
       const picker = picturePicker(ownPicture(owner), id => {
         saveOwnPicture(id);
         face.replaceChildren(pictureEl(id, 48));
+        os.saveHome(false);
       });
       body.append(
         h('div', { className: 'pic-app-head' }, face, h('b', {}, owner)),

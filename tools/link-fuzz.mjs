@@ -6,7 +6,7 @@
 // 필요한 것: Node 22.7 이상(확장자가 .js인 모듈을 그대로 불러온다). 브라우저와 서버는 쓰지 않는다.
 // `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
 // 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants에도 그 칸을 더해야 그 칸까지 두드린다.
-// 방 꾸밈(decor, 지금은 벽지)에 칸을 더할 때도 randomHome과 invariants에 더한다.
+// 방 꾸밈(decor, 지금은 벽지)이나 주인 사진(picture)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
 //
 // 보는 것
 //   1. 왕복: 무작위로 꾸민 집을 검사(sanitizeHome)한 뒤 링크로 만들었다 풀면 같은 집이 나온다. 링크에는 주소에 쓸 수 있는 글자만 있다
@@ -24,6 +24,7 @@ const { FURNITURE, BY_ID } = await load('data/furniture.js');
 const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
 const { WALL_PATTERNS } = await load('data/wall-patterns.js');
+const { USER_PICTURES } = await load('data/user-pictures.js');
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -89,7 +90,9 @@ function randomHome() {
   }
   // 벽지: 목록의 벽지와 기본 벽, 목록에 없는 이름을 섞는다(기본 벽과 없는 이름은 검사가 decor째 지운다)
   const decor = rnd() < 0.6 ? { decor: { wall: pick([...WALL_PATTERNS.map(w => w.id), 'nope', '__proto__', 3]) } } : {};
-  return { owner: text(4) || '주인', scenes, likes, greeting: text(8), ...decor };
+  // 주인 사진: 목록의 사진과 목록에 없는 값을 섞는다(없는 값은 검사가 picture째 지운다)
+  const picture = rnd() < 0.6 ? { picture: pick([...USER_PICTURES.map(p => p.id), 'nope', '__proto__', 3, null]) } : {};
+  return { owner: text(4) || '주인', scenes, likes, greeting: text(8), ...decor, ...picture };
 }
 
 // 검사를 통과한 집이 규칙을 지키는지
@@ -115,6 +118,7 @@ function invariants(home, where) {
     || ('color' in c && !(Number.isInteger(c.color) && c.color > 0 && c.color < LIMIT.cdColors));
   if (l.radio && (l.radio.length > LIMIT.cds || new Set(l.radio.map(c => c.url)).size !== l.radio.length || l.radio.some(badCd))) fail(`${where}: CD`, l.radio);
   if ('decor' in home && (home.decor.wall === 'plain' || !WALL_PATTERNS.some(w => w.id === home.decor.wall) || Object.keys(home.decor).length !== 1)) fail(`${where}: 벽지`, home.decor);
+  if ('picture' in home && !USER_PICTURES.some(p => p.id === home.picture)) fail(`${where}: 주인 사진`, home.picture);
   if (l.tv && (l.tv.length > LIMIT.works || l.tv.some(w => !w.title || (w.link && !/^https?:\/\//.test(w.link)) || (w.poster && !w.poster.startsWith('https://'))))) fail(`${where}: 작품`, l.tv);
 }
 
@@ -203,7 +207,26 @@ for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc
   unknown[at + 1] = 200;
   const opened = decodeHome(Buffer.from(unknown).toString('base64url'));
   if (!opened || 'decor' in opened) fail('모르는 벽지 번호가 든 링크가 기본 벽으로 열리지 않는다', opened);
-  if (Buffer.from(encodeHome(sanitizeHome({ owner: '벽지' })), 'base64url')[0] !== 4) fail('꾸미지 않은 집이 짧은 형식 4로 만들어지지 않는다', '');
+  if (Buffer.from(encodeHome(sanitizeHome({ owner: '벽지' })), 'base64url')[0] !== 4) fail('벽지도 사진도 없는 집이 짧은 형식 4로 만들어지지 않는다', '');
+}
+// 주인 사진: 사진만 있는 집과 벽지와 사진이 다 있는 집이 짧은 형식 5의 같은 집으로 열리고, 모르는 사진 번호는 사진 없이 열린다.
+// 덧붙임 바이트가 늘어도(나중에 더할 칸) 아는 바이트만 읽고 같은 집으로 열린다. 예전 형식(JSON)의 p 칸도 열린다
+{
+  for (const decor of [undefined, { wall: 'cloud' }]) {
+    const home = sanitizeHome({ owner: '사진', picture: 'duck', decor });
+    const bytes = Buffer.from(encodeHome(home), 'base64url');
+    const at = 3 + bytes[1] + bytes[2 + bytes[1]]; // [5] [이름 길이] [이름] [인사말 길이] [인사말] 다음이 [덧붙임 바이트 수] [벽지 번호] [사진 번호 + 1]이다
+    if (bytes[0] !== 5 || bytes[at] !== 2) fail('사진이 있는 집이 짧은 형식 5의 덧붙임 두 바이트로 만들어지지 않는다', [...bytes]);
+    if (JSON.stringify(decodeHome(encodeHome(home))) !== JSON.stringify(home)) fail('사진이 든 링크가 다른 집으로 열린다', decodeHome(encodeHome(home)));
+    const unknown = Uint8Array.from(bytes);
+    unknown[at + 2] = 200;
+    const opened = decodeHome(Buffer.from(unknown).toString('base64url'));
+    if (!opened || 'picture' in opened || opened.decor?.wall !== decor?.wall) fail('모르는 사진 번호가 든 링크가 사진만 빼고 열리지 않는다', opened);
+    const more = Buffer.from([...bytes.subarray(0, at), 3, bytes[at + 1], bytes[at + 2], 7, ...bytes.subarray(at + 3)]);
+    if (JSON.stringify(decodeHome(more.toString('base64url'))) !== JSON.stringify(home)) fail('덧붙임 바이트가 늘어난 링크가 같은 집으로 열리지 않는다', [...more]);
+  }
+  const json = Buffer.from(JSON.stringify({ v: 3, o: '사진', s: {}, p: 'cat' })).toString('base64url');
+  if (decodeHome(json)?.picture !== 'cat') fail('예전 형식 링크의 사진이 열리지 않는다', decodeHome(json));
 }
 // 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.
 // 라디오 CD 두 장(이름과 색이 없는 것, 있는 것)과 유튜브 영상, 재생목록 주소를 담은 TV 작품 두 편이다(재생목록 주소는 ~h로 담겨 있다)

@@ -8,7 +8,7 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기,
-// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크,
+// 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(링크에 담긴 주인 사진), 깨진 링크와 HTML이 든 링크,
 // 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방은 페이지 안의 fetch를 바꿔 껴서 서버 대신 답하고(fakeCloud),
@@ -318,6 +318,11 @@ async function walk(page, base) {
     check(`바탕화면의 ${id} 아이콘이 창을 연다`, await until(page, () => document.querySelectorAll('#windows .win').length === 1, 3000));
     await sleep(400);
     await probe(`창 ${id}`);
+    if (id === 'share') check('공유하기 창의 링크에 내 사진이 담긴다', await page.run(async pic => {
+      const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      const link = document.querySelector('#windows .win input[aria-label="공유 링크"]')?.value || '';
+      return decodeHome(link.split('#r=')[1] || '')?.picture === pic;
+    }, firstPic));
     await closeWindows();
   }
   // 게임 폴더 안의 우리 게임과 새 탭 안내 창
@@ -548,13 +553,16 @@ async function walk(page, base) {
   await page.run(clickOnce, '.start-btn');
   await page.run(clickText, '.start-item', '로그아웃');
   check('로그아웃하면 로그인 화면으로 돌아간다', await until(page, () => !document.getElementById('login').hidden, 3000));
-  const friend = await page.run(linkOf, HOME, '친구');
+  const friendPic = ['duck', 'cat'].find(p => p !== nextPic); // 내 사진과 다른 사진이라야 친구 사진이 보이는지 가릴 수 있다
+  const friend = await page.run(linkOf, { ...HOME, picture: friendPic }, '친구');
   await open(`#r=${friend}`);
   await powerOn();
   check('친구 링크로 오면 친구 집과 내 컴퓨터가 나오고 이웃집은 나오지 않는다', await page.run(() => {
     const names = [...document.querySelectorAll('.users .user small')].map(s => s.textContent);
     return names.includes('손님으로 구경하기') && names.includes('내 컴퓨터로 가기') && !document.querySelector('.users .user.neighbor');
   }));
+  check('로그인 화면의 친구 집에 링크에 담긴 주인 사진이 보인다', await page.run(pic => [...document.querySelectorAll('.users .user')]
+    .find(u => u.querySelector('small')?.textContent === '손님으로 구경하기')?.querySelector('.user-pic')?.dataset.pic === pic, friendPic));
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('손님으로 들어가면 친구 방이 바탕화면에 뜬다', await desktop());
   await sleep(500);
@@ -562,8 +570,8 @@ async function walk(page, base) {
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
   check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
   await page.run(clickOnce, '.start-btn');
-  check('손님의 시작 메뉴에는 내 사진 대신 주인 이름의 첫 글자가 보인다', await page.run(() => !document.querySelector('#start-menu .user-pic')
-    && document.querySelector('#start-menu .start-head .avatar').textContent === '친'));
+  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 바꾸는 단추는 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
+    && await page.run(() => !document.querySelector('#start-menu .start-pic')));
   await page.run(clickOnce, '.start-btn');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
@@ -593,6 +601,10 @@ async function walk(page, base) {
   const evil = await page.run(linkOf, EVIL);
   await open(`#r=${evil}`);
   await powerOn();
+  check('사진이 없는 링크(사진을 넣기 전의 것)의 친구 집은 이름의 첫 글자로 보인다', await page.run(() => {
+    const u = [...document.querySelectorAll('.users .user')].find(x => x.querySelector('small')?.textContent === '손님으로 구경하기');
+    return !!u && !u.querySelector('.user-pic') && u.querySelector('.avatar').textContent === '<';
+  }));
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   await desktop();
   await page.run(clickTwice, '#wallpaper .furn[data-id="bookshelf"]');
@@ -626,7 +638,7 @@ async function walk(page, base) {
   // 서버 대신 페이지 안에서 답한다(fakeCloud). 받는 동안의 자리, 받기 전에 전원을 끄면 늦게 온 답을 버리는지(src/login.js의 isCurrent),
   // 다시 켜면 받아 둔 방을 쓰는지, 없는 방과 연결 실패의 알림을 본다
   const SHORT = '#s=AbCd1234';
-  const shortCode = await page.run(linkOf, HOME, '짧은친구');
+  const shortCode = await page.run(linkOf, { ...HOME, picture: 'rocket' }, '짧은친구');
   await open(SHORT);
   await page.run(fakeCloud, 'hold', shortCode);
   await powerOn();
@@ -644,6 +656,8 @@ async function walk(page, base) {
   await powerOn();
   check('다시 켜면 받아 둔 친구 방이 손님 자리로 나온다', await until(page, () => [...document.querySelectorAll('.users .user')]
     .some(t => !t.disabled && t.textContent.includes('짧은친구') && t.textContent.includes('손님으로 구경하기')), 3000));
+  check('짧은 링크의 친구 방에도 서버의 방에 담긴 주인 사진이 보인다', await page.run(() => [...document.querySelectorAll('.users .user')]
+    .find(t => t.textContent.includes('짧은친구'))?.querySelector('.user-pic')?.dataset.pic === 'rocket'));
   check('다시 켜도 서버에 다시 묻지 않는다', (await page.run(() => window.__cloudCalls)) === 1);
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('짧은 링크의 손님 자리를 누르면 친구 방에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit'
