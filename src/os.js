@@ -8,11 +8,11 @@ import { APPS, APP_BY_ID, hostTip } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
-import { mountAvatar } from './avatar.js';
+import { mountAvatar, mountOwner } from './avatar.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
-import { PASSWORD, labsOpen, openLabs } from './labs.js';
+import { PASSWORD, labsOpen, openLabs, labOn } from './labs.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
@@ -57,6 +57,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.tutorial = createTutorial(os);
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
+  let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
 
   // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
   // 밤은 방의 불을 끈 상태라 바탕화면에서만 쓴다. 부팅과 로그인 화면은 늘 낮 색이다(known-issues 38).
@@ -73,6 +74,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       os.closeup?.close(true);
       walker?.destroy();
       walker = null;
+      ownerAvatar?.destroy();
+      ownerAvatar = null;
       os.tutorial.hide();
       setPlace(null); // 배경음악은 바탕화면에서만 튼다
     }
@@ -178,6 +181,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.place = SCENES[0].id;
     setPlace(os.place);
     walker?.destroy();
+    ownerAvatar?.destroy();
+    // 실험실의 주인 아바타 남기기(host-avatar)를 켜고 친구 집을 구경하면 주인 아바타가 방에 서 있고, 손님인 내 아바타는 손님 옷 색을 입는다
+    const withOwner = os.mode === 'visit' && labOn('host-avatar');
+    ownerAvatar = withOwner ? mountOwner({ layer: el.wallpaper, items: () => os.home.scenes[os.place] }, os.home.owner) : null;
     walker = mountAvatar({
       layer: el.wallpaper,
       items: () => os.home.scenes[os.place],
@@ -194,8 +201,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         openLabs();
         toast('바탕화면에 실험실 아이콘이 생겼습니다.', 4000);
       },
-    });
+      others: () => (ownerAvatar ? [ownerAvatar] : []),
+    }, 'basic', { guest: withOwner });
     renderWallpaper();
+    greetGuest();
     // 친구 집도 바탕화면에서 시작한다. 친구 방이 배경이 되고, 손님은 내 아바타로 걸으며 가구를 써 본다.
     if (os.mode === 'visit') {
       toast(`${os.home.owner}의 집에 놀러 왔습니다. 바닥을 눌러 걷고, 가구를 두 번 눌러 사용해 보세요.`, 6000);
@@ -230,7 +239,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const scene = SCENES.find(s => s.id === os.place);
     el.desktop.dataset.kind = scene.kind; // 바깥 공간(놀이터)이면 바탕화면 뒤를 하늘색으로 칠한다(style.css의 .desktop[data-kind="outdoor"])
     renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner, os.home.decor);
+    ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
+  }
+
+  // 손님이 방에 들어오면(친구 집에 들어올 때와 놀이터에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
+  function greetGuest() {
+    ownerAvatar?.greet(os.home.greeting, walker?.spot());
   }
 
   // 바탕화면의 공간을 옮긴다(현관문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 그 문으로 막 들어온 칸
@@ -251,6 +266,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     walker?.moveTo(doorstep(scene));
     renderWallpaper();
     renderDesktopIcons();
+    greetGuest();
   };
 
   // 공유하기의 방 그림에 세울 아바타의 칸과 방향(src/room-image.js). 아바타가 그 공간에 있으면 지금 선 칸, 없으면 그 공간에 들어갈 때 서는 칸이다.

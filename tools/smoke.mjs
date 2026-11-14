@@ -198,6 +198,24 @@ const savedHome = () => JSON.parse(localStorage.getItem('agarago.home.v3'));
 const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
+
+// 바탕화면 방의 주인 아바타(실험실 host-avatar)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
+async function ownerScene() {
+  const { AVATAR_BY_ID } = await import(new URL('data/avatars.js', document.baseURI).href);
+  const { color, guestColor } = AVATAR_BY_ID.basic;
+  const shirt = el => { const bg = decodeURIComponent(el?.style.backgroundImage || ''); return bg.includes(guestColor) ? '손님 옷' : bg.includes(color) ? '기본 옷' : '모르는 옷'; };
+  const owner = document.querySelector('#wallpaper .room-owner');
+  const tag = document.querySelector('#wallpaper .room-owner-name');
+  return `${owner ? `주인 ${shirt(owner)} ${tag?.textContent ?? '이름표 없음'}` : '주인 없음'}, 나 ${shirt(document.querySelector('#wallpaper .room-avatar:not(.room-owner)'))}`;
+}
+
+// 내 아바타가 주인 아바타의 바로 옆 칸에 서 있는지. 한 칸 옆이면 그림이 가로로 36px(TW의 절반), 세로로 18px(TH의 절반) 떨어진다
+function nextToOwner() {
+  const at = el => [parseFloat(el.style.left), parseFloat(el.style.top)];
+  const [ox, oy] = at(document.querySelector('#wallpaper .room-owner'));
+  const [mx, my] = at(document.querySelector('#wallpaper .room-avatar:not(.room-owner)'));
+  return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
+}
 const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
 function pickOther(scope, avoid = null) {
@@ -687,6 +705,7 @@ async function walk(page, base) {
     .find(u => u.querySelector('small')?.textContent === '손님으로 구경하기')?.querySelector('.user-pic')?.dataset.pic === pic, friendPic));
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('손님으로 들어가면 친구 방이 바탕화면에 뜬다', await desktop());
+  check('실험실을 켜지 않으면 친구 집에 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
   await sleep(500);
   await probe('손님 바탕화면');
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
@@ -875,6 +894,37 @@ async function walk(page, base) {
   check('새로 고침해도 실험실 아이콘이 남는다', (await enterMine()) && await until(page, () => !!document.querySelector('#icons [data-app="labs"]'), 2000));
   await openIcon('labs');
   check('새로 고침해도 켠 항목이 켜져 있다', await until(page, () => document.querySelector('.labs-item[data-lab="fast-saver"] input')?.checked === true, 3000));
+  check('실험실 창은 스크롤 없이 실험실 닫기 단추까지 보인다', await page.run(() => { const b = document.querySelector('#windows .labs-app'); return b.scrollHeight <= b.clientHeight; }));
+  // 주인 아바타 남기기(host-avatar): 친구 집에 가면 주인 아바타가 이름표를 달고 방에 서서 인사말을 하고, 손님인 내 아바타는 손님 옷을 입는다. 내 집은 그대로다
+  await page.run(() => document.querySelector('.labs-item[data-lab="host-avatar"] input').click());
+  check('주인 아바타 남기기를 켜면 설정에 남는다', (await page.run(labsState)) === 'true/fast-saver,host-avatar', await page.run(labsState));
+  await closeWindows();
+  check('주인 아바타 남기기를 켜도 내 집에는 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
+  if (neighbors) {
+    await open();
+    await powerOn();
+    await page.run(clickOnce, '.users .user.neighbor');
+    check('주인 아바타 남기기를 켜고 이웃집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await desktop()) && /^주인 기본 옷 .+, 나 손님 옷$/.test(await page.run(ownerScene)), await page.run(ownerScene));
+    // 주인이 선 칸의 바닥을 누르면 손님은 그 칸에 들어가지 않고 바로 옆 칸에 멈춘다(주인 칸은 지나갈 수 없다)
+    await page.run(() => {
+      const r = document.querySelector('#wallpaper .room-owner').getBoundingClientRect();
+      const p = { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + (r.height * 100) / 104 };
+      const floor = document.getElementById('desktop');
+      floor.dispatchEvent(new PointerEvent('pointerdown', p));
+      floor.dispatchEvent(new PointerEvent('pointerup', p));
+    });
+    check('주인 아바타가 선 칸을 누르면 내 아바타는 그 바로 옆 칸에 멈춘다', await until(page, nextToOwner, 6000));
+  }
+  const greeter = await page.run(linkOf, { ...HOME, greeting: '어서 와' }, '인사');
+  await open(`#r=${greeter}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  check('주인 아바타는 손님이 들어오면 주인이 적어 둔 인사말을 말풍선으로 말한다', await until(page, () => [...document.querySelectorAll('#wallpaper .room-avatar-say')]
+    .some(b => !b.hidden && b.textContent === '어서 와'), 3000) && (await page.run(ownerScene)) === '주인 기본 옷 인사, 나 손님 옷', await page.run(ownerScene));
+  check('실험실: 내 집으로 돌아온다', await enterMine());
+  await openIcon('labs');
+  await until(page, () => !!document.querySelector('#windows .labs-app'), 3000);
   await page.run(clickText, '.labs-app .btn', '실험실 닫기');
   check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
     && (await page.run(labsState)) === 'false/', await page.run(labsState));
