@@ -160,10 +160,13 @@ button { font-family: inherit; }
     0 calc(3 * var(--u)) 0 #7c8189,
     0 calc(30 * var(--u)) calc(60 * var(--u)) #000c;
 }
-/* 화면 둘레는 검은 광택 테(2000년대 투톤 모니터) */
+/* 화면 둘레는 검은 광택 테(2000년대 투톤 모니터).
+   넘친 것은 잘라 내되 스크롤 상자는 되지 않게 clip으로 둔다. 켤 때의 디가우스 층(.degauss)이 일부러 화면보다 15% 크게 깔려서,
+   hidden이면 화면이 아래로 107px, 오른쪽으로 164px까지 스크롤되었고, 요소를 화면 안으로 끌어오는 스크롤(scrollIntoView, 가려진 칸에 초점)에
+   화면 전체가 밀렸다(known-issues 66). 안의 층은 모두 절대 위치라 clip으로 바꿔도 배치는 같다 */
 .screen {
   position: relative;
-  overflow: hidden;
+  overflow: clip;
   border-radius: calc(2 * var(--u));
   background: #000;
   box-shadow:
