@@ -6,8 +6,8 @@
 // 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
-// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기, 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
-// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창,
+// 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
+// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기,
 // 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기, 깨진 링크와 HTML이 든 링크,
 // 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
@@ -127,6 +127,15 @@ const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
 const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
+// 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js)
+function pickOther(scope) {
+  const b = [...document.querySelectorAll(`${scope} .pic-choice`)].find(c => c.getAttribute('aria-pressed') !== 'true');
+  if (!b) return null;
+  b.click();
+  return b.querySelector('.user-pic').dataset.pic;
+}
+// sel 안에 보이는 사용자 사진의 id(없으면 null)
+const shownPic = sel => document.querySelector(`${sel} .user-pic`)?.dataset.pic ?? null;
 const clickOnce = sel => { const el = document.querySelector(sel); if (!el) return false; el.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true; };
 const clickText = (sel, text) => { const el = [...document.querySelectorAll(sel)].find(b => b.textContent.includes(text)); if (!el) return false; el.click(); return true; };
 const centreOf = sel => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
@@ -191,10 +200,17 @@ async function walk(page, base) {
   check('전원을 누르면 로그인 화면이 뜬다', await powerOn());
   await probe('로그인 화면');
   check('처음 온 사람에게 새 사용자 만들기 칸이 있다', await page.run(() => !!document.querySelector('.user.new input')));
+  // 사용자 사진: 한 장이 미리 골라져 있고, 다른 사진을 누르면 고른 표시와 왼쪽 큰 사진이 따라온다
+  check('새 사용자 만들기에 사진 여덟 장이 있고 한 장이 골라져 있다', await page.run(() => document.querySelectorAll('.user.new .pic-choice').length === 8
+    && document.querySelectorAll('.user.new .pic-choice[aria-pressed="true"]').length === 1));
+  const firstPic = await page.run(pickOther, '.user.new');
+  check('사진을 누르면 그 사진이 골라지고 왼쪽 큰 사진이 바뀐다', firstPic && (await page.run(shownPic, '.user.new > .avatar')) === firstPic
+    && (await page.run(p => document.querySelector(`.user.new .pic-choice[aria-pressed="true"] [data-pic="${p}"]`) !== null, firstPic)), firstPic);
   await page.run(() => { const f = document.querySelector('.user.new'); f.requestSubmit(); });
   check('빈 닉네임으로 확인을 누르면 안내가 뜬다', await page.run(() => !document.querySelector('.name-tip').hidden));
   await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input').value = '점검'; f.requestSubmit(); });
   check('새 사용자를 만들면 바탕화면이 뜬다', await desktop());
+  check('새 사용자를 만들면 고른 사진이 저장된다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === firstPic);
   check('새 사용자에게 튜토리얼 안내 카드가 뜬다', await until(page, () => { const c = document.querySelector('.coach-card'); return !!c && !c.hidden; }, 3000));
   await probe('튜토리얼 첫 단계');
   await page.run(() => document.querySelector('.coach-btn').click());
@@ -205,6 +221,7 @@ async function walk(page, base) {
   await open();
   await powerOn();
   check('로그인 화면에 내 사용자가 있다', await page.run(() => document.querySelectorAll('.users .user:not(.neighbor):not(.new)').length === 1));
+  check('로그인 화면의 내 사용자에 고른 사진이 보인다', (await page.run(shownPic, '.users .user:not(.neighbor):not(.new)')) === firstPic);
   await page.run(clickOnce, '.reset-link');
   await probe('초기화 확인');
   await page.run(clickText, '.reset-row .btn', '그대로 두기');
@@ -303,6 +320,16 @@ async function walk(page, base) {
   await page.run(clickOnce, '.start-btn');
   check('시작 단추를 누르면 시작 메뉴가 열린다', await page.run(() => !document.getElementById('start-menu').hidden && document.querySelectorAll('.start-item').length >= 8));
   await probe('시작 메뉴');
+  check('시작 메뉴 맨 위에 내 사진이 있다', (await page.run(shownPic, '#start-menu .start-pic')) === firstPic);
+  await page.run(clickOnce, '#start-menu .start-pic');
+  check('내 사진을 누르면 시작 메뉴가 닫히고 사진 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .pic-app'), 3000));
+  await probe('사진 바꾸기 창');
+  const nextPic = await page.run(pickOther, '.pic-app');
+  check('창에서 사진을 누르면 바로 저장되고 창 위의 사진이 바뀐다', nextPic && nextPic !== firstPic
+    && (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === nextPic && (await page.run(shownPic, '.pic-app-head')) === nextPic, nextPic);
+  await closeWindows();
+  await page.run(clickOnce, '.start-btn');
+  check('바꾼 사진이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === nextPic);
   await page.run(clickOnce, '.start-btn');
 
   // ---------- 가구 가까이 보기 ----------
@@ -411,6 +438,10 @@ async function walk(page, base) {
   await sleep(500);
   check('연습 방은 가구가 없는 빈 방이다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0);
   await probe('연습 방');
+  await page.run(clickOnce, '.start-btn');
+  check('연습 방의 시작 메뉴에는 내 사진이 보이기만 하고 바꾸는 단추는 없다', await page.run(() => !document.querySelector('#start-menu .start-pic')
+    && !!document.querySelector('#start-menu .start-head .user-pic')));
+  await page.run(clickOnce, '.start-btn');
 
   // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 놀이터 가기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
   const tut = await page.run(tutorialFurniture);
@@ -478,6 +509,10 @@ async function walk(page, base) {
   await probe('손님 바탕화면');
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
   check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
+  await page.run(clickOnce, '.start-btn');
+  check('손님의 시작 메뉴에는 내 사진 대신 주인 이름의 첫 글자가 보인다', await page.run(() => !document.querySelector('#start-menu .user-pic')
+    && document.querySelector('#start-menu .start-head .avatar').textContent === '친'));
+  await page.run(clickOnce, '.start-btn');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
   check('손님에게는 넣기, 고치기, 빼기 단추가 없다', await page.run(() => !document.querySelector('.closeup .shelf-tools, .closeup .book-spine.add')));
@@ -574,6 +609,7 @@ async function walk(page, base) {
     return localStorage.getItem('agarago.settings');
   }, appKey);
   await powerOn();
+  check('초기화 전에는 내 사진이 저장되어 있다', !!(await page.run(() => localStorage.getItem('agarago.picture'))));
   await page.run(clickOnce, '.reset-link');
   await page.run(clickText, '.reset-row .btn', '지우기');
   check('초기화에서 지우기를 누르면 내 사용자 대신 새 사용자 만들기가 나온다', await until(page, () => !!document.querySelector('.user.new input')
@@ -581,6 +617,7 @@ async function walk(page, base) {
   const left = await page.run(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
   check('지우기는 집과 앱 기록만 지우고 설정과 다른 사이트의 키는 남긴다', Object.keys(left).every(k => k === 'agarago.settings' || !k.startsWith('agarago.'))
     && !(appKey in left) && left['other-site.smoke'] === '1' && left['agarago.settings'] === settings, Object.keys(left).join(', '));
+  check('초기화하면 내 사진도 지워진다', !('agarago.picture' in left));
 
   // 그림이 없는 가구의 404는 정상이다(known-issues 2). 그 밖의 콘솔 오류와 잡지 못한 예외를 센다
   const errors = [...new Set([...page.pageErrors, ...page.consoleErrors.filter(e => !/Failed to load resource/.test(e))])];

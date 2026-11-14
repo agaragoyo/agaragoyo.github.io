@@ -38,6 +38,7 @@
 | 밤 모드에서 글자가 바탕에 묻히는지 재기 | `node tools/night-contrast.mjs`. 원래 있고 읽히는 예외는 그 파일 맨 위의 `EXCEPTIONS`에 적는다 |
 | 부팅 로고, 로그인 화면 흐름 | 부팅은 `src/os.js`의 `os.boot`, 로그인 화면(사용자 목록, 새 사용자 만들기, 이 컴퓨터 초기화)은 `src/login.js`의 `showLogin`, 고른 집으로 들어가기(환영 화면)는 `src/os.js`의 `enter` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
+| 사용자 사진(로그인 화면과 시작 메뉴의 프로필 사진) 그림 고치기와 더하기 | `data/user-pictures.js`. 한 글자가 한 칸이고 '.'은 바탕 색이다. 고르는 줄과 사진 바꾸기 창(시작 메뉴 맨 위의 사진을 누르면 열린다)은 `src/user-pictures.js` |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
@@ -86,7 +87,8 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/os.js` | 부팅, 고른 집으로 들어가기(로그인 화면은 `login.js`가 만든다), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기 | `createOS` |
-| `src/login.js` | 로그인 화면. 내 집, 링크로 온 친구 집(짧은 링크의 방은 서버에서 받아 온다), 이웃집을 사용자처럼 늘어놓고, 맨 끝에 새 사용자 만들기나 이 컴퓨터 초기화를 둔다. 화면 바꾸기와 고른 집으로 들어가기는 `os.js`에서 넘겨받는다 | `createLogin` |
+| `src/login.js` | 로그인 화면. 내 집, 링크로 온 친구 집(짧은 링크의 방은 서버에서 받아 온다), 이웃집을 사용자처럼 늘어놓고, 맨 끝에 새 사용자 만들기(닉네임과 사진)나 이 컴퓨터 초기화를 둔다. 내 사용자에는 고른 사진이, 친구 집과 이웃집에는 이름의 첫 글자가 보인다. 화면 바꾸기와 고른 집으로 들어가기는 `os.js`에서 넘겨받는다 | `createLogin` |
+| `src/user-pictures.js` | 사용자 사진(프로필 사진). `data/user-pictures.js`의 글자 격자를 SVG로 그리고, 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다. 새 사용자 만들기와 사진 바꾸기 창이 같이 쓰는 고르는 줄, 시작 메뉴에서 여는 사진 바꾸기 창, 내 사진 id의 저장(`agarago.picture`)과 고른 적 없는 사용자의 사진 정하기 | `fitUserPictures`, `ownPicture`, `saveOwnPicture`, `randomPicture`, `pictureEl`, `picturePicker`, `openPictureWindow` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 링크를 풀어 깨진 줄을 빼고 여섯 집까지 고르기, 그 집을 새로 열기, 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패는 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
 | `src/closeup.js` | 가구를 가까이 보는 화면. 바탕화면을 어둡게 덮고 가운데에 가구를 크게 보여 준다. 바깥이나 아래의 닫기 단추(가구마다 "내려놓기", "TV 끄기", "닫기"), Esc를 누르면 닫고, 열려 있는 동안 아바타는 키를 받지 않는다. 창 층보다 아래에 깔린다 | `openCloseup` |
@@ -139,6 +141,7 @@
 | `data/furniture.js` | 가구 목록. 공간, 자리(벽, 바닥, 책상 위), 크기, 색, 기믹. 칸의 뜻은 파일 맨 위에 있고, 튜토리얼 기본 가구는 맨 아래에 있다 |
 | `data/neighbors.js` | 이웃집 목록. 문패에 쓰는 닉네임과 그 집 공유 링크(`#r=` 뒤의 글자, 예전 링크는 `#room=` 뒤). 로그인 화면과 놀이터 울타리에 나온다. 넣는 법은 파일 맨 위에 있다 |
 | `data/avatars.js` | 아바타 목록과 그림 규격(스프라이트 시트의 칸 크기와 순서, 발끝 자리). 칸의 뜻은 파일 맨 위에 있다 |
+| `data/user-pictures.js` | 사용자 사진 여덟 장(강아지, 고양이, 꽃, 축구공, 기타, 로켓, 케이크, 오리). 24×24칸 글자 격자와 바탕 색, 글자마다의 색. 새 사진은 끝에 더하고 있던 id는 바꾸지 않는다 |
 
 ## apps/: 팀원 앱
 
@@ -173,7 +176,7 @@
 | `tools/link-fuzz.mjs` | 공유 링크 무작위 점검. `node tools/link-fuzz.mjs`로 돌린다(3초쯤, Node 22.7 이상). 무작위로 꾸민 집 2만 개를 링크로 만들었다 풀어 같은 집이 나오는지, 망가진 링크와 아무 값을 넣어도 멈추지 않고 규칙을 지키는 집만 돌려주는지 본다. `src/share.js`, `src/likes.js`, `src/rules.js`를 고치거나 가구에 담는 것의 칸을 더했을 때 돌린다 |
 | `tools/css-diff.mjs` | 모양 비교. `node tools/css-diff.mjs`로 돌린다(5분쯤, Node 22 이상과 크롬이나 엣지, git 필요). 화면 99가지(꺼진 화면부터 손님 화면까지, 단추에 마우스를 올리거나 누른 상태 포함)를 열어, 같은 페이지에서 스타일시트만 마지막 커밋의 것으로 바꿔 끼우고 모든 요소의 계산된 속성을 낮과 밤에서 견준다. 모양을 바꾸지 않는 `style.css` 정리라면 "다른 곳 0개"가 나와야 하고, 모양을 일부러 바꿨다면 바뀐 요소와 속성의 목록이 나온다. `--base=<커밋이나 브랜치>`로 견줄 대상을 바꾼다 |
 | `tools/headless.mjs` | 화면 없는 크롬을 모는 공용 부분. 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 크롬이나 엣지를 새 사용자 폴더로 띄워 페이지 안에서 함수를 돌린다. 가구와 담아 둔 것이 있는 점검용 집(`TEST_HOME`)과 그 집을 내 집으로 심는 함수도 여기에 있다. `tools/smoke.mjs`, `tools/night-contrast.mjs`, `tools/css-diff.mjs`가 같이 쓴다 |
-| `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 이어서 점검용 집을 심어 가구를 두 번 눌러 여는 화면 여섯 개(책장, TV, 게임기, 라디오, 코르크 보드, 컴퓨터)와 그 안의 넣는 칸도 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 방 그림 안의 글자(문패, 그림 없는 가구의 이름)는 재지 않는다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에, 가구 화면은 `SCREENS`에 적는다 |
+| `tools/night-contrast.mjs` | 밤 모드 글자 대비 점검. `node tools/night-contrast.mjs`로 돌린다(15초쯤, Node 22 이상과 크롬이나 엣지 필요). 이 폴더를 `tools/serve.py`로 빈 포트에 띄우고 화면 없는 크롬으로 바탕화면까지 들어가, 창 다섯 개와 사진 바꾸기 창, 시작 메뉴를 연 채 2005 화면의 낮과 밤에서 글자마다 바탕과의 대비를 잰다. 이어서 점검용 집을 심어 가구를 두 번 눌러 여는 화면 여섯 개(책장, TV, 게임기, 라디오, 코르크 보드, 컴퓨터)와 그 안의 넣는 칸도 잰다. 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자를 실패로 알린다. 방 그림 안의 글자(문패, 그림 없는 가구의 이름)는 재지 않는다. 원래 있고 읽히는 예외는 파일 맨 위의 `EXCEPTIONS`에, 여는 창은 `OPEN`에, 가구 화면은 `SCREENS`에 적는다 |
 
 ## docs/: 설명 문서
 
@@ -208,7 +211,7 @@
 index.html
 └─ src/main.js ─── settings.js, cursors.js
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
-      ├─ src/login.js ── share.js, cloud.js, neighbors.js
+      ├─ src/login.js ── share.js, cloud.js, neighbors.js, user-pictures.js ── data/user-pictures.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js

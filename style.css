@@ -1042,6 +1042,32 @@ form.user { cursor: var(--cur-arrow); }
 }
 .login.entering .welcome { display: grid; }
 
+/* 사용자 사진(src/user-pictures.js): 로그인 화면의 내 사용자와 새 사용자 만들기, 시작 메뉴 맨 위, 사진 바꾸기 창.
+   그림 한 칸이 화면 픽셀 정수 개가 되도록 main.js의 fit()이 자리 크기마다 그림 크기(--user-pic-48 등)와 그리는 방식을 정한다(known-issues 67).
+   사진을 넣은 사용자 그림(.avatar.has-pic)은 글자 그림의 정해진 크기 대신 사진 크기에 흰 테두리만 두른다 */
+.user-pic { display: grid; flex: none; }
+.user-pic svg { display: block; width: var(--pic-size); height: var(--pic-size); shape-rendering: var(--pic-render); }
+.user-pic[data-slot="48"] { --pic-size: var(--user-pic-48, 48px); --pic-render: var(--user-pic-48-render, crispEdges); }
+.user-pic[data-slot="36"] { --pic-size: var(--user-pic-36, 36px); --pic-render: var(--user-pic-36-render, crispEdges); }
+.avatar.has-pic { width: auto; height: auto; overflow: hidden; border-radius: 4px; background: none; }
+/* 사진을 고르는 줄. 고른 사진에 테두리를 두른다(로그인 화면의 파란 바탕에서는 흰색, 창 안에서는 고른 아이콘과 같은 파란색) */
+.pic-picker { display: flex; flex-wrap: wrap; gap: 4px; }
+.pic-choice { display: grid; padding: 1px; border: 2px solid transparent; border-radius: 4px; background: none; cursor: var(--cur-hand); }
+.pic-choice:hover { border-color: #ffffff80; }
+.pic-choice[aria-pressed="true"] { border-color: #fff; }
+.user.new .user-name { gap: 6px; }
+/* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
+.start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
+.start-pic:hover .avatar { border-color: #f8b33a; }
+/* 사진 바꾸기 창. 사진 크기가 무대 배율마다 달라 남는 높이는 고르는 줄과 닫기 단추 사이로 보내 단추를 창 아래에 붙인다.
+   창 바탕이 밝아 흰 테두리가 묻히므로 사진 둘레에 옅은 선을 한 줄 더 긋는다 */
+.pic-app { display: flex; flex-direction: column; }
+.pic-app .link-row { margin-top: auto; padding-top: 12px; }
+.pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
+.pic-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
+.pic-app .pic-choice:hover { border-color: #316ac580; }
+.pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
+
 .toast {
   position: absolute;
   left: 50%;
