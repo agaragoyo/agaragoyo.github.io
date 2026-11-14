@@ -16,7 +16,7 @@ import { PASSWORD, labsOpen, openLabs } from './labs.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
-import { askVisit } from './neighbors.js';
+import { askVisit, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { batchim, h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
@@ -85,6 +85,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
     const sid = linkId(location.hash);
     if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
+    prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 놀이터 문패가 받은 값을 같이 쓴다)
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();

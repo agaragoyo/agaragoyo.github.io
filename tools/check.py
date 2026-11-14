@@ -434,7 +434,8 @@ def check_tutorial():
         err('src/tutorial.js', "내 방(SCENES 의 'room')에 현관문(door)이 없어 놀이터로 나가는 단계에서 막힌다")
 
 
-# 이웃집 목록 (data/neighbors.js). 공유 링크가 풀리는지, 링크 속 주인 이름이 문패 닉네임과 같은지 본다.
+# 이웃집 목록 (data/neighbors.js). 한 줄은 link(공유하기에서 만든 링크의 #s= 뒤 번호)와 room(예전 긴 링크의 글자) 가운데 하나를 쓴다.
+# link는 방이 서버에 있어서 번호의 모양만 본다. room은 링크가 풀리는지, 링크 속 주인 이름이 문패 닉네임과 같은지 본다.
 # 링크(base64)는 누구나 풀어 읽을 수 있어서, 다르면 공개 레포에 다른 이름(실명일 수 있다)이 숨어 올라간다. 그래서 오류 문구에도 그 이름을 적지 않는다.
 def check_neighbors():
     import base64
@@ -452,6 +453,15 @@ def check_neighbors():
         name = n.get('name', '')
         if not name.strip() or len(name) > 12:
             err(where, 'name(문패 닉네임)은 1~12글자다')
+        if 'link' in n:
+            if 'room' in n:
+                err(where, 'link와 room 가운데 하나만 쓴다. 링크 번호를 받았으면 room을 지운다')
+            if not re.fullmatch(r'[0-9A-Za-z]{8}', n['link']):
+                err(where, 'link는 공유하기에서 만든 링크의 #s= 뒤 여덟 글자(영어와 숫자)다')
+            continue
+        if 'room' not in n:
+            err(where, 'link(공유하기에서 만든 링크의 #s= 뒤 여덟 글자)가 없다')
+            continue
         room = n.get('room', '')
         try:
             raw = base64.urlsafe_b64decode(room + '=' * (-len(room) % 4))

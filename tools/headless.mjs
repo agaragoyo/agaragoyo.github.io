@@ -120,8 +120,10 @@ async function connect(url) {
   const pending = new Map();
   const pageErrors = [];
   const consoleErrors = []; // console.error로 찍힌 것(받지 못한 그림의 404 같은 브라우저 알림도 들어온다)
+  const handlers = new Map(); // 이벤트 이름 → 받는 함수(on으로 단다. 예: 요청 가로채기의 Fetch.requestPaused)
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
+    if (m.method && handlers.has(m.method)) handlers.get(m.method)(m.params);
     if (m.id && pending.has(m.id)) {
       const { res, rej } = pending.get(m.id);
       pending.delete(m.id);
@@ -152,7 +154,9 @@ async function connect(url) {
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
     return r.result.value;
   };
-  return { send, run, pageErrors, consoleErrors };
+  // on(이벤트 이름, 함수): 그 이벤트가 올 때마다 함수를 부른다. 함수 자리에 null을 넣으면 뗀다
+  const on = (method, fn) => (fn ? handlers.set(method, fn) : handlers.delete(method));
+  return { send, run, on, pageErrors, consoleErrors };
 }
 
 // 점검용 집. tools/smoke.mjs와 tools/night-contrast.mjs가 내 집으로 심어 쓴다. 바닥과 벽의 가구, 책상 위 물건, 가구에 담아 둔 것이 고루 들어 있다. 라디오는 CD를 넣지 않아 넣는 칸이 바로 뜬다
