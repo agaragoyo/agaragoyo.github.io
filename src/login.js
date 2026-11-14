@@ -14,7 +14,8 @@ import { play } from './sound.js';
 // show(...names): 보일 화면 고르기. enter(mode, home, my, boardId): 고른 집으로 들어가기. toast(msg, ms): 알림. clearHash(): 주소의 방 링크 지우기
 // nextRun(): 새 실행 번호 받기(전원을 끄거나 로그아웃하면 번호가 바뀐다). isCurrent(my): my가 아직 지금 실행인지
 // 돌려주는 것: 부팅할 때 미리 받기(loginHomes, cloudHome), 내 집(ownHome), 로그인 화면(showLogin), 시작 메뉴의 사용자 그림(avatar)
-// 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집과 이웃집은 사진을 모르므로 이름의 첫 글자가 보인다.
+// 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집과 이웃집에는 링크에 담긴 주인 사진이 보인다.
+// 사진을 넣기 전에 만든 링크는 사진이 없으므로 이름의 첫 글자가 보인다.
 export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, isCurrent }) {
   // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
   function ownHome() {
@@ -51,7 +52,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     cloudHome(id).then(friend => {
       if (!isCurrent(my) || !tile.isConnected) return;
       if (friend) {
-        tile.replaceWith(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my, id)));
+        tile.replaceWith(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my, id), '', friend.picture));
         return;
       }
       tile.remove();
@@ -74,7 +75,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     const sid = linkId(location.hash);
     if (m) {
       const friend = decodeHome(m);
-      if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my)));
+      if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my), '', friend.picture));
       else toast('링크가 깨져서 친구 컴퓨터를 열 수 없었습니다.');
     } else if (sid) {
       users.append(cloudTile(sid, my));
@@ -82,7 +83,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
     // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
     const linked = !!(m || sid);
-    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor'));
+    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborHome(n), my), 'neighbor', neighborHome(n).picture));
     if (own) {
       users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();

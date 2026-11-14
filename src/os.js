@@ -18,7 +18,7 @@ import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { askVisit } from './neighbors.js';
 import { createLogin } from './login.js';
-import { ownPicture, openPictureWindow } from './user-pictures.js';
+import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { batchim, h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
 import { play, setPlace } from './sound.js';
 
@@ -120,7 +120,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.home = home;
     os.hasOwnHome = mode === 'edit' || !!ownHome();
     os.boardId = mode === 'visit' ? boardId : null;
-    if (mode === 'edit') syncLater(() => encodeHome(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침이 있으면 올린다(src/cloud.js)
+    if (mode === 'edit') syncLater(() => encodeHome(withPicture(home))); // 지난번에 탭을 닫느라 서버에 못 올린 고침이 있으면 올린다(src/cloud.js)
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
@@ -359,9 +359,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       onclick: () => { menu.hidden = true; onClick(); },
     }, iconEl(app, 24), h('span', {}, label));
     // 맨 위의 사용자 그림. 내 컴퓨터에서는 내 사진이고, 누르면 사진 바꾸기 창이 열린다(src/user-pictures.js).
-    // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40). 손님에게는 주인 이름의 첫 글자가 보인다
+    // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
+    // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것)면 주인 이름의 첫 글자가 보인다
     const mine = os.mode === 'edit';
-    const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : null);
+    const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : os.home.picture);
     const head = mine && !os.realHome
       ? h('button', {
         type: 'button',
@@ -429,7 +430,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (os.mode === 'edit' && !os.realHome) {
       saveJSON(STORAGE_ROOM, os.home);
       const home = os.home;
-      syncLater(() => encodeHome(home));
+      syncLater(() => encodeHome(withPicture(home)));
     }
     if (redraw) renderWallpaper();
   };

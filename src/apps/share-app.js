@@ -5,6 +5,7 @@
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
+import { withPicture } from '../user-pictures.js';
 import { sharedId, share, unshare, syncNow } from '../cloud.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
@@ -27,8 +28,9 @@ function saveFile(blob, name) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다
+  const code = () => encodeHome(withPicture(home())); // 링크에 담는 글자. 내 사진도 담는다(F25)
   const base = () => `${location.origin}${location.pathname}`;
-  const longLink = () => `${base()}#r=${encodeHome(home())}`; // 예전 링크는 #room=(src/share.js의 linkCode)
+  const longLink = () => `${base()}#r=${code()}`; // 예전 링크는 #room=(src/share.js의 linkCode)
   const shortLink = id => `${base()}#s=${id}`;
   const button = (label, onclick, title) => h('button', { type: 'button', className: 'btn', onclick, title }, label);
   const win = os.wm.open({
@@ -79,7 +81,7 @@ export function openShareApp(os, app) {
         b.disabled = true;
         b.textContent = '링크를 만드는 중';
         try {
-          await share(encodeHome(home()));
+          await share(code());
           os.toast('짧은 링크를 만들었습니다.');
         } catch (err) {
           console.warn(err);
@@ -172,7 +174,7 @@ export function openShareApp(os, app) {
   });
   win.refreshLink();
   // 짧은 링크가 있으면 창을 열 때 서버의 방을 지금 방으로 맞춘다(고친 지 3초가 지나기 전에 열었을 수 있다).
-  syncNow(() => encodeHome(home())).catch(err => {
+  syncNow(code).catch(err => {
     console.warn(err);
     os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
     win.refreshLink();
