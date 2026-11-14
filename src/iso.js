@@ -7,6 +7,7 @@ import { BY_ID } from '../data/furniture.js';
 import { dims } from './rules.js';
 import { neighborGates } from './neighbors.js';
 import { batchim } from './util.js';
+import { WALL_PATTERNS } from '../data/wall-patterns.js';
 
 const SKEW = (Math.atan(TH / TW) * 180) / Math.PI; // 벽의 기울기 (2:1이면 26.565도)
 
@@ -113,8 +114,9 @@ export function lightPoint(item, elev = 0) {
 
 // 공간 배경. scene: config.js의 SCENES 한 줄. kind가 'outdoor'면 울타리, 땅, 뒤쪽 아파트와 울타리 문(gate, 이웃집 문)을,
 // 'indoor'면 벽과 바닥과 현관문(door)을 그린다. owner: 그 공간이 있는 집의 주인 이름(그 집의 이웃집 문패는 달지 않는다).
-export function sceneSVG(scene, owner = '') {
-  return scene.kind === 'outdoor' ? outdoorSVG(scene.gate, scene.neighbors ? neighborGates(owner) : []) : roomSVG(scene.door);
+// decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 지금은 벽지(decor.wall)만 있고, 없으면 기본 벽이다.
+export function sceneSVG(scene, owner = '', decor = null) {
+  return scene.kind === 'outdoor' ? outdoorSVG(scene.gate, scene.neighbors ? neighborGates(owner) : []) : roomSVG(scene.door, decor?.wall);
 }
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -245,8 +247,51 @@ function doorSVG(door) {
     <polygon class="door-hit" points="${quad(0, w, 0, h)}"><title>두 번 눌러 ${esc(to)}${batchim(to) ? '으로' : '로'} 나가기</title></polygon>`;
 }
 
+// ---------- 벽지 (data/wall-patterns.js) ----------
+const WALL_PX = 3; // 벽지 그림 한 칸의 무대 px
+
+// 벽지 그림 한 장을 SVG 조각으로. 같은 색 칸이 가로로 이어지면 한 조각으로 묶는다(src/icons.js의 pixelSvg와 같은 방식).
+function tileMarkup(p) {
+  const paths = {};
+  p.rows.forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      let n = 1;
+      while (row[x + n] === row[x]) n++;
+      if (row[x] !== '.') (paths[row[x]] ??= []).push(`M${x} ${y}h${n}v1h-${n}z`);
+      x += n;
+    }
+  });
+  return `<rect width="${p.rows[0].length}" height="${p.rows.length}" fill="${p.bg}" />`
+    + Object.entries(paths).map(([c, d]) => `<path fill="${p.colors[c]}" d="${d.join('')}" />`).join('');
+}
+
+// 방 그림 한 장에 넣을 벽지 무늬 두 개(왼쪽 벽, 오른쪽 벽). 무늬를 벽의 기울기만큼 비틀어 두 벽이 만나는 윗모서리 top에서 시작한다.
+// 한 문서에 방 그림이 여럿(바탕화면, 방 꾸미기 창, 내려받는 그림을 만드는 동안) 들어가므로 무늬 id는 그릴 때마다 새로 붙인다.
+// 같은 id를 여러 그림이 나눠 쓰면 앞의 그림이 지워지거나 숨을 때 뒤의 그림의 무늬까지 사라진다.
+let paintSeq = 0;
+function wallPaint(p, top) {
+  const id = `wall-paint-${++paintSeq}`;
+  const w = p.rows[0].length;
+  const h = p.rows.length;
+  const art = tileMarkup(p);
+  const one = (wall, k) => `<pattern id="${id}-${wall}" patternUnits="userSpaceOnUse" width="${w * WALL_PX}" height="${h * WALL_PX}"
+    viewBox="0 0 ${w} ${h}" patternTransform="translate(${top.x} ${top.y}) skewY(${k * SKEW})">${art}</pattern>`;
+  return { defs: `<defs>${one('L', -1)}${one('R', 1)}</defs>`, L: `url(#${id}-L)`, R: `url(#${id}-R)` };
+}
+
+// 벽지를 고르는 단추에 넣을 작은 그림. 무늬의 왼쪽 위 12×12칸을 비틀지 않고 보여 준다.
+// 기본 벽은 style.css의 --wall-l 색에 반 칸마다 세로줄이다(단추는 방 상자 밖이라 변수 대신 같은 색을 적었다).
+export function wallSwatchSVG(id) {
+  const p = WALL_PATTERNS.find(w => w.id === id);
+  const art = p?.rows
+    ? tileMarkup(p)
+    : '<rect width="12" height="12" fill="#f2e6cb" /><path d="M3 0v12M9 0v12" stroke="#0000001f" stroke-width="0.6" />';
+  return `<svg viewBox="0 0 12 12" aria-hidden="true">${art}</svg>`;
+}
+
 // 방의 벽과 바닥 (가구를 놓아도 바뀌지 않는 배경). door가 있으면 벽에 현관문을 그린다.
-export function roomSVG(door) {
+// wall: 벽지 id(data/wall-patterns.js). 비었거나 모르는 id면 기본 벽이다.
+export function roomSVG(door, wall = 'plain') {
   const up = WALL_ROWS * WH;
   const raise = p => ({ x: p.x, y: p.y - up });
   const T = 0.18; // 벽 두께 (칸)
@@ -271,22 +316,38 @@ export function roomSVG(door) {
     gridLines.push(`<polyline points="${pts([wallPoint('L', N, v), wallPoint('L', 0, v), wallPoint('R', N, v)])}" />`);
   }
 
-  // 벽지의 세로 줄무늬 (반 칸마다)
-  const stripes = [];
-  for (let i = 0.5; i < N; i += 0.5) {
-    stripes.push(`<polyline points="${pts([wallPoint('R', i, 0), wallPoint('R', i, WALL_ROWS)])}" />`);
-    stripes.push(`<polyline points="${pts([wallPoint('L', i, 0), wallPoint('L', i, WALL_ROWS)])}" />`);
-  }
-
   const corner = tile(0, 0);
   const capCorner = raise(tile(-T, -T));
+  const wallL = pts([corner, tile(0, N), raise(tile(0, N)), raise(corner)]);
+  const wallR = pts([corner, tile(N, 0), raise(tile(N, 0)), raise(corner)]);
+  const pattern = WALL_PATTERNS.find(w => w.id === wall && w.rows);
+  let walls;
+  if (pattern) {
+    // 무늬 아래에 바탕색을 한 번 더 깔아 무늬 조각 사이로 틈이 비치지 않게 하고, 오른쪽 벽은 기본 벽처럼 조금 어둡게 덮는다
+    const paint = wallPaint(pattern, raise(corner));
+    walls = `${paint.defs}
+    <polygon points="${wallL}" style="fill:${pattern.bg}" />
+    <polygon points="${wallL}" style="fill:${paint.L}" />
+    <polygon points="${wallR}" style="fill:${pattern.bg}" />
+    <polygon points="${wallR}" style="fill:${paint.R}" />
+    <polygon points="${wallR}" style="fill:#5c3d14;fill-opacity:0.1" />`;
+  } else {
+    // 기본 벽: 세로 줄무늬 (반 칸마다)
+    const stripes = [];
+    for (let i = 0.5; i < N; i += 0.5) {
+      stripes.push(`<polyline points="${pts([wallPoint('R', i, 0), wallPoint('R', i, WALL_ROWS)])}" />`);
+      stripes.push(`<polyline points="${pts([wallPoint('L', i, 0), wallPoint('L', i, WALL_ROWS)])}" />`);
+    }
+    walls = `<polygon points="${wallL}" style="fill:var(--wall-l)" />
+    <polygon points="${wallR}" style="fill:var(--wall-r)" />
+    <g class="stripes">${stripes.join('')}</g>`;
+  }
+
   return `<svg class="room-bg" width="1280" height="720" viewBox="0 0 1280 720">
     <polygon points="${pts([tile(0, N), tile(N, N), below(tile(N, N)), below(tile(0, N))])}" style="fill:var(--slab-a)" />
     <polygon points="${pts([tile(N, N), tile(N, 0), below(tile(N, 0)), below(tile(N, N))])}" style="fill:var(--slab-b)" />
     ${floorTiles.join('')}
-    <polygon points="${pts([corner, tile(0, N), raise(tile(0, N)), raise(corner)])}" style="fill:var(--wall-l)" />
-    <polygon points="${pts([corner, tile(N, 0), raise(tile(N, 0)), raise(corner)])}" style="fill:var(--wall-r)" />
-    <g class="stripes">${stripes.join('')}</g>
+    ${walls}
     <polygon points="${pts([corner, tile(0, N), wallPoint('L', N, 0.35), wallPoint('L', 0, 0.35)])}" style="fill:var(--baseboard)" />
     <polygon points="${pts([corner, tile(N, 0), wallPoint('R', N, 0.35), wallPoint('R', 0, 0.35)])}" style="fill:var(--baseboard-dark)" />
     <polygon points="${pts([tile(0, N), raise(tile(0, N)), raise(tile(-T, N)), tile(-T, N)])}" style="fill:var(--wall-edge)" />

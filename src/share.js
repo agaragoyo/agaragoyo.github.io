@@ -1,8 +1,10 @@
 // 집 상태 검사와 공유 링크(#r=..., 예전 #room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
-// 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말 }
+// 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말,
+//           decor: { wall: 벽지 id } }. decor는 기본 벽이 아닌 벽지를 골랐을 때만 있다(F13).
 // likes의 칸과 검사는 src/likes.js에 있다.
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
+import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { canPlace } from './rules.js';
 import { sanitizeLikes, line } from './likes.js';
 
@@ -25,6 +27,13 @@ function sanitizeItems(list, sceneId) {
   return items;
 }
 
+// 방 꾸밈. 지금은 벽지 하나다. 기본 벽(plain)이거나 목록에 없는 벽지면 null이고, 집 상태에 decor를 두지 않는다.
+// decor가 없는 집은 벽지를 넣기 전과 저장본, 링크가 똑같다.
+function sanitizeDecor(raw) {
+  const wall = raw && typeof raw === 'object' ? raw.wall : null;
+  return wall !== 'plain' && WALL_PATTERNS.some(w => w.id === wall) ? { wall } : null;
+}
+
 // 저장본이나 링크에서 온 집 상태는 손으로 고쳐졌을 수 있으므로 항상 이걸 거친다.
 // 공간이 하나뿐이던 옛 형식({ owner, items })은 내 방으로 옮긴다.
 export function sanitizeHome(raw) {
@@ -33,7 +42,8 @@ export function sanitizeHome(raw) {
   const src = raw.scenes && typeof raw.scenes === 'object' ? raw.scenes : { room: raw.items };
   const scenes = {};
   for (const sc of SCENES) scenes[sc.id] = sanitizeItems(src[sc.id], sc.id);
-  return { v: 3, owner, scenes, likes: sanitizeLikes(raw.likes), greeting: line(raw.greeting, MAX_GREETING) };
+  const decor = sanitizeDecor(raw.decor);
+  return { v: 3, owner, scenes, likes: sanitizeLikes(raw.likes), greeting: line(raw.greeting, MAX_GREETING), ...(decor && { decor }) };
 }
 
 // ---------- 공유 링크 ----------
@@ -123,9 +133,13 @@ function grow(v) {
 // 짧은 형식(4): [4] [주인 이름] [인사말] [공간 수], 공간(config.js의 SCENES 순서)마다 [가구 수]와 가구마다 2바이트, 끝에 likes JSON.
 //   글: [바이트 수 1바이트][UTF-8]
 //   가구: [LINK_CODES 번호(7비트) + 표시(0x80)] [x * 16 + y]. 표시는 바닥 가구면 돌려 놓았는지, 벽 가구면 오른쪽 벽인지다
+// 짧은 형식(5): 방을 꾸민 집(decor가 있음)이다. 인사말 뒤에 [꾸밈 바이트 수] [벽지 번호(data/wall-patterns.js의 순서)]가 붙고 나머지는 4와 같다.
+//   꾸밈 바이트는 나중에 바닥 같은 칸이 늘면 뒤에 더한다. 푸는 쪽은 아는 바이트만 읽고 나머지는 건너뛴다.
+//   꾸미지 않은 집은 벽지를 넣기 전과 같은 형식 4로 만든다(그 전의 페이지로 열어도 열린다).
 // 담을 수 없는 집(좌표가 15를 넘거나 글이 255바이트를 넘음)이면 RangeError를 던지고, encodeHome이 예전 형식으로 만든다.
 function encodeShort(home) {
-  const out = [4];
+  const wall = WALL_PATTERNS.findIndex(w => w.id === home.decor?.wall);
+  const out = [wall > 0 ? 5 : 4];
   const text = str => {
     const b = utf8(str || '');
     if (b.length > 255) throw new RangeError('글이 길어 짧은 형식에 담을 수 없다');
@@ -133,6 +147,7 @@ function encodeShort(home) {
   };
   text(home.owner);
   text(home.greeting);
+  if (wall > 0) out.push(1, wall);
   out.push(SCENES.length);
   for (const sc of SCENES) {
     const items = home.scenes[sc.id] || [];
@@ -170,6 +185,11 @@ function decodeShort(b) {
   const text = () => fromUtf8(bytes(byte()));
   const owner = text();
   const greeting = text();
+  const decor = {};
+  if (b[0] === 5) {
+    const d = bytes(byte());
+    if (d.length) decor.wall = WALL_PATTERNS[d[0]]?.id; // 모르는 번호면 기본 벽(sanitizeHome이 지운다)
+  }
   const count = byte();
   const scenes = {};
   for (let s = 0; s < count; s++) {
@@ -188,10 +208,10 @@ function decodeShort(b) {
     if (SCENES[s]) scenes[SCENES[s].id] = items;
   }
   const rest = p < b.length ? fromUtf8(b.subarray(p)) : '';
-  return { owner, greeting, scenes, likes: rest ? grow(JSON.parse(rest)) : undefined };
+  return { owner, greeting, scenes, likes: rest ? grow(JSON.parse(rest)) : undefined, decor };
 }
 
-// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말 }
+// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말, d: decor }
 const pack = items => items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : it.r ? [it.id, it.x, it.y, 1] : [it.id, it.x, it.y]));
 const unpack = list => (Array.isArray(list)
   ? list.filter(Array.isArray).map(([id, x, y, extra]) => (typeof extra === 'string' ? { id, x, y, wall: extra } : { id, x, y, r: extra === 1 ? 1 : 0 }))
@@ -200,7 +220,7 @@ function encodeJson(home) {
   const s = {};
   for (const [id, items] of Object.entries(home.scenes)) if (items.length) s[id] = pack(items);
   const l = home.likes && Object.keys(home.likes).length ? home.likes : undefined;
-  return toB64(utf8(JSON.stringify({ v: 3, o: home.owner, s, l, g: home.greeting || undefined })));
+  return toB64(utf8(JSON.stringify({ v: 3, o: home.owner, s, l, g: home.greeting || undefined, d: home.decor })));
 }
 
 // 링크의 #r= 뒤에 붙일 글자. 짧은 형식으로 만들고, 담을 수 없으면 예전 형식으로 만든다.
@@ -213,19 +233,19 @@ export function encodeHome(home) {
   }
 }
 
-// 링크 글자를 집 상태로. 첫 바이트가 4면 짧은 형식, '{'면 예전 JSON 형식이다. 풀 수 없거나 주인 이름이 없으면 null
+// 링크 글자를 집 상태로. 첫 바이트가 4나 5면 짧은 형식, '{'면 예전 JSON 형식이다. 풀 수 없거나 주인 이름이 없으면 null
 export function decodeHome(str) {
   try {
     const b = fromB64(str);
     let raw = null;
-    if (b[0] === 4) {
+    if (b[0] === 4 || b[0] === 5) {
       raw = decodeShort(b);
     } else {
       const c = JSON.parse(fromUtf8(b));
       if (c?.v === 3 && c.s && typeof c.s === 'object') {
         const scenes = {};
         for (const [id, list] of Object.entries(c.s)) scenes[id] = unpack(list);
-        raw = { owner: c.o, scenes, likes: c.l, greeting: c.g };
+        raw = { owner: c.o, scenes, likes: c.l, greeting: c.g, decor: c.d };
       } else if (c?.v === 2) {
         raw = { owner: c.o, items: unpack(c.i) }; // 공간이 하나뿐이던 때의 링크
       }

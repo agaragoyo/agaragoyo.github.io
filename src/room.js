@@ -126,7 +126,7 @@ export function furnitureEl(id, r = 0) {
 // 공간 배경을 그린다(공간을 바꿀 때도 부른다). scene: config.js의 SCENES 한 줄
 export function setSceneBg(app, scene) {
   app.roomEl.querySelector('.room-bg')?.remove();
-  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene, app.owner));
+  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene, app.owner, app.decor));
   app.roomEl.dataset.kind = scene.kind;
 }
 
@@ -154,8 +154,9 @@ function renderShade(container, items) {
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
 // 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(src/util.js의 doubleClick).
 // owner: 이 집의 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다(src/neighbors.js의 neighborGates).
-export function renderStatic(container, items, scene, on = {}, owner = '') {
-  container.innerHTML = sceneSVG(scene, owner);
+// decor: 이 집의 방 꾸밈(벽지). 집 상태의 decor 그대로다
+export function renderStatic(container, items, scene, on = {}, owner = '', decor = null) {
+  container.innerHTML = sceneSVG(scene, owner, decor);
   const twice = doubleClick();
   const onTwice = (what, use) => () => { if (twice(what)) use(); };
   container.querySelector('.gate-hit')?.addEventListener('click', onTwice(scene.gate, () => on.gate?.(scene.gate)));

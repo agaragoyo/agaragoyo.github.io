@@ -227,7 +227,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   function renderWallpaper() {
     const scene = SCENES.find(s => s.id === os.place);
     el.desktop.dataset.kind = scene.kind; // 바깥 공간(놀이터)이면 바탕화면 뒤를 하늘색으로 칠한다(style.css의 .desktop[data-kind="outdoor"])
-    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner);
+    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner, os.home.decor);
     walker?.attach();
   }
 
