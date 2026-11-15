@@ -1033,10 +1033,16 @@ async function walk(page, base) {
     .some(b => !b.hidden && b.textContent === '어서 와'), 3000) && (await page.run(ownerScene)) === '주인 기본 옷 인사, 나 손님 옷', await page.run(ownerScene));
   check('실험실: 내 집으로 돌아온다', await enterMine());
   await openIcon('labs');
-  await until(page, () => !!document.querySelector('#windows .labs-app'), 3000);
+  await until(page, () => !!document.querySelector('.labs-app .btn'), 3000);
 
-  // 최소화하면 게임 멈추기(pause-hidden): 켜고 미니게임 창을 최소화하면 게임이 멈춘다. 파일 정리 10은 다시 띄울 때 이어서 하기 카드를 띄우고,
-  // 짐 정리는 바로 이어진다. 끄면 지금처럼 최소화한 동안에도 시계가 흐른다. 다른 항목은 끈다(빨리 보기의 화면 보호기가 재는 동안 뜨지 않게).
+  await page.run(clickText, '.labs-app .btn', '실험실 닫기');
+  check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
+    && (await page.run(labsState)) === 'false/', await page.run(labsState));
+
+  // ---------- 미니게임이 가려지면 멈추기 ----------
+  // 미니게임 창을 최소화하거나 브라우저 탭이 뒤로 가면 게임이 멈춘다(AGA.onHide, AGA.onShow, known-issues 75). 파일 정리 10은 다시 보일 때
+  // 이어서 하기 카드를 띄우고, 짐 정리는 바로 이어진다. 탭이 가려지는 것은 F27 절처럼 새 탭을 앞에 열어 진짜로 만든다.
+  // 앞 절에서 실험실을 닫아서 빨리 보기의 화면 보호기가 재는 동안 뜨지 않는다.
   // 흘러야 하는 것은 정해진 시간만 기다리지 않고 움직일 때까지 기다린다. 컴퓨터가 바쁘면 화면 없는 크롬의 프레임이 1초 넘게 멎기도 했다
   const TEN = '파일 정리 10';
   const openGame = async (id, title, word) => {
@@ -1046,8 +1052,6 @@ async function walk(page, base) {
     await page.run(clickTwice, `.folder-grid .desk-icon[data-app="${id}"]`);
     return until(page, miniGame, 8000, title, '', { card: word });
   };
-  await page.run(want => document.querySelectorAll('.labs-item').forEach(row => { const box = row.querySelector('input'); if (box.checked !== want.includes(row.dataset.lab)) box.click(); }), ['pause-hidden']);
-  check('최소화하면 게임 멈추기를 켜면 설정에 남는다', (await page.run(labsState)) === 'true/pause-hidden', await page.run(labsState));
   await page.run(() => { localStorage.setItem('file-ten.tutored', 'true'); localStorage.setItem('file-ten.mode', '"normal"'); }); // 첫 판 안내 없이 시계가 바로 흐르게
   check('파일 정리 10이 시작 카드와 함께 뜬다', await openGame('file-ten', TEN, '보통'), JSON.stringify(await page.run(miniGame, TEN)));
   await page.run(miniGame, TEN, 'card:보통');
@@ -1055,13 +1059,21 @@ async function walk(page, base) {
   const ten1 = await page.run(miniGame, TEN, 'min');
   await sleep(3000);
   await page.run(miniGame, TEN, 'task');
-  check('켜고 최소화했다 다시 띄우면 이어서 하기 카드가 뜬다', await until(page, miniGame, 2000, TEN, '', { card: '이어서 하기' }));
+  check('최소화했다 다시 띄우면 이어서 하기 카드가 뜬다', await until(page, miniGame, 2000, TEN, '', { card: '이어서 하기' }));
   const ten2 = await page.run(miniGame, TEN);
-  check('켜고 최소화한 3초 동안 남은 시간이 그대로다(1초 안쪽)', Math.abs(ten1.left - ten2.left) < 1, `${ten1.left} → ${ten2.left}`);
+  check('최소화한 3초 동안 남은 시간이 그대로다(1초 안쪽)', Math.abs(ten1.left - ten2.left) < 1, `${ten1.left} → ${ten2.left}`);
   await sleep(800);
   check('이어서 하기 카드가 떠 있는 동안 시계가 멈춰 있다', Math.abs((await page.run(miniGame, TEN)).left - ten2.left) < 0.05);
   await page.run(miniGame, TEN, 'card:이어서 하기');
   check('이어서 하기를 누르면 시계가 다시 흐른다', await until(page, miniGame, 5000, TEN, '', { leftBelow: ten2.left - 0.2 }), `${ten2.left} → ${JSON.stringify(await page.run(miniGame, TEN))}`);
+  const ten3 = await page.run(miniGame, TEN);
+  const otherTab = (await page.send('Target.createTarget', { url: 'about:blank' })).targetId;
+  await sleep(2000);
+  await page.send('Page.bringToFront');
+  check('다른 탭에 갔다 돌아오면 이어서 하기 카드가 뜬다', await until(page, miniGame, 2000, TEN, '', { card: '이어서 하기' }), JSON.stringify(await page.run(miniGame, TEN)));
+  await page.send('Target.closeTarget', { targetId: otherTab });
+  const ten4 = await page.run(miniGame, TEN);
+  check('다른 탭에 가 있던 2초 동안 남은 시간이 그대로다(0.5초 안쪽)', Math.abs(ten3.left - ten4.left) < 0.5, `${ten3.left} → ${ten4.left}`);
   check('짐 정리가 시작 카드와 함께 뜬다', await openGame('tidy-up', '짐 정리', '게임 시작'));
   await page.run(miniGame, '짐 정리', 'card:게임 시작');
   await sleep(600); // 게임 페이지가 뜨고 0.45초(DROP_GAP) 안에는 떨어뜨리지 않는다
@@ -1070,32 +1082,15 @@ async function walk(page, base) {
   const tidy1 = await page.run(miniGame, '짐 정리');
   await sleep(1000);
   const tidy2 = await page.run(miniGame, '짐 정리');
-  check('켜고 최소화하면 짐 정리의 떨어지던 물건이 그 자리에 멈춘다', tidy1?.y != null && tidy1.y === tidy2.y, `${tidy1?.y} → ${tidy2?.y}`);
+  check('최소화하면 짐 정리의 떨어지던 물건이 그 자리에 멈춘다', tidy1?.y != null && tidy1.y === tidy2.y, `${tidy1?.y} → ${tidy2?.y}`);
   await page.run(miniGame, '짐 정리', 'task');
   check('짐 정리는 다시 띄우면 카드 없이 바로 이어진다', await until(page, miniGame, 5000, '짐 정리', '', { fellFrom: tidy2.y }) && !(await page.run(miniGame, '짐 정리')).card,
     JSON.stringify(await page.run(miniGame, '짐 정리')));
   await closeWindows();
-  await openIcon('labs');
-  await until(page, () => !!document.querySelector('.labs-item[data-lab="pause-hidden"] input'), 3000);
-  await page.run(() => document.querySelector('.labs-item[data-lab="pause-hidden"] input').click());
-  await openGame('file-ten', TEN, '보통');
-  await page.run(miniGame, TEN, 'card:보통');
-  const ten3 = await page.run(miniGame, TEN, 'min');
-  check('끄고 최소화하면 그동안에도 시계가 흐른다', await until(page, miniGame, 5000, TEN, '', { leftBelow: ten3.left - 1 }), `${ten3.left} → ${JSON.stringify(await page.run(miniGame, TEN))}`);
-  await page.run(miniGame, TEN, 'task');
-  await sleep(300);
-  check('끄고 최소화했다 다시 띄우면 카드가 뜨지 않는다', !(await page.run(miniGame, TEN)).card);
-  await closeWindows();
-  await openIcon('labs');
-  await until(page, () => !!document.querySelector('.labs-app .btn'), 3000);
-
-  await page.run(clickText, '.labs-app .btn', '실험실 닫기');
-  check('실험실 닫기를 누르면 창과 아이콘이 사라지고 모든 항목이 꺼진다', await until(page, () => !document.querySelector('#icons [data-app="labs"]') && !document.querySelector('.labs-app'), 2000)
-    && (await page.run(labsState)) === 'false/', await page.run(labsState));
 
   // ---------- 담긴 가구 반짝임(like-sparkle) ----------
   // 켜면 주인이 무언가 담아 둔 가구 위에만 별이 뜨고(src/os.js의 markLiked, style.css의 .has-like::after) 끄면 바로 사라진다. 내 집, 친구 집, 이웃집에서 같고 방 꾸미기 창에는 뜨지 않는다.
-  // 앞 절이 실험실을 닫았으므로 이 페이지에서 다시 연다(열림과 켠 항목은 설정에 남아 다음에 여는 친구 집과 이웃집에도 적용된다). 끝나면 앞 절이 끝난 설정으로 돌려놓는다.
+  // 실험실 절이 실험실을 닫았으므로 이 페이지에서 다시 연다(열림과 켠 항목은 설정에 남아 다음에 여는 친구 집과 이웃집에도 적용된다). 끝나면 실험실을 닫은 설정으로 돌려놓는다.
   const labSettings = await page.run(() => localStorage.getItem('agarago.settings'));
   const liked = () => page.run(() => [...document.querySelectorAll('#wallpaper .furn.has-like')].map(f => f.dataset.id).sort().join());
   const sparkleBox = '.labs-item[data-lab="like-sparkle"] input';
