@@ -651,10 +651,20 @@
   다른 탭을 앞으로 내도 그대로 남는다. 초점 흉내를 켜 둔 동안에는 다른 탭을 앞으로 내도 이 탭이 가려지지 않는다.
   그래서 점검에서 초점을 잃는 것은 `document.hasFocus`를 바꿔 끼워 흉내 내고, 탭이 가려지는 것은 초점 흉내 없이 `Target.createTarget`으로 새 탭을 앞에 열어 만든다(`tools/smoke.mjs`).
 
-## 75. 창을 최소화해도 그 안의 미니게임은 보일 때처럼 돈다 (iframe에는 visibilitychange가 오지 않음)
+## 75. 창을 최소화해도 그 안의 미니게임은 보일 때처럼 돈다 (최소화로는 iframe에 visibilitychange가 오지 않음)
 
 - 증상: 미니게임 창을 최소화해도 파일 정리 10의 100초가 그대로 흘렀다(2026-11-11에 잼). 최소화한 동안 게임 페이지의 `document.visibilityState`는 계속 `visible`이었다.
 - 원인: 최소화는 창 상자에 hidden(display: none)을 거는 것뿐이라 브라우저 탭은 여전히 보이는 중이다. 페이지가 보이는지(Page Visibility)는 탭 단위로 정해져서
   iframe 안에는 `visibilitychange`가 오지 않고, 같은 사이트의 iframe은 숨겨져도 requestAnimationFrame이 그대로 돈다(화면 없는 크롬에서 재 봄).
-- 규칙: 창이 가려진 것은 앱 SDK의 `AGA.onHide`, `AGA.onShow`로 받는다(`src/win.js`의 minimize와 restore가 `src/sdk-host.js`를 거쳐 알린다).
-  게임 안에서 `document.hidden`이나 `visibilitychange`로 최소화를 알아내려 하지 않는다. 2026-11-14 지금은 실험실의 `pause-hidden`을 켠 동안만 알림이 간다.
+- 규칙: 창이 가려진 것은 앱 SDK의 `AGA.onHide`, `AGA.onShow`로 받는다. 최소화는 `src/win.js`의 minimize와 restore가 `src/sdk-host.js`를 거쳐 알리고,
+  탭이 뒤로 가는 것은 SDK(`apps/aga-sdk.js`)가 앱 문서의 `visibilitychange`로 알아내 둘을 합친다. 게임 안에서 `document.hidden`이나
+  `visibilitychange`를 따로 보지 않는다(최소화를 놓친다). 2026-11-15부터 모든 사람에게 켜져 있다(처음에는 실험실의 `pause-hidden`이었다, 76).
+
+## 76. 누구나 켜 둘 고침을 실험실 스위치 뒤에 숨겼다 (최소화하면 게임 멈추기)
+
+- 증상: 최소화한 동안 파일 정리 10의 시계가 흐르는 문제(75)를 고친 코드를 실험실(F24) 항목 `pause-hidden`을 켜야만 돌게 넣었다(PR 108).
+  실험실을 연 팀원만 고친 동작을 보고, 다른 사람은 그대로 시간을 잃었다. 2026-11-15에 있으면 당연히 좋은 기능인데 왜 실험실에 있냐는 지적이 있었다.
+- 원인: 실험실을 팀이 아직 정하지 않은 것을 모두 넣는 곳으로 봤다. 고치기 전 동작(시계가 계속 흐름)을 고를 사람이 있는지 따지지 않았다.
+  같은 날 같은 성격인 창이 뒤로 가면 소리 끄기(F27)는 기본으로 켰다.
+- 규칙: 실험실 항목을 만들기 전에 끄는 쪽을 고를 사람이 있는지 묻는다. 없으면 스위치 없이 바로 기본으로 넣는다.
+  실험실에는 켜 봐야 좋은지 아는 것(사람마다 반응이 갈리는 것, 팀이 두 방식 가운데 고를 것)만 둔다. `src/labs.js`의 머리 주석과 `AGENTS.md`의 실험실 줄에도 적었다.
