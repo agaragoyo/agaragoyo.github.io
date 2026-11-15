@@ -18,7 +18,8 @@ import { settings } from './settings.js';
 import { reduceMotion } from './util.js';
 
 // avatar(): 지금 바탕화면의 내 아바타(src/avatar.js의 mountAvatar). items(): 지금 공간의 가구 목록. canRun(): 지금 혼잣말하러 가도 되는지
-export function createIdleTalk({ avatar, items, canRun }) {
+// line(item): 그 가구 앞에서 할 말. 넘기지 않으면 가구 목록의 혼잣말이고, 분신사바의 공포 모드(src/horror.js)에서는 부르는 쪽이 공포 모드의 줄을 넘긴다
+export function createIdleTalk({ avatar, items, canRun, line = item => furnitureLine(BY_ID[item.id]) }) {
   let timer = 0;
   let last = null; // 지난번에 혼잣말을 한 가구의 id
   let trip = 0;    // 혼잣말하러 가구로 걷는 중이면 그 걸음의 번호, 아니면 0
@@ -53,7 +54,7 @@ export function createIdleTalk({ avatar, items, canRun }) {
       if (trip !== n) return;
       trip = 0;
       if (!canRun()) return;
-      me.say(furnitureLine(BY_ID[item.id]));
+      me.say(line(item));
       arm(again());
     });
   }

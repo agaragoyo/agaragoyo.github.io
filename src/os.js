@@ -16,13 +16,16 @@ import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
 import { createIdleTalk } from './idle-talk.js';
-import { PASSWORD, labsOpen, openLabs, labOn } from './labs.js';
+import { labsOpen, labOn } from './labs.js';
+import { trySecret } from './secrets.js';
+import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { askVisit, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
+import { openNameWindow } from './user-name.js';
 import { h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
 import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
@@ -66,11 +69,25 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
   let pet = null; // 내 집의 방에 사는 펫(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
   const snow = createSnow(el.wallpaper); // 바깥 공간에 내리는 눈(실험실 snow, src/snow.js). 실험실에서 켜고 바탕화면이 놀이터일 때만 내린다(syncSnow)
+  // 분신사바(F29, src/horror.js). 말풍선에 "분신사바"를 말하면(src/secrets.js) 방의 불이 꺼지고 공포 모드가 된다. 메모리에만 있고 불을 켜면 풀린다
+  const horror = os.horror = createHorror({
+    layer: el.wallpaper,
+    avatar: () => walker,
+    items: () => os.home?.scenes[os.place] || [],
+    // 내 컴퓨터의 진짜 집에서만 켠다. 손님 화면, 친구 집과 이웃집, 튜토리얼과 그 연습 방에서는 켜지 않는다
+    canStart: () => os.mode === 'edit' && !os.realHome && !os.tutorial.active && !el.desktop.hidden && !!walker,
+    onChange: () => {
+      syncTheme();
+      tick();
+    },
+  });
+  // 방의 불이 꺼져 있는지. 밤 설정(저장된다)이나 공포 모드(저장되지 않는다)이면 꺼져 있다
+  const lightsOff = () => !!settings.get('night') || horror.on();
 
   // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
   // 밤은 방의 불을 끈 상태라 바탕화면에서만 쓴다. 부팅과 로그인 화면은 늘 낮 색이다(known-issues 38).
   function syncTheme() {
-    stage.dataset.theme = settings.get('night') && !el.desktop.hidden ? 'night' : 'day';
+    stage.dataset.theme = lightsOff() && !el.desktop.hidden ? 'night' : 'day';
   }
   settings.subscribe(syncTheme);
 
@@ -89,6 +106,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       os.tutorial.hide();
       setPlace(null); // 배경음악은 바탕화면에서만 튼다
       syncSnow();
+      horror.stop(); // 바탕화면을 떠나면 공포 모드도 풀린다
     }
   }
 
@@ -187,6 +205,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // ---------- 바탕화면 ----------
   function showDesktop() {
     os.closeup?.close(true);
+    horror.stop(); // 바탕화면을 새로 만들면(튜토리얼 연습 방을 열고 닫을 때) 공포 모드는 풀린다
     show('desktop', 'taskbar');
     stage.dataset.mode = os.mode;
     os.place = SCENES[0].id;
@@ -208,12 +227,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       input: el.desktop,
       sayRoot: el.desktop,
       active: () => !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup, // 가구를 가까이 보는 동안의 방향키는 그 화면 것이다(책장 넘기기)
-      // 내 컴퓨터에서 암호를 말하면 실험실이 열린다(src/labs.js). 아이콘은 아래 설정 구독이 그린다
-      onSay: text => {
-        if (os.mode !== 'edit' || text !== PASSWORD || labsOpen()) return;
-        openLabs();
-        toast('바탕화면에 실험실 아이콘이 생겼습니다.', 4000);
-      },
+      // 내 컴퓨터에서 암호를 말하면 숨은 기능이 열린다(src/secrets.js. 실험실 아이콘은 아래 설정 구독이 그린다)
+      onSay: text => trySecret(os, text),
       others: () => [ownerAvatar, pet].filter(Boolean),
     }, 'basic', { guest: withOwner });
     renderWallpaper();
@@ -259,6 +274,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     pet?.attach(scene.id === SCENES[0].id); // 펫은 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
     markLiked();
     syncSnow(); // 방 상자를 비웠으므로 눈 캔버스도 다시 붙인다
+    horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
 
   // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고른 펫이 살고(src/pet.js), 끄면 바로 사라진다.
@@ -389,7 +405,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   });
 
   // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
+  // 공포 모드(src/horror.js)에서는 불을 켜는 쪽으로만 간다. 낮이 되고 공포 모드가 풀린다
   os.toggleNight = () => {
+    if (horror.on()) {
+      if (settings.get('night')) settings.set({ night: false });
+      return horror.end();
+    }
     play('light');
     settings.set({ night: !settings.get('night') });
   };
@@ -441,12 +462,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       className: 'start-item',
       onclick: () => { menu.hidden = true; onClick(); },
     }, iconEl(app, 24), h('span', {}, label));
-    // 맨 위의 사용자 그림. 내 컴퓨터에서는 내 사진이고, 누르면 사진 바꾸기 창이 열린다(src/user-pictures.js).
-    // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
+    // 맨 위의 사용자 그림과 이름. 내 컴퓨터에서는 내 사진과 내 이름이고, 사진을 누르면 사진 바꾸기 창(src/user-pictures.js)이,
+    // 이름을 누르면 이름 바꾸기 창(src/user-name.js)이 열린다. 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
     // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것, 내 그림을 쓰는 주인의 긴 링크)면 주인 이름의 첫 글자가 보인다
     const mine = os.mode === 'edit';
+    const editable = mine && !os.realHome;
     const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : os.home.picture);
-    const head = mine && !os.realHome
+    const head = editable
       ? h('button', {
         type: 'button',
         className: 'start-pic',
@@ -455,12 +477,15 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         onclick: () => { menu.hidden = true; openPictureWindow(os); },
       }, face)
       : face;
+    const name = editable
+      ? h('button', { type: 'button', className: 'start-name', title: '이름 바꾸기', onclick: () => { menu.hidden = true; openNameWindow(os); } }, os.home.owner)
+      : os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner;
     menu.replaceChildren(
-      h('div', { className: 'start-head' }, head, os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner),
+      h('div', { className: 'start-head' }, head, name),
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
       // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)
-      item({ title: '밤', icon: settings.get('night') ? 'builtin:day' : 'builtin:night' }, settings.get('night') ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
+      item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
       item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
       item({ title: '로그아웃', icon: 'builtin:logout' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
@@ -469,10 +494,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     menu.hidden = false;
   }
 
+  // 작업 표시줄 시계. 공포 모드에서는 04:44에 멈춘다(src/horror.js)
   function tick() {
     const d = new Date();
-    el.taskbar.querySelector('.clock').textContent =
-      `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    el.taskbar.querySelector('.clock').textContent = horror.on()
+      ? HORROR_CLOCK
+      : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
   setInterval(tick, 20000);
 
@@ -504,13 +531,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 그 가구의 혼잣말 한 줄(data/furniture.js의 say)을 말한다.
+  // 공포 모드에서는 혼잣말이 src/horror.js의 줄로 바뀐다. 기믹은 그대로이고, 불빛 가구('night')는 불을 켜서 공포 모드를 푼다.
   // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(2026-11-10까지 창문이 놀이터로 나가던 길. 지금은 현관문이 맡아 쓰는 가구가 없다).
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
     if (def.gimmick?.startsWith('scene:')) return os.goScene(def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
-    walker?.say(furnitureLine(def));
+    walker?.say(horror.on() ? horror.line(item) : furnitureLine(def));
   };
 
   // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.
@@ -553,6 +581,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   createIdleTalk({
     avatar: () => walker,
     items: () => (os.home?.scenes[os.place] || []).filter(item => BY_ID[item.id]),
+    line: item => (horror.on() ? horror.line(item) : furnitureLine(BY_ID[item.id])), // 공포 모드에서는 가구를 두 번 누를 때와 같은 공포 모드의 줄
     canRun: () => !!os.mode && !el.desktop.hidden && !os.closeup && !os.tutorial?.active && !os.realHome && !os.saver.showing()
       && !walker?.typing() && document.visibilityState === 'visible' && !os.wm.get('room') && os.wm.all().every(w => w.minimized),
   });

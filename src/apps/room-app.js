@@ -143,6 +143,12 @@ export function openRoomApp(os, appInfo) {
         render();
       }
 
+      // 창을 연 채 이름을 바꾸면(src/user-name.js) 위의 "주인 이름의 집"과 놀이터 울타리의 이웃집 문패를 새 이름으로 다시 그린다
+      win.refreshOwner = () => {
+        setSceneBg(ctx, scene);
+        render();
+      };
+
       function render() {
         renderItems(ctx);
         root.querySelector('.owner').textContent = visiting ? `${os.home.owner}의 집에 놀러 왔습니다` : `${os.home.owner}의 집`;

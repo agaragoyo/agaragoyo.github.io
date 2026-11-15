@@ -255,6 +255,34 @@ def check_furniture_say():
         seen.setdefault(say, f['id'])
 
 
+# ---------- 분신사바의 혼잣말 ----------
+# 말풍선에 분신사바를 말하면 켜지는 공포 모드(src/horror.js)에서는 가구를 두 번 누르면 아바타가 LINES 의 줄을 말한다.
+# 가구 혼잣말과 같은 말풍선이라 같은 13자까지이고, 키는 data/furniture.js 의 가구 id 여야 한다(틀린 id면 그 가구는 줄 없이 OTHER 만 말한다).
+# 줄이 없는 가구는 OTHER 를 말하므로 새 가구에 줄을 꼭 더하지 않아도 된다.
+def check_horror_lines():
+    where = 'src/horror.js'
+    js = read(where)
+    block = re.search(r'^export const LINES = \{(.*?)^\};', js, re.S | re.M)
+    if not block:
+        err(where, 'LINES(공포 모드의 혼잣말)를 찾지 못했다. 모양을 바꿨다면 tools/check.py 의 check_horror_lines 도 고친다')
+        return
+    ids = {f['id'] for f in entries(read('data/furniture.js'))}
+    singles = re.findall(r"^(?:export )?const (START|END|TILTED|OTHER) = '([^']*)';", js, re.M)
+    if len(singles) != 4:
+        err(where, 'START, END, TILTED, OTHER 줄을 찾지 못했다. 모양을 바꿨다면 tools/check.py 의 check_horror_lines 도 고친다')
+    seen = {}
+    for key, text in re.findall(r"^\s*'?([\w-]+)'?:\s*'([^']*)',", block.group(1), re.M) + singles:
+        if key not in ids and key not in ('START', 'END', 'TILTED', 'OTHER'):
+            err(where, f"LINES 의 '{key}' 는 data/furniture.js 에 없는 가구 id 다")
+        if len(text) > SAY_MAX:
+            err(where, f"'{text}' 는 {len(text)}자라 말풍선 한 줄({SAY_MAX}자, 공백과 문장부호 포함)에 들지 않는다")
+        if not text.endswith(('.', '?', '!')):
+            err(where, f"'{text}' 는 마침표, 물음표, 느낌표 가운데 하나로 끝낸다")
+        if text in seen:
+            err(where, f"'{key}' 의 줄이 '{seen[text]}' 의 줄과 같다. 가구마다 다른 줄로 쓴다")
+        seen.setdefault(text, key)
+
+
 # ---------- 가구 그림이 칸에 맞는지 ----------
 # 가구 그림은 data/furniture.js 의 칸(size)과 높이(height)로 만든 상자에 맞춰 줄어 아래 가운데에 붙는다(src/iso.js 의 boxSize,
 # style.css 의 .furn img). 사이트와 같은 식으로 그림을 상자에 얹어 재고, 바닥 밖으로 나오거나 칸을 다 채우지 못하거나 벽 가구가 기울어 있으면 경고한다.
@@ -947,6 +975,7 @@ def main():
     check_pixel_icons()
     check_furniture(app_ids)
     check_furniture_say()
+    check_horror_lines()
     check_furniture_fit()
     check_tutorial()
     check_neighbors()

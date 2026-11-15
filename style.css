@@ -1181,15 +1181,23 @@ form.user { cursor: var(--cur-arrow); }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
+/* 시작 메뉴 맨 위의 내 이름. 누르면 이름 바꾸기 창(src/user-name.js)이 열린다. 글자는 머리줄 글자 그대로 두고, 마우스를 올리면 그 시절 링크처럼 밑줄이 생긴다 */
+.start-name { min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: var(--cur-hand); }
+.start-name:hover { text-decoration: underline; }
 /* 사진 바꾸기 창. 사진 크기가 무대 배율마다 달라 남는 높이는 고르는 줄과 닫기 단추 사이로 보내 단추를 창 아래에 붙인다.
    창 바탕이 밝아 흰 테두리가 묻히므로 사진 둘레에 옅은 선을 한 줄 더 긋는다 */
 .pic-app { display: flex; flex-direction: column; }
 .pic-app .link-row { margin-top: auto; padding-top: 12px; }
 .pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
-.pic-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
+.pic-app .avatar.has-pic, .name-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
 .pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
+/* 이름 바꾸기 창(src/user-name.js). 위에 내 사진과 이름을 두는 것은 사진 바꾸기 창과 같다(.pic-app-head).
+   사진 크기가 무대 배율마다 달라 남는 높이는 도움말과 단추 줄 사이로 보내 단추를 창 아래에 붙인다 */
+.name-app { display: flex; flex-direction: column; }
+.name-app .like-form { flex: 1; }
+.name-app .link-row { margin-top: auto; }
 
 .toast {
   position: absolute;
@@ -1424,6 +1432,39 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .win-body .like-error { color: #ffb4a8; } /* 창 바탕만 밤에 어두워진다. 가까이 보기의 종이 카드는 밤에도 밝다 */
 .stage[data-theme="night"] .pic-app .pic-browse { color: #9cc0ff; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
+
+/* ---------- 분신사바 (F29, src/horror.js) ---------- */
+/* 공포 모드의 어둠. 바탕화면 방 상자(.wallpaper) 안에서 가구와 아바타 위, 눈(9990), 고양이 하트(9998), 주인 이름표(9999), 말풍선(10000) 아래에 깐다.
+   바탕화면 아이콘과 창은 방 상자 밖이라 어두워지지 않는다. 가장자리가 더 어둡고, 9초마다 불빛이 꺼질 듯 두 번 어두워졌다 돌아온다.
+   한 번 어두워지거나 밝아지는 데 0.5초 넘게 걸려서 1초에 3번보다 느리게 깜박인다(WCAG 2.3.1, tools/smoke.mjs가 잰다).
+   움직임 줄이기를 켠 사람에게는 깜박이지 않는다 */
+.wallpaper .horror-dark {
+  position: absolute;
+  left: 0;
+  top: -40px;
+  z-index: 9980;
+  width: 1280px;
+  height: 800px;
+  pointer-events: none;
+  background: radial-gradient(ellipse 62% 58% at 50% 52%, #02030a61 0, #02030ad9 100%);
+  opacity: 0.7;
+  animation: horror-flicker 9s ease-in-out infinite;
+}
+@keyframes horror-flicker {
+  0%, 44%, 76%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+  57% { opacity: 0.45; }
+  66% { opacity: 1; }
+}
+/* 기운 벽 가구(src/horror.js의 attach). 벽 가구 상자는 벽 모양대로 비스듬히 눌려 있어서(skewY) 상자를 돌리면 자리가 밀린다.
+   그래서 상자 안의 그림(그림이 오기 전에는 임시 SVG)을 위쪽 가운데의 못 자리를 축으로 돌린다. 누르기를 받는 .hit은 그대로 둔다.
+   불이 꺼지고 2초 뒤에 3초 동안 천천히 기울고, 불을 켜면 바로 바르게 돌아온다 */
+.wallpaper .furn.askew > :not(.hit) { transform: rotate(6deg); transform-origin: 50% 6%; transition: transform 3s ease-in-out 2s; }
+.wallpaper .furn.askew > .mirror:not(.hit) { transform: scaleX(-1) rotate(-6deg); }
+@media (prefers-reduced-motion: reduce) {
+  .wallpaper .horror-dark { animation: none; }
+  .wallpaper .furn.askew > * { transition: none; }
+}
 
 /* 방 꾸미기: 돌리기 안내 */
 .rotate-tip {

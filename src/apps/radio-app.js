@@ -66,15 +66,22 @@ const NOTE = {
   apple: '로그인하지 않으면 노래마다 30초쯤 미리 듣습니다.',
   youtube: '로그인 없이 끝까지 듣고, 광고가 나올 수 있습니다.',
 };
-// 넣는 칸에서 유튜브 oEmbed가 재생할 수 없다고 알린 CD(fetchMeta의 gone)
+// 넣는 칸에서 유튜브 oEmbed가 재생할 수 없다고 알린 CD(fetchMeta의 gone)의 안내: GONE[영상이나 재생목록][막힘이나 없음].
+// 일어난 일과 할 일을 한 줄씩 쓴다(이어 쓰면 넣는 칸의 한 줄 폭에서 "주세/요."처럼 꺾인다). 막힌 영상과 막힌 재생목록은 할 일이 달라 따로 쓴다.
+// 일부 공개로 바꾸라고는 쓰지 않는다. 일부 공개인데도 막힌 재생목록이 있었다(known-issues 79)
 const GONE = {
-  blocked: '다른 사이트에서는 재생할 수 없는 영상입니다. 다른 영상의 주소를 넣어 주세요.',
-  video: '찾을 수 없는 영상입니다. 공유 링크를 다시 복사해 넣어 주세요.',
-  playlist: '찾을 수 없는 재생목록입니다. 비공개라면 일부 공개로 바꿔 주세요.',
+  video: {
+    blocked: ['다른 사이트에서는 재생할 수 없는 영상입니다.', '다른 영상의 주소를 넣어 주세요.'],
+    missing: ['찾을 수 없는 영상입니다.', '공유 링크를 다시 복사해 넣어 주세요.'],
+  },
+  playlist: {
+    blocked: ['다른 사이트에서는 재생할 수 없는 재생목록입니다.', '공개로 바꾸거나 곡 하나의 주소를 넣어 주세요.'],
+    missing: ['찾을 수 없는 재생목록입니다.', '비공개라면 공개로 바꿔 주세요.'],
+  },
 };
 
 // CD 이름과 표지. 링크마다 한 번만 받는다. 못 받으면 이름 대신 서비스 이름을 쓴다.
-// 재생할 수 없다는 답(gone)만은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤(비공개 재생목록을 일부 공개로) 넣기를 다시 누르면 다시 묻는다(known-issues 71)
+// 재생할 수 없다는 답(gone)만은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤(비공개 재생목록을 공개로) 넣기를 다시 누르면 다시 묻는다(known-issues 71)
 const meta = new Map();
 function loadMeta(m) {
   if (!meta.has(m.link)) {
@@ -92,11 +99,12 @@ async function fetchMeta(m) {
     if (r.ok) { const d = await r.json(); info = { title: d.title, art: d.thumbnail_url }; }
   } else if (m.service === 'youtube') {
     // 유튜브 oEmbed는 키 없이 이 사이트에서 바로 부를 수 있다(CORS). 재생목록은 목록 이름이 온다. 섬네일은 깔지 않는다(맨 위 설명).
-    // 없는 영상은 400, 없거나 비공개인 재생목록은 404, 퍼가기를 막은 영상은 401로 답한다. 넣는 칸은 이것(gone)을 보고 넣지 않는다.
-    // 일부 공개인 재생목록과 영상은 공개와 똑같이 200으로 답한다(2026-11-14 확인)
+    // 넣을 수 없는 CD는 400(없는 영상, 모양이 틀린 주소), 404(없거나 보이지 않는 재생목록), 401(퍼가기를 막은 영상), 403(2026-11-15에 비공개로 보인
+    // 재생목록)으로 답한다. 번호의 뜻은 문서에 없고 날마다 달랐으므로 넷 모두 넣을 수 없는 것으로 보고(gone), 안내는 영상과 재생목록으로 나눈다.
+    // 일부 공개인 재생목록은 200으로 답한 것도 401로 답한 것도 있다(known-issues 79). 그 밖의 답(5xx, 429)은 답 없음이다
     const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(m.link)}`);
-    if (r.status === 401) return { title: '', art: '', gone: 'blocked' };
-    if (r.status === 400 || r.status === 404) return { title: '', art: '', gone: m.kind };
+    if (r.status === 401 || r.status === 403) return { title: '', art: '', gone: 'blocked' };
+    if (r.status === 400 || r.status === 404) return { title: '', art: '', gone: 'missing' };
     if (r.ok) info = { title: (await r.json()).title, art: '' };
   } else if (m.kind === 'album') {
     const r = await fetch(`https://itunes.apple.com/lookup?id=${m.id}&country=${m.cc}`);
@@ -423,7 +431,12 @@ export function openRadioApp(os, app) {
         url.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다
         const name = h('input', { type: 'text', maxLength: LIMIT.cdName, value: old?.name || '', placeholder: `${LIMIT.cdName}자까지` });
         const error = h('p', { className: 'like-error', hidden: true });
-        const fail = (msg, field) => { error.textContent = msg; error.hidden = false; field.focus(); };
+        // msg는 글 하나나, 한 줄씩 나눠 쓸 문장들(GONE)
+        const fail = (msg, field) => {
+          error.replaceChildren(...[msg].flat().flatMap((line, i) => (i ? [' ', h('br'), line] : [line])));
+          error.hidden = false;
+          field.focus();
+        };
 
         // 서비스에서 받은 이름을 이름 칸에 채운다. 주인이 이름을 고쳐 쓴 뒤에는 채우지 않고, 그사이 주소가 바뀌었으면 버린다
         let filled = name.value;
@@ -458,7 +471,7 @@ export function openRadioApp(os, app) {
             const info = await Promise.race([fill(m), new Promise(r => setTimeout(r, 3000))]);
             waiting = false;
             if (!card.isConnected) return; // 기다리는 동안 칸이나 라디오를 닫았다
-            if (check && info?.gone) return fail(GONE[info.gone], url);
+            if (check && info?.gone) return fail(GONE[m.kind][info.gone], url);
             if (!name.value.trim()) return fail('CD 이름이 비어 있습니다. 이름을 넣어 주세요.', name);
           }
           const cd = { ...m, name: name.value, color };
