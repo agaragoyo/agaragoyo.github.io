@@ -55,6 +55,8 @@ export function openShareApp(os, app) {
         os.home.greeting = line(greet.value, 30);
         os.saveHome(false); // 링크를 만들어 둔 방이면 서버의 방도 따라 고친다
       });
+      // 창을 연 채 이름을 바꾸면(src/user-name.js) 인사말이 빈 칸에 보이는 "주인 이름의 컴퓨터"도 새 이름으로 바꾼다
+      w.refreshOwner = () => { greet.placeholder = `${home().owner}의 컴퓨터`; };
       const cloudTip = h('p', { className: 'share-save-tip' });
       const cloudRow = h('div', { className: 'share-row' });
 

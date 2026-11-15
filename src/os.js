@@ -23,6 +23,7 @@ import { createTutorial } from './tutorial.js';
 import { askVisit, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
+import { openNameWindow } from './user-name.js';
 import { h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
 import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
@@ -438,12 +439,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       className: 'start-item',
       onclick: () => { menu.hidden = true; onClick(); },
     }, iconEl(app, 24), h('span', {}, label));
-    // 맨 위의 사용자 그림. 내 컴퓨터에서는 내 사진이고, 누르면 사진 바꾸기 창이 열린다(src/user-pictures.js).
-    // 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
+    // 맨 위의 사용자 그림과 이름. 내 컴퓨터에서는 내 사진과 내 이름이고, 사진을 누르면 사진 바꾸기 창(src/user-pictures.js)이,
+    // 이름을 누르면 이름 바꾸기 창(src/user-name.js)이 열린다. 튜토리얼 연습 방에서는 보기만 한다(연습에서 한 일은 남지 않는다, known-issues 40).
     // 손님에게는 링크에 담긴 주인 사진이 보이고, 사진이 없는 링크(사진을 넣기 전에 만든 것, 내 그림을 쓰는 주인의 긴 링크)면 주인 이름의 첫 글자가 보인다
     const mine = os.mode === 'edit';
+    const editable = mine && !os.realHome;
     const face = avatar(os.home.owner, mine ? ownPicture(os.home.owner) : os.home.picture);
-    const head = mine && !os.realHome
+    const head = editable
       ? h('button', {
         type: 'button',
         className: 'start-pic',
@@ -452,8 +454,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         onclick: () => { menu.hidden = true; openPictureWindow(os); },
       }, face)
       : face;
+    const name = editable
+      ? h('button', { type: 'button', className: 'start-name', title: '이름 바꾸기', onclick: () => { menu.hidden = true; openNameWindow(os); } }, os.home.owner)
+      : os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner;
     menu.replaceChildren(
-      h('div', { className: 'start-head' }, head, os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner),
+      h('div', { className: 'start-head' }, head, name),
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
       // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)

@@ -1163,15 +1163,23 @@ form.user { cursor: var(--cur-arrow); }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
+/* 시작 메뉴 맨 위의 내 이름. 누르면 이름 바꾸기 창(src/user-name.js)이 열린다. 글자는 머리줄 글자 그대로 두고, 마우스를 올리면 그 시절 링크처럼 밑줄이 생긴다 */
+.start-name { min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: var(--cur-hand); }
+.start-name:hover { text-decoration: underline; }
 /* 사진 바꾸기 창. 사진 크기가 무대 배율마다 달라 남는 높이는 고르는 줄과 닫기 단추 사이로 보내 단추를 창 아래에 붙인다.
    창 바탕이 밝아 흰 테두리가 묻히므로 사진 둘레에 옅은 선을 한 줄 더 긋는다 */
 .pic-app { display: flex; flex-direction: column; }
 .pic-app .link-row { margin-top: auto; padding-top: 12px; }
 .pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
-.pic-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
+.pic-app .avatar.has-pic, .name-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
 .pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
+/* 이름 바꾸기 창(src/user-name.js). 위에 내 사진과 이름을 두는 것은 사진 바꾸기 창과 같다(.pic-app-head).
+   사진 크기가 무대 배율마다 달라 남는 높이는 도움말과 단추 줄 사이로 보내 단추를 창 아래에 붙인다 */
+.name-app { display: flex; flex-direction: column; }
+.name-app .like-form { flex: 1; }
+.name-app .link-row { margin-top: auto; }
 
 .toast {
   position: absolute;
