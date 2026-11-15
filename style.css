@@ -1407,6 +1407,39 @@ form.user { cursor: var(--cur-arrow); }
 .stage[data-theme="night"] .pic-app .pic-browse { color: #9cc0ff; }
 .stage[data-theme="night"] .folder .desk-icon span:last-child { color: var(--win-text); }
 
+/* ---------- 분신사바 (F28, src/horror.js) ---------- */
+/* 공포 모드의 어둠. 바탕화면 방 상자(.wallpaper) 안에서 가구와 아바타 위, 눈(9990), 고양이 하트(9998), 주인 이름표(9999), 말풍선(10000) 아래에 깐다.
+   바탕화면 아이콘과 창은 방 상자 밖이라 어두워지지 않는다. 가장자리가 더 어둡고, 9초마다 불빛이 꺼질 듯 두 번 어두워졌다 돌아온다.
+   한 번 어두워지거나 밝아지는 데 0.5초 넘게 걸려서 1초에 3번보다 느리게 깜박인다(WCAG 2.3.1, tools/smoke.mjs가 잰다).
+   움직임 줄이기를 켠 사람에게는 깜박이지 않는다 */
+.wallpaper .horror-dark {
+  position: absolute;
+  left: 0;
+  top: -40px;
+  z-index: 9980;
+  width: 1280px;
+  height: 800px;
+  pointer-events: none;
+  background: radial-gradient(ellipse 62% 58% at 50% 52%, #02030a61 0, #02030ad9 100%);
+  opacity: 0.7;
+  animation: horror-flicker 9s ease-in-out infinite;
+}
+@keyframes horror-flicker {
+  0%, 44%, 76%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+  57% { opacity: 0.45; }
+  66% { opacity: 1; }
+}
+/* 기운 벽 가구(src/horror.js의 attach). 벽 가구 상자는 벽 모양대로 비스듬히 눌려 있어서(skewY) 상자를 돌리면 자리가 밀린다.
+   그래서 상자 안의 그림(그림이 오기 전에는 임시 SVG)을 위쪽 가운데의 못 자리를 축으로 돌린다. 누르기를 받는 .hit은 그대로 둔다.
+   불이 꺼지고 2초 뒤에 3초 동안 천천히 기울고, 불을 켜면 바로 바르게 돌아온다 */
+.wallpaper .furn.askew > :not(.hit) { transform: rotate(6deg); transform-origin: 50% 6%; transition: transform 3s ease-in-out 2s; }
+.wallpaper .furn.askew > .mirror:not(.hit) { transform: scaleX(-1) rotate(-6deg); }
+@media (prefers-reduced-motion: reduce) {
+  .wallpaper .horror-dark { animation: none; }
+  .wallpaper .furn.askew > * { transition: none; }
+}
+
 /* 방 꾸미기: 돌리기 안내 */
 .rotate-tip {
   position: absolute;

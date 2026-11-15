@@ -101,6 +101,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 팀이 정하기 전에 팀원만 켜 볼 아이디어(숨은 실험실, F24): `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄.
   화면과 동작만 바꾸는 것만 넣는다. 집 저장 형식(`sanitizeHome`), 공유 링크(`src/share.js`), 서버 규칙(`firestore.rules`)을 바꾸는 것은 넣지 않는다(`check_labs`가 본다)
   - 켜 봐야 좋은지 아는 것(사람마다 반응이 갈리거나 팀이 두 방식 가운데 고를 것)만 넣는다. 끄는 쪽을 고를 사람이 없는 고침은 스위치 없이 바로 기본으로 넣는다(known-issues 76)
+- 말풍선 암호로 여는 숨은 기능(실험실 F24, 분신사바 F28): `src/secrets.js`의 `SECRETS`에 말과 할 일 한 줄, `docs/requirements.md`의 기능 표에 새 번호로 암호까지 적는다. 할 일이 크면 파일을 따로 둔다(`src/horror.js`)
 - OS가 직접 그리는 기본 앱: `src/apps/<이름>-app.js`에 `open<이름>App(os, app)`, `src/apps/index.js`에 등록, `data/apps.js`에 `builtin: '<이름>'`
   - 요소는 `src/util.js`의 `h()`로 만든다. 창은 `os.wm.open({ key, app, title, width, height, build })`, `build`가 돌려준 함수는 창을 닫을 때 불린다
 - 앱 SDK에 새 기능: `src/sdk-host.js`의 `HANDLERS`에 하나, `apps/aga-sdk.js`에 하나

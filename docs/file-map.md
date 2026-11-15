@@ -51,7 +51,9 @@
 | 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
-| 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 암호를 듣는 곳은 `src/os.js`의 `onSay` |
+| 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 여는 암호는 `src/secrets.js` |
+| 말풍선 암호로 여는 숨은 기능 더하기(실험실, 분신사바) | `src/secrets.js`의 `SECRETS`에 말과 할 일 한 줄. 말풍선의 말을 넘기는 곳은 `src/os.js`의 `onSay`, 요구 사항의 기능 표에 새 번호로 암호까지 적는다 |
+| 분신사바의 공포 모드(어둠과 깜박임, 04:44 시계, 기우는 벽 가구, 혼잣말, 불 켜서 풀기) | 켜고 풀기와 혼잣말 줄(`LINES`)은 `src/horror.js`, 어둠과 깜박임과 기울기는 `style.css`의 "분신사바" 절, 밤 색과 시계와 불빛 가구를 잇는 곳은 `src/os.js`의 `syncTheme`, `tick`, `toggleNight`, `openFurniture` |
 | 주인이 담아 둔 가구 위에 반짝임 띄우기(실험실의 `like-sparkle`) | 가구에 `has-like` 클래스를 다는 곳은 `src/os.js`의 `markLiked`, 별 그림과 깜박임은 `style.css`의 `.has-like::after`, 별 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--sparkle-cell`) |
 | 바탕화면을 그냥 두면 아바타가 가구로 가서 혼잣말하기(실험실의 `idle-talk`) | 기다리기와 가구 고르기는 `src/idle-talk.js`, 시간은 `src/config.js`의 `IDLE_TALK`, 쉬는 때(`canRun`)는 `src/os.js`, 가구의 혼잣말 한 줄은 `src/furniture-line.js`, 가구 옆까지의 걸음 수와 가던 길 버리기는 `src/avatar.js`의 `stepsTo`와 `halt` |
 | 내 방에 고양이 두기(실험실의 `pet`) | 고양이의 그림, 걷기, 쓰다듬기는 `src/pet.js`, 바탕화면에 붙이고 떼는 곳은 `src/os.js`의 `syncPet`, 아바타가 고양이 칸을 피하고 옆으로 다가가는 곳은 `src/avatar.js`의 `host.others`와 `approachCell`, 모양은 `style.css`의 `.room-pet`, 그림 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--pet-cell`) |
@@ -86,7 +88,9 @@
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼과 그 OSD, 전원 연출(켤 때 디가우스)을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악, 실험실) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
-| `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 열리는 암호, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `PASSWORD`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
+| `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 여는 암호는 `src/secrets.js`에 있다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
+| `src/secrets.js` | 말풍선 암호. 내 컴퓨터의 바탕화면에서 말풍선에 말하면 숨은 기능을 여는 말과 그때 할 일의 목록(실험실 F24, 분신사바 F28). `os.js`의 `onSay`가 말풍선의 말을 넘긴다. 손님 화면에서는 듣지 않는다 | `SECRETS`, `trySecret` |
+| `src/horror.js` | 분신사바(F28)의 공포 모드. 말풍선에 "분신사바"를 말하면 불이 꺼지고, 어둠이 천천히 깜박이고(1초에 3번보다 느리게), 작업 표시줄 시계가 04:44에 멈추고, 벽에 건 것 하나가 기울고, 가구가 다른 혼잣말(`LINES`)을 하며 방 배경음악이 멈춘다. 불을 켜면 풀린다. 메모리에만 있고 내 진짜 집에서만 켜진다(`os.js`의 `canStart`) | `createHorror`, `LINES`, `CLOCK`, `START`, `END`, `TILTED` |
 | `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간(실험실의 빨리 보기 포함), 실험실의 심심할 때 혼잣말을 기다리는 시간, 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `SAVER_FAST_MS`, `IDLE_TALK`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기, 두 번 누르기 판정(바탕화면 아이콘, 가구와 문, 창 제목 줄이 같이 쓴다), 글을 치는 칸인지 보기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion`, `doubleClick`, `isField` |
 
@@ -114,7 +118,7 @@
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 전원을 켤 때 가구 그림 미리 받기(`preloadFurniture`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `preloadFurniture`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그리고, 아바타(`avatarStill`)를 가구 사이의 앞뒤 순서에 맞춰 넣는다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
 | `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`, 실험실의 고양이 옆은 `approachCell`, 실험실의 심심할 때 혼잣말이 쓰는 걸음 수 `stepsTo`와 가던 길 버리기 `halt`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`). 실험실의 주인 아바타 남기기를 켜면 친구 집의 방에 이름표를 단 주인 아바타를 세운다(`mountOwner`, 서는 칸은 `ownerCell`). 주인 아바타와 실험실의 고양이가 차지한 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다(`host.others`, 고양이가 움직이면 `restack`) | `mountAvatar`, `mountOwner`, `depthZ`, `spriteRect`, `avatarStill`, `blockedOf`, `overlaps` |
-| `src/idle-talk.js` | 실험실의 심심할 때 혼잣말(`idle-talk`). 켜고 바탕화면을 30초 동안 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 하나로 가서 그 가구의 혼잣말을 하고, 그 뒤로 40~60초마다 되풀이한다. 같은 가구를 연달아 고르지 않는다. 마우스나 키를 건드리면 가던 길을 버리고 처음부터 다시 잰다. 언제 쉴지는 `os.js`가 정한다 | `createIdleTalk` |
+| `src/idle-talk.js` | 실험실의 심심할 때 혼잣말(`idle-talk`). 켜고 바탕화면을 30초 동안 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 하나로 가서 그 가구의 혼잣말을 하고, 그 뒤로 40~60초마다 되풀이한다. 같은 가구를 연달아 고르지 않는다. 마우스나 키를 건드리면 가던 길을 버리고 처음부터 다시 잰다. 언제 쉴지와 할 말(분신사바의 공포 모드에서는 그 줄)은 `os.js`가 정한다 | `createIdleTalk` |
 | `src/pet.js` | 실험실의 펫 데려오기(`pet`)를 켜면 내 집의 방에 사는 임시 픽셀 고양이. 빈 바닥 칸에 앉아 있다가 10~20초마다 2~4칸 떨어진 빈칸으로 아바타의 절반 빠르기로 걷고, 두 번 누르면 아바타가 옆 칸으로 와서 쓰다듬어 하트가 1초 뜬다. 가구와 아바타의 칸과 앞뒤는 `src/avatar.js`의 규칙을 같이 쓴다. 집 저장 형식과 링크에는 아무것도 담지 않는다 | `mountPet` |
 | `src/snow.js` | 실험실의 놀이터에 눈(`snow`)을 켜면 바탕화면의 바깥 공간(놀이터)에 내리는 픽셀 눈. 바탕화면 크기의 캔버스 한 장에 64송이(무대 2~3px 네모)를 화면 픽셀 단위로 그려 초당 84~140px로 좌우로 흔들리며 내리게 한다. 탭이 뒤로 가면 멈추고, 움직임 줄이기를 켠 사람에게는 내리지 않는다 | `createSnow` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
@@ -226,7 +230,7 @@
 ```
 index.html
 └─ src/main.js ─── settings.js, cursors.js
-   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, furniture-line.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
+   └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, furniture-line.js, secrets.js, horror.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       ├─ src/login.js ── share.js, cloud.js, neighbors.js, user-pictures.js ── data/user-pictures.js, custom-picture.js
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
@@ -249,5 +253,5 @@ data/apps.js, data/furniture.js, src/config.js, src/util.js는 여러 곳에서 
 6. 아이콘, 바탕화면, 작업 표시줄과 시작 메뉴
 7. 부팅, 로그인
 8. 화면 효과(깜빡임, 구석 그늘), 모니터 OSD, 신호 없음 상자, 전원 연출(디가우스), 화면 보호기
-9. 공간 탭, 밤 모드, 돌리기 안내, 튜토리얼
+9. 공간 탭, 밤 모드, 분신사바(공포 모드의 어둠, 깜박임, 기운 벽 가구), 돌리기 안내, 튜토리얼
 10. 가구 가까이 보기(`src/closeup.js`): 바탕을 덮는 층과 아래 줄, 게임기, 책장, 라디오와 음악 창, TV, 코르크 보드. 가까이 보기 안의 넣는 칸(`.like-card`)은 "창" 절의 넣는 칸 규칙 옆에 있다
