@@ -143,6 +143,7 @@ async function extraNeighbor(page, row) {
 }
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
+// 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
 // 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
 function fakeYouTube() {
   const real = window.fetch;
@@ -153,9 +154,27 @@ function fakeYouTube() {
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
     if (asked.includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
     if (asked.includes('Private')) return new Response('Not Found', { status: 404 });
+    if (asked.includes('Blocked')) return new Response('Unauthorized', { status: 401 });
+    if (asked.includes('Forbidden')) return new Response('Forbidden', { status: 403 });
     return new Response(JSON.stringify({ title: '점검용 유튜브 노래', thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }));
   };
   return true;
+}
+// 라디오 넣는 칸에 주소를 넣고 넣기를 누른다
+function putYouTube(url) {
+  document.querySelector('.closeup form input').value = url;
+  document.querySelector('.closeup form').requestSubmit();
+}
+// 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
+function radioErrorShows(pattern) {
+  const err = document.querySelector('.closeup .like-error');
+  if (!err || err.hidden || !new RegExp(pattern).test(err.textContent)) return false;
+  const lines = [...err.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim());
+  return lines.length === 2 && lines.every(n => {
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    return range.getClientRects().length === 1;
+  });
 }
 
 // 게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
@@ -991,11 +1010,17 @@ async function walk(page, base) {
   // 찾을 수 없다는 답은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤 넣기를 다시 누르면 다시 묻는다(known-issues 71)
   await page.run(() => document.querySelector('.closeup form').requestSubmit());
   check('유튜브가 찾지 못한 주소는 넣기를 다시 누르면 다시 묻는다', await until(page, () => window.__oembed['https://www.youtube.com/watch?v=aaaaaaaaaaa'] === 2, 4000));
-  await page.run(() => {
-    document.querySelector('.closeup form input').value = 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke';
-    document.querySelector('.closeup form').requestSubmit();
-  });
-  check('비공개 재생목록은 넣지 않고 일부 공개로 바꾸라고 알린다', await until(page, () => /일부 공개로 바꿔/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke');
+  check('찾을 수 없는 재생목록은 넣지 않고 공개로 바꾸라고 알린다', await until(page, radioErrorShows, 4000, '찾을 수 없는 재생목록입니다.*비공개라면 공개로 바꿔'));
+  // 다른 사이트에서 재생을 막은 재생목록(oEmbed 401)에 영상이라고 알리거나 일부 공개로 바꾸라고 하면 안 된다(known-issues 79). 같은 안내가 연달아 뜨지 않게 영상을 사이에 둔다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeBlocked0000&si=smoke');
+  check('막힌 재생목록은 재생목록이라고 알리고 공개로 바꾸거나 곡 하나를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나 곡 하나의 주소'));
+  await page.run(putYouTube, 'https://youtu.be/BlockedVid1');
+  check('막힌 영상은 영상이라고 알리고 다른 영상의 주소를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 영상입니다.*다른 영상의 주소'));
+  // 유튜브가 403으로 답하는 재생목록(2026-11-15에 비공개로 보인 재생목록)도 넣지 않는다. 번호를 몰라 답 없음으로 지나치면 확인 없이 들어간다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeForbidden00&si=smoke');
+  check('403으로 답하는 재생목록도 막힌 재생목록으로 알린다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나'));
+  check('막힌 CD는 라디오에 들어가지 않는다', (await page.run(savedHome)).likes.radio?.length === 1);
   // 유튜브 뮤직 주소를 넣으면 이름 칸이 채워지고, CD는 같은 영상의 유튜브 주소로 저장된다
   await page.run(() => {
     const [url, name] = document.querySelectorAll('.closeup form input');
@@ -1156,9 +1181,14 @@ async function walk(page, base) {
 
   // ---------- 이웃집 ----------
   // data/neighbors.js 맨 앞에 link 이웃집 한 집을 더해 받게 하고(extraNeighbor), 그 집의 방은 서버 대신 답한다(fakeCloud).
-  // 받는 동안의 자리, 받은 뒤의 주인 사진과 문패 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
+  // 받는 동안의 자리, 받은 뒤의 주인 사진과 서버의 주인 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
   const LINK_NEIGHBOR = { id: 'smoke-link', name: '링크이웃', link: 'NbHd5678' };
-  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, '서버의이름'); // 화면에는 목록의 문패 이름이 보여야 한다
+  const SERVER_NAME = '서버의이름'; // 서버의 방 주인 이름. 받은 뒤에는 목록의 이름(링크이웃) 대신 이 이름이 보여야 한다
+  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, SERVER_NAME);
+  // 레포의 목록에 든 link 이웃집에도 서버 대신 답한다. 답하지 않으면 서버에 방이 없는 집처럼 빠져서 문의 수가 어긋난다
+  const listedLinks = [...fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8').matchAll(/link: '([0-9A-Za-z]{8})'/g)].map(m => m[1]);
+  const listedCode = await page.run(linkOf, HOME, '이웃점검');
+  const neighborRooms = { [LINK_NEIGHBOR.link]: neighborCode, ...Object.fromEntries(listedLinks.map(id => [id, listedCode])) };
   const linkTile = name => {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return t ? { disabled: t.disabled, text: t.textContent, pic: t.querySelector('.user-pic')?.dataset.pic ?? null } : null;
@@ -1172,9 +1202,12 @@ async function walk(page, base) {
   };
   await extraNeighbor(page, LINK_NEIGHBOR);
   await open();
-  await page.run(fakeCloud, 'hold', { [LINK_NEIGHBOR.link]: neighborCode });
+  await page.run(fakeCloud, 'hold', neighborRooms);
   await powerOn();
-  const neighbors = await page.run(async () => (await import(new URL('src/neighbors.js', document.baseURI).href)).NEIGHBOR_LIST.length);
+  const [neighbors, links] = await page.run(async () => {
+    const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link).length];
+  });
   check('link 이웃집은 서버에서 방을 받는 동안 문패 이름만 보이고 눌리지 않는다', await page.run(linkTile, LINK_NEIGHBOR.name)
     .then(t => !!t && t.disabled && t.text.includes('불러오는 중')));
   check('부팅할 때 link 이웃집의 방을 서버에 한 번 묻는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
@@ -1183,14 +1216,23 @@ async function walk(page, base) {
   check('받으면 이웃집 구경하기 자리가 되고 서버의 방에 담긴 주인 사진이 보인다', await until(page, name => {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return !!t && !t.disabled && t.textContent.includes('이웃집 구경하기') && t.querySelector('.user-pic')?.dataset.pic === 'cake';
-  }, 3000, LINK_NEIGHBOR.name));
-  check('link 이웃집은 서버의 주인 이름 대신 목록의 문패 이름으로 보인다', !(await page.run(() => document.getElementById('login').textContent.includes('서버의이름'))));
+  }, 3000, SERVER_NAME));
+  check('받은 link 이웃집은 목록의 이름 대신 서버의 방 주인 이름으로 보인다', await page.run((listed, server) => {
+    const text = document.getElementById('login').textContent;
+    return text.includes(server) && !text.includes(listed);
+  }, LINK_NEIGHBOR.name, SERVER_NAME));
+  check('놀이터 문패는 서버의 방 주인 이름과 같은 집을 빼고 목록의 이름으로는 빼지 않는다', await page.run(async (server, listed, id) => {
+    const { neighborGates } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    const has = owner => neighborGates(owner).some(g => g.id === id);
+    return !has(server) && has(listed);
+  }, SERVER_NAME, LINK_NEIGHBOR.name, LINK_NEIGHBOR.id));
   check('이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   check('놀이터 울타리에 이웃집 문이 집마다 하나씩 있다', (await page.run(neighborGates)) === neighbors);
+  check('놀이터 문패에는 서버의 방 주인 이름이 쓰여 있다', await page.run((id, name) => document.querySelector(`#wallpaper .neighbor-hit[data-neighbor="${id}"] title`)?.textContent === `두 번 눌러 ${name}의 집에 놀러 가기`, LINK_NEIGHBOR.id, SERVER_NAME));
   await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LINK_NEIGHBOR.id}"]`);
   check('이웃집 문을 두 번 누르면 어느 집으로 가는지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
   await probe('이웃집 놀러 가기 창');
-  check('놀러 가기 창이 그 집의 문패 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${LINK_NEIGHBOR.name}의 집에 놀러 갑니다.`));
+  check('놀러 가기 창이 서버의 방 주인 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${SERVER_NAME}의 집에 놀러 갑니다.`));
   await page.run(clickText, '#windows .btn', '놀러 가기');
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
@@ -1199,12 +1241,12 @@ async function walk(page, base) {
   await open();
   await page.run(fakeCloud, 'missing');
   await powerOn();
-  check('서버에 방이 없는 link 이웃집은 로그인 화면에서 빠진다', await until(page, (name, n) => {
+  check('서버에 방이 없는 link 이웃집은 로그인 화면에서 빠진다', await until(page, (name, n, k) => {
     const tiles = [...document.querySelectorAll('.users .user.neighbor')];
-    return tiles.length === n - 1 && !tiles.some(t => t.textContent.includes(name));
-  }, 3000, LINK_NEIGHBOR.name, neighbors));
+    return tiles.length === n - k && !tiles.some(t => t.textContent.includes(name));
+  }, 3000, LINK_NEIGHBOR.name, neighbors, links));
   check('서버에 방이 없을 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - 1);
+  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - links);
   await extraNeighbor(page, null);
 
   // ---------- 깨진 링크와 HTML이 든 링크 ----------

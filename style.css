@@ -1456,7 +1456,7 @@ form.user { cursor: var(--cur-arrow); }
   20%, 80% { opacity: 1; }
 }
 /* 움직임 줄이기를 켠 사람에게는 깜박이지 않고, 벽 가구는 바로 기운 채로 보이며, 빈칸의 말풍선은 그냥 떴다 사라진다.
-   선택자는 위의 규칙과 똑같이 쓴다. :not(.hit)도 우선순위를 올려서, 더 짧은 선택자로 덮으면 지고 천천히 기운다(known-issues 79) */
+   선택자는 위의 규칙과 똑같이 쓴다. :not(.hit)도 우선순위를 올려서, 더 짧은 선택자로 덮으면 지고 천천히 기운다(known-issues 80) */
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .horror-dark { animation: none; }
   .wallpaper .furn.askew > :not(.hit) { transition: none; }
