@@ -41,7 +41,7 @@
 | 부팅 로고, 로그인 화면 흐름 | 부팅은 `src/os.js`의 `os.boot`, 로그인 화면(사용자 목록, 새 사용자 만들기, 이 컴퓨터 초기화)은 `src/login.js`의 `showLogin`, 고른 집으로 들어가기(환영 화면)는 `src/os.js`의 `enter` |
 | 시작 메뉴 항목 | `src/os.js`의 `openStartMenu` |
 | 사용자 사진(로그인 화면과 시작 메뉴의 프로필 사진) 그림 고치기와 더하기 | `data/user-pictures.js`. 한 글자가 한 칸이고 '.'은 바탕 색이다. 고르는 줄과 사진 바꾸기 창(시작 메뉴 맨 위의 사진을 누르면 열린다)은 `src/user-pictures.js`. 그림 파일로 만드는 사진(내 그림)을 줄이고 링크에 담는 바이트로 바꾸는 곳은 `src/custom-picture.js` |
-| 닉네임 바꾸기(시작 메뉴 맨 위의 내 이름을 누르면 열리는 이름 바꾸기 창) | `src/user-name.js`의 `openNameWindow`. 이름 검사는 새 사용자 만들기와 같은 `src/share.js`의 `ownerName`, 연 채로 이름을 보이는 창은 `win.refreshOwner`로 새 이름을 다시 쓴다 |
+| 닉네임 바꾸기(시작 메뉴의 "이름 바꾸기" 줄, 사진 바꾸기 창의 이름 옆 단추, 시작 메뉴 맨 위의 내 이름에서 여는 이름 바꾸기 창) | `src/user-name.js`의 `openNameWindow`. 시작 메뉴의 줄은 `src/os.js`의 `openStartMenu`, 그 줄의 이름표 그림은 `src/icons.js`의 `rename`이다. 이름 검사는 새 사용자 만들기와 같은 `src/share.js`의 `ownerName`, 연 채로 이름을 보이는 창은 `win.refreshOwner`로 새 이름을 다시 쓴다 |
 | 튜토리얼 단계와 안내 문구 | `src/tutorial.js`의 `STEPS`. 카드와 화살표 모양은 `style.css`의 "튜토리얼" 절 |
 | 튜토리얼에서 놓는 기본 가구 바꾸기 | `data/furniture.js`의 `TUTORIAL_FURNITURE` |
 | 튜토리얼 다시 보기의 연습 방 | 시작 전 안내 창은 `src/tutorial.js`의 `askPractice`, 집 바꿔 끼우기는 `src/os.js`의 `os.startPractice`와 `os.endPractice` |
@@ -101,8 +101,8 @@
 | --- | --- | --- |
 | `src/os.js` | 부팅, 고른 집으로 들어가기(로그인 화면은 `login.js`가 만든다), 바탕화면 아이콘과 배경의 공간(아바타 포함, 현관문과 놀이터 문으로 내 방과 놀이터를 오간다), 이웃집에 손님으로 들어가기와 돌아오기, 시작 메뉴, 시계, 앱 열기, 가구 기믹 처리, 알림(주인이 들어올 때 코르크 보드의 새 쪽지 알림 포함), 튜토리얼 연습 방 바꿔 끼우기, 유튜브 플레이어가 떠 있는 동안 화면 효과와 화면 보호기 끄기(`showingVideo`), 실험실의 "담긴 가구 반짝임"을 켜면 담아 둔 가구에 `has-like` 클래스 달기(`markLiked`), 실험실의 "펫 데려오기"를 켜면 내 방에 고양이 두기(`syncPet`) | `createOS` |
 | `src/login.js` | 로그인 화면. 내 집, 링크로 온 친구 집(짧은 링크의 방은 서버에서 받아 온다), 이웃집(link 이웃집은 받는 동안 이름과 "불러오는 중"만 보인다)을 사용자처럼 늘어놓고, 맨 끝에 새 사용자 만들기(닉네임과 사진)나 이 컴퓨터 초기화를 둔다. 내 사용자에는 고른 사진이, 친구 집과 이웃집에는 링크에 담긴 주인 사진(사진이 없는 옛 링크면 이름의 첫 글자)이 보인다. 화면 바꾸기와 고른 집으로 들어가기는 `os.js`에서 넘겨받는다 | `createLogin` |
-| `src/user-pictures.js` | 사용자 사진(프로필 사진). `data/user-pictures.js`의 글자 격자를 SVG로 그리고, 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다. 새 사용자 만들기와 사진 바꾸기 창이 같이 쓰는 고르는 줄(그 아래의 그림 파일 찾아보기 포함), 시작 메뉴에서 여는 사진 바꾸기 창, 사진을 보이는 창의 높이를 정할 때 쓰는 지금 사진 크기(`shownSize`), 내 사진 값(목록 사진의 id나 내 그림)의 저장(`agarago.picture`)과 고른 적 없는 사용자의 사진 정하기, 서버에 올리는 방에 내 사진 붙이기(`withPicture`) | `fitUserPictures`, `shownSize`, `ownPicture`, `saveOwnPicture`, `withPicture`, `randomPicture`, `pictureEl`, `picturePicker`, `openPictureWindow` |
-| `src/user-name.js` | 이름 바꾸기 창(F28). 시작 메뉴 맨 위의 내 이름을 누르면 열린다. 새 사용자 만들기와 같은 검사(`ownerName`, 12글자)를 거쳐 집의 주인 이름을 고쳐 저장하고(링크를 만든 방이면 서버의 방도 따라 고친다), 바꾸기 전에 지금 사진을 저장한다(고른 적 없는 사용자의 사진은 이름으로 정해서). 쪽지에 쓴 닉네임이 예전 이름이면 새 이름으로 바꾸고, 연 채로 이름을 보이는 창(방 꾸미기, 공유하기, 사진 바꾸기)은 `win.refreshOwner`로 다시 쓴다 | `openNameWindow` |
+| `src/user-pictures.js` | 사용자 사진(프로필 사진). `data/user-pictures.js`의 글자 격자를 SVG로 그리고, 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다. 새 사용자 만들기와 사진 바꾸기 창이 같이 쓰는 고르는 줄(그 아래의 그림 파일 찾아보기 포함), 시작 메뉴에서 여는 사진 바꾸기 창(이름 옆에 이름 바꾸기 단추), 사진을 보이는 창의 높이를 정할 때 쓰는 지금 사진 크기(`shownSize`), 내 사진 값(목록 사진의 id나 내 그림)의 저장(`agarago.picture`)과 고른 적 없는 사용자의 사진 정하기, 서버에 올리는 방에 내 사진 붙이기(`withPicture`) | `fitUserPictures`, `shownSize`, `ownPicture`, `saveOwnPicture`, `withPicture`, `randomPicture`, `pictureEl`, `picturePicker`, `openPictureWindow` |
+| `src/user-name.js` | 이름 바꾸기 창(F28). 시작 메뉴의 "이름 바꾸기" 줄, 사진 바꾸기 창의 이름 옆 단추, 시작 메뉴 맨 위의 내 이름을 누르면 열린다. 새 사용자 만들기와 같은 검사(`ownerName`, 12글자)를 거쳐 집의 주인 이름을 고쳐 저장하고(링크를 만든 방이면 서버의 방도 따라 고친다), 바꾸기 전에 지금 사진을 저장한다(고른 적 없는 사용자의 사진은 이름으로 정해서). 쪽지에 쓴 닉네임이 예전 이름이면 새 이름으로 바꾸고, 연 채로 이름을 보이는 창(방 꾸미기, 공유하기, 사진 바꾸기)은 `win.refreshOwner`로 다시 쓴다 | `openNameWindow` |
 | `src/custom-picture.js` | 내 그림(그림 파일로 만든 프로필 사진, F26). 고른 그림 파일의 가운데를 잘라 24×24칸, 16색 이하(4096색 가운데서)로 줄이고, 링크의 덧붙임 바이트에 들어가는 240바이트 이하의 바이트로 적고 푼다. 사진 값은 'my:' 뒤에 그 바이트를 base64url로 적은 글이다. Node에서도 불러오므로(`tools/link-fuzz.mjs`) 캔버스는 함수 안에서만 쓴다 | `makeCustom`, `customValue`, `customBytes`, `customFromBytes`, `readCustom`, `isCustom`, `CUSTOM`, `MAX_BYTES` |
 | `src/neighbors.js` | 이웃집(`data/neighbors.js`). 깨진 줄을 빼고 여섯 집까지 고르기, link 이웃집의 방을 서버에서 한 번 받아 두기(로그인 화면과 놀이터가 같이 쓴다), 그 집을 새로 열기(link 이웃집의 이름은 서버의 방 주인 이름), 놀이터 왼쪽 울타리의 문 자리(그 놀이터가 있는 집의 문패와 서버에 방이 없는 집은 뺀다), 놀이터 문을 두 번 눌렀을 때 어느 집으로 가는지 묻는 창 | `NEIGHBOR_LIST`, `neighborHome`, `neighborNow`, `prefetchNeighbors`, `neighborGates`, `askVisit`, `MAX_NEIGHBORS` |
 | `src/tutorial.js` | 처음 온 사람의 튜토리얼. 안내 카드와 화살표, 지금 상태를 읽어 아직 하지 않은 첫 단계 고르기, 건너뛰기, 빈 연습 방에서 하는 다시 보기와 시작 전 안내 창 | `createTutorial` |
@@ -234,7 +234,7 @@ index.html
 └─ src/main.js ─── settings.js, cursors.js
    └─ src/os.js ── win.js, icons.js, sdk-host.js, share.js, cloud.js, tutorial.js, furniture-line.js, secrets.js, horror.js, room.js(renderStatic), avatar.js ── iso.js, rules.js, room.js(zOf), data/avatars.js
       ├─ src/login.js ── share.js, cloud.js, neighbors.js, user-pictures.js ── data/user-pictures.js, custom-picture.js
-      ├─ src/user-name.js ── share.js(ownerName), cloud.js(renameNick), user-pictures.js
+      ├─ src/user-name.js ── share.js(ownerName), cloud.js(renameNick), user-pictures.js(사진 바꾸기 창의 단추가 거꾸로 openNameWindow를 부른다)
       └─ src/apps/index.js
          ├─ room-app.js ── room.js ── rules.js, iso.js
          │                └─ shelf.js

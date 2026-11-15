@@ -1171,6 +1171,8 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app { display: flex; flex-direction: column; }
 .pic-app .link-row { margin-top: auto; padding-top: 12px; }
 .pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
+.pic-app-head b { min-width: 0; overflow-wrap: anywhere; }
+.pic-app-head .pic-rename { flex: none; margin-left: auto; } /* 사진 바꾸기 창의 이름 옆 "이름 바꾸기" 단추 */
 .pic-app .avatar.has-pic, .name-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
@@ -1456,7 +1458,7 @@ form.user { cursor: var(--cur-arrow); }
   20%, 80% { opacity: 1; }
 }
 /* 움직임 줄이기를 켠 사람에게는 깜박이지 않고, 벽 가구는 바로 기운 채로 보이며, 빈칸의 말풍선은 그냥 떴다 사라진다.
-   선택자는 위의 규칙과 똑같이 쓴다. :not(.hit)도 우선순위를 올려서, 더 짧은 선택자로 덮으면 지고 천천히 기운다(known-issues 80) */
+   선택자는 위의 규칙과 똑같이 쓴다. :not(.hit)도 우선순위를 올려서, 더 짧은 선택자로 덮으면 지고 천천히 기운다(known-issues 81) */
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .horror-dark { animation: none; }
   .wallpaper .furn.askew > :not(.hit) { transition: none; }
