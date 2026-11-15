@@ -647,6 +647,59 @@ def check_wall_patterns():
 
 
 # ---------- 저장소 키 ----------
+def check_pets():
+    """data/pets.js 의 펫 그림이 24×20칸이고 정해진 글자만 쓰는지, 색표가 빠짐없는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
+    설정에는 '<종류>/<색>'으로 남으므로 종류와 색의 id가 겹치지 않는지, 기본 펫(DEFAULT_PET)이 목록에 있는지도 본다.
+    눈 감은 그림은 하이라이트(h)가 든 눈에서 만들므로(src/pet.js의 shut) 앉은 그림에 h가 있는지도 본다."""
+    where = 'data/pets.js'
+    text = read(where)
+    blocks = re.findall(r'^  \{\n(.*?)^  \},', text, re.S | re.M)
+    if not blocks:
+        err(where, '펫을 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_pets 도 고친다)')
+        return
+    kinds = {}
+    for body in blocks:
+        m = re.search(r"^    id: '([^']*)',", body, re.M)
+        kid = m.group(1) if m else '?'
+        if kid in kinds:
+            err(where, f'{kid}: id가 겹친다')
+        if not KEBAB.match(kid):
+            err(where, f'{kid}: id는 영어 소문자, 숫자, 하이픈만 쓴다')
+        if not re.search(r"^    name: '[^']+',", body, re.M):
+            err(where, f'{kid}: 이름(name)이 없다. 펫 고르는 창의 종류 단추에 나오는 이름이다')
+        m = re.search(r'^    breath: (\d+),', body, re.M)
+        if not m or not 1 <= int(m.group(1)) <= 18:
+            err(where, f'{kid}: breath 는 숨을 들이쉴 때 빼는 줄의 번호(1~18)다')
+        colors = re.findall(r"^      \{ id: '([^']*)', name: '[^']+', b: '#[0-9a-f]{6}', d: '#[0-9a-f]{6}', w: '#[0-9a-f]{6}', "
+                            r"m: '#[0-9a-f]{6}', e: '#[0-9a-f]{6}', c: '#[0-9a-f]{6}' \},$", body, re.M)
+        lines = re.findall(r"^      \{ id: ", body, re.M)
+        if not colors or len(colors) != len(lines):
+            err(where, f"{kid}: 색은 {{ id, name, b, d, w, m, e, c }} 한 줄씩이고 색 값은 '#rrggbb'(소문자)다")
+        if len(set(colors)) != len(colors):
+            err(where, f'{kid}: 색 id가 겹친다')
+        kinds[kid] = set(colors)
+        frames = {}
+        for name in ('sit', 'walk1', 'walk2'):
+            m = re.search(rf'^    {name}: \[\n(.*?)^    \],', body, re.S | re.M)
+            if m:
+                frames[name] = re.findall(r"'([^']*)'", m.group(1))
+        for need in ('sit', 'walk2'):
+            if need not in frames:
+                err(where, f'{kid}: {need} 그림이 없다(walk1 은 없으면 앉은 그림을 쓴다)')
+        for name, rows in frames.items():
+            if len(rows) != 20 or any(len(r) != 24 for r in rows):
+                bad = [i for i, r in enumerate(rows) if len(r) != 24]
+                err(where, f'{kid} {name}: 그림은 20줄이고 줄마다 24칸이다(지금 {len(rows)}줄, 길이가 다른 줄 {bad[:5]})')
+            extra = set(''.join(rows)) - set('obdwmehcs.')
+            if extra:
+                err(where, f"{kid} {name}: 쓰지 않는 글자 {''.join(sorted(extra))} 가 있다(o b d w m e h c s . 만 쓴다)")
+        if 'sit' in frames and 'h' not in ''.join(frames['sit']):
+            err(where, f'{kid}: 앉은 그림의 눈에 하이라이트(h)가 없어 눈 감은 그림을 만들 수 없다')
+    m = re.search(r"^export const DEFAULT_PET = '([^'/]+)/([^']+)';", text, re.M)
+    if not m or m.group(2) not in kinds.get(m.group(1), set()):
+        err(where, "DEFAULT_PET 은 목록에 있는 '<종류>/<색>' 이다")
+
+
 def check_storage_keys():
     for p in sorted(ROOT.glob('apps/*/**/*')):
         if p.suffix not in ('.html', '.js') or p.name.startswith('_') or p.parts[-2].startswith('_'):
@@ -931,6 +984,7 @@ def main():
     check_avatars()
     check_user_pictures()
     check_wall_patterns()
+    check_pets()
     check_feature_numbers()
     check_storage_keys()
     check_imports()
