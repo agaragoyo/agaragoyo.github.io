@@ -9,7 +9,7 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
-// 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 이웃집(서버에서 받는 link 이웃집, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -1488,6 +1488,36 @@ async function walk(page, base) {
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
   check('로그인 화면과 놀이터가 받아 둔 방을 같이 써서 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
+  // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(src/login.js의 uploadedHere). 이 컴퓨터가 기억하는 올린 방 번호(agarago.cloud의 id)가
+  // 이웃집의 link와 같을 때만 빠지고, 이름으로는 가리지 않는다. 그래서 점검용 이웃집의 방 주인 이름을 내 이름과 같게 답하게 해(loginRooms), 이름으로 가렸다면 함께 사라졌을 경우까지 본다.
+  // 올린 기록은 부팅하기 전에 localStorage에 심는다. 끝나면 이 점검 앞의 기록으로 돌려놓는다
+  const myName = await page.run(savedOwner);
+  const loginRooms = { ...neighborRooms, [LINK_NEIGHBOR.link]: await page.run(linkOf, HOME, myName) };
+  const cloudBefore = await page.run(() => localStorage.getItem('agarago.cloud'));
+  const bootWith = async uploadedId => {
+    await open();
+    await page.run(id => (id
+      ? localStorage.setItem('agarago.cloud', JSON.stringify({ uid: 'fake-uid', refresh: 'fake-refresh', id }))
+      : localStorage.removeItem('agarago.cloud')), uploadedId);
+    await page.run(fakeCloud, 'serve', loginRooms);
+    await powerOn();
+    await until(page, () => !document.querySelector('.users .user.neighbor[disabled]'), 3000); // 받는 중인 자리가 모두 걷히면 이웃집 칸이 정해진 것이다
+    return page.run(() => {
+      const names = sel => [...document.querySelectorAll(sel)].map(t => t.querySelector('.user-name').firstChild.textContent);
+      return { mine: names('.users .user:not(.neighbor):not(.new)'), near: names('.users .user.neighbor') };
+    });
+  };
+  const noRecord = await bootWith(null);
+  check('올린 기록이 없는 브라우저에서는 이웃집이 모두 뜨고, 내 이름과 같은 이름의 이웃집도 남는다', noRecord.mine.join() === myName && noRecord.near.length === neighbors
+    && noRecord.near.filter(name => name === myName).length === 1, JSON.stringify(noRecord));
+  const withRecord = await bootWith(LINK_NEIGHBOR.link);
+  const rest = [...noRecord.near];
+  rest.splice(rest.indexOf(myName), 1); // 내 이름과 같은 이름으로 답하는 점검용 이웃집이 올린 방이다. 그 한 칸만 빠져야 한다
+  check('이 브라우저에서 올린 방은 이웃집 칸에서 빠지고 내 사용자로만 뜨며 다른 이웃집은 그대로 뜬다', withRecord.mine.join() === myName
+    && JSON.stringify(withRecord.near) === JSON.stringify(rest), JSON.stringify(withRecord));
+  const otherRecord = await bootWith('AbCd1234'); // 이웃집이 아닌 다른 방을 올렸다면 아무것도 빠지지 않는다
+  check('올린 방이 이웃집 목록에 없으면 이웃집이 하나도 빠지지 않는다', JSON.stringify(otherRecord.near) === JSON.stringify(noRecord.near), JSON.stringify(otherRecord));
+  await page.run(v => (v === null ? localStorage.removeItem('agarago.cloud') : localStorage.setItem('agarago.cloud', v)), cloudBefore);
   // 주인이 링크를 지워 서버에 방이 없으면 로그인 화면과 놀이터에서 빠진다
   await open();
   await page.run(fakeCloud, 'missing');
@@ -1741,21 +1771,24 @@ async function walk(page, base) {
   await desktop();
   await sleep(600);
   check('아무것도 담지 않은 친구 집에는 반짝임이 하나도 뜨지 않는다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 3 && (await liked()) === '');
-  // 이웃집 관리인(가구 다섯 개에 내용이 담겨 있다)은 집 데이터에서 담긴 가구를 구해 견준다. 관리인이 목록에서 빠졌다면 보지 않는다
-  const keeper = await page.run(async () => {
+  // 이웃집: 이웃집 점검 절의 점검용 link 이웃집(LINK_NEIGHBOR)을 다시 불러, 서버가 돌려준 방(점검용 집이라 담긴 가구가 있다)에서 담긴 가구를 구해 견준다.
+  // 레포의 이웃집은 담긴 가구가 있는지 목록만 봐서는 알 수 없고 바뀌기도 해서 쓰지 않는다. 이 이웃집이 받아지지 않으면 건너뛰지 않고 실패로 센다
+  await extraNeighbor(page, LINK_NEIGHBOR);
+  await open();
+  await page.run(fakeCloud, 'serve', neighborRooms);
+  const keeper = await page.run(async neighborId => {
     const { NEIGHBOR_LIST, neighborHome } = await import(new URL('src/neighbors.js', document.baseURI).href);
-    const n = NEIGHBOR_LIST.find(x => x.name === '관리인');
-    const home = n && await neighborHome(n); // link 이웃집이면 서버에서 받으므로 기다린다
+    const n = NEIGHBOR_LIST.find(x => x.id === neighborId);
+    const home = n && await neighborHome(n); // link 이웃집은 서버에서 받으므로 기다린다
     return home ? home.scenes.room.map(i => i.id).filter(id => Object.hasOwn(home.likes, id)).sort().join() : null;
-  });
-  if (keeper) {
-    await open();
-    await powerOn();
-    await page.run(clickText, '.users .user.neighbor', '관리인');
-    await desktop();
-    await sleep(600);
-    check('이웃집 관리인의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', (await liked()) === keeper && keeper.split(',').length >= 1, `${await liked()} / ${keeper}`);
-  }
+  }, LINK_NEIGHBOR.id);
+  await powerOn();
+  await until(page, name => [...document.querySelectorAll('.users .user.neighbor')].some(t => !t.disabled && t.textContent.includes(name)), 3000, SERVER_NAME);
+  await page.run(clickText, '.users .user.neighbor', SERVER_NAME);
+  await desktop();
+  await sleep(600);
+  check('이웃집의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', !!keeper && keeper.split(',').length >= 1 && (await liked()) === keeper, `${await liked()} / ${keeper}`);
+  await extraNeighbor(page, null);
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
 
   // ---------- 펫 데려오기(pet) ----------

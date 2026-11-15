@@ -62,6 +62,11 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return tile;
   }
 
+  // 이웃집이 이 브라우저에서 올린 방인가. 이 컴퓨터가 올린 짧은 링크 번호(src/cloud.js의 sharedId)와 이웃집의 link가 같으면 그렇다.
+  // 이름으로 견주지 않는다. 손님이 이웃과 같은 닉네임을 골랐을 때 그 이웃집이 사라지기 때문이다. 놀이터의 문패만 이름으로 거른다(src/neighbors.js의 neighborGates).
+  // 이 컴퓨터는 올린 방의 번호를 하나만 기억하므로 어느 사용자가 올렸든 그 방 하나가 걸린다. 이 컴퓨터 초기화처럼 올린 기록이 없어지면 걸리지 않는다.
+  const uploadedHere = n => !!n.link && n.link === sharedId();
+
   // 이웃집의 자리. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 목록의 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
   // 받으면 서버의 방 주인 이름으로 보인다(주인이 이름 바꾸기로 닉네임을 바꾸면 따라 바뀐다).
   // 서버에 방이 없거나 받지 못하면 그 이웃집을 뺀다. 사용자가 부른 집이 아니라서 따로 알리지 않는다. 서버에 방이 없다고 이미 알면 null이다.
@@ -100,8 +105,9 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     }
     // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
     // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
+    // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(같은 방이 두 번 뜨지 않게).
     const linked = !!(m || sid);
-    const nearby = linked ? [] : NEIGHBOR_LIST.map(n => neighborTile(n, my)).filter(Boolean);
+    const nearby = linked ? [] : NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean);
     if (own) {
       users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
