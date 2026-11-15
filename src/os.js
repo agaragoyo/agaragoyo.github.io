@@ -74,8 +74,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     layer: el.wallpaper,
     avatar: () => walker,
     items: () => os.home?.scenes[os.place] || [],
+    figures: () => [walker?.spot(), ...(pet?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 고양이가 선 칸을 피한다
     // 내 컴퓨터의 진짜 집에서만 켠다. 손님 화면, 친구 집과 이웃집, 튜토리얼과 그 연습 방에서는 켜지 않는다
     canStart: () => os.mode === 'edit' && !os.realHome && !os.tutorial.active && !el.desktop.hidden && !!walker,
+    // 다른 탭에 있거나 화면 보호기, 가구 가까이 보기가 방을 가리는 동안은 이상한 일이 늘어나는 시간을 세지 않는다
+    canSee: () => !el.desktop.hidden && document.visibilityState === 'visible' && !os.closeup && !os.saver?.showing(),
     onChange: () => {
       syncTheme();
       tick();
@@ -477,18 +480,21 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const name = editable
       ? h('button', { type: 'button', className: 'start-name', title: '이름 바꾸기', onclick: () => { menu.hidden = true; openNameWindow(os); } }, os.home.owner)
       : os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner;
+    // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)
+    const light = item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight);
     menu.replaceChildren(
       h('div', { className: 'start-head' }, head, name),
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),
       h('hr', { className: 'start-sep' }),
-      // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)
-      item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
+      light,
       item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
       item({ title: '로그아웃', icon: 'builtin:logout' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
       item({ title: '끄기', icon: 'builtin:power' }, '컴퓨터 끄기', requestPowerOff),
     );
     menu.hidden = false;
+    // 분신사바의 공포 모드가 menu 단계를 지났으면 불 켜기 글이 한 번 잠깐 바뀐다(src/horror.js). 아이콘(iconEl)도 span이라 마지막 span인 글을 넘긴다
+    horror.menu(light.lastElementChild);
   }
 
   // 작업 표시줄 시계. 공포 모드에서는 04:44에 멈춘다(src/horror.js)
