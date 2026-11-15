@@ -10,7 +10,7 @@ import { h, clamp, reduceMotion } from '../util.js';
 import { iconEl } from '../icons.js';
 import { holdMusic } from '../sound.js';
 import { openCloseup } from '../closeup.js';
-import { linkPrompt } from './link-app.js';
+import { linkPrompt, fitHost } from './link-app.js';
 import { setLike, isOwner } from '../likes.js';
 
 // 게임하는 화면 크기(무대 px). 게임은 들고 있는 게임기의 가운데 화면(940×600, 게임 고르기)에서 하지 않고,
@@ -215,6 +215,7 @@ export function openConsoleApp(os, app) {
           h('div', { className: 'console-ask-title' }, iconEl(g, 32), h('span', {}, g.title)),
           ...linkPrompt({ text: `이 ${g.noun || '게임'}은 원작 사이트의 새 탭에서 열립니다.`, links, onOpen: home, onCancel: home }));
         screen.replaceChildren(card);
+        fitHost(card);
         card.querySelector('a.btn')?.focus();
       }
 

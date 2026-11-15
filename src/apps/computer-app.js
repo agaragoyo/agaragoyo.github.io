@@ -4,7 +4,7 @@
 // 넣은 게임은 집 상태의 likes.computer에 저장되고 공유 링크에도 담긴다(src/likes.js).
 import { h, batchim } from '../util.js';
 import { CHROME_H } from '../win.js';
-import { linkPrompt } from './link-app.js';
+import { linkPrompt, fitHost } from './link-app.js';
 import { LIMIT, safeLink, setLike, isOwner } from '../likes.js';
 
 const VIEW_H = 190; // 새 탭 안내(link-app.js의 창과 같은 높이)
@@ -40,6 +40,7 @@ export function openComputerApp(os, app) {
         });
         if (owner) parts[2].prepend(h('button', { className: 'btn like-edit', type: 'button', onclick: form }, '고치기'));
         body.replaceChildren(...parts);
+        fitHost(body); // 주인이 넣은 긴 주소는 한 줄에서 말줄임표로 끝나 단추 줄을 창 밖으로 밀지 않는다
       };
 
       const form = () => {

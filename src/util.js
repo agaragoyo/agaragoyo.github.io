@@ -33,6 +33,21 @@ export function batchim(word) {
   return c >= 0 && c < 11172 && c % 28 !== 0;
 }
 
+// 자리가 정해진 글 상자(책 표지와 책등, TV 포스터, CD 라벨과 라디오 표시창, 코르크 쪽지)를 그 자리에 맞춘다(known-issues 83).
+// 줄 수와 말줄임표는 CSS(-webkit-line-clamp나 text-overflow)가 정한다. 줄은 띄어쓰기에서 바꾸다가(keep-all) 넘치는 글에만
+// .tight를 붙여 글자 사이에서도 바꾸고, 그래도 넘치면(이모지처럼 넓은 글) 전체 글을 tip의 title에 넣어 마우스를 올리면 보이게 한다.
+// 화면에 붙은 뒤에 부른다. 사용자가 쓴 글자는 갈무리 전체 글꼴로 그려지므로 글꼴을 다 받으면 한 번 더 잰다.
+//   fitText(제목 상자)             넘치면 그 상자에 title
+//   fitText(책등의 글, 책등 단추)  넘치면 단추에 title
+export function fitText(el, tip = el) {
+  const over = () => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+  el.classList.remove('tight');
+  if (over()) el.classList.add('tight');
+  if (over()) tip.title = el.textContent;
+  else tip.removeAttribute('title');
+  if (document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (el.isConnected) fitText(el, tip); });
+}
+
 // localStorage 읽고 쓰기. 사생활 보호 모드처럼 저장소를 못 쓰는 환경에서도 오류 없이 넘어간다.
 export function loadJSON(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }

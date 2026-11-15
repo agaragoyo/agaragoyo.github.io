@@ -4,9 +4,10 @@
 // 단추도 "예/아니오" 대신 누른 결과를 말하는 "새 탭에서 열기"와 "취소"로 둔다.
 // 난이도가 나뉜 게임처럼 주소가 여럿이면 data/apps.js의 links에 { label, href }를 적는다. 단추마다 label을 그대로 쓰므로
 // label도 누른 결과를 말하게 적는다(예: '초급으로 열기'). noun을 적으면 "이 게임은" 대신 그 말을 쓴다(예: '영상').
-import { h } from '../util.js';
+import { h, fitText } from '../util.js';
 
-// 새 탭으로 여는 안내와 단추. 이 창과 옛날 컴퓨터(computer-app.js)가 같이 쓴다.
+// 새 탭으로 여는 안내와 단추. 이 창과 옛날 컴퓨터(computer-app.js), 게임기의 새 탭 안내가 같이 쓴다.
+// 열리는 곳(주소)은 한 줄로 쓰고 넘치면 말줄임표로 끝낸다(.link-host). 화면에 붙인 뒤 부르는 쪽이 fitHost로 전체 주소를 title에 넣는다.
 //   text      첫 줄(무엇이 새 탭에서 열리는지)
 //   links     [{ label, href }]. 단추마다 진짜 링크(target="_blank")라서 사람이 누르면 팝업 차단에 걸리지 않고, 마우스를 올리면 브라우저가 주소도 보여 준다
 //   rel       주인이 넣은 링크처럼 우리 주소를 알릴 까닭이 없는 곳은 'noopener noreferrer'
@@ -16,12 +17,15 @@ export function linkPrompt({ text, links, rel = 'noopener', onOpen, onCancel }) 
   const host = new URL(links[0].href).host;
   return [
     h('p', {}, text),
-    h('p', { className: 'meta' }, `열리는 곳: ${host}`),
+    h('p', { className: 'meta link-host' }, `열리는 곳: ${host}`),
     h('div', { className: 'link-row' },
       ...links.map(l => h('a', { className: 'btn', href: l.href, target: '_blank', rel, onclick: () => setTimeout(onOpen) }, l.label)),
       h('button', { className: 'btn', type: 'button', onclick: onCancel }, '취소')),
   ];
 }
+
+// 열리는 곳이 한 줄에 들지 않으면 마우스를 올렸을 때 전체 주소가 보이게 한다(known-issues 83). 안내를 화면에 붙인 뒤 부른다
+export const fitHost = root => root.querySelectorAll('.link-host').forEach(el => fitText(el));
 
 export function openLinkApp(os, app) {
   const links = app.links || [{ label: '새 탭에서 열기', href: app.href }];
@@ -38,6 +42,7 @@ export function openLinkApp(os, app) {
         onOpen: () => win.close(),
         onCancel: () => win.close(),
       }));
+      fitHost(body);
     },
   });
 }

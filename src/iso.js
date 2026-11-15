@@ -121,21 +121,20 @@ export function sceneSVG(scene, owner = '', decor = null) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-// 문패 글자: 문 폭(width px)에 들어가게 12px에서 9px까지 줄이고, 그래도 넘치면 뒤를 줄임표로 줄인다.
-// 글꼴(갈무리)에서 한글과 한자는 글자 크기만큼, 나머지는 그 0.6배쯤 차지한다고 셈한다.
+// 문패 글자: 문 폭(width px)에 들어가게 12px에서 9px(75%)까지 줄이고, 그래도 넘치면 뒤를 줄임표로 줄인다.
+// 전체 이름은 문에 마우스를 올리면 보인다(문의 <title>). 폭은 문패 글꼴(.neighbor-text의 굵은 갈무리)로 캔버스에서 잰다.
+// 글자 모양으로 어림하면 넓은 영문(W는 0.83배)과 이모지(1.4배)를 좁게 셈해서 12자 이름이 문패 밖으로 나갔다(known-issues 80)
+let ruler = null;
+function textWidth(text, size) {
+  ruler ??= document.createElement('canvas').getContext('2d');
+  ruler.font = `700 ${size}px ${getComputedStyle(document.documentElement).getPropertyValue('--font')}`;
+  return ruler.measureText(text).width;
+}
 function fitLabel(text, width) {
-  const unit = ch => (/[ᄀ-ᇿ㄰-㆏㐀-鿿가-힯＀-￯]/.test(ch) ? 1 : 0.6);
+  for (let size = 12; size >= 9; size--) if (textWidth(text, size) <= width) return { text, size };
   const chars = Array.from(text);
-  const size = Math.min(12, Math.floor(width / chars.reduce((n, ch) => n + unit(ch), 0)));
-  if (size >= 9) return { text, size };
-  let out = '';
-  let used = 1; // 줄임표 자리
-  for (const ch of chars) {
-    if ((used + unit(ch)) * 9 > width) break;
-    out += ch;
-    used += unit(ch);
-  }
-  return { text: `${out}…`, size: 9 };
+  while (chars.length && textWidth(`${chars.join('')}…`, 9) > width) chars.pop();
+  return { text: `${chars.join('')}…`, size: 9 };
 }
 
 // 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트. 울타리에는 문을 낸다.
