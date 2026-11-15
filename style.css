@@ -1458,14 +1458,29 @@ form.user { cursor: var(--cur-arrow); }
   57% { opacity: 0.45; }
   66% { opacity: 1; }
 }
-/* 기운 벽 가구(src/horror.js의 attach). 벽 가구 상자는 벽 모양대로 비스듬히 눌려 있어서(skewY) 상자를 돌리면 자리가 밀린다.
+/* 기운 벽 가구(src/horror.js의 lean). 벽 가구 상자는 벽 모양대로 비스듬히 눌려 있어서(skewY) 상자를 돌리면 자리가 밀린다.
    그래서 상자 안의 그림(그림이 오기 전에는 임시 SVG)을 위쪽 가운데의 못 자리를 축으로 돌린다. 누르기를 받는 .hit은 그대로 둔다.
-   불이 꺼지고 2초 뒤에 3초 동안 천천히 기울고, 불을 켜면 바로 바르게 돌아온다 */
-.wallpaper .furn.askew > :not(.hit) { transform: rotate(6deg); transform-origin: 50% 6%; transition: transform 3s ease-in-out 2s; }
-.wallpaper .furn.askew > .mirror:not(.hit) { transform: scaleX(-1) rotate(-6deg); }
+   처음 하나는 불이 꺼지고 2초 뒤에 3초 동안 천천히 6도 기운다. tilt 단계에서는 다음 것이 같은 빠르기로 반대쪽으로 5도 기울고(.ccw),
+   벽에 건 것이 하나뿐이면 그것이 13도까지 더 기운다(.more). 불을 켜면 바로 바르게 돌아온다 */
+.wallpaper .furn.askew { --askew: 6deg; }
+.wallpaper .furn.askew.ccw { --askew: -5deg; }
+.wallpaper .furn.askew.more { --askew: 13deg; }
+.wallpaper .furn.askew > :not(.hit) { transform: rotate(var(--askew)); transform-origin: 50% 6%; transition: transform 3s ease-in-out 2s; }
+.wallpaper .furn.askew > .mirror:not(.hit) { transform: scaleX(-1) rotate(calc(-1 * var(--askew))); }
+/* 아무도 없는 빈칸에서 뜨는 말풍선(src/horror.js의 speak). 아바타의 말풍선(.room-avatar-say)에 테두리만 점선으로 바꿨다.
+   만화에서 속삭임을 나타내는 모양이고, 아바타 가까이 떠도 아바타가 한 말과 헷갈리지 않는다.
+   떠 있는 동안(src/config.js의 HORROR.voice. 스크립트가 animation-duration으로 넣는다)의 처음 5분의 1에 천천히 나타나고 마지막 5분의 1에 사라진다 */
+.wallpaper .horror-voice { border-style: dashed; animation: horror-voice 2.5s ease-in-out both; }
+@keyframes horror-voice {
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
+/* 움직임 줄이기를 켠 사람에게는 깜박이지 않고, 벽 가구는 바로 기운 채로 보이며, 빈칸의 말풍선은 그냥 떴다 사라진다.
+   선택자는 위의 규칙과 똑같이 쓴다. :not(.hit)도 우선순위를 올려서, 더 짧은 선택자로 덮으면 지고 천천히 기운다(known-issues 82) */
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .horror-dark { animation: none; }
-  .wallpaper .furn.askew > * { transition: none; }
+  .wallpaper .furn.askew > :not(.hit) { transition: none; }
+  .wallpaper .horror-voice { animation: none; }
 }
 
 /* 방 꾸미기: 돌리기 안내 */

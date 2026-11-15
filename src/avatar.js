@@ -102,6 +102,22 @@ function nearestFree(blocked, x, y) {
   return best;
 }
 
+// 빈 바닥 칸들. 바닥 가구가 차지한 칸과 taken(아바타나 실험실의 펫이 선 칸)을 뺀다. 분신사바의 빈칸 말풍선(src/horror.js)이 쓴다
+export function emptyCells(items, taken = []) {
+  const blocked = blockedOf(items);
+  for (const c of taken) blocked.add(key(c.x, c.y));
+  const cells = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if (!blocked.has(key(x, y))) cells.push({ x, y });
+  return cells;
+}
+
+// 칸 pos(걷는 중에는 소수)에 선 그림의 머리 위에 띄우는 말풍선 자리(무대 px의 left, top. 말풍선은 이 점 위에 꼬리를 대고 뜬다).
+// 아바타의 말풍선과 분신사바의 빈칸 말풍선(src/horror.js)이 같이 쓴다
+export function sayPoint(pos) {
+  const c = tile(pos.x + 0.5, pos.y + 0.5);
+  return { left: `${Math.round(c.x)}px`, top: `${Math.round(c.y - FOOT - 4)}px` };
+}
+
 // 칸 cell에 선 아바타 그림이 화면에서 차지하는 네모(무대 px). placeAt이 그리는 자리와 같다.
 export function spriteRect(cell) {
   const c = tile(cell.x + 0.5, cell.y + 0.5);
@@ -190,7 +206,7 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 실험실의 펫 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
 //                  order()로 앞뒤를 알려 준다. 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 펫은 걸어 다니므로 칸은 그때그때 묻는다. 없어도 된다
 // guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
-// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, typing, approachCell, stepsTo, halt, restack, destroy
+// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, typing, approachCell, stepsTo, behind, lookAt, halt, restack, destroy
 export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   const el = avatarEl(avatarId, guest);
   el.title = '눌러서 말하기';
@@ -325,17 +341,14 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   // 지금 자리에 그린다. at이 있으면 그 칸 기준으로 가구와의 앞뒤 순서도 다시 정한다.
   // rect: 앞뒤를 따질 가구를 고를 때 쓰는 아바타 그림의 네모(없으면 at 칸에 섰을 때의 네모)
   function draw(at, rect) {
-    const c = placeAt(el, pos, facing, col);
+    placeAt(el, pos, facing, col);
     if (at) {
       drawnAt = [at, rect];
       let z = depthZ(host.items(), at, rect);
       for (const o of host.others?.() || []) z = o.order(at, rect || spriteRect(at), z);
       el.style.zIndex = z;
     }
-    if (!bubble.hidden) {
-      bubble.style.left = `${Math.round(c.x)}px`;
-      bubble.style.top = `${Math.round(c.y - FOOT - 4)}px`;
-    }
+    if (!bubble.hidden) Object.assign(bubble.style, sayPoint(pos));
   }
 
   const active = () => host.active();
@@ -533,6 +546,19 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     approachWall,
     approachCell,
     stepsTo,
+    // 바라보는 쪽의 반대편 칸(방 밖이거나 가구가 놓인 칸일 수도 있다). 분신사바의 "바로 뒤야." 말풍선이 뜰 칸을 고를 때 쓴다(src/horror.js)
+    behind() {
+      const [dx, dy] = Object.keys(FACING).find(k => FACING[k] === facing).split(',').map(Number);
+      return { x: me.x - dx, y: me.y - dy };
+    },
+    // 선 자리에서 칸 c 쪽을 돌아본다. 걷지 않고, 걷는 중이면 그대로 둔다. 분신사바의 빈칸 말풍선이 뜨면 그쪽을 본다(src/horror.js)
+    lookAt(c) {
+      const dx = c.x - me.x;
+      const dy = c.y - me.y;
+      if (walking || !el.isConnected || (!dx && !dy)) return;
+      facing = FACING[Math.abs(dx) >= Math.abs(dy) ? key(Math.sign(dx), 0) : key(0, Math.sign(dy))];
+      draw(null);
+    },
     // 가던 길과 다 와서 할 일을 버린다. 걷던 한 칸은 마저 걸어 칸 위에 선다.
     // 실험실의 심심할 때 혼잣말이 가구로 걷던 중에 사용자가 마우스나 키를 건드리면 부른다(src/idle-talk.js)
     halt() {
