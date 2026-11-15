@@ -16,12 +16,16 @@
 // 이름이 없는 옛 CD(이름 칸이 생기기 전에 넣은 것)는 예전처럼 받은 이름을 쓴다.
 // 주인(내 컴퓨터)에게는 CD 넣기와 고치기, 지우기 단추가 있고 손님에게는 없다. 넣은 CD는 likes.radio에 저장되고 공유 링크에도 담긴다(src/likes.js).
 // 목록에서 지우는 단추를 다른 가구처럼 "빼기"라고 하면 라디오에서 꺼내기로 읽혀서, 라디오만 "지우기"라고 쓴다.
+// 실험실의 친구 집 배경음악(home-bgm)을 켜면 친구 집에 들어올 때 누르지 않아도 음악 창이 열린다(맨 아래 startHomeMusic).
 import { h, reduceMotion } from '../util.js';
 import { CHROME_W, CHROME_H } from '../win.js';
 import { DESK_W } from '../config.js';
-import { holdMusic } from '../sound.js';
+import { holdMusic, watchMusic } from '../sound.js';
 import { openCloseup } from '../closeup.js';
+import { labOn } from '../labs.js';
 import { LIMIT, parseMusic, setLike, isOwner, line } from '../likes.js';
+import { APP_BY_ID } from '../../data/apps.js';
+import { BY_ID } from '../../data/furniture.js';
 
 const KIND = {
   spotify: { album: '스포티파이 앨범', playlist: '스포티파이 플레이리스트' },
@@ -134,12 +138,13 @@ function playerSrc(m) {
 // 유튜브 플레이어(iframe)에 API를 이어 붙여 재생하지 못한 영상을 알린다(onError). 돌려준 함수는 이어 붙인 것을 뗀다(그 iframe도 문서에서 빠진다).
 // 문서는 100(없거나 비공개)과 101, 150(다른 사이트에서 재생을 막음)을 나누지만, 2026-11-14에 재 보니 없는 영상도 150으로 왔다.
 // 라벨이 막아 둔 공식 뮤직비디오(릭 애슬리, 데스파시토)는 127.0.0.1에서 띄우면 150이고 localhost에서는 재생된다(사이트마다 막는다).
-// 재생목록 안의 막힌 곡은 유튜브가 목록에서 빼고 틀어서 오류가 오지 않는다
-function watchYouTube(frame, onError) {
+// 재생목록 안의 막힌 곡은 유튜브가 목록에서 빼고 틀어서 오류가 오지 않는다.
+// onReady(yt)는 플레이어가 명령(소리 끄기와 켜기)을 받을 수 있게 되면 불린다
+function watchYouTube(frame, onError, onReady) {
   let yt = null;
   let gone = false;
   youtubeApi().then(YT => {
-    if (!gone) yt = new YT.Player(frame, { host: 'https://www.youtube-nocookie.com', events: { onError: e => onError(e.data) } });
+    if (!gone) yt = new YT.Player(frame, { host: 'https://www.youtube-nocookie.com', events: { onError: e => onError(e.data), onReady: () => !gone && onReady(yt) } });
   }).catch(() => {});
   return () => {
     gone = true;
@@ -155,18 +160,28 @@ const youtubeError = (m, owner) => [
   owner ? '이 CD를 지우고 다른 주소를 넣어 주세요.' : '유튜브에서 들어 주세요.',
 ];
 
+// 넣어 둔 CD: 알아본 링크(parseMusic)에 주인이 붙인 이름과 색 번호를 더한 것
+const cdsOf = os => (os.home.likes.radio || []).map(c => {
+  const m = parseMusic(c.url);
+  return m && { ...m, name: c.name || '', color: c.color || 0 };
+}).filter(Boolean);
+
 // 음악 창은 라디오 화면보다 오래 산다(라디오를 내려놓아도 남는다)
-let player = null;   // { win, frame, note, m, stop, load } 열려 있는 음악 창
+let player = null;   // { win, frame, note, m, stop, load, yt, auto, keep } 열려 있는 음악 창
 let onPlayerGone = null; // 열려 있는 라디오 화면이 음악 창이 닫힌 것을 알 때 부를 함수
 
-function openPlayer(os, app, m) {
+// auto: 친구 집 배경음악(맨 아래 startHomeMusic)으로 저절로 연 창. 손님이 라디오에서 CD를 고르면 보통 음악 창이 된다(keep)
+function openPlayer(os, app, m, auto = false) {
   if (player) {
     // 다른 CD로 바꾸면 같은 창에서 플레이어만 바꾼다. 같은 CD면 창만 앞으로 가져온다(듣던 곳에서 끊기지 않게)
+    player.keep();
     if (player.m.link !== m.link) player.load(m);
     player.win.focus();
     return;
   }
   let release = null;
+  let quiet = null; // 저절로 튼 음악이 사이트 배경음악처럼 소리를 끄고 켜는 동안, 그만 듣는 함수(watchMusic)
+  let muted = false;
   const owner = isOwner(os);
   const win = os.wm.open({
     key: 'radio-player',
@@ -196,21 +211,46 @@ function openPlayer(os, app, m) {
         if (player.frame) player.frame.replaceWith(frame);
         else body.prepend(frame);
         player.stop?.(); // 앞 CD의 플레이어에 이어 붙인 API를 뗀다(새 iframe을 넣은 뒤에 떼야 새것이 빠지지 않는다)
-        Object.assign(player, { frame, m: cd, stop: null });
+        Object.assign(player, { frame, m: cd, stop: null, yt: null });
         note.textContent = NOTE[cd.service];
         if (cd.service === 'youtube') {
           player.stop = watchYouTube(frame, () => {
+            // 저절로 튼 CD가 재생되지 않으면 다음 유튜브 CD를 튼다. 남은 CD가 없으면 라디오에서 고를 때처럼 안내한다
+            const next = player?.auto && nextAuto(os, cd);
+            if (next) return setTimeout(() => player?.frame === frame && load(next));
             const [what, todo] = youtubeError(cd, owner);
             note.replaceChildren(what, h('br'), todo);
             fit();
+          }, yt => {
+            if (player?.frame !== frame) return;
+            player.yt = yt;
+            if (muted) yt.mute();
           });
         }
         os.showingVideo(cd.service === 'youtube');
         fit();
       };
-      player = { win: null, frame: null, note, m, stop: null, load };
+      // 저절로 튼 음악의 소리를 끄고 켠다. 유튜브 플레이어만 명령을 받는다(맨 아래 설명). 명령을 받기 전이면 받을 수 있게 될 때 끈다(load의 onReady)
+      const mute = on => {
+        muted = on;
+        try {
+          if (on) player.yt?.mute();
+          else player.yt?.unMute();
+        } catch { /* 이미 떼어진 플레이어 */ }
+      };
+      // 손님이 라디오에서 CD를 고르면 그때부터는 보통 음악 창이다(창이 뒤로 가도 소리를 끄지 않는다, F27)
+      const keep = () => {
+        if (!player.auto) return;
+        player.auto = false;
+        quiet?.();
+        quiet = null;
+        if (muted) mute(false);
+      };
+      player = { win: null, frame: null, note, m, stop: null, load, yt: null, auto, keep };
       release = holdMusic('radio', 'own'); // 사이트 배경음악과 겹치지 않게 멈춘다
+      if (auto) quiet = watchMusic('radio', on => mute(!on)); // 사이트 배경음악이 날 자리에서만 들린다(src/sound.js)
       return () => {
+        quiet?.();
         release?.();
         player.stop?.();
         os.showingVideo(false);
@@ -228,11 +268,7 @@ function openPlayer(os, app, m) {
 
 export function openRadioApp(os, app) {
   const owner = isOwner(os);
-  // 넣어 둔 CD: 알아본 링크(parseMusic)에 주인이 붙인 이름과 색 번호를 더한 것
-  const cds = () => (os.home.likes.radio || []).map(c => {
-    const m = parseMusic(c.url);
-    return m && { ...m, name: c.name || '', color: c.color || 0 };
-  }).filter(Boolean);
+  const cds = () => cdsOf(os);
   if (!owner && !cds().length) return os.say('넣어 둔 CD가 없네.');
 
   return openCloseup(os, {
@@ -460,4 +496,39 @@ export function openRadioApp(os, app) {
       };
     },
   });
+}
+
+// ---------- 친구 집 배경음악(실험실 home-bgm, src/labs.js) ----------
+// 켜고 친구 집(공유 링크로 연 집, 이웃집)에 들어오면 2000년대 미니홈피의 배경음악처럼, 주인이 라디오에 넣어 둔 CD를 누르지 않아도 음악 창에 띄워 튼다.
+// 저절로 재생되는 것은 유튜브 CD뿐이라 넣어 둔 차례에서 첫 유튜브 CD를 튼다(유튜브 주소에는 autoplay가 붙어 있고, 창이 열리며 플레이어가 보일 때 재생된다).
+// 스포티파이와 애플 뮤직의 플레이어는 플레이어 안을 누르기 전에는 재생되지 않았다(2026-11-15 크롬에서 잼).
+// 손님이 고르지 않은 음악이라 사이트 배경음악처럼 다룬다. 소리나 배경음악을 꺼 두었으면 틀지 않고, 튼 뒤에도 사이트 배경음악이 날 자리에서만 들린다
+// (창이 뒤로 가거나(F27), 소리나 배경음악을 끄거나, 배경음악 앱이나 음악이 있는 게임 창을 연 동안은 소리를 끈다. src/sound.js의 watchMusic).
+// 라디오를 방에 두지 않은 집에서는 틀지 않는다(손님이 라디오를 열어 꺼내거나 바꿀 수 없다). 친구 집을 나가면 창이 모두 닫히며 멈춘다(src/os.js).
+const autoCds = os => cdsOf(os).filter(m => m.service === 'youtube');
+const nextAuto = (os, m) => {
+  const list = autoCds(os);
+  return list[list.findIndex(x => x.link === m.link) + 1] || null;
+};
+
+// 친구 집 바탕화면에 들어올 때 부른다(src/os.js의 showDesktop)
+export function startHomeMusic(os) {
+  if (os.mode !== 'visit' || player || !labOn('home-bgm')) return;
+  if (!os.settings.get('sound') || !os.settings.get('musicOn')) return;
+  const placed = Object.values(os.home.scenes).flat().some(it => BY_ID[it.id]?.gimmick === 'app:radio');
+  const m = placed && autoCds(os)[0];
+  if (!m) return;
+  openPlayer(os, APP_BY_ID.radio, m, true);
+  os.wm.blur(); // 음악 창이 키를 가져가지 않게 한다(손님은 들어오자마자 방향키로 걷는다)
+}
+
+// 실험실 스위치가 바뀌면 부른다(src/os.js). 친구 집에서 켜면 바로 틀고, 끄면 저절로 연 음악 창을 닫는다.
+// 다른 항목을 켜고 끌 때는 그대로 둔다(손님이 닫은 음악 창이 다시 열리지 않게)
+let homeLab = labOn('home-bgm');
+export function syncHomeMusic(os) {
+  const on = labOn('home-bgm');
+  if (on === homeLab) return;
+  homeLab = on;
+  if (on) startHomeMusic(os);
+  else if (player?.auto) player.win.close();
 }

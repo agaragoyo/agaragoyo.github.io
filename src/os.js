@@ -11,6 +11,7 @@ import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet } from './pet.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
+import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
 import { PASSWORD, labsOpen, openLabs, labOn } from './labs.js';
@@ -223,6 +224,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     renderDesktopIcons();
     tick();
     if (os.mode === 'edit') os.tutorial.resume();
+    startHomeMusic(os); // 실험실의 친구 집 배경음악(home-bgm)을 켰으면 친구 집에서 주인 라디오의 첫 유튜브 CD를 튼다
   }
 
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기, 내 컴퓨터로)은 그때만 보인다.
@@ -287,7 +289,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       if (liked) furn.style.setProperty('--twinkle', `${-0.4 * n++}s`);
     }
   }
-  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) markLiked(); });
+  settings.subscribe(patch => {
+    if (!('labs' in patch || 'labsOpen' in patch)) return;
+    markLiked();
+    syncHomeMusic(os); // 친구 집에서 친구 집 배경음악(home-bgm)을 켜면 바로 틀고, 끄면 저절로 연 음악 창을 닫는다
+  });
 
   // 바탕화면의 공간을 옮긴다(현관문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 그 문으로 막 들어온 칸
   // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에 선다. 놀이터는 아파트 문 앞, 내 방은 현관문 앞이다.

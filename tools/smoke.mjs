@@ -1217,6 +1217,28 @@ async function walk(page, base) {
   check('펫 데려오기를 켜 두어도 친구 집에는 고양이가 없다', !(await hasPet()));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), petSettings);
 
+  // ---------- 친구 집 배경음악(home-bgm) ----------
+  // 켜고 친구 집에 들어가면 주인 라디오의 첫 유튜브 CD(앞의 애플 뮤직 CD는 건너뛴다)의 음악 창이 저절로 열리고, 구경을 마치면 닫힌다. 끄면 지금처럼 열리지 않는다.
+  // 점검은 유튜브에 요청을 보내지 않으므로(main의 BLOCKED) 음악 창과 플레이어 주소까지만 본다. 소리가 나는지는 직접 듣는다(src/apps/radio-app.js의 startHomeMusic)
+  const bgmSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const visitEvil = async labs => {
+    await page.run(labs => localStorage.setItem('agarago.settings', JSON.stringify({ labsOpen: true, labs })), labs);
+    await open(`#r=${evil}`); // 앞의 깨진 링크 절에서 만든 HTML이 든 친구 집(EVIL). 라디오에 애플 뮤직 CD와 유튜브 CD가 있다
+    await powerOn();
+    await page.run(clickText, '.users .user', '손님으로 구경하기');
+    return desktop();
+  };
+  check('친구 집 배경음악을 켜고 친구 집에 들어가면 첫 유튜브 CD의 음악 창이 저절로 열린다', (await visitEvil(['home-bgm']))
+    && await until(page, () => /^https:\/\/www\.youtube-nocookie\.com\/embed\/96URE_-aj-8\?.*autoplay=1/.test(document.querySelector('#windows .radio-player iframe')?.src || ''), 5000));
+  check('저절로 열린 음악 창은 키를 가져가지 않는다', await page.run(() => !!document.querySelector('#windows .radio-player') && [...document.querySelectorAll('#windows .win')].every(w => w.classList.contains('inactive'))));
+  await page.run(() => document.querySelector('.start-btn').click());
+  await page.run(clickText, '#start-menu .start-item', '구경 마치기');
+  check('구경을 마치면 저절로 연 음악 창이 닫힌다', await until(page, () => !document.getElementById('login').hidden && !document.querySelector('#windows .radio-player'), 3000));
+  await visitEvil([]);
+  await sleep(600);
+  check('친구 집 배경음악을 끄면 친구 집에 들어가도 음악 창이 열리지 않는다', await page.run(() => !document.querySelector('#windows .radio-player')));
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), bgmSettings);
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;
