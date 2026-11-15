@@ -488,6 +488,9 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight),
       item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
+      // 이름 바꾸기는 맨 위의 이름 말고도 글자로 된 줄로 둔다. 이름만 누르게 했을 때는 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80).
+      // 윈도우 10의 아바타 메뉴가 로그아웃 옆에 계정 설정을 두는 것처럼 로그아웃 바로 위에 둔다
+      ...(editable ? [item({ title: '이름 바꾸기', icon: 'builtin:rename' }, '이름 바꾸기', () => openNameWindow(os))] : []),
       item({ title: '로그아웃', icon: 'builtin:logout' }, os.mode === 'visit' ? '구경 마치기' : '로그아웃', showLogin),
       item({ title: '끄기', icon: 'builtin:power' }, '컴퓨터 끄기', requestPowerOff),
     );

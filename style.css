@@ -1189,6 +1189,8 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app { display: flex; flex-direction: column; }
 .pic-app .link-row { margin-top: auto; padding-top: 12px; }
 .pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
+.pic-app-head b { min-width: 0; overflow-wrap: anywhere; }
+.pic-app-head .pic-rename { flex: none; margin-left: auto; } /* 사진 바꾸기 창의 이름 옆 "이름 바꾸기" 단추 */
 .pic-app .avatar.has-pic, .name-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
