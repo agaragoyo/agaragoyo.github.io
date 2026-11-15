@@ -1,9 +1,9 @@
-// 이름 바꾸기 창(F28). 시작 메뉴 맨 위의 내 이름을 누르면 열린다(src/os.js의 openStartMenu). 옆의 내 사진을 누르면 사진 바꾸기 창이 열리는 것과 짝이다.
+// 이름 바꾸기 창(F28). 시작 메뉴의 "이름 바꾸기" 줄과 맨 위의 내 이름(src/os.js의 openStartMenu), 사진 바꾸기 창의 이름 옆 단추(src/user-pictures.js)에서 열린다.
 // 레퍼런스는 윈도우 XP 제어판 사용자 계정의 이름 변경이다. 새 이름을 적고 결과를 말하는 단추("이름 바꾸기", "취소")로 받는다.
 // 이름은 집(os.home.owner)에 있어서 바꾸면 os.saveHome으로 저장하고, 짧은 링크를 만든 방이면 서버의 방도 따라 고친다(src/cloud.js의 syncLater).
 // 검사는 새 사용자를 만들 때와 같다(src/share.js의 ownerName, 12글자).
 // 예전 긴 링크(#r=)는 링크 글자에 이름이 담겨 있어서 이미 보낸 것은 바뀌지 않는다. 실명을 별명으로 바꾸려는 사람이 알아야 해서 창 안에 적는다.
-// 튜토리얼 연습 방과 친구 집에서는 시작 메뉴의 이름이 단추가 아니라서 열리지 않는다. 연습을 시작하면 열린 창도 모두 닫힌다(known-issues 40).
+// 튜토리얼 연습 방과 친구 집에서는 시작 메뉴에 이름 바꾸기 줄이 없고 사진과 이름이 단추가 아니라서 열리지 않는다. 연습을 시작하면 열린 창도 모두 닫힌다(known-issues 40).
 import { ownerName } from './share.js';
 import { sharedId, renameNick } from './cloud.js';
 import { ownPicture, saveOwnPicture, pictureEl, shownSize } from './user-pictures.js';

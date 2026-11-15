@@ -14,7 +14,7 @@
 - `src/iso.js`: 놀이터 문패의 글 폭을 글자 모양으로 어림하지 않고 캔버스에서 잰다(`fitLabel`)
 - `style.css`: 책 표지와 책등, 남긴 말, TV 포스터와 고른 작품 칸, 코르크 쪽지, 멈춘 화면 보호기, 창 안의 긴 낱말(`.win-body`), 같이 쓰는 `.closeup .tight`
 - `tools/smoke.mjs`: 긴 글 집(`LONG`)의 주인 화면과 손님 화면, 긴 이름의 이웃집 문패, 모든 화면의 잘린 글 검사(`cutText`), 쪽지에 답하는 `fakeCloud`의 `notes`
-- `known-issues.md`(80번), `docs/guide.md`, `docs/checklists.md`, `docs/file-map.md`
+- `known-issues.md`(81번), `docs/guide.md`, `docs/checklists.md`, `docs/file-map.md`
 
 ## 정한 것과 이유
 - 자리를 둘로 나눴다. 넓은 자리(남긴 말, 추천 이유, 작품 제목과 감독, 창 안의 글)는 줄을 바꿔 다 보이게 하고, 높이가 정해진 칸에서 넘치면 그 칸 안에서 스크롤한다.

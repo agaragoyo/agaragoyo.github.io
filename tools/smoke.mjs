@@ -12,7 +12,7 @@
 // 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
-// 상자 밖으로 나가거나 말없이 잘린 글(80).
+// 상자 밖으로 나가거나 말없이 잘린 글(81).
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
 // 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
@@ -42,7 +42,7 @@ const EVIL = {
   greeting: '<i>안녕</i>',
 };
 
-// 긴 글 점검(known-issues 80)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄이 는다),
+// 긴 글 점검(known-issues 81)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄이 는다),
 // 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
 // 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
 const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
@@ -110,7 +110,7 @@ function overflowing() {
   return [...new Set(out)].slice(0, 8);
 }
 
-// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 80). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
+// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 81). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
 // 크기가 정해진 자리에서 말줄임표(text-overflow, -webkit-line-clamp)로 끝난 글은 그 글이나 조상의 title에 전체 글이 있어야 하고,
 // 스크롤되는 칸에서 가려진 글은 스크롤하면 보이므로 괜찮다. 기울인 CD와 쪽지는 재는 동안만 기울기를 푼다(overflowing과 같다)
 function cutText(scope = '#windows .win, .closeup, #start-menu, #login, #toast') {
@@ -249,6 +249,7 @@ async function extraNeighbor(page, row) {
 }
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
+// 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
 // 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
 function fakeYouTube() {
   const real = window.fetch;
@@ -259,9 +260,27 @@ function fakeYouTube() {
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
     if (asked.includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
     if (asked.includes('Private')) return new Response('Not Found', { status: 404 });
+    if (asked.includes('Blocked')) return new Response('Unauthorized', { status: 401 });
+    if (asked.includes('Forbidden')) return new Response('Forbidden', { status: 403 });
     return new Response(JSON.stringify({ title: '점검용 유튜브 노래', thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }));
   };
   return true;
+}
+// 라디오 넣는 칸에 주소를 넣고 넣기를 누른다
+function putYouTube(url) {
+  document.querySelector('.closeup form input').value = url;
+  document.querySelector('.closeup form').requestSubmit();
+}
+// 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
+function radioErrorShows(pattern) {
+  const err = document.querySelector('.closeup .like-error');
+  if (!err || err.hidden || !new RegExp(pattern).test(err.textContent)) return false;
+  const lines = [...err.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim());
+  return lines.length === 2 && lines.every(n => {
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    return range.getClientRects().length === 1;
+  });
 }
 
 // 게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
@@ -841,18 +860,33 @@ async function walk(page, base) {
   check('빈 이름으로 이름 바꾸기를 누르면 안내가 뜨고 이름은 그대로다', (await page.run(() => !document.querySelector('.name-app .like-error').hidden)) && (await page.run(savedOwner)) === '점검');
   await page.run(clickText, '#windows .name-app .btn', '취소');
   check('취소를 누르면 창이 닫히고 이름은 그대로다', (await page.run(() => !document.querySelector('#windows .name-app'))) && (await page.run(savedOwner)) === '점검');
+  // 시작 메뉴의 로그아웃 바로 위에 글자로 된 "이름 바꾸기" 줄이 있다. 맨 위의 이름은 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80)
+  await page.run(clickOnce, '.start-btn');
+  check('시작 메뉴의 로그아웃 바로 위에 이름 바꾸기 줄이 있다', await page.run(() => {
+    const items = [...document.querySelectorAll('#start-menu .start-item')].map(b => b.textContent);
+    const i = items.findIndex(t => t.includes('이름 바꾸기'));
+    return i >= 0 && !!items[i + 1]?.includes('로그아웃');
+  }));
+  await page.run(clickText, '#start-menu .start-item', '이름 바꾸기');
+  check('시작 메뉴의 이름 바꾸기 줄을 누르면 시작 메뉴가 닫히고 이름 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .name-app'), 3000));
+  await page.run(clickText, '#windows .name-app .btn', '취소');
   const namePic = await page.run(async () => {
     localStorage.removeItem('agarago.picture'); // 사진을 고른 적 없는 사용자처럼 둔다
     const { ownPicture } = await import(new URL('src/user-pictures.js', document.baseURI).href);
     return ownPicture('점검');
   });
+  // 사진 바꾸기 창의 이름 옆 단추로도 연다. 사진 바꾸기 창을 연 채로 바꾸면 그 창 위의 이름도 바뀐다
   await page.run(clickOnce, '.start-btn');
-  await page.run(clickOnce, '#start-menu .start-name');
-  await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+  await page.run(clickOnce, '#start-menu .start-pic');
+  await until(page, () => !!document.querySelector('#windows .pic-app'), 3000);
+  await page.run(clickText, '#windows .pic-app-head .btn', '이름 바꾸기');
+  check('사진 바꾸기 창의 이름 옆 단추를 누르면 이름 바꾸기 창이 열린다', await until(page, () => !!document.querySelector('#windows .name-app'), 3000));
   await page.run(nameSubmit, ' 바꾼 이름 ');
   check('이름을 바꾸면 앞뒤 공백을 지운 이름이 집에 저장되고 창이 닫히며 알린다', await until(page, () => !document.querySelector('#windows .name-app')
     && JSON.parse(localStorage.getItem('agarago.home.v3')).owner === '바꾼 이름' && document.getElementById('toast').textContent === '이름을 바꿨습니다.', 3000));
   check('사진을 고른 적 없는 사용자도 이름을 바꾸면 사진은 그대로다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === namePic, namePic);
+  check('사진 바꾸기 창을 연 채로 이름을 바꾸면 그 창 위의 이름도 바뀐다', await page.run(() => document.querySelector('#windows .pic-app-head b')?.textContent === '바꾼 이름'));
+  await closeWindows();
   await page.run(clickOnce, '.start-btn');
   check('바꾼 이름이 시작 메뉴에 보인다', await page.run(() => document.querySelector('#start-menu .start-name')?.textContent === '바꾼 이름'));
   await page.run(clickOnce, '#start-menu .start-name');
@@ -1008,11 +1042,17 @@ async function walk(page, base) {
   // 찾을 수 없다는 답은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤 넣기를 다시 누르면 다시 묻는다(known-issues 71)
   await page.run(() => document.querySelector('.closeup form').requestSubmit());
   check('유튜브가 찾지 못한 주소는 넣기를 다시 누르면 다시 묻는다', await until(page, () => window.__oembed['https://www.youtube.com/watch?v=aaaaaaaaaaa'] === 2, 4000));
-  await page.run(() => {
-    document.querySelector('.closeup form input').value = 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke';
-    document.querySelector('.closeup form').requestSubmit();
-  });
-  check('비공개 재생목록은 넣지 않고 일부 공개로 바꾸라고 알린다', await until(page, () => /일부 공개로 바꿔/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke');
+  check('찾을 수 없는 재생목록은 넣지 않고 공개로 바꾸라고 알린다', await until(page, radioErrorShows, 4000, '찾을 수 없는 재생목록입니다.*비공개라면 공개로 바꿔'));
+  // 다른 사이트에서 재생을 막은 재생목록(oEmbed 401)에 영상이라고 알리거나 일부 공개로 바꾸라고 하면 안 된다(known-issues 79). 같은 안내가 연달아 뜨지 않게 영상을 사이에 둔다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeBlocked0000&si=smoke');
+  check('막힌 재생목록은 재생목록이라고 알리고 공개로 바꾸거나 곡 하나를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나 곡 하나의 주소'));
+  await page.run(putYouTube, 'https://youtu.be/BlockedVid1');
+  check('막힌 영상은 영상이라고 알리고 다른 영상의 주소를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 영상입니다.*다른 영상의 주소'));
+  // 유튜브가 403으로 답하는 재생목록(2026-11-15에 비공개로 보인 재생목록)도 넣지 않는다. 번호를 몰라 답 없음으로 지나치면 확인 없이 들어간다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeForbidden00&si=smoke');
+  check('403으로 답하는 재생목록도 막힌 재생목록으로 알린다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나'));
+  check('막힌 CD는 라디오에 들어가지 않는다', (await page.run(savedHome)).likes.radio?.length === 1);
   // 유튜브 뮤직 주소를 넣으면 이름 칸이 채워지고, CD는 같은 영상의 유튜브 주소로 저장된다
   await page.run(() => {
     const [url, name] = document.querySelectorAll('.closeup form input');
@@ -1082,7 +1122,8 @@ async function walk(page, base) {
   check('연습 방은 가구가 없는 빈 방이다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0);
   await probe('연습 방');
   await page.run(clickOnce, '.start-btn');
-  check('연습 방의 시작 메뉴에는 내 사진과 이름이 보이기만 하고 바꾸는 단추는 없다', await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+  check('연습 방의 시작 메뉴에는 내 사진과 이름이 보이기만 하고 바꾸는 단추와 이름 바꾸기 줄은 없다', await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+    && ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent.includes('이름 바꾸기'))
     && !!document.querySelector('#start-menu .start-head .user-pic') && document.querySelector('#start-menu .start-head').textContent === '점검'));
   await page.run(clickOnce, '.start-btn');
 
@@ -1157,8 +1198,9 @@ async function walk(page, base) {
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
   check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
   await page.run(clickOnce, '.start-btn');
-  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 사진과 이름을 바꾸는 단추는 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
-    && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')));
+  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 사진과 이름을 바꾸는 단추와 줄은 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
+    && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+      && ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent.includes('이름 바꾸기'))));
   await page.run(clickOnce, '.start-btn');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
@@ -1173,9 +1215,14 @@ async function walk(page, base) {
 
   // ---------- 이웃집 ----------
   // data/neighbors.js 맨 앞에 link 이웃집 한 집을 더해 받게 하고(extraNeighbor), 그 집의 방은 서버 대신 답한다(fakeCloud).
-  // 받는 동안의 자리, 받은 뒤의 주인 사진과 문패 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
+  // 받는 동안의 자리, 받은 뒤의 주인 사진과 서버의 주인 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
   const LINK_NEIGHBOR = { id: 'smoke-link', name: '링크이웃', link: 'NbHd5678' };
-  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, '서버의이름'); // 화면에는 목록의 문패 이름이 보여야 한다
+  const SERVER_NAME = '서버의이름'; // 서버의 방 주인 이름. 받은 뒤에는 목록의 이름(링크이웃) 대신 이 이름이 보여야 한다
+  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, SERVER_NAME);
+  // 레포의 목록에 든 link 이웃집에도 서버 대신 답한다. 답하지 않으면 서버에 방이 없는 집처럼 빠져서 문의 수가 어긋난다
+  const listedLinks = [...fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8').matchAll(/link: '([0-9A-Za-z]{8})'/g)].map(m => m[1]);
+  const listedCode = await page.run(linkOf, HOME, '이웃점검');
+  const neighborRooms = { [LINK_NEIGHBOR.link]: neighborCode, ...Object.fromEntries(listedLinks.map(id => [id, listedCode])) };
   const linkTile = name => {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return t ? { disabled: t.disabled, text: t.textContent, pic: t.querySelector('.user-pic')?.dataset.pic ?? null } : null;
@@ -1189,9 +1236,12 @@ async function walk(page, base) {
   };
   await extraNeighbor(page, LINK_NEIGHBOR);
   await open();
-  await page.run(fakeCloud, 'hold', { [LINK_NEIGHBOR.link]: neighborCode });
+  await page.run(fakeCloud, 'hold', neighborRooms);
   await powerOn();
-  const neighbors = await page.run(async () => (await import(new URL('src/neighbors.js', document.baseURI).href)).NEIGHBOR_LIST.length);
+  const [neighbors, links] = await page.run(async () => {
+    const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link).length];
+  });
   check('link 이웃집은 서버에서 방을 받는 동안 문패 이름만 보이고 눌리지 않는다', await page.run(linkTile, LINK_NEIGHBOR.name)
     .then(t => !!t && t.disabled && t.text.includes('불러오는 중')));
   check('부팅할 때 link 이웃집의 방을 서버에 한 번 묻는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
@@ -1200,14 +1250,23 @@ async function walk(page, base) {
   check('받으면 이웃집 구경하기 자리가 되고 서버의 방에 담긴 주인 사진이 보인다', await until(page, name => {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return !!t && !t.disabled && t.textContent.includes('이웃집 구경하기') && t.querySelector('.user-pic')?.dataset.pic === 'cake';
-  }, 3000, LINK_NEIGHBOR.name));
-  check('link 이웃집은 서버의 주인 이름 대신 목록의 문패 이름으로 보인다', !(await page.run(() => document.getElementById('login').textContent.includes('서버의이름'))));
+  }, 3000, SERVER_NAME));
+  check('받은 link 이웃집은 목록의 이름 대신 서버의 방 주인 이름으로 보인다', await page.run((listed, server) => {
+    const text = document.getElementById('login').textContent;
+    return text.includes(server) && !text.includes(listed);
+  }, LINK_NEIGHBOR.name, SERVER_NAME));
+  check('놀이터 문패는 서버의 방 주인 이름과 같은 집을 빼고 목록의 이름으로는 빼지 않는다', await page.run(async (server, listed, id) => {
+    const { neighborGates } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    const has = owner => neighborGates(owner).some(g => g.id === id);
+    return !has(server) && has(listed);
+  }, SERVER_NAME, LINK_NEIGHBOR.name, LINK_NEIGHBOR.id));
   check('이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   check('놀이터 울타리에 이웃집 문이 집마다 하나씩 있다', (await page.run(neighborGates)) === neighbors);
+  check('놀이터 문패에는 서버의 방 주인 이름이 쓰여 있다', await page.run((id, name) => document.querySelector(`#wallpaper .neighbor-hit[data-neighbor="${id}"] title`)?.textContent === `두 번 눌러 ${name}의 집에 놀러 가기`, LINK_NEIGHBOR.id, SERVER_NAME));
   await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LINK_NEIGHBOR.id}"]`);
   check('이웃집 문을 두 번 누르면 어느 집으로 가는지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
   await probe('이웃집 놀러 가기 창');
-  check('놀러 가기 창이 그 집의 문패 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${LINK_NEIGHBOR.name}의 집에 놀러 갑니다.`));
+  check('놀러 가기 창이 서버의 방 주인 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${SERVER_NAME}의 집에 놀러 갑니다.`));
   await page.run(clickText, '#windows .btn', '놀러 가기');
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
@@ -1216,12 +1275,12 @@ async function walk(page, base) {
   await open();
   await page.run(fakeCloud, 'missing');
   await powerOn();
-  check('서버에 방이 없는 link 이웃집은 로그인 화면에서 빠진다', await until(page, (name, n) => {
+  check('서버에 방이 없는 link 이웃집은 로그인 화면에서 빠진다', await until(page, (name, n, k) => {
     const tiles = [...document.querySelectorAll('.users .user.neighbor')];
-    return tiles.length === n - 1 && !tiles.some(t => t.textContent.includes(name));
-  }, 3000, LINK_NEIGHBOR.name, neighbors));
+    return tiles.length === n - k && !tiles.some(t => t.textContent.includes(name));
+  }, 3000, LINK_NEIGHBOR.name, neighbors, links));
   check('서버에 방이 없을 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - 1);
+  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - links);
   await extraNeighbor(page, null);
 
   // ---------- 깨진 링크와 HTML이 든 링크 ----------
@@ -1685,7 +1744,7 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
-  // ---------- 긴 글(known-issues 80) ----------
+  // ---------- 긴 글(known-issues 81) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
   const shut = async () => { await closeWindows(); await press(page, 'Escape'); await until(page, closed, 3000); };

@@ -4,6 +4,7 @@
 // 내 컴퓨터를 떠나 다른 컴퓨터로 가는 일이라 누르기 전에 알린다(동물의 숲 꿈 방문은 섬 이름을, Gather는 다른 공간으로 가는 문에서 확인을 받는다).
 // 한 줄은 두 가지다. link(주인이 공유하기에서 만든 링크의 번호)는 방을 서버(src/cloud.js)에서 받아 와서 주인이 방을 고치면 따라 바뀌고,
 // room(예전 긴 링크의 글자)은 링크를 보낸 때의 모습에 멈춰 있다. link의 방은 페이지를 연 뒤 한 번만 받고, 로그인 화면과 놀이터가 그 값을 같이 쓴다.
+// 이름도 같다. link 이웃집은 받은 방의 주인 이름을 써서 주인이 이름 바꾸기(F28)로 닉네임을 바꾸면 따라 바뀌고, 받기 전과 room 이웃집은 목록의 이름을 쓴다.
 import { NEIGHBORS } from '../data/neighbors.js';
 import { N } from './config.js';
 import { decodeHome, linkId } from './share.js';
@@ -43,10 +44,11 @@ function codeOf(n) {
   return asked.get(n.link);
 }
 
-// 그 집을 열 때마다 글자를 새로 푼다(구경하는 동안 바뀐 것이 목록에 남지 않게). 집 이름은 문패 이름으로 맞춘다.
+// 그 집을 열 때마다 글자를 새로 푼다(구경하는 동안 바뀐 것이 목록에 남지 않게).
+// link 이웃집은 서버의 방 주인 이름을 그대로 쓴다. room 이웃집은 목록의 이름이다(tools/check.py가 링크 속 이름과 같은지 본다). 이름이 빈 방도 목록의 이름을 쓴다.
 function toHome(n, code) {
   const home = code ? decodeHome(code) : null;
-  return home && { ...home, owner: n.name };
+  return home && { ...home, owner: (n.link && home.owner) || n.name };
 }
 
 // 그 집의 지금 모습(Promise). 집, null(링크가 깨졌거나 서버에 그런 방이 없음), undefined(서버에 닿지 못함)
@@ -61,6 +63,9 @@ export function neighborNow(n) {
   return known.has(n.link) ? toHome(n, known.get(n.link)) : undefined;
 }
 
+// 지금 보일 이름. 받은 link 이웃집은 서버의 방 주인 이름이고, 받기 전이거나 room 이웃집이면 목록의 이름이다
+const shownName = n => neighborNow(n)?.owner || n.name;
+
 // 부팅할 때 link 이웃집의 방을 미리 받는다. 받은 집마다 got(집)을 부른다(가구 그림 미리 받기, src/os.js)
 export function prefetchNeighbors(got) {
   for (const n of NEIGHBOR_LIST) if (n.link) neighborHome(n).then(home => home && got(home));
@@ -68,10 +73,14 @@ export function prefetchNeighbors(got) {
 
 // 놀이터 왼쪽 울타리에 다는 문 자리. owner: 그 놀이터가 있는 집의 주인 이름.
 // 그 집의 문패는 달지 않는다. 그 놀이터의 아파트 문이 이미 그 집으로 가는 문이라, 같은 곳으로 가는 문이 둘이 되어 어색했다.
+// 견주는 이름은 지금 보일 이름(shownName)이라, 이웃집 주인이 이름을 바꿔도 자기 놀이터에 자기 집 문패가 생기지 않는다(known-issues 78).
 // 서버에 방이 없다고 확인된 link 이웃집도 달지 않는다. 받는 중이거나 받지 못한 집은 달아 두고, 문을 쓸 때(askVisit) 다시 받는다.
 // 네 집까지는 가운데로 모아 한 칸씩 띄우고, 다섯 집부터는 붙여 단다. 한 집이면 오른쪽 울타리의 아파트 문(칸 5~7)과 마주 보는 자리(칸 5~7)에 선다.
 export function neighborGates(owner = '') {
-  const list = NEIGHBOR_LIST.filter(n => n.name !== owner && neighborNow(n) !== null);
+  const list = NEIGHBOR_LIST
+    .filter(n => neighborNow(n) !== null)
+    .map(n => ({ ...n, name: shownName(n) }))
+    .filter(n => n.name !== owner);
   const gap = list.length <= 4 ? 1 : 0;
   const start = (N - (list.length * GATE_W + (list.length - 1) * gap)) / 2;
   return list.map((n, i) => ({ ...n, wall: 'L', x: start + i * (GATE_W + gap), w: GATE_W }));
@@ -106,7 +115,7 @@ export async function askVisit(os, n) {
         os.visit(home);
       };
       body.append(...[
-        h('p', {}, `${n.name}의 집에 놀러 갑니다.`),
+        h('p', {}, `${home.owner}의 집에 놀러 갑니다.`),
         notes.length ? h('p', { className: 'meta' }, ...notes.flatMap((t, i) => (i ? [h('br'), t] : [t]))) : null,
         h('div', { className: 'link-row' },
           h('button', { className: 'btn', type: 'button', onclick: go }, '놀러 가기'),
