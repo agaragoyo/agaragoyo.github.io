@@ -251,15 +251,31 @@ async function extraNeighbor(page, row) {
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
 // 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
-// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed). 스포티파이 oEmbed도 같은 방법으로 이름만 담아 답한다
+// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed). 스포티파이 oEmbed도 같은 방법으로 이름만 담아 답한다.
+// 재생목록 곡(곡 id가 smokeTrk에 세 글자를 붙인 11자)은 30ms 늦게 이름("점검용 곡 <세 글자>")을 담아 답하고, 그동안 기다리는 요청의 수와 가장 많았던 수를 센다
+// (window.__oembedLive, __oembedMax. 한꺼번에 묻는 수를 제한하는지 본다). 끝이 Blk면 401, Gon이면 404, Err이면 500으로 답하고(Err은 이름이 아니라 못 받은 것이라 받아 두지 않는다),
+// Lng이면 한 줄에 다 들어가지 않는 긴 이름("아주 긴 곡 이름 "을 여덟 번 이은 72자)으로 답한다
 function fakeYouTube() {
   const real = window.fetch;
   window.__oembed = {};
+  window.__oembedLive = 0;
+  window.__oembedMax = 0;
   window.fetch = async (url, opts) => {
     if (String(url).startsWith('https://open.spotify.com/oembed')) return new Response(JSON.stringify({ title: '점검용 스포티파이 앨범' }));
     if (!String(url).startsWith('https://www.youtube.com/oembed')) return real(url, opts);
     const asked = decodeURIComponent(String(url).split('url=')[1]);
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
+    const track = /[?&]v=smokeTrk(\w{3})$/.exec(asked);
+    if (track) {
+      window.__oembedMax = Math.max(window.__oembedMax, ++window.__oembedLive);
+      await new Promise(r => setTimeout(r, 30));
+      window.__oembedLive--;
+      if (track[1] === 'Blk') return new Response('Unauthorized', { status: 401 });
+      if (track[1] === 'Gon') return new Response('Not Found', { status: 404 });
+      if (track[1] === 'Err') return new Response('Server Error', { status: 500 });
+      if (track[1] === 'Lng') return new Response(JSON.stringify({ title: '아주 긴 곡 이름 '.repeat(8).trim() }));
+      return new Response(JSON.stringify({ title: `점검용 곡 ${track[1]}` }));
+    }
     if (asked.includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
     if (asked.includes('Private')) return new Response('Not Found', { status: 404 });
     if (asked.includes('Blocked')) return new Response('Unauthorized', { status: 401 });
@@ -274,7 +290,10 @@ function putYouTube(url) {
   document.querySelector('.closeup form').requestSubmit();
 }
 // 유튜브 IFrame Player API(window.YT)를 페이지 안의 가짜로 바꿔 끼운다. 앱이 만든 플레이어는 window.__yt에 차례로 쌓이고,
-// 점검이 ready()로 플레이어가 준비된 때를, fail(번호)로 오류를 알리는 때를 정한다. 명령은 calls에 이름이 남고, 떼어진(destroy) 플레이어는 진짜처럼 명령 함수가 없어진다
+// 점검이 ready()로 플레이어가 준비된 때를, fail(번호)로 오류를 알리는 때를, state(번호)로 재생 상태가 바뀐 때를 정한다.
+// 명령은 calls에 이름이 남고(playVideoAt은 `playVideoAt:번호`), 떼어진(destroy) 플레이어는 진짜처럼 명령 함수가 없어진다.
+// 재생목록은 setList(곡 id들, 지금 번호)로 정한다. 정하지 않으면 영상 하나처럼 getPlaylist가 null이다.
+// 곡을 넘기는 명령은 진짜처럼 번호를 옮기고 상태(3, 버퍼링)를 알린다. 첫 곡의 이전 곡과 마지막 곡의 다음 곡은 그 곡에 머문다(2026-11-15 진짜 유튜브에서 본 것)
 function fakePlayer() {
   window.__yt = [];
   window.YT = {
@@ -283,15 +302,23 @@ function fakePlayer() {
         this.frame = frame;
         this.events = opts.events;
         this.calls = [];
+        this.ids = null;
+        this.index = -1;
         window.__yt.push(this);
       }
       ready() { this.events.onReady(); }
       fail(code) { this.events.onError({ data: code }); }
-      previousVideo() { this.calls.push('previousVideo'); }
-      nextVideo() { this.calls.push('nextVideo'); }
+      state(code) { this.events.onStateChange({ data: code }); }
+      setList(ids, index = 0) { this.ids = ids; this.index = index; }
+      go(to) { if (this.ids) { this.index = Math.max(0, Math.min(this.ids.length - 1, to)); this.state(3); } }
+      getPlaylist() { return this.ids && [...this.ids]; }
+      getPlaylistIndex() { return this.index; }
+      playVideoAt(i) { this.calls.push(`playVideoAt:${i}`); this.go(i); }
+      previousVideo() { this.calls.push('previousVideo'); this.go(this.index - 1); }
+      nextVideo() { this.calls.push('nextVideo'); this.go(this.index + 1); }
       mute() { this.calls.push('mute'); }
       unMute() { this.calls.push('unMute'); }
-      destroy() { this.previousVideo = this.nextVideo = this.mute = this.unMute = undefined; }
+      destroy() { this.getPlaylist = this.getPlaylistIndex = this.playVideoAt = this.previousVideo = this.nextVideo = this.mute = this.unMute = undefined; }
     },
   };
   return true;
@@ -323,6 +350,56 @@ function skipState() {
     rowH: row.offsetHeight,
     winH: win.offsetHeight,
     note: document.querySelector('#windows .radio-player-note').textContent,
+  };
+}
+// 음악 창의 이전 곡, 다음 곡 이름 줄과 곡 목록 창(src/apps/radio-tracks.js)의 모습.
+// names는 줄마다 "이전: 이름" 꼴이고, nameCut은 이름이 줄임표로 잘렸는지(넘치는데 줄이 늘지 않고 한 줄에 머무는지)다.
+// 목록 창은 음악 창 아래(below)에 왼쪽 끝을 맞춰 바탕화면 안(inDesk: 아래 끝이 800px 안)에 든다. now는 지금 곡으로 표시된 줄의 번호(없으면 -1),
+// titled는 이름이 들어온 줄 수, seen은 지금 스크롤 칸 안에 보이는 줄 수, nowShown은 지금 곡의 줄이 스크롤 칸 안에 완전히 보이는지다
+function trackState() {
+  const box = document.querySelector('#windows .radio-player-tracks');
+  const btn = document.querySelector('#windows .radio-list-btn');
+  const lines = box ? [...box.querySelectorAll('.radio-track-line')] : [];
+  const nameOf = p => p.querySelector('.radio-track-name');
+  const panel = document.querySelector('#windows .radio-tracks');
+  const win = panel?.closest('.win');
+  const music = document.querySelector('#windows .radio-player')?.closest('.win');
+  const list = panel?.querySelector('.radio-tracks-list');
+  const rows = panel ? [...panel.querySelectorAll('.radio-track')] : [];
+  const m = music?.getBoundingClientRect();
+  const w = win?.getBoundingClientRect();
+  const now = rows.findIndex(r => r.getAttribute('aria-current') === 'true');
+  const inView = r => !!r && !!list && r.offsetTop >= list.scrollTop && r.offsetTop + r.offsetHeight <= list.scrollTop + list.clientHeight;
+  return {
+    shown: !!box && getComputedStyle(box).display !== 'none',
+    namesH: box?.offsetHeight ?? 0,
+    names: lines.map(p => `${p.querySelector('.radio-track-tag').textContent} ${nameOf(p).textContent}`),
+    lineH: lines.map(p => p.offsetHeight),
+    dim: lines.map(p => nameOf(p).classList.contains('dim')),
+    nameCut: lines.map(p => nameOf(p).scrollWidth > nameOf(p).clientWidth),
+    lineTitle: lines.map(p => p.title),
+    btn: btn ? { text: btn.textContent.trim(), title: btn.title, off: btn.disabled } : null,
+    open: !!panel,
+    windows: document.querySelectorAll('#windows .radio-tracks').length,
+    winTitle: win?.querySelector('.win-title').textContent,
+    cd: panel?.querySelector('.radio-tracks-cd').textContent,
+    pos: panel?.querySelector('.radio-tracks-pos').textContent,
+    rows: rows.length,
+    rowH: rows.map(r => r.offsetHeight),
+    now,
+    nowShown: inView(rows[now]),
+    titled: rows.filter(r => !r.lastElementChild.classList.contains('dim')).length,
+    rowNames: rows.map(r => r.lastElementChild.textContent),
+    seen: rows.filter(inView).length,
+    scrolls: list ? list.scrollHeight > list.clientHeight + 1 : false,
+    scrollTop: list?.scrollTop ?? 0,
+    note: panel?.querySelector('.radio-tracks-note')?.textContent,
+    noteH: panel?.querySelector('.radio-tracks-note')?.offsetHeight ?? 0,
+    below: m && w ? w.top >= m.bottom - 1 : null,
+    sameLeft: m && w ? Math.abs(w.left - m.left) < 1 : null,
+    beside: m && w ? w.right <= m.left + 1 : null,
+    inDesk: win ? win.offsetTop >= 0 && win.offsetTop + win.offsetHeight <= 800 && win.offsetLeft >= 0 && win.offsetLeft + win.offsetWidth <= 1280 : null,
+    winH: win?.offsetHeight ?? 0,
   };
 }
 // 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
@@ -1225,6 +1302,34 @@ async function walk(page, base) {
   // 가짜 플레이어(fakePlayer)로 단추가 언제 쉬고 켜지는지, 무슨 명령을 보내는지를 본다. 곡이 실제로 넘어가는지는 진짜 유튜브가 필요해 직접 본다
   // (localhost에서. 127.0.0.1에서는 유튜브가 막는다, known-issues 69)
   const LIST = 'https://www.youtube.com/playlist?list=PLsmokeList00000';
+  const LIST2 = 'https://www.youtube.com/playlist?list=PLsmokeList00001';
+  const NAMES_H = 56; // 이름 줄 칸: 위 8px, 두 줄 40px, 아래 7px, 구분선 1px
+  // 재생목록 곡 40개. 번호 i의 id는 smokeTrk에 세 글자를 붙인 11자이고 이름은 "점검용 곡 <세 글자>"다(fakeYouTube). 몇 곡은 일부러 이름을 받지 못하게 한다
+  // (5번 Blk는 401, 7번 Gon은 404, 9번 Err은 500이라 받아 두지 않는다, 11번 Lng은 줄임표로 잘릴 만큼 긴 이름)
+  const TRACKS = Array.from({ length: 40 }, (_, i) => `smokeTrk${String(i + 1).padStart(3, '0')}`);
+  Object.assign(TRACKS, { 5: 'smokeTrkBlk', 7: 'smokeTrkGon', 9: 'smokeTrkErr', 11: 'smokeTrkLng' });
+  const trackName = i => `점검용 곡 ${String(i + 1).padStart(3, '0')}`;
+  const LONG_TITLE = '아주 긴 곡 이름 '.repeat(8).trim();
+  const trackNow = () => page.run(trackState);
+  // 가짜 플레이어 p(마지막으로 만든 것)를 곡 n번으로 옮기고 상태를 알린다. 단추를 누른 것이 아니라 곡이 저절로 넘어간 경우다
+  // 목록 창의 n번째 줄(0부터)에 이름이 들어올 때까지 기다린다. 줄이 보인다는 알림(IntersectionObserver)은 그림이 한 장 그려진 뒤에 오는데,
+  // 화면 없는 크롬은 가만히 두면 그림을 드문드문 그려서 정해 둔 시간만 자고 읽으면 가끔 빈다(known-issues 86)
+  const rowNamed = (n, name) => until(page, (i, want) => document.querySelectorAll('#windows .radio-track')[i]?.lastElementChild.textContent === want, 5000, n, name);
+  // 이름 요청이 더 늘지 않을 때까지 기다린다(이미 보낸 요청이 다 끝나고 새 요청이 없다)
+  const quiet = async () => {
+    let before = -1;
+    for (let i = 0; i < 40; i++) {
+      const n = await page.run(() => Object.keys(window.__oembed).length + window.__oembedLive);
+      if (n === before) return true;
+      before = n;
+      await sleep(250);
+    }
+    return false;
+  };
+  // 이름 두 줄이 "이전: 이름|다음: 이름"이 될 때까지 기다린다(이름은 oEmbed로 받아 늦게 들어온다)
+  const namesAre = (prev, next) => until(page, want => [...document.querySelectorAll('#windows .radio-player-tracks .radio-track-line')]
+    .map(p => `${p.firstChild.textContent} ${p.lastChild.textContent}`).join('|') === want, 4000, `이전: ${prev}|다음: ${next}`);
+  const autoTo = n => page.run(i => { const p = window.__yt.at(-1); p.index = i; p.state(1); }, n);
   const addCd = async (url, count) => {
     await page.run(clickText, '.closeup .radio-tools .btn', 'CD 넣기');
     await until(page, () => !!document.querySelector('.closeup form'), 3000);
@@ -1233,6 +1338,7 @@ async function walk(page, base) {
   };
   check('유튜브 재생목록 CD를 넣는다', await addCd(LIST, 3));
   check('스포티파이 앨범 CD를 넣는다', await addCd('https://open.spotify.com/album/1A2B3C4D5E6F7G8H9I0J1K', 4));
+  check('재생목록 CD를 하나 더 넣는다', await addCd(LIST2, 5));
   // 펼친 줄에서 CD를 골라 음악 창이 그 CD의 플레이어로 바뀔 때까지 기다린다(src가 가리키는 곳은 CD마다 다르다)
   const playCd = async (link, embed) => {
     await page.run(l => document.querySelector(`.closeup .cd-pick[data-link="${l}"]`).click(), link);
@@ -1243,31 +1349,145 @@ async function walk(page, base) {
   check('재생목록 CD를 고르면 음악 창이 열린다', await playCd(LIST, 'videoseries?list=PLsmokeList00000'));
   await sleep(100);
   let skip = await page.run(skipState);
-  check('재생목록 CD에는 플레이어 아래에 이전 곡, 다음 곡 단추가 뜬다', skip?.shown && skip.below && skip.texts.join() === '이전 곡,다음 곡', JSON.stringify(skip));
+  check('재생목록 CD에는 플레이어 아래에 이전 곡, 다음 곡, 목록 보기 단추가 뜬다', skip?.shown && skip.below && skip.texts.join() === '이전 곡,다음 곡,목록 보기', JSON.stringify(skip));
   check('단추의 툴팁은 명사형 15자 이하다', skip.titles.every(t => t && t.length <= 15 && !/[다요]$/.test(t)), skip.titles.join(' / '));
   check('단추를 놓아도 플레이어는 200×200px 이상이고 단추는 플레이어에 겹치지 않고 창 안에 들며 안내 줄도 다 보인다', skip.frameW >= 200 && skip.frameH >= 200 && skip.below && skip.inside && skip.noteFits, JSON.stringify(skip));
   check('플레이어가 명령을 받을 수 있기 전에는 쉬는 단추다', skip.disabled.every(Boolean));
   await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
   check('쉬는 단추를 눌러도 플레이어에 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).length === 0);
+  // 이름 두 줄은 곡 정보를 받기 전에도 자리가 있어(…) 준비된 뒤에 창이 움직이지 않는다. 가짜 플레이어에 곡 40개를 정해 두고 준비되었다고 알린다
+  let tr = await trackNow();
+  check('준비되기 전에도 이름 두 줄 자리가 있고(…) "목록 보기"는 쉰다', tr.shown && tr.namesH === NAMES_H && tr.names.join('|') === '이전: …|다음: …' && tr.btn?.off === true && tr.btn.text === '목록 보기' && tr.btn.title === '곡 목록 창 열기', JSON.stringify(tr));
+  check('이름 줄은 20px씩 두 줄이다', tr.lineH.join() === '20,20', tr.lineH.join());
   await probe('재생목록 음악 창');
-  await page.run(() => window.__yt.at(-1).ready());
+  await page.run(ids => { const p = window.__yt.at(-1); p.setList(ids, 0); p.ready(); }, TRACKS);
   skip = await page.run(skipState);
   check('플레이어가 준비되면 단추가 켜진다', skip.disabled.every(d => !d));
-  const [listWinH, listRowH] = [skip.winH, skip.rowH];
+  check('준비되면 첫 곡이라 이전 곡은 없음이고 다음 곡의 이름이 oEmbed로 들어온다', await namesAre('없음', trackName(1)));
+  tr = await trackNow();
+  check('이름이 아닌 글(없음)은 옅게 쓰고 이름은 그대로 쓴다', tr.dim.join() === 'true,false', tr.dim.join());
+  check('이름 줄을 채워도 줄은 20px이고 창 높이는 그대로다', tr.lineH.join() === '20,20' && tr.namesH === NAMES_H && (await page.run(skipState)).winH === skip.winH, `${tr.lineH.join()} ${tr.namesH}`);
+  const [listWinH, listRowH, listNamesH] = [skip.winH, skip.rowH, tr.namesH];
   await page.run(clickText, '#windows .radio-player-skips .btn', '다음 곡');
+  check('다음 곡을 누르면 두 줄이 한 곡씩 넘어간다', await namesAre(trackName(0), trackName(2)));
   await page.run(clickText, '#windows .radio-player-skips .btn', '이전 곡');
+  check('이전 곡을 누르면 두 줄이 한 곡씩 돌아온다', await namesAre('없음', trackName(1)));
   check('다음 곡을 누르면 nextVideo를, 이전 곡을 누르면 previousVideo를 부른다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
-  // 오류가 나면 단추는 쉰다. 그 전에 준비된 플레이어가 그대로 있어도 눌러서 명령이 가지 않는다
+  // 단추를 누르지 않고 곡이 저절로 넘어가도 두 줄이 따라 바뀐다(플레이어가 곡을 바꾸고 상태만 알린다). 4번(0부터)의 다음 곡은 5번 Blk(401)다
+  await autoTo(4);
+  check('곡이 저절로 넘어가면 이름 줄이 바뀌고, 이름을 알려 주지 않는 곡(401)은 제목 없음이다', await namesAre(trackName(3), '제목 없음'));
+  await autoTo(8);
+  check('지워진 곡(404)과 이름을 받지 못한 곡(500)도 제목 없음이다', await namesAre('제목 없음', '제목 없음'));
+  const askedErr = () => page.run(() => Object.entries(window.__oembed).filter(([u]) => u.endsWith('smokeTrkErr')).reduce((n, [, c]) => n + c, 0));
+  const errAsked = await askedErr();
+  await autoTo(10);
+  check('한 줄에 다 들어가지 않는 이름은 줄임표로 자르고 줄은 늘지 않으며 풍선 도움말에 이름이 다 있다', await namesAre('제목 없음', LONG_TITLE));
+  tr = await trackNow();
+  check('긴 이름은 20px 한 줄에서 잘린다', tr.lineH.join() === '20,20' && tr.nameCut.join() === 'false,true' && tr.lineTitle[1] === LONG_TITLE && tr.namesH === NAMES_H, JSON.stringify(tr));
+  check('이름을 받지 못한 곡(500)은 받아 두지 않고 다시 보일 때 다시 묻는다', (await askedErr()) > errAsked);
+  await autoTo(39);
+  check('마지막 곡은 다음 곡이 없음이다', await namesAre(trackName(38), '없음'));
+  check('같은 곡의 이름은 한 번만 묻는다', await page.run(() => Object.entries(window.__oembed).filter(([u]) => /smokeTrk\d{3}$/.test(u)).every(([, n]) => n === 1)));
+
+  // ---------- 곡 목록 창 ----------
+  await autoTo(12);
+  await page.run(clickText, '#windows .radio-player-skips .btn', '목록 보기');
+  check('"목록 보기"를 누르면 곡 목록 창이 열린다', await until(page, () => !!document.querySelector('#windows .radio-tracks'), 3000));
+  await rowNamed(12, trackName(12));
+  await quiet();
+  tr = await trackNow();
+  check('목록 창은 40곡을 한 줄씩 보이고 지금 곡(13번째)을 표시한다', tr.winTitle === '곡 목록' && tr.rows === 40 && tr.now === 12 && tr.pos === '13 / 40' && tr.cd === '점검용 유튜브 노래', JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
+  check('목록 창의 줄은 30px이고 이름이 길어도 줄이 늘지 않는다', tr.rowH.every(x => x === 30), tr.rowH.join());
+  check('곡이 200곡보다 적으면 목록 끝의 안내가 없다', tr.note === undefined, tr.note);
+  check('곡이 많으면 목록이 스크롤되고 지금 곡이 보이는 곳으로 열린다', tr.scrolls && tr.scrollTop > 0 && tr.nowShown, JSON.stringify({ scrolls: tr.scrolls, top: tr.scrollTop, shown: tr.nowShown }));
+  check('목록 창은 음악 창 바로 아래 같은 왼쪽 끝에 바탕화면 안에 선다', tr.below && tr.sameLeft && tr.inDesk, JSON.stringify({ below: tr.below, same: tr.sameLeft, desk: tr.inDesk, h: tr.winH }));
+  check('보이는 줄의 이름만 받는다(지금 곡의 줄은 이름이 있고 멀리 있는 줄은 …이며 묻지도 않는다)', tr.rowNames[12] === trackName(12) && tr.rowNames[39] === '…' && tr.rowNames[30] === '…'
+    && await page.run(() => !Object.keys(window.__oembed).some(u => u.endsWith('smokeTrk031'))), `${tr.rowNames[12]} / ${tr.rowNames[39]} / ${tr.titled}줄`);
+  // 5, 7, 9번 줄(0부터)은 이름을 받지 못하는 곡(401, 404, 500)이고 11번 줄은 긴 이름이다. 목록 칸 높이에 기대지 않게 그 줄들이 보이는 곳으로 스크롤해서 본다
+  await page.run(() => { document.querySelector('#windows .radio-tracks-list').scrollTop = 120; });
+  check('이름을 받지 못한 줄(401, 404, 500)은 제목 없음이고 긴 이름은 그대로 들어온다', await until(page, n => {
+    const r = [...document.querySelectorAll('#windows .radio-track')];
+    return [5, 7, 9].every(i => r[i]?.lastElementChild.textContent === '제목 없음') && r[11]?.lastElementChild.textContent === n;
+  }, 4000, LONG_TITLE));
+  check('긴 이름의 줄도 30px이고 한 줄에서 잘리며 풍선 도움말에 이름이 다 있다', await page.run(n => {
+    const row = document.querySelectorAll('#windows .radio-track')[11];
+    const name = row.lastElementChild;
+    return row.offsetHeight === 30 && name.scrollWidth > name.clientWidth && row.title === n;
+  }, LONG_TITLE));
+  // 20번째 줄(19번)이 보이는 곳으로 스크롤해 두고 눌러, 아래에서 곡이 저절로 넘어갈 때 목록을 따라가던 사람인 것을 만든다
+  await page.run(() => { document.querySelector('#windows .radio-tracks-list').scrollTop = 480; });
+  await probe('곡 목록 창');
+  await page.run(() => document.querySelectorAll('#windows .radio-track')[19].click());
+  check('목록의 줄을 누르면 그 곡으로 건너뛴다(playVideoAt)', await until(page, () => window.__yt.at(-1).calls.includes('playVideoAt:19')
+    && document.querySelector('#windows .radio-tracks .radio-track[aria-current="true"] .radio-track-no')?.textContent === '20', 3000));
+  check('건너뛰면 이름 줄도 따라 바뀐다', await namesAre(trackName(18), trackName(20)));
+  // 목록을 따라가던 사람에게는 곡이 저절로 멀리 넘어가도 지금 곡이 보이는 곳에 있고, 다른 곳을 보고 있었으면 목록을 움직이지 않는다
+  await autoTo(2);
+  tr = await trackNow();
+  check('목록을 따라가던 중 곡이 넘어가면 지금 곡이 보인다', tr.now === 2 && tr.nowShown && tr.pos === '3 / 40', JSON.stringify({ now: tr.now, shown: tr.nowShown, top: tr.scrollTop }));
+  // 줄이 보이는 것을 브라우저가 알려 주는 것(IntersectionObserver)은 다음 그림 한 장이 그려진 뒤에 온다. 이름이 들어온 것을 보고 나서 멀리 스크롤한다
+  check('목록이 스크롤되어 보이게 된 줄은 이름을 받는다', await until(page, n => document.querySelectorAll('#windows .radio-track')[2]?.lastElementChild.textContent === n, 3000, trackName(2)));
+  await page.run(() => { document.querySelector('#windows .radio-tracks-list').scrollTop = 99999; });
+  check('아래로 멀리 스크롤하면 새로 보이게 된 줄의 이름을 받는다', await rowNamed(39, trackName(39)));
+  const away = await trackNow();
+  await autoTo(3);
+  tr = await trackNow();
+  check('다른 곳을 보고 있으면 곡이 넘어가도 목록은 움직이지 않는다', tr.now === 3 && !tr.nowShown && tr.scrollTop === away.scrollTop, JSON.stringify({ now: tr.now, shown: tr.nowShown, top: tr.scrollTop, was: away.scrollTop }));
+  check('이름을 묻는 요청은 한꺼번에 네 개를 넘지 않는다', await page.run(() => window.__oembedMax <= 4 && window.__oembedMax >= 2), `가장 많이 ${await page.run(() => window.__oembedMax)}개`);
+  await page.run(clickText, '#windows .radio-player-skips .btn', '목록 보기');
+  await sleep(150);
+  check('"목록 보기"를 다시 눌러도 목록 창은 하나다', (await trackNow()).windows === 1);
+  // 다른 재생목록 CD를 고르면 열려 있는 목록 창이 새 목록으로 바뀐다. 받기 전에는 불러오는 중이라고 쓴다
+  check('다른 재생목록 CD를 고르면 음악 창이 바뀐다', await playCd(LIST2, 'videoseries?list=PLsmokeList00001'));
+  tr = await trackNow();
+  check('목록 창이 열린 채로 재생목록 CD를 바꾸면 새 목록을 받을 때까지 불러오는 중이라고 쓴다', tr.open && tr.rows === 0 && /불러오는 중/.test(tr.note) && tr.shown && tr.names.join('|') === '이전: …|다음: …', JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
+  await page.run(() => { const p = window.__yt.at(-1); p.setList(['smokeTrk001', 'smokeTrk002', 'smokeTrk003'], 1); p.ready(); });
+  check('새 목록을 받으면 목록 창이 그 목록으로 바뀐다', await until(page, () => document.querySelectorAll('#windows .radio-track').length === 3, 3000));
+  tr = await trackNow();
+  check('새 목록의 지금 곡이 표시되고 곡이 적으면 스크롤하지 않는다', tr.now === 1 && tr.pos === '2 / 3' && !tr.scrolls && tr.below && tr.inDesk, JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
+  check('곡이 적어도 목록 창은 너무 작지 않다', tr.winH >= 160 + 47, `${tr.winH}px`);
+  // 영상 하나짜리 CD로 바꾸면 열려 있던 목록 창이 닫힌다. 다시 재생목록 CD로 바꾸어 목록 창을 열어 둔 채 음악 창을 닫는다
+  await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ');
+  check('목록 창이 열려 있어도 영상 하나짜리 CD로 바꾸면 닫힌다', await until(page, () => !document.querySelector('#windows .radio-tracks'), 3000));
+  // 유튜브 플레이어는 재생목록의 앞 200곡까지만 다룬다. 200곡이면 목록 끝에 그 뒤의 곡은 나오지 않는다고 알린다(줄은 보이는 것만 이름을 받는다)
+  await playCd(LIST2, 'videoseries?list=PLsmokeList00001');
+  await page.run(n => { const p = window.__yt.at(-1); p.setList(Array.from({ length: n }, (_, i) => `smokeTrk${String(i + 1).padStart(3, '0')}`), 0); p.ready(); }, 200);
+  await page.run(clickText, '#windows .radio-player-skips .btn', '목록 보기');
+  check('재생목록 CD로 돌아오면 목록 창을 다시 열 수 있다', await until(page, () => document.querySelectorAll('#windows .radio-track').length === 200, 3000));
+  await rowNamed(0, trackName(0));
+  await quiet();
+  tr = await trackNow();
+  check('곡이 200곡이면 목록 끝에 앞 200곡까지만 재생된다고 알리고 한 줄에 들어간다', tr.note === '재생목록의 앞 200곡까지만 재생됩니다.' && tr.noteH > 0 && tr.noteH <= 18 + 24, `${tr.note} ${tr.noteH}px`);
+  check('200곡이어도 보이는 줄의 이름만 받는다', tr.titled > 0 && tr.titled < 20 && tr.rowNames[199] === '…', `${tr.titled}줄`);
+  // 음악 창을 닫으면 목록 창도 닫힌다
+  await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
+  check('음악 창을 닫으면 곡 목록 창도 닫힌다', await until(page, () => !document.querySelector('#windows .radio-player') && !document.querySelector('#windows .radio-tracks'), 3000));
+  // 오류가 나면 단추는 쉬고 곡 정보는 거둔다. 그 전에 준비된 플레이어가 그대로 있어도 눌러서 명령이 가지 않는다
+  check('재생목록 CD를 다시 틀면 음악 창이 열린다', await playCd(LIST, 'videoseries?list=PLsmokeList00000'));
+  await page.run(ids => { const p = window.__yt.at(-1); p.setList(ids, 0); p.ready(); }, TRACKS);
+  await page.run(clickText, '#windows .radio-player-skips .btn', '목록 보기');
+  check('새 음악 창에서도 목록 창이 열린다', await until(page, () => document.querySelectorAll('#windows .radio-track').length === 40, 3000));
+  // 음악 창을 아래로 옮겨 그 아래에 목록 창이 들어갈 자리가 없으면, 목록 창은 음악 창의 왼쪽 옆에 서고 바탕화면 밖으로 나가지 않는다
+  await page.run(() => document.querySelector('#windows .radio-tracks').closest('.win').querySelector('.win-close').click());
+  await page.run(() => { document.querySelector('#windows .radio-player').closest('.win').style.top = '520px'; });
+  await page.run(clickText, '#windows .radio-player-skips .btn', '목록 보기');
+  check('음악 창 아래에 자리가 없으면 목록 창은 그 왼쪽 옆에 서고 바탕화면 안에 든다', await until(page, () => !!document.querySelector('#windows .radio-tracks'), 3000));
+  tr = await trackNow();
+  check('왼쪽 옆의 목록 창도 줄이 스크롤되고 바탕화면을 벗어나지 않는다', tr.beside && tr.inDesk && tr.scrolls && tr.winH >= 160 + 47, JSON.stringify({ beside: tr.beside, desk: tr.inDesk, h: tr.winH }));
   await page.run(() => window.__yt.at(-1).fail(150));
   skip = await page.run(skipState);
+  tr = await trackNow();
   check('플레이어가 오류를 알리면 안내가 창 안에 다 보이게 뜨고 단추는 다시 쉰다', /재생할 수 없습니다/.test(skip.note) && skip.disabled.every(Boolean) && skip.noteFits, JSON.stringify(skip));
+  check('오류가 나면 이름 줄을 거두고 열려 있던 목록 창도 닫는다', !tr.shown && tr.namesH === 0 && !tr.open && tr.btn.off === true, JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
   await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
-  check('오류가 난 뒤에는 눌러도 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
+  check('오류가 난 뒤에는 눌러도 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).length === 0);
   // 음악 창에서 CD가 바뀌면 단추도 그 CD에 맞게 바뀐다. 영상 하나, 애플 뮤직, 스포티파이 CD에는 단추가 없고 창은 단추 줄만큼 줄어든다
   check('영상 하나짜리 유튜브 CD로 바꾸면 단추가 사라지고 창이 단추 줄만큼 줄어든다', await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ')
     && await until(page, () => !!document.querySelector('#windows .radio-player-skips') && getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 3000));
   skip = await page.run(skipState);
-  check('단추를 거둔 창의 높이는 단추 줄만큼 낮다', listRowH >= 34 && listWinH - skip.winH === listRowH, `재생목록 창 ${listWinH}px, 단추 줄 ${listRowH}px, 영상 창 ${skip.winH}px`);
+  tr = await trackNow();
+  check('영상 하나짜리 CD에는 이름 줄과 목록 단추가 없다', !tr.shown && tr.namesH === 0 && !tr.open, JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
+  check('단추와 이름 줄을 거둔 창의 높이는 그 줄만큼 낮다', listRowH >= 34 && listNamesH === NAMES_H && listWinH - skip.winH === listRowH + listNamesH, `재생목록 창 ${listWinH}px, 단추 줄 ${listRowH}px, 이름 줄 ${listNamesH}px, 영상 창 ${skip.winH}px`);
   await probe('영상 음악 창');
   await playCd('https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'embed.music.apple.com');
   check('애플 뮤직 CD에는 단추가 없다', (await page.run(skipState)).shown === false);
@@ -1281,6 +1501,8 @@ async function walk(page, base) {
   await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ');
   await playCd(LIST, 'videoseries?list=PLsmokeList00000');
   check('API 스크립트를 받지 못하면 재생목록 CD에서도 단추를 거둔다', await until(page, () => getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 4000));
+  tr = await trackNow();
+  check('API 스크립트를 받지 못하면 이름 줄도 거둔다', !tr.shown && tr.namesH === 0 && !tr.open, JSON.stringify({ ...tr, rowNames: 0, rowH: 0 }));
   check('단추를 누르거나 쉬게 하는 동안 페이지 오류가 나지 않는다', page.pageErrors.length === errorsBefore, page.pageErrors.slice(errorsBefore).join(' | '));
   await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
   await page.run(() => document.activeElement?.blur());

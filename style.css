@@ -2114,6 +2114,33 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .radio-player-skips[hidden] { display: none; }
 .radio-player-skips .btn:disabled { border-color: #9a9588; background: #e6e3d9; color: #5f5a4d; box-shadow: none; cursor: var(--cur-arrow); }
 .win-body .radio-player-note { margin: 0; padding: 7px 10px; font-size: 13px; color: #e6e1d6; }
+/* "목록 보기"는 곡을 넘기는 단추 둘과 떨어뜨려 줄 오른쪽 끝에 둔다. 쉬는 모양은 위의 .btn:disabled를 그대로 쓴다 */
+.radio-player-skips .radio-list-btn { margin-left: auto; }
+/* 이전 곡, 다음 곡의 이름(src/apps/radio-tracks.js): 단추 줄 아래의 두 줄. 줄마다 높이를 20px로 정하고 이름은 한 줄에서 줄임표로 잘라서,
+   이름이 길어도 줄 수가 늘지 않고 창 높이가 그대로다(위 8px, 두 줄 40px, 아래 7px, 구분선 1px로 모두 56px). 곡에 관한 글과 아래 안내 줄이 한 덩어리로 읽히지 않게 구분선을 긋는다.
+   이름이 아닌 글(…, 없음, 제목 없음)은 .dim으로 한 단계 옅게 쓴다(바탕 #111과 8:1 넘게) */
+.radio-player-tracks { padding: 8px 10px 7px; border-bottom: 1px solid #2c2a26; font-size: 13px; line-height: 20px; color: #e6e1d6; }
+.radio-player-tracks[hidden] { display: none; }
+.win-body .radio-track-line { display: flex; gap: 6px; margin: 0; }
+.radio-track-tag { flex: none; color: #b4ae9f; }
+.radio-track-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-track-name.dim { color: #b4ae9f; }
+/* 곡 목록 창: 음악 창처럼 어두운 바탕에 밝은 글자를 밤낮 없이 고정한다. 머리줄(35px)은 남고 줄(30px씩)만 스크롤된다.
+   지금 곡은 배경색과 앞의 삼각형(CSS로 그림, 글자 모양에 기대지 않는다)으로 표시한다 */
+.radio-tracks { display: flex; flex-direction: column; color: #e6e1d6; }
+.radio-tracks-head { display: flex; flex: none; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #3a372f; font-size: 13px; line-height: 18px; }
+.radio-tracks-cd { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-tracks-pos { flex: none; color: #b4ae9f; }
+.radio-tracks-list { position: relative; flex: 1; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; scrollbar-width: thin; scrollbar-color: #6a6456 #111; }
+.radio-tracks-note { padding: 12px 10px; font-size: 13px; line-height: 18px; color: #b4ae9f; }
+.radio-track { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 10px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; text-align: left; cursor: var(--cur-hand); }
+.radio-track:hover { background: #2a2620; }
+.radio-track:focus-visible { outline: 2px solid #f8b33a; outline-offset: -2px; }
+.radio-track[aria-current="true"] { background: #3b2d12; color: #ffe9b8; }
+.radio-track-now { flex: none; width: 0; height: 0; margin-right: -2px; border-style: solid; border-color: transparent; border-width: 5px 0 5px 7px; }
+.radio-track[aria-current="true"] .radio-track-now { border-left-color: #f8b33a; }
+.radio-track-no { flex: none; width: 26px; text-align: right; color: #b4ae9f; font-variant-numeric: tabular-nums; }
+.radio-track[aria-current="true"] .radio-track-no { color: #f8b33a; }
 @media (prefers-reduced-motion: reduce) {
   .cd.spin { animation: none; }
   .cd-pick { transition: none; }
