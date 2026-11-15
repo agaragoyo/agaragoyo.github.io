@@ -7,6 +7,7 @@ import { STORAGE_PICTURE } from './config.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
 import { isCustom, readCustom, makeCustom } from './custom-picture.js';
 import { h, loadJSON, saveJSON } from './util.js';
+import { openNameWindow } from './user-name.js';
 
 const GRID = 24;
 const BY_ID = Object.fromEntries(USER_PICTURES.map(p => [p.id, p]));
@@ -152,6 +153,7 @@ export function picturePicker(current, onPick, toast) {
 // 링크를 만들어 둔 방이면 os.saveHome이 서버의 방도 새 사진으로 고친다(예전 긴 링크는 이미 보낸 것이라 그대로다).
 // 사진 크기가 무대 배율마다 달라서 창 크기는 열 때의 사진 크기로 정한다. 사진 둘레의 테두리와 여백, 그림 파일 찾아보기,
 // 닫기 단추 줄, 창 안쪽 여백을 더한 값이다. 창을 연 채 이름을 바꾸면 창 위의 이름도 바뀐다(win.refreshOwner, src/user-name.js)
+// 창 위의 이름 옆에는 이름 바꾸기 창을 여는 단추를 둔다. 윈도우 7의 사용자 계정처럼 사진과 이름을 한곳에서 바꾸게 하려는 것이다(known-issues 80)
 export function openPictureWindow(os) {
   const owner = os.home.owner;
   const big = shownSize(48);
@@ -173,7 +175,8 @@ export function openPictureWindow(os) {
       const name = h('b', {}, owner);
       w.refreshOwner = () => { name.textContent = os.home.owner; };
       body.append(
-        h('div', { className: 'pic-app-head' }, face, name),
+        h('div', { className: 'pic-app-head' }, face, name,
+          h('button', { type: 'button', className: 'btn pic-rename', onclick: () => openNameWindow(os) }, '이름 바꾸기')),
         picker,
         h('div', { className: 'link-row' }, h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
       );
