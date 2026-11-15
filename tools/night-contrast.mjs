@@ -9,7 +9,8 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
-// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
+// 창 여섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
+// 펫 고르는 창(실험실 창의 펫 바꾸기 단추로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
@@ -137,6 +138,17 @@ function openUserWindow(sel) {
   const btn = document.querySelector(`#start-menu ${sel}`);
   if (!btn) return false;
   btn.click();
+  return true;
+}
+
+// 실험실의 펫 데려오기를 켜고 실험실 창의 펫 바꾸기 단추를 눌러 펫 고르는 창(src/pet-picker.js)을 연다.
+// 고른 펫을 먼저 넣어 두어, 켤 때 고르는 창이 따로 열리지 않게 한다(처음 켤 때만 열린다)
+async function openPetPicker() {
+  const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
+  settings.set({ pet: 'cat/gray', labs: [...(settings.get('labs') || []), 'pet'] });
+  const b = document.querySelector('.labs-item[data-lab="pet"] .labs-change');
+  if (!b || b.hidden) return false;
+  b.click();
   return true;
 }
 
@@ -328,6 +340,8 @@ async function main() {
   await until(page, s => s.windows >= OPEN.length + 1, '사진 바꾸기 창이 열리지 않았다', 5000);
   if (!(await page.run(openUserWindow, '.start-name'))) throw new Stop('시작 메뉴 맨 위에 내 이름 단추(.start-name)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 2, '이름 바꾸기 창이 열리지 않았다', 5000);
+  if (!(await page.run(openPetPicker))) throw new Stop('실험실 창에 펫 바꾸기 단추(.labs-change)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openPetPicker도 고친다.');
+  await until(page, s => s.windows >= OPEN.length + 3, '펫 고르는 창이 열리지 않았다', 5000);
 
   const results = [];
   for (const era of ERAS) {
