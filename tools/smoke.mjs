@@ -12,10 +12,11 @@
 // 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
-// 상자 밖으로 나가거나 말없이 잘린 글(81).
+// 상자 밖으로 나가거나 말없이 잘린 글(82).
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
 // 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
+// 유튜브 재생목록 CD의 이전 곡, 다음 곡 단추는 유튜브 API(window.YT)를 페이지 안의 가짜로 바꿔 끼워(fakePlayer) 단추가 언제 쉬고 켜지는지와 보내는 명령을 본다.
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
@@ -42,7 +43,7 @@ const EVIL = {
   greeting: '<i>안녕</i>',
 };
 
-// 긴 글 점검(known-issues 81)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
+// 긴 글 점검(known-issues 82)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
 // 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
 // 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
 const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
@@ -110,7 +111,7 @@ function overflowing() {
   return [...new Set(out)].slice(0, 8);
 }
 
-// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 81). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
+// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 82). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
 // 크기가 정해진 자리에서 말줄임표(text-overflow, -webkit-line-clamp)로 끝난 글은 그 글이나 조상의 title에 전체 글이 있어야 하고,
 // 스크롤되는 칸에서 가려진 글은 스크롤하면 보이므로 괜찮다. 기울인 CD와 쪽지는 재는 동안만 기울기를 푼다(overflowing과 같다)
 function cutText(scope = '#windows .win, .closeup, #start-menu, #login, #toast') {
@@ -250,11 +251,12 @@ async function extraNeighbor(page, row) {
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
 // 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
-// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
+// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed). 스포티파이 oEmbed도 같은 방법으로 이름만 담아 답한다
 function fakeYouTube() {
   const real = window.fetch;
   window.__oembed = {};
   window.fetch = async (url, opts) => {
+    if (String(url).startsWith('https://open.spotify.com/oembed')) return new Response(JSON.stringify({ title: '점검용 스포티파이 앨범' }));
     if (!String(url).startsWith('https://www.youtube.com/oembed')) return real(url, opts);
     const asked = decodeURIComponent(String(url).split('url=')[1]);
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
@@ -270,6 +272,58 @@ function fakeYouTube() {
 function putYouTube(url) {
   document.querySelector('.closeup form input').value = url;
   document.querySelector('.closeup form').requestSubmit();
+}
+// 유튜브 IFrame Player API(window.YT)를 페이지 안의 가짜로 바꿔 끼운다. 앱이 만든 플레이어는 window.__yt에 차례로 쌓이고,
+// 점검이 ready()로 플레이어가 준비된 때를, fail(번호)로 오류를 알리는 때를 정한다. 명령은 calls에 이름이 남고, 떼어진(destroy) 플레이어는 진짜처럼 명령 함수가 없어진다
+function fakePlayer() {
+  window.__yt = [];
+  window.YT = {
+    Player: class {
+      constructor(frame, opts) {
+        this.frame = frame;
+        this.events = opts.events;
+        this.calls = [];
+        window.__yt.push(this);
+      }
+      ready() { this.events.onReady(); }
+      fail(code) { this.events.onError({ data: code }); }
+      previousVideo() { this.calls.push('previousVideo'); }
+      nextVideo() { this.calls.push('nextVideo'); }
+      mute() { this.calls.push('mute'); }
+      unMute() { this.calls.push('unMute'); }
+      destroy() { this.previousVideo = this.nextVideo = this.mute = this.unMute = undefined; }
+    },
+  };
+  return true;
+}
+// 음악 창의 곡 넘기기 단추 줄: 보이는지, 단추 글자와 쉬는 모양, 플레이어와의 자리(겹치지 않는지, 200px 이상인지), 창 높이
+function skipState() {
+  const row = document.querySelector('#windows .radio-player-skips');
+  const frame = document.querySelector('#windows .radio-player iframe');
+  const win = document.querySelector('#windows .radio-player')?.closest('.win');
+  if (!row || !frame || !win) return null;
+  const buttons = [...row.querySelectorAll('button')];
+  const f = frame.getBoundingClientRect();
+  const r = row.getBoundingClientRect();
+  const w = win.getBoundingClientRect();
+  const shown = getComputedStyle(row).display !== 'none';
+  // 창 바탕(.flush)은 넘친 것을 잘라서(overflow: hidden) 창 높이가 모자라면 맨 아래 안내 줄이 말없이 사라진다
+  const body = win.querySelector('.win-body');
+  const note = body.querySelector('.radio-player-note');
+  return {
+    shown,
+    noteFits: note.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1,
+    texts: buttons.map(b => b.textContent.trim()),
+    titles: buttons.map(b => b.title),
+    disabled: buttons.map(b => b.disabled),
+    frameW: frame.offsetWidth,
+    frameH: frame.offsetHeight,
+    below: shown && r.top >= f.bottom - 1,
+    inside: shown && buttons.every(b => { const x = b.getBoundingClientRect(); return x.left >= w.left && x.right <= w.right && x.bottom <= w.bottom; }),
+    rowH: row.offsetHeight,
+    winH: win.offsetHeight,
+    note: document.querySelector('#windows .radio-player-note').textContent,
+  };
 }
 // 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
 function radioErrorShows(pattern) {
@@ -361,8 +415,9 @@ function nextToOwner() {
   return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
 }
 
-// 실험실의 고양이(src/pet.js)와 내 아바타가 선 칸, 고양이 칸이 비어 있던 바닥인지, 하트가 보이는지, 고양이 그림의 폭(무대 px).
-// 고양이 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
+// 실험실의 펫(src/pet.js)과 내 아바타가 선 칸, 펫 칸이 비어 있던 바닥인지, 하트가 보이는지, 펫 그림의 폭(무대 px),
+// 고른 펫('<종류>/<색>'), 지금 보이는 그림 장(앉기, 숨쉬기, 눈 감기, 걷기).
+// 펫 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
 async function petScene() {
   const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
   const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
@@ -378,12 +433,14 @@ async function petScene() {
     next: !!pet && !!me && Math.abs(pet.x - me.x) + Math.abs(pet.y - me.y) === 1,
     heart: !!heart && !heart.hidden,
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
+    look: p?.dataset.pet,
+    frame: p ? [...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame : null,
   };
 }
 
 // 실험실의 놀이터 눈(src/snow.js) 캔버스에 그려진 송이. 흰 칸이 이어진 덩어리 하나를 한 송이로 센다(송이 아래 그늘은 반투명이라 세지 않는다).
 // k: 무대 1px가 캔버스 몇 칸인지, small과 big: 그 배율에서 작은 송이와 큰 송이의 칸 수(snow.js와 같은 셈), fit: 폭이 그 둘 가운데 하나인 송이 수,
-// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 고양이 하트(9998) 아래이고
+// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 펫 하트(9998) 아래이고
 // 방 상자가 쌓임 맥락이라 아이콘과 창 아래인지, through: 바탕화면 곳곳을 눌러도 캔버스가 받지 않는지
 function snowScene() {
   const c = document.querySelector('#wallpaper .snow');
@@ -1066,6 +1123,69 @@ async function walk(page, base) {
     const cd = JSON.parse(localStorage.getItem('agarago.home.v3')).likes.radio?.[1];
     return cd?.url === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' && cd.name === '점검용 유튜브 노래';
   }, 5000));
+
+  // 유튜브 재생목록 CD에만 음악 창의 플레이어 아래에 이전 곡, 다음 곡 단추가 뜬다. 유튜브의 플레이어와 API 스크립트는 받지 않으므로(main의 BLOCKED)
+  // 가짜 플레이어(fakePlayer)로 단추가 언제 쉬고 켜지는지, 무슨 명령을 보내는지를 본다. 곡이 실제로 넘어가는지는 진짜 유튜브가 필요해 직접 본다
+  // (localhost에서. 127.0.0.1에서는 유튜브가 막는다, known-issues 69)
+  const LIST = 'https://www.youtube.com/playlist?list=PLsmokeList00000';
+  const addCd = async (url, count) => {
+    await page.run(clickText, '.closeup .radio-tools .btn', 'CD 넣기');
+    await until(page, () => !!document.querySelector('.closeup form'), 3000);
+    await page.run(putYouTube, url);
+    return until(page, n => JSON.parse(localStorage.getItem('agarago.home.v3')).likes.radio?.length === n, 6000, count);
+  };
+  check('유튜브 재생목록 CD를 넣는다', await addCd(LIST, 3));
+  check('스포티파이 앨범 CD를 넣는다', await addCd('https://open.spotify.com/album/1A2B3C4D5E6F7G8H9I0J1K', 4));
+  // 펼친 줄에서 CD를 골라 음악 창이 그 CD의 플레이어로 바뀔 때까지 기다린다(src가 가리키는 곳은 CD마다 다르다)
+  const playCd = async (link, embed) => {
+    await page.run(l => document.querySelector(`.closeup .cd-pick[data-link="${l}"]`).click(), link);
+    return until(page, e => (document.querySelector('#windows .radio-player iframe')?.src || '').includes(e), 6000, embed);
+  };
+  await page.run(fakePlayer);
+  const errorsBefore = page.pageErrors.length;
+  check('재생목록 CD를 고르면 음악 창이 열린다', await playCd(LIST, 'videoseries?list=PLsmokeList00000'));
+  await sleep(100);
+  let skip = await page.run(skipState);
+  check('재생목록 CD에는 플레이어 아래에 이전 곡, 다음 곡 단추가 뜬다', skip?.shown && skip.below && skip.texts.join() === '이전 곡,다음 곡', JSON.stringify(skip));
+  check('단추의 툴팁은 명사형 15자 이하다', skip.titles.every(t => t && t.length <= 15 && !/[다요]$/.test(t)), skip.titles.join(' / '));
+  check('단추를 놓아도 플레이어는 200×200px 이상이고 단추는 플레이어에 겹치지 않고 창 안에 들며 안내 줄도 다 보인다', skip.frameW >= 200 && skip.frameH >= 200 && skip.below && skip.inside && skip.noteFits, JSON.stringify(skip));
+  check('플레이어가 명령을 받을 수 있기 전에는 쉬는 단추다', skip.disabled.every(Boolean));
+  await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
+  check('쉬는 단추를 눌러도 플레이어에 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).length === 0);
+  await probe('재생목록 음악 창');
+  await page.run(() => window.__yt.at(-1).ready());
+  skip = await page.run(skipState);
+  check('플레이어가 준비되면 단추가 켜진다', skip.disabled.every(d => !d));
+  const [listWinH, listRowH] = [skip.winH, skip.rowH];
+  await page.run(clickText, '#windows .radio-player-skips .btn', '다음 곡');
+  await page.run(clickText, '#windows .radio-player-skips .btn', '이전 곡');
+  check('다음 곡을 누르면 nextVideo를, 이전 곡을 누르면 previousVideo를 부른다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
+  // 오류가 나면 단추는 쉰다. 그 전에 준비된 플레이어가 그대로 있어도 눌러서 명령이 가지 않는다
+  await page.run(() => window.__yt.at(-1).fail(150));
+  skip = await page.run(skipState);
+  check('플레이어가 오류를 알리면 안내가 창 안에 다 보이게 뜨고 단추는 다시 쉰다', /재생할 수 없습니다/.test(skip.note) && skip.disabled.every(Boolean) && skip.noteFits, JSON.stringify(skip));
+  await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
+  check('오류가 난 뒤에는 눌러도 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
+  // 음악 창에서 CD가 바뀌면 단추도 그 CD에 맞게 바뀐다. 영상 하나, 애플 뮤직, 스포티파이 CD에는 단추가 없고 창은 단추 줄만큼 줄어든다
+  check('영상 하나짜리 유튜브 CD로 바꾸면 단추가 사라지고 창이 단추 줄만큼 줄어든다', await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ')
+    && await until(page, () => !!document.querySelector('#windows .radio-player-skips') && getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 3000));
+  skip = await page.run(skipState);
+  check('단추를 거둔 창의 높이는 단추 줄만큼 낮다', listRowH >= 34 && listWinH - skip.winH === listRowH, `재생목록 창 ${listWinH}px, 단추 줄 ${listRowH}px, 영상 창 ${skip.winH}px`);
+  await probe('영상 음악 창');
+  await playCd('https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'embed.music.apple.com');
+  check('애플 뮤직 CD에는 단추가 없다', (await page.run(skipState)).shown === false);
+  await playCd('https://open.spotify.com/album/1A2B3C4D5E6F7G8H9I0J1K', 'open.spotify.com/embed/album');
+  check('스포티파이 CD에는 단추가 없다', (await page.run(skipState)).shown === false);
+  await playCd(LIST, 'videoseries?list=PLsmokeList00000');
+  skip = await page.run(skipState);
+  check('다시 재생목록 CD로 바꾸면 단추가 돌아오고 준비될 때까지 쉰다', skip.shown && skip.disabled.every(Boolean) && skip.winH === listWinH, JSON.stringify(skip));
+  // 유튜브의 API 스크립트를 받지 못하면(막았거나 끊겼다) 플레이어는 돌아도 명령을 보낼 길이 없어 단추를 거둔다
+  await page.run(() => { delete window.YT; return true; });
+  await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ');
+  await playCd(LIST, 'videoseries?list=PLsmokeList00000');
+  check('API 스크립트를 받지 못하면 재생목록 CD에서도 단추를 거둔다', await until(page, () => getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 4000));
+  check('단추를 누르거나 쉬게 하는 동안 페이지 오류가 나지 않는다', page.pageErrors.length === errorsBefore, page.pageErrors.slice(errorsBefore).join(' | '));
+  await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
   await page.run(() => document.activeElement?.blur());
   await press(page, 'Escape');
 
@@ -1542,8 +1662,9 @@ async function walk(page, base) {
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
 
   // ---------- 펫 데려오기(pet) ----------
-  // 켜면 내 집의 방에만 고양이가 빈 바닥 칸에 앉고(src/pet.js) 끄면 바로 사라진다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다.
-  // 내 아바타는 고양이가 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
+  // 처음 켜면 펫 고르는 창(src/pet-picker.js)이 열리고, 내 집의 방에만 펫이 빈 바닥 칸에 앉으며(src/pet.js) 끄면 바로 사라진다.
+  // 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다.
+  // 내 아바타는 펫이 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
   // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
   const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
   const petBox = '.labs-item[data-lab="pet"] input';
@@ -1558,19 +1679,32 @@ async function walk(page, base) {
   };
   check('펫 데려오기: 내 집으로 돌아온다', await enterMine());
   await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
-  check('펫 데려오기를 켜기 전에는 방에 고양이가 없다', !(await hasPet()));
+  check('펫 데려오기를 켜기 전에는 방에 펫이 없다', !(await hasPet()));
   await openIcon('labs');
   check('실험실 창에 펫 데려오기 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, petBox));
+  check('펫 데려오기를 켜기 전에는 펫 바꾸기 단추가 보이지 않는다', await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change')?.hidden === true));
   await page.run(sel => document.querySelector(sel).click(), petBox);
+  check('펫 데려오기를 처음 켜면 펫 고르는 창이 열린다', await until(page, () => !!document.querySelector('.pet-app'), 3000));
   const cat = await page.run(petScene);
-  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 고양이가 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y), JSON.stringify(cat));
-  check('고양이 그림은 폭 28~56px이다(한 칸 2px 안팎, 20칸)', cat.width >= 28 && cat.width <= 56, `${cat.width}`);
+  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 기본 펫(회색 고양이)이 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y) && cat.look === 'cat/gray', JSON.stringify(cat));
+  check('펫 그림은 폭 34~68px이다(한 칸 2px 안팎, 24칸)', cat.width >= 34 && cat.width <= 68, `${cat.width}`);
+  check('펫 고르는 창에 종류 단추 여섯 개와 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
+    const rows = [...document.querySelectorAll('.pet-app .pet-row')];
+    return rows.length === 2 && rows[0].children.length === 6 && rows[1].children.length === 4
+      && rows[0].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray' && rows[1].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray';
+  }));
+  check('펫 고르는 창은 스크롤 없이 다 보인다', await page.run(() => { const b = document.querySelector('.pet-app'); return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth; }));
+  await probe('펫 고르는 창');
+  await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][0].querySelector('[data-pet^="dog/"]').click());
+  await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][1].querySelector('[data-pet="dog/sky"]').click());
+  const picked = await page.run(() => ({ room: document.querySelector('#wallpaper .room-pet')?.dataset.pet, big: document.querySelector('.pet-big')?.dataset.pet, saved: JSON.parse(localStorage.getItem('agarago.settings')).pet }));
+  check('펫 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
   await closeWindows();
-  await probe('고양이가 있는 바탕화면');
+  await probe('펫이 있는 바탕화면');
   await page.run(clickTwice, '#wallpaper .room-pet');
   const loved = await waitPet(s => s.heart && s.next, 8000);
-  check('고양이를 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다', loved.heart && loved.next, JSON.stringify(loved));
-  // 고양이가 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(고양이 칸은 지나갈 수 없다)
+  check('펫을 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다', loved.heart && loved.next && /blink/.test(loved.frame), JSON.stringify(loved));
+  // 펫이 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(펫 칸은 지나갈 수 없다)
   await page.run(() => {
     const r = document.querySelector('#wallpaper .room-pet svg').getBoundingClientRect();
     const p = { bubbles: true, clientX: r.left + r.width / 2, clientY: r.bottom - 4 };
@@ -1580,20 +1714,23 @@ async function walk(page, base) {
   });
   await sleep(800);
   const stay = await page.run(petScene);
-  check('고양이가 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
-  check('새로 고침해도 고양이가 그대로 나온다', (await enterMine()) && await until(page, () => !!document.querySelector('#wallpaper .room-pet'), 3000));
+  check('펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
+  check('새로 고침해도 고른 펫이 그대로 나온다', (await enterMine()) && await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'dog/sky', 3000));
   await openIcon('labs');
   await until(page, sel => !!document.querySelector(sel), 3000, petBox);
+  await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change').click());
+  check('켜 둔 동안 실험실 창의 펫 바꾸기 단추를 누르면 펫 고르는 창이 열리고 펫 데려오기는 켜진 채다',
+    await until(page, () => !!document.querySelector('.pet-app'), 3000) && await page.run(sel => document.querySelector(sel).checked, petBox));
   await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('끄면 고양이와 하트가 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart')));
+  check('끄면 펫과 하트, 펫 고르는 창이 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart, .pet-app')));
   await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('다시 켜면 고양이가 다시 나온다', await hasPet());
+  check('다시 켜면 펫이 다시 나오고, 이미 골랐으므로 고르는 창은 열리지 않는다', (await hasPet()) && await page.run(() => !document.querySelector('.pet-app')));
   await open(`#r=${bare}`);
   await powerOn();
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   await desktop();
   await sleep(300);
-  check('펫 데려오기를 켜 두어도 친구 집에는 고양이가 없다', !(await hasPet()));
+  check('펫 데려오기를 켜 두어도 친구 집에는 펫이 없다', !(await hasPet()));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), petSettings);
 
   // ---------- 친구 집 배경음악(home-bgm) ----------
@@ -1744,7 +1881,7 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
-  // ---------- 긴 글(known-issues 81) ----------
+  // ---------- 긴 글(known-issues 82) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
   const shut = async () => { await closeWindows(); await press(page, 'Escape'); await until(page, closed, 3000); };

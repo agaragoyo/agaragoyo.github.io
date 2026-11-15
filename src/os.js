@@ -67,7 +67,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
-  let pet = null; // 내 집의 방에 사는 고양이(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
+  let pet = null; // 내 집의 방에 사는 펫(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
   const snow = createSnow(el.wallpaper); // 바깥 공간에 내리는 눈(실험실 snow, src/snow.js). 실험실에서 켜고 바탕화면이 놀이터일 때만 내린다(syncSnow)
   // 분신사바(F29, src/horror.js). 말풍선에 "분신사바"를 말하면(src/secrets.js) 방의 불이 꺼지고 공포 모드가 된다. 메모리에만 있고 불을 켜면 풀린다
   const horror = os.horror = createHorror({
@@ -271,26 +271,29 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner, os.home.decor);
     ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
-    pet?.attach(scene.id === SCENES[0].id); // 고양이는 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
+    pet?.attach(scene.id === SCENES[0].id); // 펫은 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
     markLiked();
     syncSnow(); // 방 상자를 비웠으므로 눈 캔버스도 다시 붙인다
     horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
 
-  // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고양이가 살고(src/pet.js), 끄면 바로 사라진다.
+  // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고른 펫이 살고(src/pet.js), 끄면 바로 사라진다.
   // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없고, 놀이터에 나가 있는 동안에는 방에 남아 있다(attach가 숨긴다).
-  // 바탕화면을 만든 뒤와 실험실 스위치를 켜고 끌 때 부른다
+  // 바탕화면을 만든 뒤와 실험실 스위치를 켜고 끌 때 부른다. 펫 고르는 창(src/pet-picker.js)에서 종류나 색을 바꾸면 그 자리에서 그림만 바꾼다
   function syncPet() {
     const want = labOn('pet') && os.mode === 'edit' && !os.realHome && !!walker;
     if (!want) {
       pet?.destroy();
       pet = null;
     } else if (!pet) {
-      pet = mountPet({ layer: el.wallpaper, items: () => os.home.scenes[os.place], avatar: () => walker });
+      pet = mountPet({ layer: el.wallpaper, items: () => os.home.scenes[os.place], avatar: () => walker, look: () => settings.get('pet') });
       pet.attach(os.place === SCENES[0].id);
     }
   }
-  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) syncPet(); });
+  settings.subscribe(patch => {
+    if ('labs' in patch || 'labsOpen' in patch) syncPet();
+    if ('pet' in patch) pet?.restyle();
+  });
 
   // 실험실의 '놀이터에 눈'(snow, src/labs.js). 켜 두면 바탕화면이 바깥 공간(놀이터)일 때 눈이 내리고(src/snow.js), 끄면 바로 그친다.
   // 내 집, 친구 집, 이웃집, 튜토리얼 연습 방의 놀이터가 모두 같다. 방(실내)과 방 꾸미기 창, 내려받는 방 그림에는 내리지 않는다.

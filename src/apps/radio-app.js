@@ -6,6 +6,10 @@
 // 플레이어 앞에 다른 그림을 겹치지 않는다(os.showingVideo가 화면 전체의 효과를 끄고 화면 보호기를 멈춘다).
 // 재생을 시작하는 섬네일은 120×70px보다 커야 하는데 CD 가운데 그림은 76px이라, 유튜브 CD에는 섬네일을 깔지 않고 주인이 고른 색과 이름만 쓴다.
 // 일부 공식 뮤직비디오처럼 다른 사이트에서 재생을 막아 둔 영상은 플레이어가 오류를 알린다(IFrame Player API의 onError). 그러면 아래 안내 줄에 할 일을 쓴다.
+// 유튜브 재생목록 CD는 곡을 넘길 방법이 없다는 제보(2026-11-15)에 따라 플레이어 바로 아래에 "이전 곡", "다음 곡" 단추를 둔다(IFrame Player API의
+// previousVideo, nextVideo). 자리는 음악 창이다. 음악 창은 라디오를 내려놓은 뒤에도 남고 친구 집 배경음악이 저절로 연 창에도 쓰이지만, 라디오 화면은 그렇지 않다.
+// 라디오 그림의 가운데 줄은 폭이 220px이고 ▶ ■ ⏏ 세 개가 168px을 차지해 .btn 둘(각 85px쯤)이 들어갈 자리가 없고, 그 아래 줄(.radio-tools)은 주인이 CD를 넣고 고치는 줄이다.
+// 단추는 iframe 밖의 줄이라 플레이어 위에는 겹치지 않는다. 영상 하나와 스포티파이, 애플 뮤직의 플레이어는 곡 목록이 플레이어 안에 있어 단추를 두지 않는다.
 // 다른 CD를 고르면 든 CD와 바뀌고, 꺼내기 단추(삼각형과 막대)는 음악을 멈추고 든 CD를 펼친 줄의 제자리로 돌려놓는다.
 // 든 CD의 제자리는 점선 동그라미로 남긴다. 아예 비우면 CD가 한 장뿐일 때 펼친 줄이 텅 비어 고장 난 것처럼 보였다.
 // 라디오를 내려놓아도 음악 창은 남아서 방을 걸으며 듣고, 음악 창이 열려 있는 동안 사이트 배경음악은 멈춘다.
@@ -52,7 +56,7 @@ function nameOf(m, el) {
 // 펼친 CD의 이름은 띄어쓰기에서 줄을 바꾼다(style.css의 .cd-name). 짧은 낱말 뒤에 긴 낱말이 오면 그렇게 해서 두 줄을 넘는
 // 이름("가나다라 마바사아자차 카타파하")이 있어서, 그런 이름만 글자 사이에서도 줄을 바꿔 16자가 두 줄에 다 들어가게 한다.
 // 그래도 넘치는 이름(이모지 16개, 서비스에서 받은 긴 이름)은 말줄임표로 끝나므로 CD에 마우스를 올리면 전체가 보이게 한다.
-// 한 줄인 라디오 표시창도 같다(known-issues 81)
+// 한 줄인 라디오 표시창도 같다(known-issues 82)
 function fitName(el) {
   fitText(el, el.closest('.cd-pick') || el);
 }
@@ -67,6 +71,8 @@ const NOTE = {
   apple: '로그인하지 않으면 노래마다 30초쯤 미리 듣습니다.',
   youtube: '로그인 없이 끝까지 듣고, 광고가 나올 수 있습니다.',
 };
+// 곡을 넘기는 단추(이전 곡, 다음 곡)가 있는 CD: 유튜브 재생목록뿐이다(맨 위 설명)
+const hasTracks = m => m.service === 'youtube' && m.kind === 'playlist';
 // 넣는 칸에서 유튜브 oEmbed가 재생할 수 없다고 알린 CD(fetchMeta의 gone)의 안내: GONE[영상이나 재생목록][막힘이나 없음].
 // 일어난 일과 할 일을 한 줄씩 쓴다(이어 쓰면 넣는 칸의 한 줄 폭에서 "주세/요."처럼 꺾인다). 막힌 영상과 막힌 재생목록은 할 일이 달라 따로 쓴다.
 // 일부 공개로 바꾸라고는 쓰지 않는다. 일부 공개인데도 막힌 재생목록이 있었다(known-issues 79)
@@ -148,13 +154,13 @@ function playerSrc(m) {
 // 문서는 100(없거나 비공개)과 101, 150(다른 사이트에서 재생을 막음)을 나누지만, 2026-11-14에 재 보니 없는 영상도 150으로 왔다.
 // 라벨이 막아 둔 공식 뮤직비디오(릭 애슬리, 데스파시토)는 127.0.0.1에서 띄우면 150이고 localhost에서는 재생된다(사이트마다 막는다).
 // 재생목록 안의 막힌 곡은 유튜브가 목록에서 빼고 틀어서 오류가 오지 않는다.
-// onReady(yt)는 플레이어가 명령(소리 끄기와 켜기)을 받을 수 있게 되면 불린다
-function watchYouTube(frame, onError, onReady) {
+// onReady(yt)는 플레이어가 명령(소리 끄기와 켜기, 곡 넘기기)을 받을 수 있게 되면 불린다. onLost는 API 스크립트를 받지 못해 명령을 보낼 길이 없을 때 불린다
+function watchYouTube(frame, onError, onReady, onLost) {
   let yt = null;
   let gone = false;
   youtubeApi().then(YT => {
     if (!gone) yt = new YT.Player(frame, { host: 'https://www.youtube-nocookie.com', events: { onError: e => onError(e.data), onReady: () => !gone && onReady(yt) } });
-  }).catch(() => {});
+  }).catch(() => { if (!gone) onLost?.(); });
   return () => {
     gone = true;
     try { yt?.destroy(); } catch { /* 이미 떼어진 플레이어 */ }
@@ -176,7 +182,7 @@ const cdsOf = os => (os.home.likes.radio || []).map(c => {
 }).filter(Boolean);
 
 // 음악 창은 라디오 화면보다 오래 산다(라디오를 내려놓아도 남는다)
-let player = null;   // { win, frame, note, m, stop, load, yt, auto, keep } 열려 있는 음악 창
+let player = null;   // { win, frame, note, m, stop, load, yt, failed, auto, keep } 열려 있는 음악 창. failed는 플레이어가 오류를 알렸다는 것
 let onPlayerGone = null; // 열려 있는 라디오 화면이 음악 창이 닫힌 것을 알 때 부를 함수
 
 // auto: 친구 집 배경음악(맨 아래 startHomeMusic)으로 저절로 연 창. 손님이 라디오에서 CD를 고르면 보통 음악 창이 된다(keep)
@@ -202,10 +208,24 @@ function openPlayer(os, app, m, auto = false) {
     build(body) {
       body.classList.add('radio-player');
       const note = h('p', { className: 'radio-player-note' });
-      body.append(note);
-      // 창 높이를 플레이어와 안내 줄에 맞춘다(키운 창은 그대로 둔다)
+      // 곡 넘기기 단추(맨 위 설명). 재생목록 CD에서만 보이고, 플레이어가 명령을 받을 수 있는 동안만 켠다. 준비하는 중이나 오류가 난 뒤에는 쉬는 단추다
+      const skipBtn = (text, title, go) => h('button', {
+        type: 'button',
+        className: 'btn',
+        title,
+        disabled: true,
+        onclick: () => {
+          try { go(player?.yt); } catch { /* 이미 떼어진 플레이어 */ }
+        },
+      }, text);
+      const prevBtn = skipBtn('이전 곡', '재생목록의 이전 곡', yt => yt?.previousVideo());
+      const nextBtn = skipBtn('다음 곡', '재생목록의 다음 곡', yt => yt?.nextVideo());
+      const skips = h('div', { className: 'radio-player-skips', hidden: true }, prevBtn, nextBtn);
+      const syncSkips = () => { prevBtn.disabled = nextBtn.disabled = !player?.yt || player.failed; };
+      body.append(skips, note);
+      // 창 높이를 플레이어와 단추 줄, 안내 줄에 맞춘다(키운 창은 그대로 둔다)
       const fit = () => {
-        if (player?.win && !player.win.maximized) player.win.el.style.height = `${PLAYER[player.m.service] + note.offsetHeight + CHROME_H}px`;
+        if (player?.win && !player.win.maximized) player.win.el.style.height = `${PLAYER[player.m.service] + skips.offsetHeight + note.offsetHeight + CHROME_H}px`;
       };
       // CD 하나의 플레이어를 띄운다. 서비스마다 주소와 높이가 달라 CD를 바꿀 때마다 새로 만든다
       const load = cd => {
@@ -220,20 +240,31 @@ function openPlayer(os, app, m, auto = false) {
         if (player.frame) player.frame.replaceWith(frame);
         else body.prepend(frame);
         player.stop?.(); // 앞 CD의 플레이어에 이어 붙인 API를 뗀다(새 iframe을 넣은 뒤에 떼야 새것이 빠지지 않는다)
-        Object.assign(player, { frame, m: cd, stop: null, yt: null });
+        Object.assign(player, { frame, m: cd, stop: null, yt: null, failed: false });
         note.textContent = NOTE[cd.service];
+        skips.hidden = !hasTracks(cd);
+        syncSkips();
         if (cd.service === 'youtube') {
           player.stop = watchYouTube(frame, () => {
+            if (player?.frame !== frame) return;
             // 저절로 튼 CD가 재생되지 않으면 다음 유튜브 CD를 튼다. 남은 CD가 없으면 라디오에서 고를 때처럼 안내한다
-            const next = player?.auto && nextAuto(os, cd);
+            const next = player.auto && nextAuto(os, cd);
             if (next) return setTimeout(() => player?.frame === frame && load(next));
             const [what, todo] = youtubeError(cd, owner);
             note.replaceChildren(what, h('br'), todo);
+            player.failed = true;
+            syncSkips();
             fit();
           }, yt => {
             if (player?.frame !== frame) return;
             player.yt = yt;
+            syncSkips();
             if (muted) yt.mute();
+          }, () => {
+            // API 스크립트를 받지 못했다(막았거나 연결이 끊겼다). 플레이어는 돌지만 명령을 보낼 길이 없어 곡 넘기기 단추는 거둔다
+            if (player?.frame !== frame) return;
+            skips.hidden = true;
+            fit();
           });
         }
         os.showingVideo(cd.service === 'youtube');
@@ -255,7 +286,7 @@ function openPlayer(os, app, m, auto = false) {
         quiet = null;
         if (muted) mute(false);
       };
-      player = { win: null, frame: null, note, m, stop: null, load, yt: null, auto, keep };
+      player = { win: null, frame: null, note, m, stop: null, load, yt: null, failed: false, auto, keep };
       release = holdMusic('radio', 'own'); // 사이트 배경음악과 겹치지 않게 멈춘다
       if (auto) quiet = watchMusic('radio', on => mute(!on)); // 사이트 배경음악이 날 자리에서만 들린다(src/sound.js)
       return () => {

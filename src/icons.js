@@ -1254,8 +1254,8 @@ export function fitPixelIcons(style, scale, dpr) {
     style.setProperty(`--pixel-${slot}`, (k ? grid * k / (scale * dpr) : slot) + 'px');
     style.setProperty(`--pixel-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
   }
-  // 실험실의 펫 데려오기(src/pet.js) 고양이와 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
-  // 원래 크기에 가장 가까운 정수를 고르고, 아이콘처럼 그런 정수가 없으면 원래 크기로 둔다. 고양이는 이 값으로 가구와의 앞뒤를 따질 그림 크기도 잰다
+  // 실험실의 펫 데려오기(src/pet.js)의 펫과 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
+  // 원래 크기에 가장 가까운 정수를 고르고, 아이콘처럼 그런 정수가 없으면 원래 크기로 둔다. 펫은 이 값으로 가구와의 앞뒤를 따질 그림 크기도 잰다
   const pet = nearest(2 * scale * dpr);
   style.setProperty('--pet-cell', (pet ? pet / (scale * dpr) : 2) + 'px');
   style.setProperty('--pet-render', pet || 2 * scale * dpr >= 1 ? 'crispEdges' : 'auto');
