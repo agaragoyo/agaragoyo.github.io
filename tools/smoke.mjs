@@ -235,6 +235,26 @@ function nextToOwner() {
   const [mx, my] = at(document.querySelector('#wallpaper .room-avatar:not(.room-owner)'));
   return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
 }
+
+// 실험실의 고양이(src/pet.js)와 내 아바타가 선 칸, 고양이 칸이 비어 있던 바닥인지, 하트가 보이는지, 고양이 그림의 폭(무대 px).
+// 고양이 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
+async function petScene() {
+  const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
+  const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
+  const p = document.querySelector('#wallpaper .room-pet');
+  const a = document.querySelector('#wallpaper .room-avatar');
+  const heart = document.querySelector('#wallpaper .room-pet-heart');
+  const pet = p && cellOf(parseFloat(p.style.left), parseFloat(p.style.top));
+  const me = a && cellOf(parseFloat(a.style.left) + 32, parseFloat(a.style.top) + 100);
+  const items = JSON.parse(localStorage.getItem('agarago.home.v3'))?.scenes.room || [];
+  return {
+    pet, me,
+    floor: !!pet && Number.isInteger(pet.x) && Number.isInteger(pet.y) && pet.x > 0 && pet.y > 0 && pet.x < 12 && pet.y < 12 && !blockedOf(items).has(`${pet.x},${pet.y}`),
+    next: !!pet && !!me && Math.abs(pet.x - me.x) + Math.abs(pet.y - me.y) === 1,
+    heart: !!heart && !heart.hidden,
+    width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
+  };
+}
 const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
 function pickOther(scope, avoid = null) {
@@ -1141,6 +1161,61 @@ async function walk(page, base) {
     check('이웃집 관리인의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', (await liked()) === keeper && keeper.split(',').length >= 1, `${await liked()} / ${keeper}`);
   }
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
+
+  // ---------- 펫 데려오기(pet) ----------
+  // 켜면 내 집의 방에만 고양이가 빈 바닥 칸에 앉고(src/pet.js) 끄면 바로 사라진다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다.
+  // 내 아바타는 고양이가 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
+  // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
+  const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const petBox = '.labs-item[data-lab="pet"] input';
+  const hasPet = () => page.run(() => !!document.querySelector('#wallpaper .room-pet'));
+  const waitPet = async (test, ms) => {
+    const t0 = Date.now();
+    for (;;) {
+      const s = await page.run(petScene);
+      if (test(s) || Date.now() - t0 > ms) return s;
+      await sleep(100);
+    }
+  };
+  check('펫 데려오기: 내 집으로 돌아온다', await enterMine());
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  check('펫 데려오기를 켜기 전에는 방에 고양이가 없다', !(await hasPet()));
+  await openIcon('labs');
+  check('실험실 창에 펫 데려오기 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, petBox));
+  await page.run(sel => document.querySelector(sel).click(), petBox);
+  const cat = await page.run(petScene);
+  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 고양이가 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y), JSON.stringify(cat));
+  check('고양이 그림은 폭 28~56px이다(한 칸 2px 안팎, 20칸)', cat.width >= 28 && cat.width <= 56, `${cat.width}`);
+  await closeWindows();
+  await probe('고양이가 있는 바탕화면');
+  await page.run(clickTwice, '#wallpaper .room-pet');
+  const loved = await waitPet(s => s.heart && s.next, 8000);
+  check('고양이를 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다', loved.heart && loved.next, JSON.stringify(loved));
+  // 고양이가 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(고양이 칸은 지나갈 수 없다)
+  await page.run(() => {
+    const r = document.querySelector('#wallpaper .room-pet svg').getBoundingClientRect();
+    const p = { bubbles: true, clientX: r.left + r.width / 2, clientY: r.bottom - 4 };
+    const floor = document.getElementById('desktop');
+    floor.dispatchEvent(new PointerEvent('pointerdown', p));
+    floor.dispatchEvent(new PointerEvent('pointerup', p));
+  });
+  await sleep(800);
+  const stay = await page.run(petScene);
+  check('고양이가 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
+  check('새로 고침해도 고양이가 그대로 나온다', (await enterMine()) && await until(page, () => !!document.querySelector('#wallpaper .room-pet'), 3000));
+  await openIcon('labs');
+  await until(page, sel => !!document.querySelector(sel), 3000, petBox);
+  await page.run(sel => document.querySelector(sel).click(), petBox);
+  check('끄면 고양이와 하트가 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart')));
+  await page.run(sel => document.querySelector(sel).click(), petBox);
+  check('다시 켜면 고양이가 다시 나온다', await hasPet());
+  await open(`#r=${bare}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  await sleep(300);
+  check('펫 데려오기를 켜 두어도 친구 집에는 고양이가 없다', !(await hasPet()));
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), petSettings);
 
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)

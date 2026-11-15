@@ -473,6 +473,34 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .item.has-like::after { animation: none; }
 }
+/* 실험실의 '펫 데려오기'(pet, src/pet.js)의 고양이. 아바타처럼 가구와 같은 상자(.wallpaper)에서 앞뒤 순서를 맞춘다.
+   상자의 자리(left, top)가 발끝(바닥 칸 가운데)이라 그림의 아래 가운데를 그 자리에 맞춘다.
+   그림은 20칸 × 15칸이고 한 칸은 2px 안팎이다(--pet-cell, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값, known-issues 67).
+   상자는 누르기를 흘려보내고 칠한 칸만 받아서, 고양이 둘레의 바닥과 가구는 그대로 누를 수 있다(known-issues 27). 두 번 누르면 아바타가 가서 쓰다듬는다 */
+.room-pet { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
+.room-pet svg { display: block; width: calc(var(--pet-cell, 2px) * 20); height: calc(var(--pet-cell, 2px) * 15); shape-rendering: var(--pet-render, crispEdges); }
+.room-pet.flip svg { transform: scaleX(-1); }
+.room-pet path { pointer-events: auto; cursor: var(--cur-hand); }
+.room-pet path.shade { pointer-events: none; }
+@media (hover: hover) {
+  .room-pet:has(path:hover) svg { filter: brightness(1.08) drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+}
+/* 쓰다듬으면 고양이 머리 위에 1초 뜨는 하트(7칸 × 6칸). 자리는 고양이와 같은 발끝이고, 보는 쪽으로 --dx칸 옮겨 머리 위에 띄운다.
+   1초 동안 한 칸씩 떠오른다. 말풍선(10000)과 이름표(9999) 바로 아래 층이라 가구에 가리지 않는다. 움직임 줄이기를 켠 사람에게는 떠오르지 않는다 */
+.room-pet-heart {
+  --cell: var(--pet-cell, 2px);
+  position: absolute;
+  z-index: 9998;
+  margin-left: calc(var(--cell) * (var(--dx, 0) - 3.5));
+  margin-top: calc(var(--cell) * -21);
+  pointer-events: none;
+  animation: pet-heart 1s steps(3) both;
+}
+.room-pet-heart svg { display: block; width: calc(var(--cell) * 7); height: calc(var(--cell) * 6); shape-rendering: var(--pet-render, crispEdges); }
+@keyframes pet-heart { to { transform: translateY(calc(var(--cell) * -3)); } }
+@media (prefers-reduced-motion: reduce) {
+  .room-pet-heart { animation: none; }
+}
 
 .ghost { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
 .ghost .item .hit { pointer-events: none; }
@@ -1459,8 +1487,9 @@ form.user { cursor: var(--cur-arrow); }
 @media (prefers-reduced-motion: reduce) {
   .coach-arrow svg, .coach-arrow[data-dir="rise"] svg { animation: none; }
 }
-/* 가구를 쓰고 나면 아바타가 바로 앞에 서 있다. 튜토리얼이 그 가구를 다시 누르라고 할 때 아바타가 대신 눌리지 않게 한다 */
-.stage.coach-use .room-avatar { pointer-events: none; }
+/* 가구를 쓰고 나면 아바타가 바로 앞에 서 있다. 튜토리얼이 그 가구를 다시 누르라고 할 때 아바타가 대신 눌리지 않게 한다.
+   실험실의 고양이(src/pet.js)도 가구 앞에 앉아 있을 수 있어서 같이 뺀다 */
+.stage.coach-use .room-avatar, .stage.coach-use .room-pet path { pointer-events: none; }
 /* 끄는 동안에는 선반 카드를 가리킬 일이 없고 가구를 가리기만 한다 */
 body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 
