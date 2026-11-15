@@ -255,7 +255,54 @@ async function petScene() {
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
   };
 }
-const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
+
+// 실험실의 놀이터 눈(src/snow.js) 캔버스에 그려진 송이. 흰 칸이 이어진 덩어리 하나를 한 송이로 센다(송이 아래 그늘은 반투명이라 세지 않는다).
+// k: 무대 1px가 캔버스 몇 칸인지, small과 big: 그 배율에서 작은 송이와 큰 송이의 칸 수(snow.js와 같은 셈), fit: 폭이 그 둘 가운데 하나인 송이 수,
+// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 고양이 하트(9998) 아래이고
+// 방 상자가 쌓임 맥락이라 아이콘과 창 아래인지, through: 바탕화면 곳곳을 눌러도 캔버스가 받지 않는지
+function snowScene() {
+  const c = document.querySelector('#wallpaper .snow');
+  if (!c) return null;
+  const w = c.width, hgt = c.height;
+  const data = c.getContext('2d').getImageData(0, 0, w, hgt).data;
+  const white = i => data[i * 4] === 255 && data[i * 4 + 1] === 255 && data[i * 4 + 2] === 255 && data[i * 4 + 3] === 255;
+  const seen = new Uint8Array(w * hgt);
+  const widths = [];
+  let sum = 0;
+  for (let i = 0; i < w * hgt; i++) {
+    if (seen[i] || !white(i)) continue;
+    let lo = Infinity, hi = -1;
+    const stack = [i];
+    seen[i] = 1;
+    while (stack.length) {
+      const j = stack.pop(), x = j % w;
+      lo = Math.min(lo, x); hi = Math.max(hi, x); sum += j;
+      for (const n of [j - 1, j + 1, j - w, j + w]) {
+        if (n >= 0 && n < w * hgt && !seen[n] && Math.abs((n % w) - x) <= 1 && white(n)) { seen[n] = 1; stack.push(n); }
+      }
+    }
+    widths.push(hi - lo + 1);
+  }
+  const k = w / 1280;
+  const small = Math.max(1, Math.round(2 * k));
+  const big = Math.max(small + 1, Math.round(3 * k));
+  const z = el => Number(getComputedStyle(el).zIndex) || 0;
+  const desk = document.getElementById('desktop');
+  const wall = document.getElementById('wallpaper');
+  const r = c.getBoundingClientRect(), d = desk.getBoundingClientRect();
+  const under = [...wall.querySelectorAll('.item, .room-avatar, .room-pet')].map(z);
+  const through = [];
+  for (let i = 1; i < 6; i++) for (let j = 1; j < 5; j++) through.push(document.elementFromPoint(d.left + d.width * i / 6, d.top + d.height * j / 5) !== c);
+  return {
+    flakes: widths.length, k, small, big, sum,
+    fit: widths.filter(x => x === small || x === big).length,
+    covers: [r.left - d.left, r.top - d.top, r.width - d.width, r.height - d.height].every(v => Math.abs(v) < 1),
+    layer: getComputedStyle(c).pointerEvents === 'none' && Math.max(100, ...under) < z(c) && z(c) < 9998
+      && getComputedStyle(wall).isolation === 'isolate' && z(wall) < z(document.getElementById('icons')) && z(wall) < z(document.getElementById('windows')),
+    through: through.every(Boolean),
+  };
+}
+const clickTwice =sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
 function pickOther(scope, avoid = null) {
   const b = [...document.querySelectorAll(`${scope} .pic-choice`)].find(c => c.getAttribute('aria-pressed') !== 'true' && c.querySelector('.user-pic').dataset.pic !== avoid);
@@ -1254,6 +1301,55 @@ async function walk(page, base) {
   await sleep(600);
   check('친구 집 배경음악을 끄면 친구 집에 들어가도 음악 창이 열리지 않는다', await page.run(() => !document.querySelector('#windows .radio-player')));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), bgmSettings);
+
+  // ---------- 놀이터에 눈(snow) ----------
+  // 켜 두면 바탕화면이 놀이터일 때만 방 상자 안에 눈 캔버스(src/snow.js)가 깔려 송이가 내리고, 방으로 돌아오거나 끄면 바로 그친다. 친구 집의 놀이터에서도 내린다.
+  // 송이의 색과 내리는 느낌은 보지 않는다(직접 본다). 움직임 줄이기를 켠 사람에게는 내리지 않는 것은 크롬의 미디어 흉내로 본다.
+  // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
+  const snowSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const snowBox = '.labs-item[data-lab="snow"] input';
+  const snowing = () => page.run(() => !!document.querySelector('#wallpaper .snow'));
+  const setSnow = on => page.run(async on => (await import(new URL('src/labs.js', document.baseURI).href)).setLab('snow', on), on);
+  const goOut = async () => {
+    await page.run(clickTwice, '#wallpaper .door-hit');
+    return until(page, () => !!document.querySelector('#wallpaper .gate-hit'), 15000);
+  };
+  check('놀이터에 눈: 내 집으로 돌아온다', await enterMine());
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  await openIcon('labs');
+  check('실험실 창에 놀이터에 눈 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, snowBox));
+  await page.run(sel => document.querySelector(sel).click(), snowBox);
+  check('놀이터에 눈을 켜도 방에는 눈이 내리지 않는다', !(await snowing()));
+  await closeWindows();
+  check('켜고 현관문으로 놀이터에 나가면 눈 캔버스가 깔린다', (await goOut()) && await snowing());
+  await sleep(400); // 처음 몇 프레임이 그려지기를 기다린다
+  const snow1 = await page.run(snowScene);
+  await sleep(300);
+  const snow2 = await page.run(snowScene);
+  check('눈송이 40~80개가 무대 2~3px 네모(화면 픽셀 정수 개)로 그려진다', snow1 && snow1.flakes >= 40 && snow1.flakes <= 80 && snow1.fit >= snow1.flakes * 0.9, JSON.stringify(snow1));
+  check('눈송이가 내린다(0.3초 뒤에 다시 그린 자리가 다르다)', snow1 && snow2 && snow1.sum !== snow2.sum);
+  check('눈 캔버스는 바탕화면을 꼭 덮고, 가구와 아바타 위이면서 아이콘과 창 아래이고, 누르기를 받지 않는다', snow1?.covers && snow1.layer && snow1.through, JSON.stringify(snow1));
+  await probe('눈 오는 놀이터');
+  await setSnow(false);
+  check('끄면 눈이 바로 그친다', !(await snowing()));
+  await setSnow(true);
+  check('다시 켜면 놀이터에 바로 내린다', await snowing());
+  await page.run(clickTwice, '#wallpaper .gate-hit');
+  check('방으로 돌아오면 눈이 그친다', (await until(page, () => !!document.querySelector('#wallpaper .door-hit'), 15000)) && !(await snowing()));
+  await open(`#r=${bare}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  check('친구 집에서도 방에는 내리지 않고 놀이터에 나가면 눈이 내린다', !(await snowing()) && (await goOut()) && await snowing());
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  check('움직임 줄이기: 내 집으로 돌아온다', await enterMine());
+  await openIcon('labs');
+  check('움직임 줄이기를 켠 사람에게는 실험실 창의 설명이 눈이 내리지 않는다고 알린다',
+    await until(page, () => /움직임 줄이기를 켠/.test(document.querySelector('.labs-item[data-lab="snow"]')?.textContent || ''), 3000));
+  await closeWindows();
+  check('움직임 줄이기를 켠 사람에게는 놀이터에 눈이 내리지 않는다', (await goOut()) && !(await snowing()));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), snowSettings);
 
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)

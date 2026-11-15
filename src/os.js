@@ -10,6 +10,7 @@ import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet } from './pet.js';
+import { createSnow } from './snow.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
@@ -63,6 +64,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
   let pet = null; // 내 집의 방에 사는 고양이(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
+  const snow = createSnow(el.wallpaper); // 바깥 공간에 내리는 눈(실험실 snow, src/snow.js). 실험실에서 켜고 바탕화면이 놀이터일 때만 내린다(syncSnow)
 
   // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
   // 밤은 방의 불을 끈 상태라 바탕화면에서만 쓴다. 부팅과 로그인 화면은 늘 낮 색이다(known-issues 38).
@@ -85,6 +87,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       pet = null;
       os.tutorial.hide();
       setPlace(null); // 배경음악은 바탕화면에서만 튼다
+      syncSnow();
     }
   }
 
@@ -254,6 +257,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     walker?.attach();
     pet?.attach(scene.id === SCENES[0].id); // 고양이는 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
     markLiked();
+    syncSnow(); // 방 상자를 비웠으므로 눈 캔버스도 다시 붙인다
   }
 
   // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고양이가 살고(src/pet.js), 끄면 바로 사라진다.
@@ -270,6 +274,15 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     }
   }
   settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) syncPet(); });
+
+  // 실험실의 '놀이터에 눈'(snow, src/labs.js). 켜 두면 바탕화면이 바깥 공간(놀이터)일 때 눈이 내리고(src/snow.js), 끄면 바로 그친다.
+  // 내 집, 친구 집, 이웃집, 튜토리얼 연습 방의 놀이터가 모두 같다. 방(실내)과 방 꾸미기 창, 내려받는 방 그림에는 내리지 않는다.
+  // 공간을 옮기거나 방을 다시 그린 뒤(renderWallpaper), 바탕화면을 떠날 때(show), 실험실 스위치를 켜고 끌 때 부른다
+  function syncSnow() {
+    const outdoor = SCENES.find(s => s.id === os.place)?.kind === 'outdoor';
+    snow.set(labOn('snow') && outdoor && !el.desktop.hidden);
+  }
+  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) syncSnow(); });
 
   // 손님이 방에 들어오면(친구 집에 들어올 때와 놀이터에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
   function greetGuest() {
