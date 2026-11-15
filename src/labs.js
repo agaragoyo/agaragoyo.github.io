@@ -13,6 +13,7 @@
 // 실험실 항목은 화면과 동작만 바꾼다. 집 저장 형식(sanitizeHome), 공유 링크(src/share.js), 서버 규칙(firestore.rules)을 바꾸는
 // 아이디어는 스위치 뒤에 두지 않는다. 한번 보낸 링크와 서버에 올린 방은 스위치를 꺼도 되돌릴 수 없다(자동 점검이 그 파일들에서 labOn을 막는다).
 import { settings } from './settings.js';
+import { reduceMotion } from './util.js';
 
 // 말풍선에 이 말을 하면 실험실이 열린다(앞뒤 공백은 뺀다)
 export const PASSWORD = '엔믹스지우';
@@ -24,6 +25,8 @@ export const LABS = [
   { id: 'like-sparkle', title: '담긴 가구 반짝임', desc: '주인이 무언가 담아 둔 가구 위에\n작은 반짝임이 뜹니다.' },
   { id: 'pet', title: '펫 데려오기', desc: '내 방에 고양이 한 마리가 돌아다니고,\n두 번 누르면 쓰다듬을 수 있습니다.' },
   { id: 'home-bgm', title: '친구 집 배경음악', desc: '친구 집에 가면 라디오의 첫 유튜브 CD가\n배경음악으로 자동 재생되어 소리가 납니다.' },
+  // 움직임 줄이기를 켠 사람에게는 눈이 내리지 않으므로(src/snow.js) 켜도 달라지는 것이 없는 까닭을 설명에 적는다
+  { id: 'snow', title: '놀이터에 눈', desc: reduceMotion ? '움직임 줄이기를 켠 컴퓨터에서는\n놀이터에 눈이 내리지 않습니다.' : '놀이터에 나가면 날짜와 상관없이\n눈이 계속 내립니다.' },
 ];
 
 export const labsOpen = () => !!settings.get('labsOpen');

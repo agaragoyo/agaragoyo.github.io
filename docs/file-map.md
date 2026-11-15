@@ -53,6 +53,7 @@
 | 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 암호를 듣는 곳은 `src/os.js`의 `onSay` |
 | 주인이 담아 둔 가구 위에 반짝임 띄우기(실험실의 `like-sparkle`) | 가구에 `has-like` 클래스를 다는 곳은 `src/os.js`의 `markLiked`, 별 그림과 깜박임은 `style.css`의 `.has-like::after`, 별 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--sparkle-cell`) |
 | 내 방에 고양이 두기(실험실의 `pet`) | 고양이의 그림, 걷기, 쓰다듬기는 `src/pet.js`, 바탕화면에 붙이고 떼는 곳은 `src/os.js`의 `syncPet`, 아바타가 고양이 칸을 피하고 옆으로 다가가는 곳은 `src/avatar.js`의 `host.others`와 `approachCell`, 모양은 `style.css`의 `.room-pet`, 그림 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--pet-cell`) |
+| 놀이터에 눈 내리기(실험실의 `snow`) | 눈송이와 내리는 움직임은 `src/snow.js`, 바탕화면에 붙이고 떼는 곳은 `src/os.js`의 `syncSnow`, 눈 캔버스의 층은 `style.css`의 `.wallpaper .snow` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 링크(`#s=` 뒤 방 번호)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules`. 서버에 두는 방 글자는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`(예전 긴 링크 `#r=`도 같은 글자라 그대로 열린다) |
@@ -112,6 +113,7 @@
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그리고, 아바타(`avatarStill`)를 가구 사이의 앞뒤 순서에 맞춰 넣는다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
 | `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`, 실험실의 고양이 옆은 `approachCell`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`). 실험실의 주인 아바타 남기기를 켜면 친구 집의 방에 이름표를 단 주인 아바타를 세운다(`mountOwner`, 서는 칸은 `ownerCell`). 주인 아바타와 실험실의 고양이가 차지한 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다(`host.others`, 고양이가 움직이면 `restack`) | `mountAvatar`, `mountOwner`, `depthZ`, `spriteRect`, `avatarStill`, `blockedOf`, `overlaps` |
 | `src/pet.js` | 실험실의 펫 데려오기(`pet`)를 켜면 내 집의 방에 사는 임시 픽셀 고양이. 빈 바닥 칸에 앉아 있다가 10~20초마다 2~4칸 떨어진 빈칸으로 아바타의 절반 빠르기로 걷고, 두 번 누르면 아바타가 옆 칸으로 와서 쓰다듬어 하트가 1초 뜬다. 가구와 아바타의 칸과 앞뒤는 `src/avatar.js`의 규칙을 같이 쓴다. 집 저장 형식과 링크에는 아무것도 담지 않는다 | `mountPet` |
+| `src/snow.js` | 실험실의 놀이터에 눈(`snow`)을 켜면 바탕화면의 바깥 공간(놀이터)에 내리는 픽셀 눈. 바탕화면 크기의 캔버스 한 장에 64송이(무대 2~3px 네모)를 화면 픽셀 단위로 그려 초당 84~140px로 좌우로 흔들리며 내리게 한다. 탭이 뒤로 가면 멈추고, 움직임 줄이기를 켠 사람에게는 내리지 않는다 | `createSnow` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방과 놀이터 배경 그림(방 벽의 현관문과 벽지 무늬, 놀이터 울타리의 "아파트" 문과 닉네임 문패를 단 이웃집 문 포함), 벽지 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
