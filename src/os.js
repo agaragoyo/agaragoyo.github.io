@@ -21,7 +21,8 @@ import { createTutorial } from './tutorial.js';
 import { askVisit, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
-import { batchim, h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
+import { h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
+import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
 
 export function createOS({ stage, toStage, requestPowerOff, settings }) {
@@ -485,14 +486,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else use();
   };
 
-  // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 가구 이름을 말한다.
+  // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 그 가구의 혼잣말 한 줄(data/furniture.js의 say)을 말한다.
   // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(2026-11-10까지 창문이 놀이터로 나가던 길. 지금은 현관문이 맡아 쓰는 가구가 없다).
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
     if (def.gimmick?.startsWith('scene:')) return os.goScene(def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
-    walker?.say(`${def.name}${batchim(def.name) ? '이네' : '네'}.`);
+    walker?.say(furnitureLine(def));
   };
 
   // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.
