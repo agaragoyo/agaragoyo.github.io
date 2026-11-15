@@ -255,6 +255,40 @@ async function petScene() {
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
   };
 }
+// 실험실의 심심할 때 혼잣말(src/idle-talk.js)을 지켜본다. 내 아바타의 말풍선에 말이 뜰 때마다 그 말, 뜬 때, 아바타가 선 칸과
+// 그 말을 하는 가구 가운데 바로 옆(벽 가구는 벽 바로 앞)에 선 가구의 id를 window.__said에 적는다(같은 말을 다시 해도 글을 새로 넣으므로 따로 센다).
+// 아바타 그림이 움직인 횟수는 window.__moves, 입력 이벤트(pointermove, pointerdown, keydown, wheel)는 window.__inputs와 마지막 때 window.__lastInput에 적는다
+async function watchIdle() {
+  const { BY_ID } = await import(new URL('data/furniture.js', document.baseURI).href);
+  const { furnitureLine } = await import(new URL('src/furniture-line.js', document.baseURI).href);
+  const { dims, isWall, supportOf } = await import(new URL('src/rules.js', document.baseURI).href);
+  const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
+  const me = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
+  const bubble = document.querySelector('#wallpaper .room-avatar-say');
+  const beside = (items, item, c) => {
+    if (isWall(item)) {
+      const along = u => u >= item.x && u < item.x + dims(item)[0];
+      return item.wall === 'R' ? c.y === 0 && along(c.x) : c.x === 0 && along(c.y);
+    }
+    const base = supportOf(items, item) || item;
+    const [w, d] = dims(base);
+    const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
+    return !inside(c.x, c.y) && [[1, 0], [0, 1], [-1, 0], [0, -1]].some(([dx, dy]) => inside(c.x + dx, c.y + dy));
+  };
+  Object.assign(window, { __said: [], __moves: 0, __inputs: 0, __lastInput: 0 });
+  new MutationObserver(() => {
+    if (bubble.hidden) return;
+    const c = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
+    const scene = document.getElementById('desktop').dataset.kind === 'outdoor' ? 'playground' : 'room';
+    const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
+    const ids = items.filter(item => BY_ID[item.id] && furnitureLine(BY_ID[item.id]) === bubble.textContent && beside(items, item, c)).map(item => item.id);
+    window.__said.push({ text: bubble.textContent, at: performance.now(), me: c, ids });
+  }).observe(bubble, { childList: true });
+  new MutationObserver(() => { window.__moves++; }).observe(me, { attributes: true, attributeFilter: ['style'] });
+  for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) {
+    addEventListener(type, () => { window.__inputs++; window.__lastInput = performance.now(); }, { capture: true });
+  }
+}
 const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
 function pickOther(scope, avoid = null) {
@@ -1238,6 +1272,83 @@ async function walk(page, base) {
   await sleep(600);
   check('친구 집 배경음악을 끄면 친구 집에 들어가도 음악 창이 열리지 않는다', await page.run(() => !document.querySelector('#windows .radio-player')));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), bgmSettings);
+
+  // ---------- 심심할 때 혼잣말(idle-talk) ----------
+  // 켜고 바탕화면을 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 옆으로 가서 그 가구의 혼잣말을 하고, 같은 가구를 연달아 고르지 않고 되풀이한다(src/idle-talk.js).
+  // 진짜 마우스를 움직이면(CDP) 가던 길을 버리고 처음부터 다시 잰다. 창이 열려 있거나(최소화한 창은 괜찮다) 방 꾸미기 창이 있거나 말풍선에 쓰는 중이면 하지 않는다.
+  // 아바타가 혼자 걷는 동안 입력 이벤트가 생기지 않는지도 센다(생기면 화면 보호기가 늦어진다). 그림을 누르는 것은 click만 보내는 .click()으로 해서 입력으로 세지 않는다.
+  // 30초와 40~60초를 다 기다리지 않게 들어갈 때마다 src/config.js의 IDLE_TALK를 페이지 안에서 0.8초와 1.0~1.2초로 줄인다(새로 고침하면 원래대로 돌아간다)
+  const idleSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const idleBox = '.labs-item[data-lab="idle-talk"] input';
+  const FIRST = 800;
+  const idle = () => page.run(() => ({ said: window.__said, moves: window.__moves, inputs: window.__inputs, lastInput: window.__lastInput }));
+  const avatarAt = () => page.run(() => { const a = document.querySelector('#wallpaper .room-avatar'); return `${a.style.left},${a.style.top}`; });
+  const saidMore = (n, ms) => until(page, n => window.__said.length >= n, ms, n);
+  check('심심할 때 혼잣말: 내 집으로 돌아온다', await enterMine());
+  await page.run(async first => {
+    const { IDLE_TALK } = await import(new URL('src/config.js', document.baseURI).href);
+    Object.assign(IDLE_TALK, { first, again: [first + 200, first + 400] });
+  }, FIRST);
+  await page.run(watchIdle);
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  await openIcon('labs');
+  check('실험실 창에 심심할 때 혼잣말 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, idleBox));
+  await page.run(sel => document.querySelector(sel).click(), idleBox);
+  await sleep(FIRST * 2);
+  let seen = await idle();
+  check('켜도 창이 열려 있는 동안에는 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
+  // 처음 서는 칸(8, 8)에서는 점검용 집의 어느 가구든 네 칸 넘게 걸어야 한다. 걷기 시작하면 아바타 위로 진짜 마우스를 움직인다
+  await page.run(() => { window.__moves = 0; document.querySelector('#windows .win .win-min').click(); });
+  const walking = await until(page, () => window.__moves > 0, FIRST + 3000);
+  check('창을 최소화만 해 두면 바탕화면을 그냥 둘 때 아바타가 가구로 걸어간다', walking, JSON.stringify(await idle()));
+  const over = await page.run(() => { const r = document.querySelector('#wallpaper .room-avatar').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: over.x, y: over.y });
+  await sleep(300); // 걷던 한 칸(0.2초)은 마저 걷는다
+  const halted = await avatarAt();
+  await sleep(FIRST - 400);
+  seen = await idle();
+  check('가구로 걷다가 마우스를 움직이면 바로 멈추고 혼잣말을 하지 않는다', seen.said.length === 0 && halted === await avatarAt(), `${halted} → ${await avatarAt()}, ${JSON.stringify(seen.said)}`);
+  check('마우스를 움직이고 기다리면 다시 가구로 가서 혼잣말을 한다', await saidMore(1, FIRST + 5000), JSON.stringify(await idle()));
+  seen = await idle();
+  check('혼잣말은 마우스를 움직인 때부터 기다리는 시간을 처음부터 다 채운 뒤에 한다', seen.said[0].at - seen.lastInput >= FIRST - 10, `${Math.round(seen.said[0].at - seen.lastInput)}ms`);
+  check('혼잣말을 할 때는 그 말을 하는 가구 바로 옆에 서 있다', seen.said[0].ids.length > 0, JSON.stringify(seen.said[0]));
+  await page.run(() => { window.__inputs = 0; });
+  check('그 뒤로 혼잣말을 되풀이한다', await saidMore(3, 12000), JSON.stringify(await idle()));
+  seen = await idle();
+  check('같은 가구의 혼잣말을 연달아 하지 않고, 말할 때마다 그 가구 옆에 서 있다',
+    seen.said.every((s, i) => s.ids.length > 0 && (i === 0 || s.text !== seen.said[i - 1].text)), JSON.stringify(seen.said.map(s => `${s.text} ${s.ids}`)));
+  check('아바타가 혼자 걷는 동안에는 마우스와 키 입력이 생기지 않는다(화면 보호기가 늦어지지 않는다)', seen.inputs === 0, `${seen.inputs}번`);
+  // 말풍선에 쓰는 칸을 열어 둔 동안에는 하지 않는다. 아바타를 누르면 칸이 열린다
+  await page.run(() => { window.__moves = 0; window.__said.length = 0; document.querySelector('#wallpaper .room-avatar').click(); });
+  await sleep(FIRST * 2 + 500);
+  seen = await idle();
+  check('말풍선에 쓰는 칸이 열려 있으면 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
+  await press(page, 'Escape');
+  // 방 꾸미기 창은 최소화해도 하지 않는다
+  await openIcon('room');
+  await until(page, () => !!document.querySelector('#windows .win .win-min'), 3000);
+  await page.run(() => { document.querySelector('#windows .win .win-min').click(); window.__moves = 0; window.__said.length = 0; });
+  await sleep(FIRST * 2 + 500);
+  seen = await idle();
+  check('방 꾸미기 창이 열려 있으면 최소화해도 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
+  // 놀이터에서도 한다. 방에서 걷기 시작하지 않게 방 꾸미기 창을 닫기 전에 놀이터로 옮긴다.
+  // 점검용 집의 놀이터에는 벤치 하나뿐이라 한 번 말한 뒤에는 쉰다
+  await openIcon('playground');
+  await page.run(() => { window.__said.length = 0; });
+  await closeWindows();
+  check('놀이터에서도 가구 옆으로 가서 혼잣말을 한다', await saidMore(1, FIRST + 5000) && (await idle()).said[0].ids.join() === 'bench', JSON.stringify((await idle()).said));
+  await sleep(FIRST * 3);
+  seen = await idle();
+  check('갈 수 있는 가구가 지난번 가구 하나뿐이면 같은 말을 되풀이하지 않고 쉰다', seen.said.length === 1, JSON.stringify(seen.said));
+  // 끄면 지금과 같다. 가구가 여럿인 방으로 돌아가서 본다
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).setLab('idle-talk', false));
+  await openIcon('go-home');
+  await sleep(300);
+  await page.run(() => { window.__moves = 0; window.__said.length = 0; });
+  await sleep(FIRST * 3);
+  seen = await idle();
+  check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)

@@ -19,6 +19,9 @@ export const DESK_H = STAGE_H - 40;
 export const DOUBLE_CLICK_MS = 400;  // 이 시간 안에 두 번 누르면 더블클릭(예전 볼록 화면이 dblclick을 넘기지 못해 직접 재게 만들었다)
 export const SAVER_MS = 120000;      // 바탕화면을 이만큼(2분) 그냥 두면 화면 보호기가 돈다(src/screensaver.js)
 export const SAVER_FAST_MS = 20000;  // 실험실의 '화면 보호기 빨리 보기'를 켜면 SAVER_MS 대신 쓴다(src/labs.js)
+// 실험실의 '심심할 때 혼잣말'(src/idle-talk.js). 바탕화면을 first(30초) 동안 그냥 두면 아바타가 가구로 가서 혼잣말을 하고,
+// 그 뒤로 again(40~60초 사이에서 무작위)마다 되풀이한다. 숫자 대신 객체에 두어 눌러 보기 점검(tools/smoke.mjs)이 시간을 줄여 시험한다
+export const IDLE_TALK = { first: 30000, again: [40000, 60000] };
 
 // 집 안의 공간들. 'indoor'는 벽과 바닥이 있는 방, 'outdoor'는 울타리와 땅만 있는 바깥이다.
 // 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다. 바탕화면은 첫 공간(내 방)에서 시작한다.

@@ -24,6 +24,7 @@ export const LABS = [
   { id: 'like-sparkle', title: '담긴 가구 반짝임', desc: '주인이 무언가 담아 둔 가구 위에\n작은 반짝임이 뜹니다.' },
   { id: 'pet', title: '펫 데려오기', desc: '내 방에 고양이 한 마리가 돌아다니고,\n두 번 누르면 쓰다듬을 수 있습니다.' },
   { id: 'home-bgm', title: '친구 집 배경음악', desc: '친구 집에 가면 라디오의 첫 유튜브 CD가\n배경음악으로 자동 재생되어 소리가 납니다.' },
+  { id: 'idle-talk', title: '심심할 때 혼잣말', desc: '바탕화면을 30초 동안 그냥 두면\n아바타가 가구로 가서 혼잣말을 합니다.' },
 ];
 
 export const labsOpen = () => !!settings.get('labsOpen');

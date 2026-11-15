@@ -14,6 +14,7 @@ import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
+import { createIdleTalk } from './idle-talk.js';
 import { PASSWORD, labsOpen, openLabs, labOn } from './labs.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
@@ -21,7 +22,8 @@ import { createTutorial } from './tutorial.js';
 import { askVisit, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
-import { batchim, h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
+import { h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
+import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
 
 export function createOS({ stage, toStage, requestPowerOff, settings }) {
@@ -492,7 +494,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (def.gimmick === 'night') return os.toggleNight();
     if (def.gimmick?.startsWith('scene:')) return os.goScene(def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
-    walker?.say(`${def.name}${batchim(def.name) ? '이네' : '네'}.`);
+    walker?.say(furnitureLine(def));
   };
 
   // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.
@@ -527,6 +529,16 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     stage,
     canRun: () => !!os.mode && !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup && !os.tutorial?.active && !os.videoOn && document.visibilityState === 'visible',
     text: () => os.home?.greeting || `${os.home?.owner || ''}의 컴퓨터`,
+  });
+
+  // 실험실의 '심심할 때 혼잣말'(idle-talk, src/idle-talk.js). 내 방, 놀이터, 친구 집에서 내 아바타가 한다.
+  // 바탕화면을 그냥 둘 때만 하고, 최소화하지 않은 창이 하나라도 있거나 방 꾸미기 창이 열려 있으면(최소화해도) 쉰다.
+  // 가구 가까이 보기, 튜토리얼과 연습 방, 화면 보호기, 말풍선에 쓰는 중에도 쉰다
+  createIdleTalk({
+    avatar: () => walker,
+    items: () => (os.home?.scenes[os.place] || []).filter(item => BY_ID[item.id]),
+    canRun: () => !!os.mode && !el.desktop.hidden && !os.closeup && !os.tutorial?.active && !os.realHome && !os.saver.showing()
+      && !walker?.typing() && document.visibilityState === 'visible' && !os.wm.get('room') && os.wm.all().every(w => w.minimized),
   });
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
