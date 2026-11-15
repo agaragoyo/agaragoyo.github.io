@@ -5,10 +5,12 @@
 // 한 줄은 두 가지다. link(주인이 공유하기에서 만든 링크의 번호)는 방을 서버(src/cloud.js)에서 받아 와서 주인이 방을 고치면 따라 바뀌고,
 // room(예전 긴 링크의 글자)은 링크를 보낸 때의 모습에 멈춰 있다. link의 방은 페이지를 연 뒤 한 번만 받고, 로그인 화면과 놀이터가 그 값을 같이 쓴다.
 // 이름도 같다. link 이웃집은 받은 방의 주인 이름을 써서 주인이 이름 바꾸기(F28)로 닉네임을 바꾸면 따라 바뀌고, 받기 전과 room 이웃집은 목록의 이름을 쓴다.
+// 고정한 이웃집(link 줄에 복사본 keep이 있는 줄)은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌을 때 복사본으로 대신 열어서 사라지지 않는다.
+// 그런 방을 올린 브라우저에서는 서버의 방을 지우는 길(이 컴퓨터 초기화, 공유하기의 링크 지우기)을 막는다(pinnedHere).
 import { NEIGHBORS } from '../data/neighbors.js';
 import { N } from './config.js';
 import { decodeHome, linkId } from './share.js';
-import { fetchHome } from './cloud.js';
+import { fetchHome, sharedId } from './cloud.js';
 import { line } from './likes.js';
 import { h } from './util.js';
 import { play } from './sound.js';
@@ -19,29 +21,42 @@ const GATE_W = 2; // 울타리 문 하나의 폭(칸)
 // 링크 번호 8글자. 모양이 틀리면 빈 글자다(짧은 링크 #s=와 같은 규칙, src/share.js의 linkId)
 const asLink = v => (typeof v === 'string' && linkId(`#s=${v}`)) || '';
 
+// 고정한 집의 복사본. link 줄에서만 쓰고, 풀리지 않는 글자는 없는 것으로 친다(tools/check.py가 오류로 알린다)
+const asKeep = n => (asLink(n.link) && typeof n.keep === 'string' && decodeHome(n.keep) ? n.keep : '');
+
 // 이름이 없거나 link도 room도 쓸 수 없는 줄은 뺀다. 둘 다 있으면 link를 쓴다(tools/check.py가 오류로 알린다). 순서는 목록 그대로다.
 export const NEIGHBOR_LIST = NEIGHBORS
-  .map(n => ({ id: String(n.id), name: line(n.name, 12), link: asLink(n.link), room: String(n.room || '') }))
+  .map(n => ({ id: String(n.id), name: line(n.name, 12), link: asLink(n.link), room: String(n.room || ''), keep: asKeep(n) }))
   .filter(n => n.name && (n.link || decodeHome(n.room)))
   .slice(0, MAX_NEIGHBORS);
 
 // link 이웃집의 방 글자를 서버에서 받는다. 번호마다 한 번만 받는다.
 // 받은 값: 글자, null(서버에 그런 방이 없음), undefined(서버에 닿지 못함. 다음에 다시 받도록 기억하지 않는다)
+// 복사본(keep)이 있는 집은 서버에 방이 없거나 받은 글자가 풀리지 않을 때 복사본의 글자가 되고, 서버에 닿지 못할 때도 이번에는 복사본을 쓴다(다음에는 서버에 다시 묻는다).
+// 그래서 고정한 집은 null이나 undefined가 되지 않는다.
 const asked = new Map(); // 번호 → 받는 중이거나 받은 일(Promise)
 const known = new Map(); // 번호 → 받은 글자나 null
 function codeOf(n) {
   if (!n.link) return Promise.resolve(n.room);
   if (!asked.has(n.link)) {
     asked.set(n.link, fetchHome(n.link).then(code => {
-      known.set(n.link, code);
-      return code;
+      const got = n.keep && !(code && decodeHome(code)) ? n.keep : code;
+      known.set(n.link, got);
+      return got;
     }, err => {
       console.warn('이웃집의 방을 받지 못했다', n.id, err);
       asked.delete(n.link);
-      return undefined;
+      return n.keep || undefined;
     }));
   }
   return asked.get(n.link);
+}
+
+// 이 브라우저가 올린 방이 고정한 이웃집이면 그 이웃집의 줄, 아니면 null. 그 방을 서버에서 지우는 길(로그인 화면의 이 컴퓨터 초기화, 공유하기의 링크 지우기)은
+// 서버의 방을 지우기 전에 이것을 보고 막는다. 지우면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고 주인의 방도 사라진다. tools/check.py가 unshare()를 부르는 파일에 이 이름이 있는지 본다.
+export function pinnedHere() {
+  const id = sharedId();
+  return (id && NEIGHBOR_LIST.find(n => n.keep && n.link === id)) || null;
 }
 
 // 그 집을 열 때마다 글자를 새로 푼다(구경하는 동안 바뀐 것이 목록에 남지 않게).

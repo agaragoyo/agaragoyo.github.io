@@ -8,6 +8,7 @@ import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
 import { withPicture } from '../user-pictures.js';
 import { sharedId, share, unshare, syncNow } from '../cloud.js';
+import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
 import { h } from '../util.js';
@@ -99,6 +100,10 @@ export function openShareApp(os, app) {
       // 링크 지우기: 되돌릴 수 없으므로 무엇이 일어나는지 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
       const remove = async e => {
         e.currentTarget.disabled = true;
+        if (pinnedHere()) { // 이웃집에 고정한 방은 지우지 않는다(data/neighbors.js의 keep). 단추는 보이지 않지만 다른 탭에서 고정되었을 수 있다
+          w.refreshLink();
+          return;
+        }
         try {
           await unshare();
           os.toast('링크를 지웠습니다.');
@@ -120,7 +125,11 @@ export function openShareApp(os, app) {
         linkSlot.replaceChildren(...(id ? [linkRow] : []));
         if (os.realHome) intro.replaceChildren('연습 방은 공유되지 않습니다. 링크와 그림에는 저장된 내 방이 담깁니다.');
         else intro.replaceChildren('링크를 받은 친구는 내 컴퓨터에 손님으로 들어와 방을 ', nw('구경할 수 있습니다.'), ' 방을 고치면 같은 링크에서 고친 방이 보입니다.');
-        if (id) {
+        if (id && pinnedHere()) {
+          // 이웃집에 고정한 방은 링크를 지울 수 없다. 지우면 그 이웃집이 복사본으로 멈추고 이 방도 사라진다(src/neighbors.js의 pinnedHere)
+          cloudTip.replaceChildren('링크의 방은 이웃집에 고정되어 있어 지울 수 없습니다.');
+          cloudRow.replaceChildren();
+        } else if (id) {
           cloudTip.replaceChildren('링크의 방은 Firebase(구글) 서버에 저장되어 있습니다.');
           cloudRow.replaceChildren(button('링크 지우기', askRemove));
         } else {
