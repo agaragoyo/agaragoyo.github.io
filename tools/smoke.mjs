@@ -143,6 +143,7 @@ async function extraNeighbor(page, row) {
 }
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
+// 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
 // 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
 function fakeYouTube() {
   const real = window.fetch;
@@ -153,9 +154,27 @@ function fakeYouTube() {
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
     if (asked.includes('aaaaaaaaaaa')) return new Response('Bad Request', { status: 400 });
     if (asked.includes('Private')) return new Response('Not Found', { status: 404 });
+    if (asked.includes('Blocked')) return new Response('Unauthorized', { status: 401 });
+    if (asked.includes('Forbidden')) return new Response('Forbidden', { status: 403 });
     return new Response(JSON.stringify({ title: '점검용 유튜브 노래', thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg' }));
   };
   return true;
+}
+// 라디오 넣는 칸에 주소를 넣고 넣기를 누른다
+function putYouTube(url) {
+  document.querySelector('.closeup form input').value = url;
+  document.querySelector('.closeup form').requestSubmit();
+}
+// 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
+function radioErrorShows(pattern) {
+  const err = document.querySelector('.closeup .like-error');
+  if (!err || err.hidden || !new RegExp(pattern).test(err.textContent)) return false;
+  const lines = [...err.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim());
+  return lines.length === 2 && lines.every(n => {
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    return range.getClientRects().length === 1;
+  });
 }
 
 // 게임 폴더의 우리 게임(apps/ 아래)과 새 탭으로 여는 앱의 id
@@ -900,11 +919,17 @@ async function walk(page, base) {
   // 찾을 수 없다는 답은 받아 두지 않는다. 주인이 유튜브에서 고친 뒤 넣기를 다시 누르면 다시 묻는다(known-issues 71)
   await page.run(() => document.querySelector('.closeup form').requestSubmit());
   check('유튜브가 찾지 못한 주소는 넣기를 다시 누르면 다시 묻는다', await until(page, () => window.__oembed['https://www.youtube.com/watch?v=aaaaaaaaaaa'] === 2, 4000));
-  await page.run(() => {
-    document.querySelector('.closeup form input').value = 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke';
-    document.querySelector('.closeup form').requestSubmit();
-  });
-  check('비공개 재생목록은 넣지 않고 일부 공개로 바꾸라고 알린다', await until(page, () => /일부 공개로 바꿔/.test(document.querySelector('.closeup .like-error')?.textContent || ''), 4000));
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokePrivate0000&si=smoke');
+  check('찾을 수 없는 재생목록은 넣지 않고 공개로 바꾸라고 알린다', await until(page, radioErrorShows, 4000, '찾을 수 없는 재생목록입니다.*비공개라면 공개로 바꿔'));
+  // 다른 사이트에서 재생을 막은 재생목록(oEmbed 401)에 영상이라고 알리거나 일부 공개로 바꾸라고 하면 안 된다(known-issues 79). 같은 안내가 연달아 뜨지 않게 영상을 사이에 둔다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeBlocked0000&si=smoke');
+  check('막힌 재생목록은 재생목록이라고 알리고 공개로 바꾸거나 곡 하나를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나 곡 하나의 주소'));
+  await page.run(putYouTube, 'https://youtu.be/BlockedVid1');
+  check('막힌 영상은 영상이라고 알리고 다른 영상의 주소를 넣으라고 한다', await until(page, radioErrorShows, 4000, '재생할 수 없는 영상입니다.*다른 영상의 주소'));
+  // 유튜브가 403으로 답하는 재생목록(2026-11-15에 비공개로 보인 재생목록)도 넣지 않는다. 번호를 몰라 답 없음으로 지나치면 확인 없이 들어간다
+  await page.run(putYouTube, 'https://music.youtube.com/playlist?list=PLsmokeForbidden00&si=smoke');
+  check('403으로 답하는 재생목록도 막힌 재생목록으로 알린다', await until(page, radioErrorShows, 4000, '재생할 수 없는 재생목록입니다.*공개로 바꾸거나'));
+  check('막힌 CD는 라디오에 들어가지 않는다', (await page.run(savedHome)).likes.radio?.length === 1);
   // 유튜브 뮤직 주소를 넣으면 이름 칸이 채워지고, CD는 같은 영상의 유튜브 주소로 저장된다
   await page.run(() => {
     const [url, name] = document.querySelectorAll('.closeup form input');
