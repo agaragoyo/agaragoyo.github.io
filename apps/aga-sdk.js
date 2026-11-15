@@ -19,8 +19,8 @@
 //                       card.tip(글, { at, onSkip }) 은 판 위에 한 줄 안내와 건너뛰기 단추를 띄운다(card.tip(null) 로 숨김).
 //                       자세한 쓰는 법은 아래 gameCard 함수 위의 설명과 apps/README.md
 //   AGA.onHide(함수) / AGA.onShow(함수)
-//                       창을 최소화해 앱이 가려지면 onHide에 넣은 함수를, 작업 표시줄에서 다시 띄우면 onShow에 넣은 함수를 부른다.
-//                       가려진 동안 게임의 움직임과 시계를 멈추는 데 쓴다. 지금은 실험실의 "최소화하면 게임 멈추기"를 켠 동안만 불린다
+//                       앱이 가려지면 onHide에 넣은 함수를, 다시 보이면 onShow에 넣은 함수를 부른다. 가려지는 때는 창을 최소화했을 때와
+//                       브라우저 탭이 뒤로 갔을 때다(둘이 겹쳐도 바뀔 때 한 번씩만 부른다). 가려진 동안 게임의 움직임과 시계를 멈추는 데 쓴다
 //
 // 커서: 아가라고요 창 안에서는 페이지 기본 커서가 그 시절 모양의 화살표로 바뀐다. 버튼 같은 곳에 손가락을 쓰려면
 //   cursor: var(--aga-hand, pointer);   처럼 쓴다(--aga-arrow, --aga-grab, --aga-grabbing, --aga-wait 도 있다).
@@ -31,10 +31,20 @@
   const id = (location.pathname.match(/\/apps\/([^/]+)\//) || [])[1] || '';
   let info = null;
   const waiting = [];
-  // 창이 가려지고 다시 보일 때 부를 함수들(AGA.onHide, AGA.onShow). 보이는지가 바뀔 때만 부른다
+  // 앱이 가려지고 다시 보일 때 부를 함수들(AGA.onHide, AGA.onShow). 가려지는 길은 둘이다. OS가 창을 최소화했다고 알릴 때와
+  // 브라우저 탭이 뒤로 가서 이 문서가 hidden이 될 때다. 최소화는 탭이 보이는 채라 문서에 visibilitychange가 오지 않으므로(known-issues 75)
+  // 둘을 합쳐 보고, 보이는지가 바뀔 때만 부른다
   const onHide = [];
   const onShow = [];
+  let minimized = false; // OS가 이 창을 최소화했다고 알렸는지
   let visible = true;
+  const updateVisible = () => {
+    const now = !minimized && document.visibilityState !== 'hidden';
+    if (now === visible) return;
+    visible = now;
+    (visible ? onShow : onHide).forEach(fn => fn());
+  };
+  document.addEventListener('visibilitychange', updateVisible);
 
   window.addEventListener('message', e => {
     if (e.source !== host || !e.data || e.data.aga !== 1) return;
@@ -43,9 +53,9 @@
       waiting.splice(0).forEach(resolve => resolve(info));
     }
     if (e.data.type === 'cursor') applyCursor(e.data.cursor || {});
-    if (e.data.type === 'visible' && !!e.data.visible !== visible) {
-      visible = !!e.data.visible;
-      (visible ? onShow : onHide).forEach(fn => fn());
+    if (e.data.type === 'visible') {
+      minimized = !e.data.visible;
+      updateVisible();
     }
   });
 
