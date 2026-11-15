@@ -34,8 +34,8 @@ export function fitUserPictures(style, scale, dpr) {
   }
 }
 
-// 지금 무대 배율에서 사진 자리(slot)의 그림 크기(무대 px)
-const shownSize = slot => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(`--user-pic-${slot}`)) || slot;
+// 지금 무대 배율에서 사진 자리(slot)의 그림 크기(무대 px). 사진을 보이는 창(사진 바꾸기, 이름 바꾸기)이 창 높이를 정할 때 쓴다
+export const shownSize = slot => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(`--user-pic-${slot}`)) || slot;
 
 // 이 컴퓨터 사용자의 사진 값. 고른 적이 없으면(사진이 생기기 전에 만든 사용자) 닉네임으로 한 장을 정한다.
 // 그 사진은 저장하지 않지만 같은 닉네임이면 늘 같은 사진이 나온다.
@@ -151,7 +151,7 @@ export function picturePicker(current, onPick, toast) {
 // 시작 메뉴와 로그인 화면은 열 때마다 새로 그리므로 다음에 열면 바꾼 사진이 나온다.
 // 링크를 만들어 둔 방이면 os.saveHome이 서버의 방도 새 사진으로 고친다(예전 긴 링크는 이미 보낸 것이라 그대로다).
 // 사진 크기가 무대 배율마다 달라서 창 크기는 열 때의 사진 크기로 정한다. 사진 둘레의 테두리와 여백, 그림 파일 찾아보기,
-// 닫기 단추 줄, 창 안쪽 여백을 더한 값이다
+// 닫기 단추 줄, 창 안쪽 여백을 더한 값이다. 창을 연 채 이름을 바꾸면 창 위의 이름도 바뀐다(win.refreshOwner, src/user-name.js)
 export function openPictureWindow(os) {
   const owner = os.home.owner;
   const big = shownSize(48);
@@ -162,7 +162,7 @@ export function openPictureWindow(os) {
     title: '사진 바꾸기',
     width: Math.max(400, Math.ceil(8 * (small + 6) + 7 * 4 + 32 + 4)),
     height: Math.ceil(big + small + 121),
-    build(body) {
+    build(body, w) {
       body.classList.add('pic-app');
       const face = h('span', { className: 'avatar has-pic' }, pictureEl(ownPicture(owner), 48));
       const picker = picturePicker(ownPicture(owner), v => {
@@ -170,8 +170,10 @@ export function openPictureWindow(os) {
         face.replaceChildren(pictureEl(v, 48));
         os.saveHome(false);
       }, os.toast);
+      const name = h('b', {}, owner);
+      w.refreshOwner = () => { name.textContent = os.home.owner; };
       body.append(
-        h('div', { className: 'pic-app-head' }, face, h('b', {}, owner)),
+        h('div', { className: 'pic-app-head' }, face, name),
         picker,
         h('div', { className: 'link-row' }, h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
       );

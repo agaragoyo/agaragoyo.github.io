@@ -270,6 +270,12 @@ export const myUid = () => state().uid || null;
 // 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임(다음 쪽지의 닉네임 칸에 미리 넣는다)
 export const lastNick = () => (typeof state().nick === 'string' ? state().nick : '');
 
+// 이름을 바꿀 때(src/user-name.js) 쪽지에 쓴 닉네임이 예전 이름이면 새 이름으로 바꾼다.
+// 그대로 두면 예전 이름(실명일 수 있다)이 다음 쪽지의 닉네임 칸에 다시 들어간다. 다른 닉네임을 써 왔으면 그대로 둔다
+export function renameNick(from, to) {
+  if (state().nick === from) remember({ nick: to });
+}
+
 // 주인이 마지막으로 본 쪽지의 시각(밀리초). 보드를 열어 가장 최근 쪽지를 받으면 그 시각을 남긴다.
 export const notesSeenAt = () => Number(state().seen) || 0;
 export function markNotesSeen(at) {
