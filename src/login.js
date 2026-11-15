@@ -62,10 +62,11 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return tile;
   }
 
-  // 이웃집의 자리. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 문패 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
+  // 이웃집의 자리. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 목록의 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
+  // 받으면 서버의 방 주인 이름으로 보인다(주인이 이름 바꾸기로 닉네임을 바꾸면 따라 바뀐다).
   // 서버에 방이 없거나 받지 못하면 그 이웃집을 뺀다. 사용자가 부른 집이 아니라서 따로 알리지 않는다. 서버에 방이 없다고 이미 알면 null이다.
   function neighborTile(n, my) {
-    const ready = home => userTile(n.name, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my), 'neighbor', home.picture);
+    const ready = home => userTile(home.owner, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my), 'neighbor', home.picture);
     const now = neighborNow(n);
     if (now !== undefined) return now && ready(now);
     const tile = h('button', { type: 'button', className: 'user neighbor', disabled: true },
