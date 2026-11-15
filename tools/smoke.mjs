@@ -14,6 +14,7 @@
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
 // 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
+// 유튜브 재생목록 CD의 이전 곡, 다음 곡 단추는 유튜브 API(window.YT)를 페이지 안의 가짜로 바꿔 끼워(fakePlayer) 단추가 언제 쉬고 켜지는지와 보내는 명령을 본다.
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
 // 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
@@ -144,11 +145,12 @@ async function extraNeighbor(page, row) {
 
 // 유튜브 oEmbed 대신 페이지 안에서 답한다. 없는 영상(id가 aaaaaaaaaaa)은 유튜브처럼 400으로, 비공개 재생목록(목록 번호에 Private가 든 것)은 404로,
 // 다른 사이트에서 재생을 막은 것(Blocked가 든 것)은 401로, 비공개로 보이는 재생목록(Forbidden이 든 것)은 403으로,
-// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed)
+// 다른 영상은 이름을 담아 답한다. 물어 온 횟수를 주소마다 센다(window.__oembed). 스포티파이 oEmbed도 같은 방법으로 이름만 담아 답한다
 function fakeYouTube() {
   const real = window.fetch;
   window.__oembed = {};
   window.fetch = async (url, opts) => {
+    if (String(url).startsWith('https://open.spotify.com/oembed')) return new Response(JSON.stringify({ title: '점검용 스포티파이 앨범' }));
     if (!String(url).startsWith('https://www.youtube.com/oembed')) return real(url, opts);
     const asked = decodeURIComponent(String(url).split('url=')[1]);
     window.__oembed[asked] = (window.__oembed[asked] || 0) + 1;
@@ -164,6 +166,58 @@ function fakeYouTube() {
 function putYouTube(url) {
   document.querySelector('.closeup form input').value = url;
   document.querySelector('.closeup form').requestSubmit();
+}
+// 유튜브 IFrame Player API(window.YT)를 페이지 안의 가짜로 바꿔 끼운다. 앱이 만든 플레이어는 window.__yt에 차례로 쌓이고,
+// 점검이 ready()로 플레이어가 준비된 때를, fail(번호)로 오류를 알리는 때를 정한다. 명령은 calls에 이름이 남고, 떼어진(destroy) 플레이어는 진짜처럼 명령 함수가 없어진다
+function fakePlayer() {
+  window.__yt = [];
+  window.YT = {
+    Player: class {
+      constructor(frame, opts) {
+        this.frame = frame;
+        this.events = opts.events;
+        this.calls = [];
+        window.__yt.push(this);
+      }
+      ready() { this.events.onReady(); }
+      fail(code) { this.events.onError({ data: code }); }
+      previousVideo() { this.calls.push('previousVideo'); }
+      nextVideo() { this.calls.push('nextVideo'); }
+      mute() { this.calls.push('mute'); }
+      unMute() { this.calls.push('unMute'); }
+      destroy() { this.previousVideo = this.nextVideo = this.mute = this.unMute = undefined; }
+    },
+  };
+  return true;
+}
+// 음악 창의 곡 넘기기 단추 줄: 보이는지, 단추 글자와 쉬는 모양, 플레이어와의 자리(겹치지 않는지, 200px 이상인지), 창 높이
+function skipState() {
+  const row = document.querySelector('#windows .radio-player-skips');
+  const frame = document.querySelector('#windows .radio-player iframe');
+  const win = document.querySelector('#windows .radio-player')?.closest('.win');
+  if (!row || !frame || !win) return null;
+  const buttons = [...row.querySelectorAll('button')];
+  const f = frame.getBoundingClientRect();
+  const r = row.getBoundingClientRect();
+  const w = win.getBoundingClientRect();
+  const shown = getComputedStyle(row).display !== 'none';
+  // 창 바탕(.flush)은 넘친 것을 잘라서(overflow: hidden) 창 높이가 모자라면 맨 아래 안내 줄이 말없이 사라진다
+  const body = win.querySelector('.win-body');
+  const note = body.querySelector('.radio-player-note');
+  return {
+    shown,
+    noteFits: note.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1,
+    texts: buttons.map(b => b.textContent.trim()),
+    titles: buttons.map(b => b.title),
+    disabled: buttons.map(b => b.disabled),
+    frameW: frame.offsetWidth,
+    frameH: frame.offsetHeight,
+    below: shown && r.top >= f.bottom - 1,
+    inside: shown && buttons.every(b => { const x = b.getBoundingClientRect(); return x.left >= w.left && x.right <= w.right && x.bottom <= w.bottom; }),
+    rowH: row.offsetHeight,
+    winH: win.offsetHeight,
+    note: document.querySelector('#windows .radio-player-note').textContent,
+  };
 }
 // 넣는 칸의 안내가 이 글(문장 둘이 줄을 나눠 뜨는 안내)이고, 문장마다 한 줄에 들어가는지(어색하게 꺾이지 않는지)
 function radioErrorShows(pattern) {
@@ -961,6 +1015,69 @@ async function walk(page, base) {
     const cd = JSON.parse(localStorage.getItem('agarago.home.v3')).likes.radio?.[1];
     return cd?.url === 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' && cd.name === '점검용 유튜브 노래';
   }, 5000));
+
+  // 유튜브 재생목록 CD에만 음악 창의 플레이어 아래에 이전 곡, 다음 곡 단추가 뜬다. 유튜브의 플레이어와 API 스크립트는 받지 않으므로(main의 BLOCKED)
+  // 가짜 플레이어(fakePlayer)로 단추가 언제 쉬고 켜지는지, 무슨 명령을 보내는지를 본다. 곡이 실제로 넘어가는지는 진짜 유튜브가 필요해 직접 본다
+  // (localhost에서. 127.0.0.1에서는 유튜브가 막는다, known-issues 69)
+  const LIST = 'https://www.youtube.com/playlist?list=PLsmokeList00000';
+  const addCd = async (url, count) => {
+    await page.run(clickText, '.closeup .radio-tools .btn', 'CD 넣기');
+    await until(page, () => !!document.querySelector('.closeup form'), 3000);
+    await page.run(putYouTube, url);
+    return until(page, n => JSON.parse(localStorage.getItem('agarago.home.v3')).likes.radio?.length === n, 6000, count);
+  };
+  check('유튜브 재생목록 CD를 넣는다', await addCd(LIST, 3));
+  check('스포티파이 앨범 CD를 넣는다', await addCd('https://open.spotify.com/album/1A2B3C4D5E6F7G8H9I0J1K', 4));
+  // 펼친 줄에서 CD를 골라 음악 창이 그 CD의 플레이어로 바뀔 때까지 기다린다(src가 가리키는 곳은 CD마다 다르다)
+  const playCd = async (link, embed) => {
+    await page.run(l => document.querySelector(`.closeup .cd-pick[data-link="${l}"]`).click(), link);
+    return until(page, e => (document.querySelector('#windows .radio-player iframe')?.src || '').includes(e), 6000, embed);
+  };
+  await page.run(fakePlayer);
+  const errorsBefore = page.pageErrors.length;
+  check('재생목록 CD를 고르면 음악 창이 열린다', await playCd(LIST, 'videoseries?list=PLsmokeList00000'));
+  await sleep(100);
+  let skip = await page.run(skipState);
+  check('재생목록 CD에는 플레이어 아래에 이전 곡, 다음 곡 단추가 뜬다', skip?.shown && skip.below && skip.texts.join() === '이전 곡,다음 곡', JSON.stringify(skip));
+  check('단추의 툴팁은 명사형 15자 이하다', skip.titles.every(t => t && t.length <= 15 && !/[다요]$/.test(t)), skip.titles.join(' / '));
+  check('단추를 놓아도 플레이어는 200×200px 이상이고 단추는 플레이어에 겹치지 않고 창 안에 들며 안내 줄도 다 보인다', skip.frameW >= 200 && skip.frameH >= 200 && skip.below && skip.inside && skip.noteFits, JSON.stringify(skip));
+  check('플레이어가 명령을 받을 수 있기 전에는 쉬는 단추다', skip.disabled.every(Boolean));
+  await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
+  check('쉬는 단추를 눌러도 플레이어에 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).length === 0);
+  await probe('재생목록 음악 창');
+  await page.run(() => window.__yt.at(-1).ready());
+  skip = await page.run(skipState);
+  check('플레이어가 준비되면 단추가 켜진다', skip.disabled.every(d => !d));
+  const [listWinH, listRowH] = [skip.winH, skip.rowH];
+  await page.run(clickText, '#windows .radio-player-skips .btn', '다음 곡');
+  await page.run(clickText, '#windows .radio-player-skips .btn', '이전 곡');
+  check('다음 곡을 누르면 nextVideo를, 이전 곡을 누르면 previousVideo를 부른다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
+  // 오류가 나면 단추는 쉰다. 그 전에 준비된 플레이어가 그대로 있어도 눌러서 명령이 가지 않는다
+  await page.run(() => window.__yt.at(-1).fail(150));
+  skip = await page.run(skipState);
+  check('플레이어가 오류를 알리면 안내가 창 안에 다 보이게 뜨고 단추는 다시 쉰다', /재생할 수 없습니다/.test(skip.note) && skip.disabled.every(Boolean) && skip.noteFits, JSON.stringify(skip));
+  await page.run(() => document.querySelectorAll('#windows .radio-player-skips .btn').forEach(b => b.click()));
+  check('오류가 난 뒤에는 눌러도 명령이 가지 않는다', (await page.run(() => window.__yt.at(-1).calls)).join() === 'nextVideo,previousVideo');
+  // 음악 창에서 CD가 바뀌면 단추도 그 CD에 맞게 바뀐다. 영상 하나, 애플 뮤직, 스포티파이 CD에는 단추가 없고 창은 단추 줄만큼 줄어든다
+  check('영상 하나짜리 유튜브 CD로 바꾸면 단추가 사라지고 창이 단추 줄만큼 줄어든다', await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ')
+    && await until(page, () => !!document.querySelector('#windows .radio-player-skips') && getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 3000));
+  skip = await page.run(skipState);
+  check('단추를 거둔 창의 높이는 단추 줄만큼 낮다', listRowH >= 34 && listWinH - skip.winH === listRowH, `재생목록 창 ${listWinH}px, 단추 줄 ${listRowH}px, 영상 창 ${skip.winH}px`);
+  await probe('영상 음악 창');
+  await playCd('https://music.apple.com/kr/playlist/x/pl.u-abcdefgh', 'embed.music.apple.com');
+  check('애플 뮤직 CD에는 단추가 없다', (await page.run(skipState)).shown === false);
+  await playCd('https://open.spotify.com/album/1A2B3C4D5E6F7G8H9I0J1K', 'open.spotify.com/embed/album');
+  check('스포티파이 CD에는 단추가 없다', (await page.run(skipState)).shown === false);
+  await playCd(LIST, 'videoseries?list=PLsmokeList00000');
+  skip = await page.run(skipState);
+  check('다시 재생목록 CD로 바꾸면 단추가 돌아오고 준비될 때까지 쉰다', skip.shown && skip.disabled.every(Boolean) && skip.winH === listWinH, JSON.stringify(skip));
+  // 유튜브의 API 스크립트를 받지 못하면(막았거나 끊겼다) 플레이어는 돌아도 명령을 보낼 길이 없어 단추를 거둔다
+  await page.run(() => { delete window.YT; return true; });
+  await playCd('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'embed/dQw4w9WgXcQ');
+  await playCd(LIST, 'videoseries?list=PLsmokeList00000');
+  check('API 스크립트를 받지 못하면 재생목록 CD에서도 단추를 거둔다', await until(page, () => getComputedStyle(document.querySelector('#windows .radio-player-skips')).display === 'none', 4000));
+  check('단추를 누르거나 쉬게 하는 동안 페이지 오류가 나지 않는다', page.pageErrors.length === errorsBefore, page.pageErrors.slice(errorsBefore).join(' | '));
+  await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
   await page.run(() => document.activeElement?.blur());
   await press(page, 'Escape');
 

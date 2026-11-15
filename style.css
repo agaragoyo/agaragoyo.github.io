@@ -2041,7 +2041,13 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .cd-swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px #fffaf0, 0 0 0 5px #2f231b; }
 /* 음악 창: 서비스의 공식 플레이어와 미리 듣기 안내. 창 바탕(.flush)이 밤낮 없이 어두워 글자색을 고정한다 */
 .radio-player { display: flex; flex-direction: column; }
-.radio-player iframe { display: block; width: 100%; border: 0; }
+/* 플레이어는 줄어들지 않게 한다(flex: none). 창 높이가 모자라면 flex가 iframe을 줄여 유튜브가 정한 200×200px 아래로 내려간다(known-issues 81) */
+.radio-player iframe { display: block; flex: none; width: 100%; border: 0; }
+/* 유튜브 재생목록의 곡 넘기기 단추(src/apps/radio-app.js): 플레이어 아래 줄에 .btn 둘(34px 높이)을 놓는다. 플레이어 위에는 겹치지 않는다.
+   플레이어가 명령을 받을 수 있기 전과 오류가 난 뒤에는 쉬는 단추로, 글자색을 바탕(#e6e3d9)과 5:1 넘게 둔다 */
+.radio-player-skips { display: flex; gap: 8px; padding: 8px 10px 0; }
+.radio-player-skips[hidden] { display: none; }
+.radio-player-skips .btn:disabled { border-color: #9a9588; background: #e6e3d9; color: #5f5a4d; box-shadow: none; cursor: var(--cur-arrow); }
 .win-body .radio-player-note { margin: 0; padding: 7px 10px; font-size: 13px; color: #e6e1d6; }
 @media (prefers-reduced-motion: reduce) {
   .cd.spin { animation: none; }
