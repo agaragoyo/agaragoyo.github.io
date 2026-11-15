@@ -12,7 +12,7 @@
 // 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
-// 상자 밖으로 나가거나 말없이 잘린 글(82).
+// 상자 밖으로 나가거나 말없이 잘린 글(83).
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
 // 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
@@ -43,7 +43,7 @@ const EVIL = {
   greeting: '<i>안녕</i>',
 };
 
-// 긴 글 점검(known-issues 82)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
+// 긴 글 점검(known-issues 83)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
 // 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
 // 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
 const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
@@ -111,7 +111,7 @@ function overflowing() {
   return [...new Set(out)].slice(0, 8);
 }
 
-// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 82). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
+// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 83). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
 // 크기가 정해진 자리에서 말줄임표(text-overflow, -webkit-line-clamp)로 끝난 글은 그 글이나 조상의 title에 전체 글이 있어야 하고,
 // 스크롤되는 칸에서 가려진 글은 스크롤하면 보이므로 괜찮다. 기울인 CD와 쪽지는 재는 동안만 기울기를 푼다(overflowing과 같다)
 function cutText(scope = '#windows .win, .closeup, #start-menu, #login, #toast') {
@@ -518,6 +518,36 @@ async function watchIdle() {
   for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) {
     addEventListener(type, () => { window.__inputs++; window.__lastInput = performance.now(); }, { capture: true });
   }
+}
+// 분신사바의 공포 모드에서 아무도 없는 빈칸에 뜬 말풍선(src/horror.js의 speak)을 본다. 글이 text인 말풍선이 없으면 null이다.
+// 말풍선이 뜬 칸이 가구도 아바타도 없는 빈칸인지(empty), 아바타가 선 칸에서 몇 칸인지(dist), 화면에서 아바타와 같은 높이의 바로 옆 칸인지(side),
+// 속삭임 모양의 점선 테두리로 천천히 나타나는지(fade),
+// 아바타가 그 칸 쪽을 보는지(looking, src/avatar.js의 FACING: 왼쪽 위나 오른쪽 위를 보면 뒷모습 줄, 오른쪽을 보면 뒤집음)를 돌려준다.
+// need를 주면 그 값이 참일 때만 돌려준다(until로 기다릴 때 쓴다)
+async function voiceSpot(text, need = '') {
+  const v = document.querySelector('#wallpaper .horror-voice');
+  const me = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
+  if (!v || !me || v.textContent !== text) return null;
+  const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
+  const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + 104);
+  const my = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
+  const { emptyCells } = await import(new URL('src/avatar.js', document.baseURI).href);
+  const scene = document.getElementById('desktop').dataset.kind === 'outdoor' ? 'playground' : 'room';
+  const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
+  const dx = at.x - my.x;
+  const dy = at.y - my.y;
+  const dir = Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+  const row = dir[0] < 0 || dir[1] < 0 ? 1 : 0;
+  const flip = dir[0] ? dir[0] > 0 : dir[1] < 0;
+  const spot = {
+    at, my,
+    empty: emptyCells(items, [my]).some(c => c.x === at.x && c.y === at.y),
+    dist: Math.abs(dx) + Math.abs(dy),
+    side: at.x + at.y === my.x + my.y && Math.abs(dx - dy) === 2,
+    fade: getComputedStyle(v).animationName === 'horror-voice' && getComputedStyle(v).borderTopStyle === 'dashed',
+    looking: parseFloat(me.style.backgroundPosition.split(' ')[1]) === -row * 104 && me.classList.contains('flip') === flip,
+  };
+  return !need || spot[need] ? spot : null;
 }
 const clickTwice =sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
@@ -1017,8 +1047,69 @@ async function walk(page, base) {
     return document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark, #wallpaper .furn.askew')
       && (clock === hhmm(new Date()) || clock === hhmm(new Date(Date.now() - 60000))) && document.querySelector('#wallpaper .room-avatar-say')?.textContent === END;
   }, '불이 켜지고 공포 모드가 풀리며 시계가 돌아오고 아바타가 안도하는 한마디를 한다');
+  // 불이 꺼진 뒤 방이 보이는 동안 시간이 지나면 이상한 일이 하나씩 늘어난다(src/horror.js의 STEPS). 20~64초를 다 기다리지 않게
+  // src/config.js의 HORROR를 페이지 안에서 줄인다(새로 고침하면 원래대로 돌아온다). 점검용 집의 벽에는 코르크 보드 하나뿐이라 tilt 단계에서 그것이 더 기운다
+  await page.run(async () => Object.assign((await import(new URL('src/config.js', document.baseURI).href)).HORROR,
+    { dark: 200, wonder: 300, tilt: 300, far: 900, near: 2800, menu: 4600, voice: 1500, turn: 200, flash: 700 }));
+  const said = await page.run(async () => {
+    const { HERE, BEHIND, HEARD, DONT, END } = await import(new URL('src/horror.js', document.baseURI).href);
+    return { HERE, BEHIND, HEARD, DONT, END };
+  });
+  // 시작 메뉴의 불 켜기 단추. 글(마지막 span)이 want이고 아이콘 그림이 그대로인지 본다. 아이콘도 span이라 글만 바뀌어야 한다
+  const lightLabelIs = want => {
+    const b = [...document.querySelectorAll('.start-item')].find(i => i.lastElementChild?.textContent.startsWith('불 '));
+    return !!b && b.lastElementChild.textContent === want && !!b.querySelector('.app-icon svg') && !b.querySelector('.app-icon').textContent.trim();
+  };
+  const lightLabel = () => [...document.querySelectorAll('.start-item')].map(i => `[${i.querySelector('.app-icon')?.textContent || ''}]${i.lastElementChild?.textContent}`).filter(t => t.includes('불 ')).join();
   await sayWord('분신사바 분신사바 오딧세이 꾸다사이');
   check('주문을 끝까지 외어도 공포 모드가 된다', await until(page, () => !!document.querySelector('#wallpaper .horror-dark'), 4000));
+  check('tilt 단계: 벽에 건 것이 하나뿐인 방에서는 기운 코르크 보드가 더 기운다', await until(page, () => [...document.querySelectorAll('#wallpaper .furn.askew')]
+    .map(f => f.dataset.id + (f.classList.contains('more') ? '+' : '')).join() === 'corkboard+', 3000));
+  const far = await until(page, voiceSpot, 3000, said.HERE);
+  check('far 단계: 아바타에게서 먼 빈칸에서 "여기야." 말풍선이 점선 테두리로 천천히 나타난다', !!far && far.empty && far.dist >= 8 && far.fade, JSON.stringify(far));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  check('움직임 줄이기를 켠 사람에게는 빈칸의 말풍선이 그냥 뜨고 벽 가구는 바로 기운 채로 보인다', await page.run(() => {
+    const v = document.querySelector('#wallpaper .horror-voice');
+    const art = document.querySelector('#wallpaper .furn.askew > :not(.hit)');
+    return !!v && getComputedStyle(v).animationName === 'none' && !!art && getComputedStyle(art).transitionDuration === '0s';
+  }));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+  check('아바타가 "여기야." 쪽을 돌아본다', !!(await until(page, voiceSpot, 1200, said.HERE, 'looking')));
+  const near = await until(page, voiceSpot, 4000, said.BEHIND);
+  check('near 단계: 화면에서 아바타와 같은 높이의 바로 옆 빈칸에서 "바로 뒤야." 말풍선이 뜬다', !!near && near.empty && near.side, JSON.stringify(near));
+  check('아바타가 "바로 뒤야." 쪽을 돌아본다', !!(await until(page, voiceSpot, 1200, said.BEHIND, 'looking')));
+  check('말풍선이 사라지면 아바타가 "잘못 들었나?"라고 말한다', await until(page, want => !document.querySelector('#wallpaper .horror-voice')
+    && document.querySelector('#wallpaper .room-avatar-say:not(.horror-voice)')?.textContent === want, 3000, said.HEARD));
+  await sleep(700); // menu 단계(불이 꺼지고 방이 4.6초 보였을 때)가 지나기를 기다린다
+  await page.run(clickOnce, '.start-btn');
+  check('menu 단계 뒤에 시작 메뉴를 열면 불 켜기 글이 "불 켜지 마"로 보이고 아이콘은 그대로다', await page.run(lightLabelIs, said.DONT), await page.run(lightLabel));
+  check('"불 켜지 마"는 잠깐 뒤에 "불 켜기 (낮)"로 돌아오고 아이콘도 남아 있다', await until(page, lightLabelIs, 2000, '불 켜기 (낮)'), await page.run(lightLabel));
+  await page.run(clickOnce, '.start-btn');
+  await page.run(clickOnce, '.start-btn');
+  check('시작 메뉴를 다시 열면 불 켜기 글이 바뀌지 않는다(공포 모드마다 한 번)', await page.run(lightLabelIs, '불 켜기 (낮)'), await page.run(lightLabel));
+  await page.run(clickText, '.start-item', '불 켜기');
+  check('불을 켜면 늘어난 이상한 일이 모두 한 번에 풀린다', await until(page, want => document.getElementById('stage').dataset.theme === 'day'
+    && !document.querySelector('#wallpaper .horror-dark, #wallpaper .furn.askew, #wallpaper .furn.more, #wallpaper .horror-voice')
+    && document.querySelector('#wallpaper .room-avatar-say:not(.horror-voice)')?.textContent === want, 3000, said.END));
+  // 단계가 다 지나기 전에 불을 켜도 모두 풀리고, 남은 단계(바로 뒤의 말풍선, 아바타의 대꾸)는 일어나지 않는다
+  await sayWord('분신사바');
+  check('다시 분신사바를 말하면 단계가 처음부터 다시 늘어난다', !!(await until(page, voiceSpot, 4000, said.HERE)));
+  await page.run(clickOnce, '.start-btn');
+  check('far 단계와 menu 단계 사이에는 시작 메뉴의 불 켜기 글이 그대로다', await page.run(lightLabelIs, '불 켜기 (낮)'), await page.run(lightLabel));
+  await page.run(clickText, '.start-item', '불 켜기');
+  await page.run(heard => {
+    const layer = document.getElementById('wallpaper');
+    window.__afterLight = [];
+    new MutationObserver(() => {
+      if (layer.querySelector('.horror-voice, .horror-dark, .furn.askew')) window.__afterLight.push('stage');
+      if (layer.querySelector('.room-avatar-say:not(.horror-voice)')?.textContent === heard) window.__afterLight.push('heard');
+    }).observe(layer, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+  }, said.HEARD);
+  await sleep(4000);
+  check('far 단계 뒤에 불을 켜면 말풍선이 바로 사라지고 남은 단계는 일어나지 않는다', await page.run(() => document.getElementById('stage').dataset.theme === 'day'
+    && !document.querySelector('#wallpaper .horror-voice, #wallpaper .furn.askew') && window.__afterLight.length === 0), await page.run(() => window.__afterLight.join()));
+  await sayWord('분신사바');
+  check('세 번째로 말해도 공포 모드가 된다', await until(page, () => !!document.querySelector('#wallpaper .horror-dark'), 4000));
   await open();
   await powerOn();
   await page.run(clickOnce, '.users .user:not(.neighbor)');
@@ -1881,7 +1972,7 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
-  // ---------- 긴 글(known-issues 82) ----------
+  // ---------- 긴 글(known-issues 83) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
   const shut = async () => { await closeWindows(); await press(page, 'Escape'); await until(page, closed, 3000); };

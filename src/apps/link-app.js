@@ -24,7 +24,7 @@ export function linkPrompt({ text, links, rel = 'noopener', onOpen, onCancel }) 
   ];
 }
 
-// 열리는 곳이 한 줄에 들지 않으면 마우스를 올렸을 때 전체 주소가 보이게 한다(known-issues 82). 안내를 화면에 붙인 뒤 부른다
+// 열리는 곳이 한 줄에 들지 않으면 마우스를 올렸을 때 전체 주소가 보이게 한다(known-issues 83). 안내를 화면에 붙인 뒤 부른다
 export const fitHost = root => root.querySelectorAll('.link-host').forEach(el => fitText(el));
 
 export function openLinkApp(os, app) {
