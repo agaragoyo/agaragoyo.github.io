@@ -1211,14 +1211,21 @@ const SLOTS = { 48: 24, 40: 16, 32: 16, 24: 24, 16: 16 };
 // 그런 크기가 없으면 원래 크기로 두고, 한 칸이 1픽셀보다 작을 때만 부드럽게 줄인다(칸이 빠지는 것보다 낫다).
 // style: CSS 변수를 넣을 곳(document.documentElement.style), scale: 무대 배율, dpr: 화면 픽셀 비율(devicePixelRatio)
 export function fitPixelIcons(style, scale, dpr) {
+  // 원래 크기로 그리면 한 칸이 raw 화면 픽셀인 그림을, 한 칸이 정수 픽셀이 되게 할 때의 픽셀 수(원래 크기의 0.7~1.4배 안에서 가장 가까운 것). 없으면 undefined
+  const nearest = raw => [Math.floor(raw), Math.ceil(raw)]
+    .filter(n => n >= 1 && n / raw >= 0.7 && n / raw <= 1.4)
+    .sort((a, b) => Math.abs(Math.log(a / raw)) - Math.abs(Math.log(b / raw)))[0];
   for (const [slot, grid] of Object.entries(SLOTS)) {
     const raw = slot / grid * scale * dpr; // 그림 한 칸이 차지하는 화면 픽셀
-    const k = [Math.floor(raw), Math.ceil(raw)]
-      .filter(n => n >= 1 && n / raw >= 0.7 && n / raw <= 1.4)
-      .sort((a, b) => Math.abs(Math.log(a / raw)) - Math.abs(Math.log(b / raw)))[0];
+    const k = nearest(raw);
     style.setProperty(`--pixel-${slot}`, (k ? grid * k / (scale * dpr) : slot) + 'px');
     style.setProperty(`--pixel-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
   }
+  // 실험실의 펫 데려오기(src/pet.js) 고양이와 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
+  // 원래 크기에 가장 가까운 정수를 고르고, 아이콘처럼 그런 정수가 없으면 원래 크기로 둔다. 고양이는 이 값으로 가구와의 앞뒤를 따질 그림 크기도 잰다
+  const pet = nearest(2 * scale * dpr);
+  style.setProperty('--pet-cell', (pet ? pet / (scale * dpr) : 2) + 'px');
+  style.setProperty('--pet-render', pet || 2 * scale * dpr >= 1 ? 'crispEdges' : 'auto');
   // 실험실의 담긴 가구 반짝임(style.css의 .has-like::after)도 한 칸이 2px인 픽셀 그림이라 한 칸을 정수 화면 픽셀로 맞춘다.
   // 눈에 띄는 것이 목적이라 가까운 정수가 아니라 조금 큰 쪽(0.25를 덜어 올림)을 고르고, 한 칸이 1픽셀보다 작아지는 배율에서도 1픽셀로 둔다.
   style.setProperty('--sparkle-cell', Math.max(1, Math.ceil(2 * scale * dpr - 0.25)) / (scale * dpr) + 'px');
