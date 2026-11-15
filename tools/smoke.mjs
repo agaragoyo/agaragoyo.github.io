@@ -236,8 +236,9 @@ function nextToOwner() {
   return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
 }
 
-// 실험실의 고양이(src/pet.js)와 내 아바타가 선 칸, 고양이 칸이 비어 있던 바닥인지, 하트가 보이는지, 고양이 그림의 폭(무대 px).
-// 고양이 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
+// 실험실의 펫(src/pet.js)과 내 아바타가 선 칸, 펫 칸이 비어 있던 바닥인지, 하트가 보이는지, 펫 그림의 폭(무대 px),
+// 고른 펫('<종류>/<색>'), 지금 보이는 그림 장(앉기, 숨쉬기, 눈 감기, 걷기).
+// 펫 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
 async function petScene() {
   const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
   const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
@@ -253,12 +254,14 @@ async function petScene() {
     next: !!pet && !!me && Math.abs(pet.x - me.x) + Math.abs(pet.y - me.y) === 1,
     heart: !!heart && !heart.hidden,
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
+    look: p?.dataset.pet,
+    frame: p ? [...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame : null,
   };
 }
 
 // 실험실의 놀이터 눈(src/snow.js) 캔버스에 그려진 송이. 흰 칸이 이어진 덩어리 하나를 한 송이로 센다(송이 아래 그늘은 반투명이라 세지 않는다).
 // k: 무대 1px가 캔버스 몇 칸인지, small과 big: 그 배율에서 작은 송이와 큰 송이의 칸 수(snow.js와 같은 셈), fit: 폭이 그 둘 가운데 하나인 송이 수,
-// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 고양이 하트(9998) 아래이고
+// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 펫 하트(9998) 아래이고
 // 방 상자가 쌓임 맥락이라 아이콘과 창 아래인지, through: 바탕화면 곳곳을 눌러도 캔버스가 받지 않는지
 function snowScene() {
   const c = document.querySelector('#wallpaper .snow');
@@ -1261,8 +1264,9 @@ async function walk(page, base) {
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
 
   // ---------- 펫 데려오기(pet) ----------
-  // 켜면 내 집의 방에만 고양이가 빈 바닥 칸에 앉고(src/pet.js) 끄면 바로 사라진다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다.
-  // 내 아바타는 고양이가 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
+  // 처음 켜면 펫 고르는 창(src/pet-picker.js)이 열리고, 내 집의 방에만 펫이 빈 바닥 칸에 앉으며(src/pet.js) 끄면 바로 사라진다.
+  // 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다.
+  // 내 아바타는 펫이 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
   // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
   const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
   const petBox = '.labs-item[data-lab="pet"] input';
@@ -1277,19 +1281,32 @@ async function walk(page, base) {
   };
   check('펫 데려오기: 내 집으로 돌아온다', await enterMine());
   await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
-  check('펫 데려오기를 켜기 전에는 방에 고양이가 없다', !(await hasPet()));
+  check('펫 데려오기를 켜기 전에는 방에 펫이 없다', !(await hasPet()));
   await openIcon('labs');
   check('실험실 창에 펫 데려오기 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, petBox));
+  check('펫 데려오기를 켜기 전에는 펫 바꾸기 단추가 보이지 않는다', await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change')?.hidden === true));
   await page.run(sel => document.querySelector(sel).click(), petBox);
+  check('펫 데려오기를 처음 켜면 펫 고르는 창이 열린다', await until(page, () => !!document.querySelector('.pet-app'), 3000));
   const cat = await page.run(petScene);
-  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 고양이가 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y), JSON.stringify(cat));
-  check('고양이 그림은 폭 28~56px이다(한 칸 2px 안팎, 20칸)', cat.width >= 28 && cat.width <= 56, `${cat.width}`);
+  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 기본 펫(회색 고양이)이 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y) && cat.look === 'cat/gray', JSON.stringify(cat));
+  check('펫 그림은 폭 34~68px이다(한 칸 2px 안팎, 24칸)', cat.width >= 34 && cat.width <= 68, `${cat.width}`);
+  check('펫 고르는 창에 종류 단추 여섯 개와 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
+    const rows = [...document.querySelectorAll('.pet-app .pet-row')];
+    return rows.length === 2 && rows[0].children.length === 6 && rows[1].children.length === 4
+      && rows[0].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray' && rows[1].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray';
+  }));
+  check('펫 고르는 창은 스크롤 없이 다 보인다', await page.run(() => { const b = document.querySelector('.pet-app'); return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth; }));
+  await probe('펫 고르는 창');
+  await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][0].querySelector('[data-pet^="dog/"]').click());
+  await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][1].querySelector('[data-pet="dog/sky"]').click());
+  const picked = await page.run(() => ({ room: document.querySelector('#wallpaper .room-pet')?.dataset.pet, big: document.querySelector('.pet-big')?.dataset.pet, saved: JSON.parse(localStorage.getItem('agarago.settings')).pet }));
+  check('펫 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
   await closeWindows();
-  await probe('고양이가 있는 바탕화면');
+  await probe('펫이 있는 바탕화면');
   await page.run(clickTwice, '#wallpaper .room-pet');
   const loved = await waitPet(s => s.heart && s.next, 8000);
-  check('고양이를 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고 하트가 뜬다', loved.heart && loved.next, JSON.stringify(loved));
-  // 고양이가 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(고양이 칸은 지나갈 수 없다)
+  check('펫을 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다', loved.heart && loved.next && /blink/.test(loved.frame), JSON.stringify(loved));
+  // 펫이 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(펫 칸은 지나갈 수 없다)
   await page.run(() => {
     const r = document.querySelector('#wallpaper .room-pet svg').getBoundingClientRect();
     const p = { bubbles: true, clientX: r.left + r.width / 2, clientY: r.bottom - 4 };
@@ -1299,20 +1316,23 @@ async function walk(page, base) {
   });
   await sleep(800);
   const stay = await page.run(petScene);
-  check('고양이가 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
-  check('새로 고침해도 고양이가 그대로 나온다', (await enterMine()) && await until(page, () => !!document.querySelector('#wallpaper .room-pet'), 3000));
+  check('펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
+  check('새로 고침해도 고른 펫이 그대로 나온다', (await enterMine()) && await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'dog/sky', 3000));
   await openIcon('labs');
   await until(page, sel => !!document.querySelector(sel), 3000, petBox);
+  await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change').click());
+  check('켜 둔 동안 실험실 창의 펫 바꾸기 단추를 누르면 펫 고르는 창이 열리고 펫 데려오기는 켜진 채다',
+    await until(page, () => !!document.querySelector('.pet-app'), 3000) && await page.run(sel => document.querySelector(sel).checked, petBox));
   await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('끄면 고양이와 하트가 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart')));
+  check('끄면 펫과 하트, 펫 고르는 창이 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart, .pet-app')));
   await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('다시 켜면 고양이가 다시 나온다', await hasPet());
+  check('다시 켜면 펫이 다시 나오고, 이미 골랐으므로 고르는 창은 열리지 않는다', (await hasPet()) && await page.run(() => !document.querySelector('.pet-app')));
   await open(`#r=${bare}`);
   await powerOn();
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   await desktop();
   await sleep(300);
-  check('펫 데려오기를 켜 두어도 친구 집에는 고양이가 없다', !(await hasPet()));
+  check('펫 데려오기를 켜 두어도 친구 집에는 펫이 없다', !(await hasPet()));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), petSettings);
 
   // ---------- 친구 집 배경음악(home-bgm) ----------

@@ -473,26 +473,27 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .item.has-like::after { animation: none; }
 }
-/* 실험실의 '펫 데려오기'(pet, src/pet.js)의 고양이. 아바타처럼 가구와 같은 상자(.wallpaper)에서 앞뒤 순서를 맞춘다.
+/* 실험실의 '펫 데려오기'(pet, src/pet.js)의 펫. 아바타처럼 가구와 같은 상자(.wallpaper)에서 앞뒤 순서를 맞춘다.
    상자의 자리(left, top)가 발끝(바닥 칸 가운데)이라 그림의 아래 가운데를 그 자리에 맞춘다.
-   그림은 20칸 × 15칸이고 한 칸은 2px 안팎이다(--pet-cell, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값, known-issues 67).
-   상자는 누르기를 흘려보내고 칠한 칸만 받아서, 고양이 둘레의 바닥과 가구는 그대로 누를 수 있다(known-issues 27). 두 번 누르면 아바타가 가서 쓰다듬는다 */
+   그림은 24칸 × 20칸이고 한 칸은 2px 안팎이다(--pet-cell, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값, known-issues 67).
+   상자는 누르기를 흘려보내고 칠한 칸만 받아서, 펫 둘레의 바닥과 가구는 그대로 누를 수 있다(known-issues 27). 두 번 누르면 아바타가 가서 쓰다듬는다 */
 .room-pet { position: absolute; transform: translate(-50%, -100%); pointer-events: none; }
-.room-pet svg { display: block; width: calc(var(--pet-cell, 2px) * 20); height: calc(var(--pet-cell, 2px) * 15); shape-rendering: var(--pet-render, crispEdges); }
+.room-pet svg { display: block; width: calc(var(--pet-cell, 2px) * 24); height: calc(var(--pet-cell, 2px) * 20); shape-rendering: var(--pet-render, crispEdges); }
 .room-pet.flip svg { transform: scaleX(-1); }
 .room-pet path { pointer-events: auto; cursor: var(--cur-hand); }
 .room-pet path.shade { pointer-events: none; }
 @media (hover: hover) {
   .room-pet:has(path:hover) svg { filter: brightness(1.08) drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
 }
-/* 쓰다듬으면 고양이 머리 위에 1초 뜨는 하트(7칸 × 6칸). 자리는 고양이와 같은 발끝이고, 보는 쪽으로 --dx칸 옮겨 머리 위에 띄운다.
+/* 쓰다듬으면 펫 머리 위에 1초 뜨는 하트(7칸 × 6칸). 자리는 펫과 같은 발끝이고, 보는 쪽으로 --dx칸, 위로 --dy칸 옮겨 머리 위에 띄운다.
+   --dy는 종류마다 머리 꼭대기 높이로 정한다(src/pet.js의 heartRise). 귀가 양옆에 선 종류는 귀 사이에 뜬다.
    1초 동안 한 칸씩 떠오른다. 말풍선(10000)과 이름표(9999) 바로 아래 층이라 가구에 가리지 않는다. 움직임 줄이기를 켠 사람에게는 떠오르지 않는다 */
 .room-pet-heart {
   --cell: var(--pet-cell, 2px);
   position: absolute;
   z-index: 9998;
   margin-left: calc(var(--cell) * (var(--dx, 0) - 3.5));
-  margin-top: calc(var(--cell) * -21);
+  margin-top: calc(var(--cell) * var(--dy, -27));
   pointer-events: none;
   animation: pet-heart 1s steps(3) both;
 }
@@ -502,7 +503,7 @@ button { font-family: inherit; }
   .room-pet-heart { animation: none; }
 }
 /* 실험실의 '놀이터에 눈'(snow, src/snow.js). 바탕화면(1280×800) 크기의 캔버스 한 장이다. 방 상자(.wallpaper)가 바탕화면보다 40px 아래에서 시작하므로
-   그만큼 올려 하늘 끝부터 덮는다. 가구와 아바타(100부터)와 밤 그늘 위, 고양이 하트(9998)와 주인 이름표(9999)와 말풍선(10000) 아래 층이다.
+   그만큼 올려 하늘 끝부터 덮는다. 가구와 아바타(100부터)와 밤 그늘 위, 펫 하트(9998)와 주인 이름표(9999)와 말풍선(10000) 아래 층이다.
    방 상자가 쌓임 맥락이라 아이콘과 창보다는 늘 아래다(known-issues 7). 캔버스 한 칸이 화면 픽셀 하나라서(snow.js의 fit) 흐려지지 않게 pixelated로 그린다 */
 .wallpaper .snow { position: absolute; left: 0; top: -40px; z-index: 9990; width: 1280px; height: 800px; pointer-events: none; image-rendering: pixelated; }
 
@@ -785,6 +786,23 @@ body.moving-window iframe { pointer-events: none; }
 .labs-item b { font-weight: normal; }
 .labs-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .labs-foot .btn { flex: none; }
+/* 펫 데려오기를 켜 둔 동안 그 이름 옆에 붙는 펫 바꾸기 단추(src/apps/labs-app.js). 이름 줄 높이에 들게 작게 만든다 */
+.labs-title { display: flex; align-items: center; gap: 8px; }
+.labs-change { padding: 1px 8px; font-size: 13px; }
+/* 펫 고르는 창(src/pet-picker.js). 위에는 고른 펫을 방의 나무 바닥 색 위에 2배로 그려 숨 쉬고 깜박이는 모습을 보이고,
+   아래에는 종류와 색 단추를 실험실 창과 같은 묶음(.labs-group)으로 둔다. 단추마다 그 펫을 실제 크기로 그려 누르기 전에 결과가 보이고,
+   고른 단추에는 사진 바꾸기 창처럼 파란 테두리를 두른다. 남는 높이는 닫기 단추 위로 보내 단추를 창 아래에 붙인다 */
+.pet-app { display: flex; flex-direction: column; gap: 8px; }
+.pet-app-head { display: flex; align-items: center; gap: 12px; font-size: 18px; }
+.pet-app-head b { font-weight: normal; }
+.pet-big { padding: 6px 12px 0; border-radius: 4px; background: var(--floor-a, #c69a6b); }
+.pet-big svg { display: block; width: calc(var(--pet-cell, 2px) * 48); height: calc(var(--pet-cell, 2px) * 40); shape-rendering: var(--pet-render, crispEdges); }
+.pet-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.pet-choice { display: grid; justify-items: center; gap: 2px; padding: 2px; border: 2px solid transparent; border-radius: 4px; background: none; font-size: 13px; color: inherit; cursor: var(--cur-hand); }
+.pet-choice svg { display: block; width: calc(var(--pet-cell, 2px) * 24); height: calc(var(--pet-cell, 2px) * 20); shape-rendering: var(--pet-render, crispEdges); }
+.pet-choice:hover { border-color: #316ac580; }
+.pet-choice[aria-pressed="true"] { border-color: #316ac5; }
+.pet-app .link-row { margin-top: auto; }
 
 /* 게임 폴더. 묶음마다 제목 줄(.folder-group)과 아이콘 상자(.folder-icons)가 이어진다 */
 .folder { display: flex; flex-direction: column; padding: 10px; }
@@ -1492,7 +1510,7 @@ form.user { cursor: var(--cur-arrow); }
   .coach-arrow svg, .coach-arrow[data-dir="rise"] svg { animation: none; }
 }
 /* 가구를 쓰고 나면 아바타가 바로 앞에 서 있다. 튜토리얼이 그 가구를 다시 누르라고 할 때 아바타가 대신 눌리지 않게 한다.
-   실험실의 고양이(src/pet.js)도 가구 앞에 앉아 있을 수 있어서 같이 뺀다 */
+   실험실의 펫(src/pet.js)도 가구 앞에 앉아 있을 수 있어서 같이 뺀다 */
 .stage.coach-use .room-avatar, .stage.coach-use .room-pet path { pointer-events: none; }
 /* 끄는 동안에는 선반 카드를 가리킬 일이 없고 가구를 가리기만 한다 */
 body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
