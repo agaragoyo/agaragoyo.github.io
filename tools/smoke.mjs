@@ -8,7 +8,7 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
-// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
+// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
@@ -770,6 +770,61 @@ async function walk(page, base) {
       === '벌써 3시 40분이네.|벌써 3시 정각이네.|벌써 3시 반이네.|벌써 12시 5분이네.|벌써 12시 59분이네.|옷장이네.|소파네.';
   }));
 
+  // ---------- 분신사바(F29) ----------
+  // 말풍선에 분신사바를 말하면 불이 꺼지고 공포 모드가 된다(src/horror.js). 작업 표시줄 시계가 04:44에 멈추고, 벽에 건 것 하나(점검용 집은 코르크 보드)가 기울고,
+  // 기믹이 없는 가구는 다른 혼잣말을 한다. 저장된 집과 밤 설정은 그대로다. 스탠드를 두 번 누르면 풀리고 아바타가 안도하는 한마디를 한다. 새로 고침해도 풀린다
+  const horrorState = () => [document.getElementById('stage').dataset.theme, document.querySelector('#taskbar .clock').textContent,
+    !!document.querySelector('#wallpaper .horror-dark'), [...document.querySelectorAll('#wallpaper .furn.askew')].map(f => f.dataset.id).join()].join('/');
+  const sayWord = async word => {
+    await page.run(() => document.querySelector('#desktop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+    await press(page, 'Enter');
+    await page.run(w => { document.querySelector('.say-input').value = w; }, word);
+    await press(page, 'Enter');
+  };
+  const homeBefore = await page.run(() => localStorage.getItem('agarago.home.v3'));
+  await sayWord('분신사바');
+  check('말풍선에 분신사바를 말하면 불이 꺼지고 시계가 04:44에 멈추며 벽에 건 코르크 보드가 기운다',
+    (await until(page, () => !!document.querySelector('#wallpaper .horror-dark'), 4000)) && (await page.run(horrorState)) === 'night/04:44/true/corkboard', await page.run(horrorState));
+  check('불이 꺼지고 아바타가 첫마디를 한다', await until(page, async () => {
+    const { START } = await import(new URL('src/horror.js', document.baseURI).href);
+    return document.querySelector('#wallpaper .room-avatar-say')?.textContent === START;
+  }, 4000));
+  check('공포 모드는 집과 밤 설정을 저장하지 않는다', (await page.run(() => localStorage.getItem('agarago.home.v3'))) === homeBefore
+    && (await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || '{}').night)) !== true);
+  check('불빛은 한 번 어두워지거나 밝아지는 데 0.5초 넘게 걸린다(1초에 3번보다 느린 깜박임, WCAG 2.3.1)', await page.run(() => {
+    const a = document.querySelector('#wallpaper .horror-dark')?.getAnimations()[0];
+    if (!a) return false;
+    const ms = a.effect.getTiming().duration;
+    const k = a.effect.getKeyframes().map(f => ({ t: f.computedOffset * ms, v: Number(f.opacity) }));
+    const steps = k.slice(1).map((f, i) => ({ dt: f.t - k[i].t, dv: f.v - k[i].v })).filter(s => s.dv !== 0);
+    return steps.length >= 2 && steps.every(s => s.dt > 500);
+  }));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  check('움직임 줄이기를 켠 사람에게는 불빛이 깜박이지 않는다', await page.run(() => getComputedStyle(document.querySelector('#wallpaper .horror-dark')).animationName === 'none'));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+  await probe('분신사바');
+  await page.run(clickOnce, '.start-btn');
+  check('공포 모드의 시작 메뉴는 불 켜기를 보인다', await page.run(() => [...document.querySelectorAll('.start-item')].some(i => i.textContent.includes('불 켜기'))));
+  await page.run(clickOnce, '.start-btn');
+  await use('bed', async () => {
+    const b = document.querySelector('#wallpaper .room-avatar-say');
+    const { LINES } = await import(new URL('src/horror.js', document.baseURI).href);
+    return !!b && !b.hidden && b.textContent === LINES.bed;
+  }, '공포 모드에서는 아바타가 공포 모드의 혼잣말을 한다');
+  await use('lamp', async () => {
+    const { END } = await import(new URL('src/horror.js', document.baseURI).href);
+    const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const clock = document.querySelector('#taskbar .clock').textContent;
+    return document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark, #wallpaper .furn.askew')
+      && (clock === hhmm(new Date()) || clock === hhmm(new Date(Date.now() - 60000))) && document.querySelector('#wallpaper .room-avatar-say')?.textContent === END;
+  }, '불이 켜지고 공포 모드가 풀리며 시계가 돌아오고 아바타가 안도하는 한마디를 한다');
+  await sayWord('분신사바 분신사바 오딧세이 꾸다사이');
+  check('주문을 끝까지 외어도 공포 모드가 된다', await until(page, () => !!document.querySelector('#wallpaper .horror-dark'), 4000));
+  await open();
+  await powerOn();
+  await page.run(clickOnce, '.users .user:not(.neighbor)');
+  check('새로 고침하면 공포 모드가 풀려 있다', (await desktop()) && (await page.run(horrorState)).startsWith('day/') && !(await page.run(() => !!document.querySelector('#wallpaper .horror-dark'))), await page.run(horrorState));
+
   // ---------- 가구 가까이 보기 ----------
   const closed = () => !document.querySelector('.closeup');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '책장이 열린다');
@@ -1001,6 +1056,9 @@ async function walk(page, base) {
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
   check('손님에게는 넣기, 고치기, 빼기 단추가 없다', await page.run(() => !document.querySelector('.closeup .shelf-tools, .closeup .book-spine.add')));
   await press(page, 'Escape');
+  await sayWord('분신사바');
+  await sleep(1500); // 내 집이었다면 불이 꺼졌을 시간(0.9초)을 넘겨 본다
+  check('손님이 분신사바를 말해도 친구 집의 불은 꺼지지 않는다', await page.run(() => document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark')));
   await openIcon('my-computer');
   check('내 컴퓨터로를 두 번 누르면 내 바탕화면으로 돌아온다', await until(page, () => document.getElementById('stage').dataset.mode === 'edit' && !document.getElementById('desktop').hidden && !!document.querySelector('#icons [data-app="room"]'), 5000));
   check('돌아오면 주소의 친구 링크가 지워진다', await page.run(() => location.hash === ''));
