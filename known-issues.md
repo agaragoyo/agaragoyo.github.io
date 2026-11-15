@@ -668,3 +668,11 @@
   같은 날 같은 성격인 창이 뒤로 가면 소리 끄기(F27)는 기본으로 켰다.
 - 규칙: 실험실 항목을 만들기 전에 끄는 쪽을 고를 사람이 있는지 묻는다. 없으면 스위치 없이 바로 기본으로 넣는다.
   실험실에는 켜 봐야 좋은지 아는 것(사람마다 반응이 갈리는 것, 팀이 두 방식 가운데 고를 것)만 둔다. `src/labs.js`의 머리 주석과 `AGENTS.md`의 실험실 줄에도 적었다.
+
+## 77. 새 글자를 넣은 PR이 둘 이상이면 작은 글꼴 파일이 서로 충돌한다 (binary라 손으로 합칠 수 없음)
+
+- 증상: 2026-11-15 하루에 실험실 펫, 친구 집 배경음악, 놀이터 눈, 가구 혼잣말 PR이 모두 새 글자를 넣어 `assets/fonts/aga-ui.woff2`, `aga-ui-bold.woff2`, `aga-ui.txt`를 고쳤다.
+  나중에 합치는 PR이 main을 받으면 `Cannot merge binary files`로 충돌했다. 한쪽 파일로 풀면 다른 PR이 넣은 글자가 빠져 `tools/check.py`가 "작은 글꼴에 없는 사이트 글자"를 경고한다.
+- 원인: 작은 글꼴은 그 시점 사이트의 글자 전체로 만든 파일이라, 글자를 더한 PR마다 파일이 통째로 바뀐다. 문서처럼 줄 단위로 합칠 수 없다.
+- 규칙: main을 받다가 글꼴 파일이 충돌하면 어느 쪽이든 고른 뒤(`git checkout --theirs assets/fonts/aga-ui.woff2 assets/fonts/aga-ui-bold.woff2 assets/fonts/aga-ui.txt`),
+  합친 상태에서 `python -X utf8 -P tools/ui_font.py`로 다시 만들고 `git add assets/fonts` 한다. 다시 만든 글꼴은 두 PR의 글자를 모두 담는다. 그 뒤 `python tools/check.py`에 글꼴 경고가 없어야 한다.

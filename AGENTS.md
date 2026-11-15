@@ -94,6 +94,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
   손님 화면에도 뜨므로 글은 `h()`의 자식으로, 주소는 `safeLink`를 거친 것만 넣는다(`src/apps/computer-app.js`가 예)
 - 다른 사이트 창(iframe) 안에서 돌지 않는 남의 게임: `data/apps.js`에 `href`(https 주소). `src/apps/link-app.js`가 새 탭에서 열린다고 알린 뒤 연다
 - 새 가구: `data/furniture.js`에 한 줄, 그림은 `assets/furniture/<id>.png`, 공유 링크의 가구 번호는 `src/share.js`의 `LINK_CODES` 끝에 id 한 줄(중간에 끼우지 않는다)
+  - 기믹이 없는 가구는 `say`에 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄을 쓴다. 반말로, 이름만 되풀이하지 않고, 말풍선 한 줄에 드는 13자(공백 포함) 이하로 쓴다. 줄은 `src/furniture-line.js`의 `furnitureLine`이 꺼내고 `python tools/check.py`가 본다
 - 아바타 그림: `data/avatars.js`에 한 줄, 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄). 걷기와 말풍선은 `src/avatar.js`
 - 새 공간: `src/config.js`의 `SCENES`에 한 줄(바깥 공간은 돌아오는 울타리 문 `gate`), 가구의 `scene`. 바탕화면 바로 가기는 `data/apps.js`에 `scene: '<id>'`
 - 새 설정 값: `src/settings.js`의 `DEFAULTS`에 기본값, 쓰는 쪽은 `settings.get/subscribe`
@@ -136,7 +137,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 | 오류 | 합쇼체. 일어난 일 한 문장과 할 일 한 문장 | 그림 파일을 만들지 못했습니다. 페이지를 새로고침한 뒤 다시 눌러 주세요. |
 | 튜토리얼 | 합쇼체 설명과 "~하세요" | 방 꾸미기 아이콘을 두 번 누르면 가구를 놓는 창이 열립니다. |
 | 툴팁 | 명사형 | 눌러서 말하기 |
-| 아바타 말풍선 | 반말 혼잣말 | 옷장이네. |
+| 아바타 말풍선 | 반말 혼잣말, 한 줄에 13자 이하 | 입을 옷이 없네. |
 | 미니게임의 판 위 알림과 결과 | 해요체 한마디, 12자 이하 | 더 지울 묶음이 없어요, 상자가 꽉 찼어요 |
 | 미니게임의 점수와 숫자 | 명사형 라벨 | 파일 54개 정리, 놓친 묶음 45개 |
 | 미니게임의 조작 안내 | 해요체 권유 한 문장 | 합이 10이 되게 끌어서 지워 보세요. |

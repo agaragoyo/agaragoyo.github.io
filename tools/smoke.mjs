@@ -663,6 +663,22 @@ async function walk(page, base) {
   check('바꾼 사진이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === nextPic);
   await page.run(clickOnce, '.start-btn');
 
+  // ---------- 기믹이 없는 가구의 혼잣말 ----------
+  // 점검용 집의 침대에는 기믹이 없다. 두 번 누르면 아바타가 걸어가 data/furniture.js의 say를 말풍선 한 줄로 말한다(src/furniture-line.js)
+  await use('bed', async () => {
+    const b = document.querySelector('#wallpaper .room-avatar-say');
+    if (!b || b.hidden) return false;
+    const { BY_ID } = await import(new URL('data/furniture.js', document.baseURI).href);
+    return !!BY_ID.bed.say && b.textContent === BY_ID.bed.say && b.offsetHeight < 2 * parseFloat(getComputedStyle(b).lineHeight);
+  }, '아바타가 침대의 혼잣말을 한 줄로 말한다');
+  check('혼잣말의 {시각}은 말로 읽는 시각이 되고, say가 없는 가구는 이름을 말한다', await page.run(async () => {
+    const { furnitureLine } = await import(new URL('src/furniture-line.js', document.baseURI).href);
+    const clock = { name: '시계', say: '벌써 {시각}이네.' };
+    const at = (h, m) => furnitureLine(clock, new Date(2026, 10, 15, h, m));
+    return [at(15, 40), at(15, 0), at(15, 30), at(0, 5), at(12, 59), furnitureLine({ name: '옷장' }), furnitureLine({ name: '소파' })].join('|')
+      === '벌써 3시 40분이네.|벌써 3시 정각이네.|벌써 3시 반이네.|벌써 12시 5분이네.|벌써 12시 59분이네.|옷장이네.|소파네.';
+  }));
+
   // ---------- 가구 가까이 보기 ----------
   const closed = () => !document.querySelector('.closeup');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '책장이 열린다');

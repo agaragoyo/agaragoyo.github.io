@@ -10,52 +10,56 @@
 // surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
 // light:   true 이면 밤에 둘레를 밝힌다. 누르면 밤과 낮이 바뀐다
 // gimmick: 눌렀을 때 하는 일. 'night' 밤/낮 바꾸기, 'scene:<id>' 그 공간으로 가기, 'app:<id>' 앱 열기.
-//          바탕화면에서 가구를 두 번 누르면 아바타가 옆으로 가서 쓴다. 없으면 아바타가 가구 이름을 말한다
+//          바탕화면에서 가구를 두 번 누르면 아바타가 옆으로 가서 쓴다. 없으면 아바타가 say의 혼잣말을 한다
+// say:     기믹이 없는 가구를 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄. 반말로, 이름만 되풀이하지 않고 그 물건을 본 사람이 할 말로 쓴다.
+//          말풍선 한 줄에 들어가는 13자 이하(공백과 문장부호 포함)여야 하고 작은따옴표(')는 쓰지 않는다(tools/check.py가 본다).
+//          {시각}은 지금 시각("3시 40분")으로 바뀐다(시계). say가 없는 가구는 "옷장이네."처럼 이름을 말한다.
+//          줄을 꺼내는 곳은 src/furniture-line.js의 furnitureLine(def). 옷장, 디카, 다이어리, 냉장고, 화분, 포스터는 인터랙션이 생기기 전까지 쓰는 임시 줄이다
 export const FURNITURE = [
   // 내 방: 바닥
-  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, color: '#ede8da' },
-  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, color: '#efe7cf' },
-  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, color: '#c4b094' },
-  { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a' },
+  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, color: '#ede8da', say: '숙제는 내일 해야지.' },
+  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
+  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, color: '#c4b094', say: '눕자마자 잠들겠다.' },
+  { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a', say: '푹 파묻히고 싶다.' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
-  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 118, color: '#e0d9a1' },
-  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, color: '#cdc39e' },
-  { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0' },
+  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 118, color: '#e0d9a1', say: '입을 옷이 없네.' },
+  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, color: '#cdc39e', say: '여긴 내 지정석이야.' },
+  { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0', say: '출출한데 뭐 있나.' },
   { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },
-  { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66' },
-  { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#5c643b' },
+  { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66', say: '노래 듣고 싶은데.' },
+  { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#5c643b', say: '물을 자주 줘야겠다.' },
   // 내 방: 책상 위 (바닥에도 놓을 수 있다)
   { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 48, color: '#d7d3c8', gimmick: 'app:computer' },
   { id: 'tv',        scene: 'room', name: 'TV',       zone: 'top', size: [2, 1], height: 57, color: '#939d8a', gimmick: 'app:tv' },
   { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9895a4', gimmick: 'app:console' },
-  { id: 'camera',    scene: 'room', name: '디카',     zone: 'top', size: [1, 1], height: 12, color: '#b6b6b2' },
-  { id: 'diary',     scene: 'room', name: '다이어리', zone: 'top', size: [1, 1], height: 4, color: '#af7570' },
+  { id: 'camera',    scene: 'room', name: '디카',     zone: 'top', size: [1, 1], height: 12, color: '#b6b6b2', say: '메모리 카드 남았나.' },
+  { id: 'diary',     scene: 'room', name: '다이어리', zone: 'top', size: [1, 1], height: 4, color: '#af7570', say: '오늘은 뭘 적지.' },
   { id: 'desk-lamp', scene: 'room', name: '초록 탁상 조명', zone: 'top', size: [1, 1], height: 29, color: '#6d825f', light: true, gimmick: 'night' },
   { id: 'desk-lamp-2', scene: 'room', name: '빨간 탁상 조명', zone: 'top', size: [1, 1], height: 32, color: '#b84d32', light: true, gimmick: 'night' },
-  { id: 'mug',       scene: 'room', name: '머그컵',   zone: 'top', size: [1, 1], height: 22, color: '#f2f0ea' },
-  { id: 'plant',     scene: 'room', name: '작은 화분', zone: 'top', size: [1, 1], height: 34, color: '#8cc084' },
-  { id: 'books',     scene: 'room', name: '책 더미',  zone: 'top', size: [1, 1], height: 11, color: '#b4b8a1' },
-  { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 30, color: '#e07a5f' },
+  { id: 'mug',       scene: 'room', name: '머그컵',   zone: 'top', size: [1, 1], height: 22, color: '#f2f0ea', say: '따뜻한 차가 당기네.' },
+  { id: 'plant',     scene: 'room', name: '작은 화분', zone: 'top', size: [1, 1], height: 34, color: '#8cc084', say: '조그만 게 야무지네.' },
+  { id: 'books',     scene: 'room', name: '책 더미',  zone: 'top', size: [1, 1], height: 11, color: '#b4b8a1', say: '언제 다 읽지.' },
+  { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 30, color: '#e07a5f', say: '벌써 {시각}이네.' },
   { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
-  { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8' },
+  { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8', say: '멍하니 보게 된다.' },
   // 내 방: 벽
   // 창문은 2026-11-10까지 두 번 누르면 놀이터로 나갔다. 지금은 방 벽의 현관문(src/config.js의 SCENES door)이 그 일을 한다
-  { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8' },
-  { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1' },
-  { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba' },
-  { id: 'wide-beads-window', scene: 'room', name: '비즈 발 넓은 창문', zone: 'wall', size: [4, 3], color: '#b1c6c1' },
-  { id: 'frame',     scene: 'room', name: '액자',     zone: 'wall', size: [2, 2], color: '#c97b6b' },
-  { id: 'poster',    scene: 'room', name: '포스터',   zone: 'wall', size: [2, 3], color: '#8e9490' },
-  { id: 'wall-clock', scene: 'room', name: '벽시계',  zone: 'wall', size: [1, 1], color: '#f2e6cb' },
+  { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', say: '바깥 날씨는 어떨까.' },
+  { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', say: '탁 트여서 시원하다.' },
+  { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba', say: '바람 불면 찰랑이겠다.' },
+  { id: 'wide-beads-window', scene: 'room', name: '비즈 발 넓은 창문', zone: 'wall', size: [4, 3], color: '#b1c6c1', say: '비즈에 햇빛이 반짝이네.' },
+  { id: 'frame',     scene: 'room', name: '액자',     zone: 'wall', size: [2, 2], color: '#c97b6b', say: '사진 잘 나왔네.' },
+  { id: 'poster',    scene: 'room', name: '포스터',   zone: 'wall', size: [2, 3], color: '#8e9490', say: '볼수록 멋있어.' },
+  { id: 'wall-clock', scene: 'room', name: '벽시계',  zone: 'wall', size: [1, 1], color: '#f2e6cb', say: '{시각}이구나.' },
   // 코르크 보드: 손님이 쪽지를 붙이는 방명록(시험, src/apps/corkboard-app.js). 그림이 오기 전까지는 코르크색 액자 상자로 보인다
   { id: 'corkboard', scene: 'room', name: '코르크 보드', zone: 'wall', size: [3, 2], color: '#c69a64', gimmick: 'app:corkboard' },
   // 놀이터
-  { id: 'sandbox',   scene: 'playground', name: '모래 놀이터', zone: 'floor', size: [3, 3], height: 14, color: '#e3cf98' },
-  { id: 'slide',     scene: 'playground', name: '미끄럼틀', zone: 'floor', size: [3, 1], height: 96, color: '#e5534b' },
-  { id: 'swing',     scene: 'playground', name: '그네',     zone: 'floor', size: [3, 1], height: 112, color: '#4a90c2' },
-  { id: 'seesaw',    scene: 'playground', name: '시소',     zone: 'floor', size: [3, 1], height: 30, color: '#f2c14e' },
-  { id: 'bench',     scene: 'playground', name: '벤치',     zone: 'floor', size: [2, 1], height: 30, color: '#8b6a4a' },
-  { id: 'tree',      scene: 'playground', name: '나무',     zone: 'floor', size: [1, 1], height: 150, color: '#5a9a4f' },
+  { id: 'sandbox',   scene: 'playground', name: '모래 놀이터', zone: 'floor', size: [3, 3], height: 14, color: '#e3cf98', say: '두꺼비집 지어 볼까.' },
+  { id: 'slide',     scene: 'playground', name: '미끄럼틀', zone: 'floor', size: [3, 1], height: 96, color: '#e5534b', say: '거꾸로 올라가면 혼나지.' },
+  { id: 'swing',     scene: 'playground', name: '그네',     zone: 'floor', size: [3, 1], height: 112, color: '#4a90c2', say: '더 높이 구르고 싶다.' },
+  { id: 'seesaw',    scene: 'playground', name: '시소',     zone: 'floor', size: [3, 1], height: 30, color: '#f2c14e', say: '둘이 타야 재밌는데.' },
+  { id: 'bench',     scene: 'playground', name: '벤치',     zone: 'floor', size: [2, 1], height: 30, color: '#8b6a4a', say: '잠깐 앉았다 갈까.' },
+  { id: 'tree',      scene: 'playground', name: '나무',     zone: 'floor', size: [1, 1], height: 150, color: '#5a9a4f', say: '그늘이 시원하겠다.' },
   { id: 'streetlight', scene: 'playground', name: '가로등', zone: 'floor', size: [1, 1], height: 160, color: '#6d7380', light: true, gimmick: 'night' },
 ];
 
