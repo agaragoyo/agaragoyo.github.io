@@ -9,7 +9,7 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
-// 이웃집(서버에서 받는 link 이웃집, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 이웃집(서버에서 받는 link 이웃집과 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -183,13 +183,14 @@ async function linkOf(home, owner) {
 // rooms: 방 번호마다 방 글자. 목록에 없는 방은 그런 방이 없다는 404로 답한다
 // how: hold(방 읽기를 window.__cloudAnswer()를 부를 때까지 기다렸다가 답한다), serve(바로 답한다), missing(모든 방이 404), offline(연결 실패),
 //   write(serve에 더해 익명 로그인, 방 올리기, 쪽지 찾기, 방 지우기에도 답한다. 올린 방 글자는 window.__cloudSent에 차례로 남긴다)
-// 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다.
+// 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 쪽지를 찾은 방 번호는 window.__noteBoards에 차례로 남긴다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다.
 // notes: 코르크 보드의 쪽지 찾기에 답할 쪽지들({ name, text }). 하루씩 앞서 붙인 것으로, 색은 차례로 돌린다
 function fakeCloud(how, rooms = {}, notes = []) {
   const real = window.fetch;
   const held = [];
   window.__cloudCalls = {};
   window.__cloudSent = [];
+  window.__noteBoards = [];
   window.__cloudAnswer = () => held.splice(0).forEach(done => done());
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
   window.fetch = async (url, opts = {}) => {
@@ -200,6 +201,7 @@ function fakeCloud(how, rooms = {}, notes = []) {
     if (u.includes('accounts:signUp')) return write ? reply({ idToken: 'fake-token', localId: 'fake-uid', refreshToken: 'fake-refresh', expiresIn: '3600' }) : reply({}, 403);
     if (u.includes('securetoken.googleapis.com')) return write ? reply({ id_token: 'fake-token', user_id: 'fake-uid', refresh_token: 'fake-refresh', expires_in: '3600' }) : reply({}, 403);
     if (u.includes(':runQuery')) {
+      window.__noteBoards.push((u.match(/\/homes\/([0-9A-Za-z]+):runQuery/) || [])[1]);
       return reply(notes.map((n, i) => ({ document: { name: `notes/smoke${i}`, fields: {
         uid: { stringValue: 'smoke-guest' }, name: { stringValue: n.name }, text: { stringValue: n.text },
         color: { integerValue: String(i % 4) }, createdAt: { timestampValue: new Date(Date.now() - i * 864e5).toISOString() },
@@ -1711,6 +1713,10 @@ async function walk(page, base) {
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
   check('로그인 화면과 놀이터가 받아 둔 방을 같이 써서 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
+  // 서버에서 받은 이웃집의 손님은 짧은 링크로 온 손님처럼 그 집의 코르크 보드에 쪽지를 남긴다(src/neighbors.js의 neighborBoard)
+  await use('corkboard', () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), '이웃집 손님에게도 쪽지 남기기 단추가 보인다');
+  check('이웃집의 코르크 보드는 그 집의 링크 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === LINK_NEIGHBOR.link);
+  await press(page, 'Escape');
   // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(src/login.js의 uploadedHere). 이 컴퓨터가 기억하는 올린 방 번호(agarago.cloud의 id)가
   // 이웃집의 link와 같을 때만 빠지고, 이름으로는 가리지 않는다. 그래서 점검용 이웃집의 방 주인 이름을 내 이름과 같게 답하게 해(loginRooms), 이름으로 가렸다면 함께 사라졌을 경우까지 본다.
   // 올린 기록은 부팅하기 전에 localStorage에 심는다. 끝나면 이 점검 앞의 기록으로 돌려놓는다
@@ -1780,6 +1786,14 @@ async function walk(page, base) {
     && !gone.near.includes(LINK_NEIGHBOR.name) && gone.near.length === total - droppable, JSON.stringify(gone));
   check('고정한 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   check('복사본이 있는 이웃집은 서버에 방이 없어도 놀이터에 문패가 남는다', (await page.run(neighborGates)) === total - droppable);
+  // 복사본으로 연 집에는 쪽지를 남기지 못한다. 서버 규칙이 서버에 있는 방에만 쪽지를 받아서, 보드 번호를 넘기면 붙일 때마다 실패한다(firestore.rules)
+  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${PINNED_NEIGHBOR.id}"]`);
+  await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000);
+  await page.run(clickText, '#windows .btn', '놀러 가기');
+  check('서버에 방이 없을 때: 고정한 이웃집에 복사본으로 놀러 간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden, 5000));
+  await use('corkboard', () => !!document.querySelector('.closeup .cork-card')?.textContent.includes('쪽지를 남길 수 없습니다'), '복사본으로 연 이웃집은 쪽지를 남길 수 없다고 알린다');
+  check('복사본으로 연 이웃집의 코르크 보드는 서버에 쪽지를 찾지 않는다', (await page.run(() => window.__noteBoards.length)) === 0);
+  await press(page, 'Escape');
   const down = await bootWith(null, 'offline');
   check('서버에 닿지 못해도 복사본이 있는 이웃집은 복사본으로 뜬다', down.near.includes(PINNED_NEIGHBOR.name) && down.near.length === total - droppable, JSON.stringify(down));
   const live = await bootWith(null, 'serve', pinnedRooms);

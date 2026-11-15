@@ -5,7 +5,7 @@ import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare } from './cloud.js';
-import { NEIGHBOR_LIST, neighborHome, neighborNow, pinnedHere } from './neighbors.js';
+import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
@@ -71,7 +71,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
   // 받으면 서버의 방 주인 이름으로 보인다(주인이 이름 바꾸기로 닉네임을 바꾸면 따라 바뀐다).
   // 서버에 방이 없거나 받지 못하면 그 이웃집을 뺀다. 사용자가 부른 집이 아니라서 따로 알리지 않는다. 서버에 방이 없다고 이미 알면 null이다.
   function neighborTile(n, my) {
-    const ready = home => userTile(home.owner, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my), 'neighbor', home.picture);
+    const ready = home => userTile(home.owner, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my, neighborBoard(n)), 'neighbor', home.picture);
     const now = neighborNow(n);
     if (now !== undefined) return now && ready(now);
     const tile = h('button', { type: 'button', className: 'user neighbor', disabled: true },

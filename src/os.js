@@ -54,7 +54,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     closeupFrom: null, // 가구를 두 번 눌러 가까이 보기를 여는 동안만 그 가구의 상자. 판이 그 자리에서 커지며 다가온다(src/closeup.js)
     mode: null,
     hasOwnHome: false, // 이 컴퓨터에 저장된 내 집이 있는지. 손님 바탕화면에서 나도 만들기와 내 컴퓨터로 가운데 무엇을 보일지 정한다
-    boardId: null, // 짧은 링크(#s=)로 온 손님이면 그 방 번호. 코르크 보드의 쪽지가 이 번호의 방에 붙는다(src/apps/corkboard-app.js)
+    boardId: null, // 짧은 링크(#s=)나 서버에서 받은 이웃집으로 온 손님이면 그 방 번호. 코르크 보드의 쪽지가 이 번호의 방에 붙는다(src/apps/corkboard-app.js)
     place: SCENES[0].id, // 바탕화면 배경에 보이는 공간(SCENES의 id). 아바타도 이 공간에 있다
     wm: createWM({
       layer: $('#windows'),
@@ -150,7 +150,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 이 컴퓨터에 사는 사람의 닉네임. 손님으로 쪽지를 붙일 때 닉네임 칸에 미리 넣는다(src/apps/corkboard-app.js)
   os.ownName = () => ownHome()?.owner || '';
 
-  // boardId: 짧은 링크(#s=)로 온 손님이면 그 방 번호(코르크 보드의 쪽지가 붙는 곳). 긴 링크와 이웃집 손님은 없다.
+  // boardId: 손님이 코르크 보드에 쪽지를 붙일 서버의 방 번호. 짧은 링크(#s=)로 왔으면 그 링크의 번호, 서버에서 받은 이웃집이면 그 집의 link 번호다
+  // (src/neighbors.js의 neighborBoard). 긴 링크로 온 손님과 room 이웃집, 복사본으로 연 이웃집은 없다. 손님이 들어오는 길을 새로 만들면 여기까지 넘긴다.
   async function enter(mode, home, my, boardId = null) {
     if (my !== run) return;
     os.mode = mode;
@@ -190,19 +191,19 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else showLogin();
   };
 
-  // 이웃집에 손님으로 들어간다(src/neighbors.js의 askVisit). 놀이터의 이웃집 문에서 온다.
-  os.visit = home => {
+  // 이웃집에 손님으로 들어간다(src/neighbors.js의 askVisit). 놀이터의 이웃집 문에서 온다. boardId는 enter와 같다.
+  os.visit = (home, boardId = null) => {
     clearHash();
-    switchTo('visit', home);
+    switchTo('visit', home, boardId);
   };
 
   // 바탕화면에서 곧장 다른 컴퓨터(또는 내 컴퓨터)로 옮겨 간다. 로그인할 때처럼 환영 화면을 거친다.
   // 로그인 화면을 보이면서 바탕화면을 떠나므로 하던 튜토리얼은 멈추고(돌아오면 이어진다), 연습 방이었으면 연습을 끝낸다.
-  function switchTo(mode, home) {
+  function switchTo(mode, home, boardId = null) {
     const my = ++run;
     os.wm.closeAll();
     show('login');
-    enter(mode, home, my);
+    enter(mode, home, my, boardId);
   }
 
   // ---------- 바탕화면 ----------
