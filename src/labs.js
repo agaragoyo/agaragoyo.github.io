@@ -27,6 +27,8 @@ export const LABS = [
   { id: 'home-bgm', title: '친구 집 배경음악', desc: '친구 집에 가면 라디오의 첫 유튜브 CD가\n배경음악으로 자동 재생되어 소리가 납니다.' },
   // 움직임 줄이기를 켠 사람에게는 눈이 내리지 않으므로(src/snow.js) 켜도 달라지는 것이 없는 까닭을 설명에 적는다
   { id: 'snow', title: '놀이터에 눈', desc: reduceMotion ? '움직임 줄이기를 켠 컴퓨터에서는\n놀이터에 눈이 내리지 않습니다.' : '놀이터에 나가면 날짜와 상관없이\n눈이 계속 내립니다.' },
+  // 움직임 줄이기를 켠 사람에게는 아바타가 혼자 걷지 않고 바로 옆 가구에만 말한다(src/idle-talk.js)
+  { id: 'idle-talk', title: '심심할 때 혼잣말', desc: reduceMotion ? '바탕화면을 30초 동안 그냥 두면\n아바타가 바로 옆 가구에 혼잣말을 합니다.' : '바탕화면을 30초 동안 그냥 두면\n아바타가 가구로 가서 혼잣말을 합니다.' },
 ];
 
 export const labsOpen = () => !!settings.get('labsOpen');

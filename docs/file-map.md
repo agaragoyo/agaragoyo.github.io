@@ -53,6 +53,7 @@
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 암호를 듣는 곳은 `src/os.js`의 `onSay` |
 | 주인이 담아 둔 가구 위에 반짝임 띄우기(실험실의 `like-sparkle`) | 가구에 `has-like` 클래스를 다는 곳은 `src/os.js`의 `markLiked`, 별 그림과 깜박임은 `style.css`의 `.has-like::after`, 별 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--sparkle-cell`) |
+| 바탕화면을 그냥 두면 아바타가 가구로 가서 혼잣말하기(실험실의 `idle-talk`) | 기다리기와 가구 고르기는 `src/idle-talk.js`, 시간은 `src/config.js`의 `IDLE_TALK`, 쉬는 때(`canRun`)는 `src/os.js`, 가구의 혼잣말 한 줄은 `src/furniture-line.js`, 가구 옆까지의 걸음 수와 가던 길 버리기는 `src/avatar.js`의 `stepsTo`와 `halt` |
 | 내 방에 고양이 두기(실험실의 `pet`) | 고양이의 그림, 걷기, 쓰다듬기는 `src/pet.js`, 바탕화면에 붙이고 떼는 곳은 `src/os.js`의 `syncPet`, 아바타가 고양이 칸을 피하고 옆으로 다가가는 곳은 `src/avatar.js`의 `host.others`와 `approachCell`, 모양은 `style.css`의 `.room-pet`, 그림 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--pet-cell`) |
 | 놀이터에 눈 내리기(실험실의 `snow`) | 눈송이와 내리는 움직임은 `src/snow.js`, 바탕화면에 붙이고 떼는 곳은 `src/os.js`의 `syncSnow`, 눈 캔버스의 층은 `style.css`의 `.wallpaper .snow` |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
@@ -86,7 +87,7 @@
 | `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악, 실험실) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 열리는 암호, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `PASSWORD`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
-| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간(실험실의 빨리 보기 포함), 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `SAVER_FAST_MS`, `STORAGE_*` 등 |
+| `src/config.js` | 숫자와 이름만 모은 곳. 격자, 방과 화면 크기, 공간 목록(놀이터 문과 현관문 자리, 이웃집 문을 다는 공간 포함), 화면 보호기가 도는 시간(실험실의 빨리 보기 포함), 실험실의 심심할 때 혼잣말을 기다리는 시간, 저장 키 | `N`, `TW`, `SCENES`, `SAVER_MS`, `SAVER_FAST_MS`, `IDLE_TALK`, `STORAGE_*` 등 |
 | `src/util.js` | 여러 파일이 같이 쓰는 작은 도구. 요소 만들기, 저장소 읽고 쓰기, 조사 고르기, 두 번 누르기 판정(바탕화면 아이콘, 가구와 문, 창 제목 줄이 같이 쓴다), 글을 치는 칸인지 보기 | `h`, `loadJSON`, `saveJSON`, `wait`, `clamp`, `batchim`, `reduceMotion`, `doubleClick`, `isField` |
 
 ## src/: 컴퓨터(OS)
@@ -112,7 +113,8 @@
 | --- | --- | --- |
 | `src/room.js` | 가구 그리기(그림이 없으면 임시 상자, 그림은 칠해진 모양만 클릭), 가구마다 쓸 그림 파일 고르기(`imageFor`), 전원을 켤 때 가구 그림 미리 받기(`preloadFurniture`), 끌어 놓기와 돌리기, 앞뒤 순서, 밤 그늘, 바탕화면용 공간 그림(가구, 현관문, 놀이터의 아파트 문과 이웃집 문을 두 번 누르면 쓰기). 방 꾸미기에서는 현관문 자리에 벽 가구를 걸지 못하게 한다 | `furnitureEl`, `imageFor`, `preloadFurniture`, `renderItems`, `renderStatic`, `beginDrag`, `zOf` 등 |
 | `src/room-image.js` | 방 그림을 PNG용 캔버스로 만든다(공유하기의 내려받기). 화면의 방을 사진처럼 찍을 수 없어서, 화면과 같은 함수(`placementOf`, `zOf`, `imageFor`)가 정한 자리와 순서로 바탕, 가구 그림, 임시 모양, 글자를 다시 그리고, 아바타(`avatarStill`)를 가구 사이의 앞뒤 순서에 맞춰 넣는다. 낮 모습, 2560×1440px | `renderRoomImage`, `IMAGE_SCALE`, `IMAGE_W`, `IMAGE_H` |
-| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`, 실험실의 고양이 옆은 `approachCell`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`). 실험실의 주인 아바타 남기기를 켜면 친구 집의 방에 이름표를 단 주인 아바타를 세운다(`mountOwner`, 서는 칸은 `ownerCell`). 주인 아바타와 실험실의 고양이가 차지한 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다(`host.others`, 고양이가 움직이면 `restack`) | `mountAvatar`, `mountOwner`, `depthZ`, `spriteRect`, `avatarStill`, `blockedOf`, `overlaps` |
+| `src/avatar.js` | 바탕화면 배경의 방을 걷는 내 아바타(1단계, 서버 없음). 바닥 클릭과 방향키로 칸 이동, 길찾기, 두 번 누른 가구나 문 옆으로 걸어가기(`approach`, `approachWall`, 실험실의 고양이 옆은 `approachCell`, 실험실의 심심할 때 혼잣말이 쓰는 걸음 수 `stepsTo`와 가던 길 버리기 `halt`), 공간을 옮길 때 새 자리에 서기(`moveTo`), 가구와 앞뒤 순서(화면에서 겹치는 가구끼리만), 말풍선. 방 꾸미기 창에는 나오지 않는다. 그림 파일이 없으면 임시 그림을 SVG로 그린다. 공유하기의 방 그림에 세울 아바타도 화면과 같은 자리와 앞뒤 계산으로 돌려준다(`avatarStill`). 실험실의 주인 아바타 남기기를 켜면 친구 집의 방에 이름표를 단 주인 아바타를 세운다(`mountOwner`, 서는 칸은 `ownerCell`). 주인 아바타와 실험실의 고양이가 차지한 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다(`host.others`, 고양이가 움직이면 `restack`) | `mountAvatar`, `mountOwner`, `depthZ`, `spriteRect`, `avatarStill`, `blockedOf`, `overlaps` |
+| `src/idle-talk.js` | 실험실의 심심할 때 혼잣말(`idle-talk`). 켜고 바탕화면을 30초 동안 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 하나로 가서 그 가구의 혼잣말을 하고, 그 뒤로 40~60초마다 되풀이한다. 같은 가구를 연달아 고르지 않는다. 마우스나 키를 건드리면 가던 길을 버리고 처음부터 다시 잰다. 언제 쉴지는 `os.js`가 정한다 | `createIdleTalk` |
 | `src/pet.js` | 실험실의 펫 데려오기(`pet`)를 켜면 내 집의 방에 사는 임시 픽셀 고양이. 빈 바닥 칸에 앉아 있다가 10~20초마다 2~4칸 떨어진 빈칸으로 아바타의 절반 빠르기로 걷고, 두 번 누르면 아바타가 옆 칸으로 와서 쓰다듬어 하트가 1초 뜬다. 가구와 아바타의 칸과 앞뒤는 `src/avatar.js`의 규칙을 같이 쓴다. 집 저장 형식과 링크에는 아무것도 담지 않는다 | `mountPet` |
 | `src/snow.js` | 실험실의 놀이터에 눈(`snow`)을 켜면 바탕화면의 바깥 공간(놀이터)에 내리는 픽셀 눈. 바탕화면 크기의 캔버스 한 장에 64송이(무대 2~3px 네모)를 화면 픽셀 단위로 그려 초당 84~140px로 좌우로 흔들리며 내리게 한다. 탭이 뒤로 가면 멈추고, 움직임 줄이기를 켠 사람에게는 내리지 않는다 | `createSnow` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서만 쓴다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `dims`, `isWall` |
@@ -122,7 +124,7 @@
 | `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기(링크로 온 친구 집과 link 이웃집). SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 링크를 지우면 쪽지도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `NOTE`, `MAX_CODE`, `CloudError` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 새 책과 작품의 색 고르기(`nextColor`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `nextColor`, `line`, `para`, `isOwner`, `LIMIT` |
 
-| `src/furniture-line.js` | 기믹이 없는 가구를 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄을 꺼낸다. 가구 목록의 `say`를 쓰고, 없으면 "옷장이네."처럼 이름을 말한다. `{시각}`은 지금 시각("3시 40분")으로 바뀐다 | `furnitureLine` |
+| `src/furniture-line.js` | 기믹이 없는 가구를 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄을 꺼낸다. 가구 목록의 `say`를 쓰고, 없으면 "옷장이네."처럼 이름을 말한다. `{시각}`은 지금 시각("3시 40분")으로 바뀐다. `os.js`의 두 번 누르기와 실험실의 심심할 때 혼잣말(`src/idle-talk.js`)이 같이 쓴다 | `furnitureLine` |
 
 ## src/apps/: 기본 앱
 

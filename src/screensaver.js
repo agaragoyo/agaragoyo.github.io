@@ -82,5 +82,6 @@ export function createScreensaver({ stage, canRun, text }) {
   settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) arm(); });
   arm();
 
-  return { show, hide, delay };
+  // showing(): 지금 화면 보호기가 떠 있는지(실험실의 심심할 때 혼잣말이 떠 있는 동안 쉰다, src/idle-talk.js)
+  return { show, hide, delay, showing: () => !el.hidden };
 }

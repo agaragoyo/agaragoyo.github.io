@@ -190,7 +190,7 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 실험실의 고양이 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
 //                  order()로 앞뒤를 알려 준다. 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 고양이는 걸어 다니므로 칸은 그때그때 묻는다. 없어도 된다
 // guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
-// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, approachCell, restack, destroy
+// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, typing, approachCell, stepsTo, halt, restack, destroy
 export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   const el = avatarEl(avatarId, guest);
   el.title = '눌러서 말하기';
@@ -268,22 +268,42 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     return null;
   }
 
-  // 가구 옆까지 걸어가 가구 쪽을 본 뒤 then을 부른다(바탕화면에서 가구를 두 번 눌렀을 때).
-  // 벽 가구는 그 벽 바로 앞 바닥 칸에, 책상 위 물건은 책상 둘레 칸에 선다.
-  function approach(item, then) {
-    if (isWall(item)) return approachWall(item.wall, item.x, dims(item)[0], then);
+  // 가구를 쓰러 가서 설 칸(goal)과 다 와서 볼 쪽(face). 벽 가구는 그 벽 바로 앞 바닥 칸에, 책상 위 물건은 책상 둘레 칸에 선다.
+  function besideOf(item) {
+    if (isWall(item)) return besideWall(item.wall, item.x, dims(item)[0]);
     const base = supportOf(host.items(), item) || item;
     const [w, d] = dims(base);
     const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
-    const face = () => FACING[me.x < base.x ? '1,0' : me.x >= base.x + w ? '-1,0' : me.y < base.y ? '0,1' : '0,-1'];
-    go((x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy)), face, then);
+    return {
+      goal: (x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy)),
+      face: () => FACING[me.x < base.x ? '1,0' : me.x >= base.x + w ? '-1,0' : me.y < base.y ? '0,1' : '0,-1'],
+    };
   }
 
-  // 벽(놀이터에서는 울타리)의 칸 from부터 w칸 바로 앞까지 걸어가 벽 쪽을 본 뒤 then을 부른다. 벽 가구와 놀이터 문이 쓴다.
-  // 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
-  function approachWall(wall, from, w, then) {
+  // 벽(놀이터에서는 울타리)의 칸 from부터 w칸 바로 앞에 설 칸과 볼 쪽. 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
+  function besideWall(wall, from, w) {
     const along = u => u >= from && u < from + w;
-    go((x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)), () => FACING[wall === 'R' ? '0,-1' : '-1,0'], then);
+    return {
+      goal: (x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)),
+      face: () => FACING[wall === 'R' ? '0,-1' : '-1,0'],
+    };
+  }
+
+  // 가구 옆까지 걸어가 가구 쪽을 본 뒤 then을 부른다(바탕화면에서 가구를 두 번 눌렀을 때).
+  function approach(item, then) {
+    const { goal, face } = besideOf(item);
+    go(goal, face, then);
+  }
+
+  // 벽의 칸 from부터 w칸 바로 앞까지 걸어가 벽 쪽을 본 뒤 then을 부른다. 벽 가구와 놀이터 문이 쓴다.
+  function approachWall(wall, from, w, then) {
+    const { goal, face } = besideWall(wall, from, w);
+    go(goal, face, then);
+  }
+
+  // 가구 옆까지 걸어갈 칸 수. 이미 옆에 서 있으면 0, 갈 수 있는 칸이 없으면 null(실험실의 심심할 때 혼잣말이 갈 가구를 고를 때 쓴다, src/idle-talk.js)
+  function stepsTo(item) {
+    return pathTo(besideOf(item).goal)?.length ?? null;
   }
 
   // 칸 c 바로 옆 칸까지 걸어가 c 쪽을 본 뒤 then을 부른다. 실험실의 고양이를 쓰다듬으러 갈 때 쓴다(src/pet.js)
@@ -506,10 +526,20 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     // 지금 서 있는 칸과 방향(걷는 중에는 들어가는 칸). 공유하기의 방 그림이 avatarStill에 넘긴다. 방이 꽉 차 서 있지 못하면 null
     spot: () => (placed && el.isConnected ? { x: me.x, y: me.y, facing } : null),
     openSay,
+    // 말풍선에 쓸 말을 치는 칸이 열려 있는지
+    typing: () => !input.hidden,
     say,
     approach,
     approachWall,
     approachCell,
+    stepsTo,
+    // 가던 길과 다 와서 할 일을 버린다. 걷던 한 칸은 마저 걸어 칸 위에 선다.
+    // 실험실의 심심할 때 혼잣말이 가구로 걷던 중에 사용자가 마우스나 키를 건드리면 부른다(src/idle-talk.js)
+    halt() {
+      path = [];
+      arrive = null;
+      target = null;
+    },
     // 다른 그림(실험실의 고양이)이 움직였을 때 부른다. 마지막으로 그린 자리로 그 그림과의 앞뒤를 다시 맞춘다
     restack() {
       if (drawnAt && el.isConnected) draw(...drawnAt);

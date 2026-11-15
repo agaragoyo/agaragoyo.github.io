@@ -15,6 +15,7 @@ import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
+import { createIdleTalk } from './idle-talk.js';
 import { PASSWORD, labsOpen, openLabs, labOn } from './labs.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
@@ -541,6 +542,16 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     stage,
     canRun: () => !!os.mode && !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup && !os.tutorial?.active && !os.videoOn && document.visibilityState === 'visible',
     text: () => os.home?.greeting || `${os.home?.owner || ''}의 컴퓨터`,
+  });
+
+  // 실험실의 '심심할 때 혼잣말'(idle-talk, src/idle-talk.js). 내 방, 놀이터, 친구 집에서 내 아바타가 한다.
+  // 바탕화면을 그냥 둘 때만 하고, 최소화하지 않은 창이 하나라도 있거나 방 꾸미기 창이 열려 있으면(최소화해도) 쉰다.
+  // 가구 가까이 보기, 튜토리얼과 연습 방, 화면 보호기, 말풍선에 쓰는 중에도 쉰다
+  createIdleTalk({
+    avatar: () => walker,
+    items: () => (os.home?.scenes[os.place] || []).filter(item => BY_ID[item.id]),
+    canRun: () => !!os.mode && !el.desktop.hidden && !os.closeup && !os.tutorial?.active && !os.realHome && !os.saver.showing()
+      && !walker?.typing() && document.visibilityState === 'visible' && !os.wm.get('room') && os.wm.all().every(w => w.minimized),
   });
 
   // 켜 둔 채로 다른 방 링크를 붙여 넣으면 로그인 화면으로 돌아간다(이미 로그인 화면이면 사용자 목록을 다시 만든다).
