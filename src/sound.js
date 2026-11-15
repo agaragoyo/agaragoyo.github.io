@@ -102,7 +102,31 @@ function player(file) {
   return a;
 }
 
+// 사이트 배경음악 대신 다른 사이트의 플레이어가 내는 음악(실험실의 친구 집 배경음악, src/apps/radio-app.js의 homeMusic)이 지금 들려도 되는지 알린다.
+// 그 음악을 띄운 창은 holdMusic(id, 'own')으로 사이트 곡을 멈춰 두고, 사이트 곡이 났을 자리에서만 소리를 낸다. 그래서 소리와 배경음악이 켜져 있고,
+// 바탕화면에 있고, 이 창이 앞에 있고(F27), 그 창의 hold가 맨 위일 때(나중에 연 배경음악 앱이나 음악이 있는 게임 창이 없을 때)만 true다.
+// fn(on)은 처음 한 번과 바뀔 때마다 불린다. 돌려준 함수를 부르면 그만 듣는다
+const watchers = new Set();
+export function watchMusic(id, fn) {
+  const w = { id, fn, on: null };
+  watchers.add(w);
+  notify();
+  return () => watchers.delete(w);
+}
+
+function notify() {
+  const top = holds.length ? holds[holds.length - 1].id : null;
+  for (const w of watchers) {
+    const on = soundOn() && !!settings.get('musicOn') && !!place && !away && top === w.id;
+    if (on !== w.on) {
+      w.on = on;
+      w.fn(on);
+    }
+  }
+}
+
 function update() {
+  notify(); // 사이트 곡이 그대로여도(멈춘 창 위에 음악 없는 창을 열 때) hold의 순서는 바뀐다
   const next = wanted();
   if (current?.key === next?.key) return;
   const prev = current;
@@ -148,6 +172,7 @@ function checkAway() {
   if (now === away) return;
   away = now;
   for (const a of [...players.values(), ...effects]) a.muted = away;
+  notify();
 }
 document.addEventListener('visibilitychange', checkAway);
 window.addEventListener('focus', checkAway);
