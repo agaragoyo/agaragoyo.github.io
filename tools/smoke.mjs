@@ -752,18 +752,33 @@ async function walk(page, base) {
   check('빈 이름으로 이름 바꾸기를 누르면 안내가 뜨고 이름은 그대로다', (await page.run(() => !document.querySelector('.name-app .like-error').hidden)) && (await page.run(savedOwner)) === '점검');
   await page.run(clickText, '#windows .name-app .btn', '취소');
   check('취소를 누르면 창이 닫히고 이름은 그대로다', (await page.run(() => !document.querySelector('#windows .name-app'))) && (await page.run(savedOwner)) === '점검');
+  // 시작 메뉴의 로그아웃 바로 위에 글자로 된 "이름 바꾸기" 줄이 있다. 맨 위의 이름은 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80)
+  await page.run(clickOnce, '.start-btn');
+  check('시작 메뉴의 로그아웃 바로 위에 이름 바꾸기 줄이 있다', await page.run(() => {
+    const items = [...document.querySelectorAll('#start-menu .start-item')].map(b => b.textContent);
+    const i = items.findIndex(t => t.includes('이름 바꾸기'));
+    return i >= 0 && !!items[i + 1]?.includes('로그아웃');
+  }));
+  await page.run(clickText, '#start-menu .start-item', '이름 바꾸기');
+  check('시작 메뉴의 이름 바꾸기 줄을 누르면 시작 메뉴가 닫히고 이름 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .name-app'), 3000));
+  await page.run(clickText, '#windows .name-app .btn', '취소');
   const namePic = await page.run(async () => {
     localStorage.removeItem('agarago.picture'); // 사진을 고른 적 없는 사용자처럼 둔다
     const { ownPicture } = await import(new URL('src/user-pictures.js', document.baseURI).href);
     return ownPicture('점검');
   });
+  // 사진 바꾸기 창의 이름 옆 단추로도 연다. 사진 바꾸기 창을 연 채로 바꾸면 그 창 위의 이름도 바뀐다
   await page.run(clickOnce, '.start-btn');
-  await page.run(clickOnce, '#start-menu .start-name');
-  await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+  await page.run(clickOnce, '#start-menu .start-pic');
+  await until(page, () => !!document.querySelector('#windows .pic-app'), 3000);
+  await page.run(clickText, '#windows .pic-app-head .btn', '이름 바꾸기');
+  check('사진 바꾸기 창의 이름 옆 단추를 누르면 이름 바꾸기 창이 열린다', await until(page, () => !!document.querySelector('#windows .name-app'), 3000));
   await page.run(nameSubmit, ' 바꾼 이름 ');
   check('이름을 바꾸면 앞뒤 공백을 지운 이름이 집에 저장되고 창이 닫히며 알린다', await until(page, () => !document.querySelector('#windows .name-app')
     && JSON.parse(localStorage.getItem('agarago.home.v3')).owner === '바꾼 이름' && document.getElementById('toast').textContent === '이름을 바꿨습니다.', 3000));
   check('사진을 고른 적 없는 사용자도 이름을 바꾸면 사진은 그대로다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === namePic, namePic);
+  check('사진 바꾸기 창을 연 채로 이름을 바꾸면 그 창 위의 이름도 바뀐다', await page.run(() => document.querySelector('#windows .pic-app-head b')?.textContent === '바꾼 이름'));
+  await closeWindows();
   await page.run(clickOnce, '.start-btn');
   check('바꾼 이름이 시작 메뉴에 보인다', await page.run(() => document.querySelector('#start-menu .start-name')?.textContent === '바꾼 이름'));
   await page.run(clickOnce, '#start-menu .start-name');
@@ -999,7 +1014,8 @@ async function walk(page, base) {
   check('연습 방은 가구가 없는 빈 방이다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0);
   await probe('연습 방');
   await page.run(clickOnce, '.start-btn');
-  check('연습 방의 시작 메뉴에는 내 사진과 이름이 보이기만 하고 바꾸는 단추는 없다', await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+  check('연습 방의 시작 메뉴에는 내 사진과 이름이 보이기만 하고 바꾸는 단추와 이름 바꾸기 줄은 없다', await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+    && ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent.includes('이름 바꾸기'))
     && !!document.querySelector('#start-menu .start-head .user-pic') && document.querySelector('#start-menu .start-head').textContent === '점검'));
   await page.run(clickOnce, '.start-btn');
 
@@ -1074,8 +1090,9 @@ async function walk(page, base) {
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
   check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
   await page.run(clickOnce, '.start-btn');
-  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 사진과 이름을 바꾸는 단추는 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
-    && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')));
+  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 사진과 이름을 바꾸는 단추와 줄은 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
+    && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+      && ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent.includes('이름 바꾸기'))));
   await page.run(clickOnce, '.start-btn');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
