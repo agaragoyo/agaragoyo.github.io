@@ -668,6 +668,9 @@ button { font-family: inherit; }
 .win-body.flush { padding: 0; overflow: hidden; background: #111; }
 .win-body p { margin: 0 0 10px; }
 .win-body .meta { margin: 0; font-size: 14px; color: #6c6457; }
+/* 새 탭으로 열기 전에 보여 주는 열리는 곳(src/apps/link-app.js의 linkPrompt, TV의 고른 작품). 주인이 넣은 긴 주소가 단추 줄을 창 밖으로 밀지 않게
+   한 줄로 쓰고 넘치면 말줄임표로 끝내며, 마우스를 올리면 전체 주소가 보인다(fitHost, known-issues 81) */
+.link-host { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .share-row { display: flex; gap: 8px; }
 /* 공유하기의 그림 내려받기: 링크 줄과 떨어뜨리고, 공간이 늘어 단추가 많아지면 줄을 바꾼다 */
 .win-body .share-save-tip { margin-top: 14px; }
@@ -1347,10 +1350,12 @@ form.user { cursor: var(--cur-arrow); }
   white-space: nowrap;
   will-change: transform;
 }
-/* 움직임 줄이기를 켠 사람에게는 가운데에 멈춰 보여 준다. 흘러가지 않으므로 화면보다 긴 인사말(30자)은 줄을 바꾼다 */
+/* 움직임 줄이기를 켠 사람에게는 가운데에 멈춰 보여 준다. 흘러가지 않으므로 화면보다 긴 인사말(30자)은 줄을 바꾼다.
+   흘러가는 글은 지나갈 때마다 src/screensaver.js가 색을 바꾸는데 멈춘 글은 색을 받지 못해 검은 바탕에 짙은 글자로 묻혔다. 그 첫 색을 준다 */
 .saver-text.still {
   left: 50%;
   top: 50%;
+  color: #ffe36e;
   width: max-content;
   max-width: 1120px;
   transform: translate(-50%, -50%);
@@ -2151,7 +2156,6 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .tv-why { font-size: 16px; line-height: 1.6; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
 .tv-link { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c9c9c9; }
 .tv-link a.btn { display: inline-block; flex: none; text-decoration: none; }
-.tv-link span { overflow-wrap: anywhere; } /* 열리는 곳: 긴 주소 */
 .tv-none { margin: auto; font-size: 16px; color: #c9c9c9; }
 /* 넣는 칸(종이 카드)을 화면 가운데에 띄운다 */
 .tv-card { width: 724px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; } /* TV 화면(760px)을 거의 다 쓴다 */

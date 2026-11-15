@@ -42,7 +42,7 @@ const EVIL = {
   greeting: '<i>안녕</i>',
 };
 
-// 긴 글 점검(known-issues 81)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄이 는다),
+// 긴 글 점검(known-issues 81)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
 // 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
 // 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
 const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
@@ -1776,6 +1776,11 @@ async function walk(page, base) {
   await probe('긴 이름의 CD를 넣은 라디오');
   await shut();
   await use('computer', () => !!document.querySelector('#windows .computer-app .link-row'), '긴 이름의 게임과 긴 주소를 넣은 옛날 컴퓨터가 열린다');
+  // 창 안은 스크롤되어 cutText가 보지 않는다. 열리는 곳이 여러 줄로 꺾여 단추 줄이 창 아래로 밀리면 스크롤해야 단추가 보인다
+  check('긴 주소를 넣은 옛날 컴퓨터 창은 스크롤하지 않아도 단추 줄까지 보인다', await page.run(() => {
+    const body = document.querySelector('#windows .computer-app');
+    return body.scrollHeight <= body.clientHeight + 1;
+  }));
   await closeWindows();
   // 움직임 줄이기를 켠 사람에게는 화면 보호기가 인사말을 가운데에 멈춰 보인다. 화면보다 긴 인사말은 줄을 바꿔 화면 안에 든다
   await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
@@ -1786,13 +1791,14 @@ async function walk(page, base) {
   await openIcon('share');
   await until(page, () => !!document.querySelector('#windows .share-row'), 3000);
   await page.run(clickText, '#windows .btn', '미리 보기');
-  check('움직임 줄이기를 켜면 화면 보호기의 긴 인사말이 화면 안에 멈춰 있다', await until(page, () => {
+  check('움직임 줄이기를 켜면 화면 보호기의 긴 인사말이 화면 안에 멈춰 있고 검은 바탕에서 밝은 색이다', await until(page, () => {
     const s = document.querySelector('.saver');
     const t = s?.querySelector('.saver-text.still');
     if (!t || s.hidden) return false;
     const a = t.getBoundingClientRect();
     const b = s.getBoundingClientRect();
-    return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;
+    const [r, g, bl] = getComputedStyle(t).color.match(/\d+/g).map(Number);
+    return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom && r + g + bl > 450;
   }, 3000));
   await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
 

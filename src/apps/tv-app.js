@@ -6,6 +6,7 @@
 import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { BOOK_COLORS } from './bookshelf-app.js';
+import { fitHost } from './link-app.js';
 import { LIMIT, safeLink, safeImage, setLike, isOwner, nextColor } from '../likes.js';
 
 // ---------- 위키데이터(키 없이 다른 사이트에서 부를 수 있다, origin=*) ----------
@@ -173,12 +174,14 @@ export function openTvApp(os, app) {
           w.why ? h('p', { className: 'tv-why' }, w.why) : null,
           w.link ? h('p', { className: 'tv-link' },
             h('a', { className: 'btn', href: w.link, target: '_blank', rel: 'noopener noreferrer' }, '새 탭에서 보기'),
-            h('span', {}, `열리는 곳: ${new URL(w.link).host}`)) : null) : null;
+            h('span', { className: 'link-host' }, `열리는 곳: ${new URL(w.link).host}`)) : null) : null;
         screen.replaceChildren(
           h('div', { className: 'tv-head' }, h('b', {}, `${os.home.owner}의 추천 작품`), list.length > 1 ? h('span', {}, '휠이나 방향키로 넘겨 보세요.') : null),
           list.length ? row : h('p', { className: 'tv-none' }, '아직 넣은 작품이 없습니다.'),
           detail);
-        row.querySelectorAll('.tv-poster-label b').forEach(b => fitText(b, b.closest('.tv-pick'))); // 화면에 붙은 뒤에야 줄 수를 잴 수 있다
+        // 화면에 붙은 뒤에야 줄 수를 잴 수 있다. 열리는 곳은 옛날 컴퓨터처럼 한 줄에서 말줄임표로 끝난다
+        row.querySelectorAll('.tv-poster-label b').forEach(b => fitText(b, b.closest('.tv-pick')));
+        fitHost(screen);
         // 고른 포스터가 보이게 줄만 옮긴다(scrollIntoView는 화면 바깥 상자까지 옮길 수 있어 쓰지 않는다)
         const c = row.children[at];
         if (c && c.offsetLeft + c.offsetWidth > row.clientWidth) row.scrollLeft = c.offsetLeft + c.offsetWidth - row.clientWidth + 12;
