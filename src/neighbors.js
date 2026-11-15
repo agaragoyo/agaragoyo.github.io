@@ -36,11 +36,14 @@ export const NEIGHBOR_LIST = NEIGHBORS
 // 그래서 고정한 집은 null이나 undefined가 되지 않는다.
 const asked = new Map(); // 번호 → 받는 중이거나 받은 일(Promise)
 const known = new Map(); // 번호 → 받은 글자나 null
+const live = new Set();  // 서버에서 받은 방이 풀린 번호. 복사본으로 대신 연 집은 들지 않는다(neighborBoard)
 function codeOf(n) {
   if (!n.link) return Promise.resolve(n.room);
   if (!asked.has(n.link)) {
     asked.set(n.link, fetchHome(n.link).then(code => {
-      const got = n.keep && !(code && decodeHome(code)) ? n.keep : code;
+      const ok = !!code && !!decodeHome(code);
+      if (ok) live.add(n.link);
+      const got = n.keep && !ok ? n.keep : code;
       known.set(n.link, got);
       return got;
     }, err => {
@@ -77,6 +80,10 @@ export function neighborNow(n) {
   if (!n.link) return toHome(n, n.room);
   return known.has(n.link) ? toHome(n, known.get(n.link)) : undefined;
 }
+
+// 이웃집 손님이 코르크 보드에 쪽지를 붙일 서버의 방 번호(src/os.js의 boardId). 서버에서 받은 link 이웃집이면 그 번호라서
+// 짧은 링크로 온 손님처럼 쪽지를 남긴다. room 이웃집과 복사본(keep)으로 대신 연 집은 null이다. 서버 규칙이 서버에 있는 방에만 쪽지를 받는다(firestore.rules).
+export const neighborBoard = n => (n.link && live.has(n.link) ? n.link : null);
 
 // 지금 보일 이름. 받은 link 이웃집은 서버의 방 주인 이름이고, 받기 전이거나 room 이웃집이면 목록의 이름이다
 const shownName = n => neighborNow(n)?.owner || n.name;
@@ -127,7 +134,7 @@ export async function askVisit(os, n) {
       const go = () => {
         win.close();
         play('enter');
-        os.visit(home);
+        os.visit(home, neighborBoard(n));
       };
       body.append(...[
         h('p', {}, `${home.owner}의 집에 놀러 갑니다.`),
