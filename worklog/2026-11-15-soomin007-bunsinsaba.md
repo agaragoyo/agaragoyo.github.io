@@ -69,9 +69,9 @@
 - `src/config.js`: 공포 모드의 시간을 모두 모은 `HORROR`. `src/horror.js`에 있던 불이 꺼지기까지와 첫마디까지의 시간도 옮겼다
 - `src/avatar.js`: 빈 바닥 칸(`emptyCells`), 말풍선 자리(`sayPoint`), 아바타의 뒤 칸(`behind`)과 걷지 않고 돌아보기(`lookAt`)
 - `src/os.js`: 공포 모드에 아바타와 펫이 선 칸, 방이 보이는지를 넘기고, 시작 메뉴를 열 때 불 켜기 글을 넘긴다
-- `style.css`: 둘째 벽 가구와 더 기울기(`.ccw`, `.more`), 빈칸의 말풍선(`.horror-voice`), 움직임 줄이기의 선택자를 고쳤다(known-issues 81)
+- `style.css`: 둘째 벽 가구와 더 기울기(`.ccw`, `.more`), 빈칸의 말풍선(`.horror-voice`), 움직임 줄이기의 선택자를 고쳤다(known-issues 82)
 - `tools/check.py`: 빈칸의 말풍선과 아바타의 대꾸도 말풍선 13자를 본다. `tools/smoke.mjs`: 시간을 줄여 단계가 차례로 늘고, 불을 켜면 모두 풀리는지 본다
-- `AGENTS.md`(말투 표에 한 줄), `known-issues.md`(81), `docs/requirements.md`(F29), `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`
+- `AGENTS.md`(말투 표에 한 줄), `known-issues.md`(82), `docs/requirements.md`(F29), `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`
 
 ### 정한 것과 이유
 시간은 방이 보이는 동안만 센다. 다른 탭에 있거나 화면 보호기, 가구 가까이 보기가 떠 있으면 시계가 멈추고, 돌아오면 멈춘 곳부터 이어 간다.
@@ -93,7 +93,7 @@
 벽에 건 것이 하나도 없는 방에서는 20초 단계가 그냥 지나간다. 말풍선과 시작 메뉴는 어느 방에서나 일어나서 그런 방에서도 세 번은 달라진다.
 깜박임을 단계마다 빠르고 어둡게 하는 방법은 버렸다. 1초에 3번 아래로 지켜도 사람마다 불편할 수 있고, 써 본 사람이 아쉬워한 것은 세기가 아니라 새로 일어나는 일이 없다는 점이었다.
 움직임 줄이기를 켠 사람에게는 말풍선이 그냥 떴다 사라지고 벽 가구는 바로 기운 채로 보인다. 점검을 더하다가 PR 116의 움직임 줄이기 규칙이
-기울기를 끄지 못하던 것을 찾아 같이 고쳤다(known-issues 81).
+기울기를 끄지 못하던 것을 찾아 같이 고쳤다(known-issues 82).
 시간 숫자는 `IDLE_TALK`처럼 `src/config.js`에 객체로 두어, 눌러 보기 점검이 페이지 안에서 줄여 단계를 몇 초 안에 차례로 본다.
 
 ### 남은 일과 알아 둘 것
