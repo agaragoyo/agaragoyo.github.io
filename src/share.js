@@ -38,6 +38,10 @@ function sanitizeDecor(raw) {
   return wall !== 'plain' && WALL_PATTERNS.some(w => w.id === wall) ? { wall } : null;
 }
 
+// 주인 이름(닉네임) 검사. 한 줄로 만들고 12글자까지 남긴다. 집 상태 검사와 이름 바꾸기 창(src/user-name.js)이 같이 쓴다.
+// slice로 자르면 12번째 자리에 걸친 이모지가 반으로 잘려 깨진 글자가 남아서 글자 단위로 센다(src/likes.js의 line).
+export const ownerName = value => line(value, MAX_NAME);
+
 // 주인 사진. 목록(data/user-pictures.js)에 있는 id와 풀 수 있는 내 그림만 남기고, 아니면 null이라 집 상태에 picture를 두지 않는다.
 // 내 그림은 푼 바이트로 글을 다시 적는다(같은 그림이 늘 같은 글이 된다).
 const sanitizePicture = v => (USER_PICTURES.some(p => p.id === v) ? v : customFromBytes(customBytes(v)));
@@ -46,7 +50,7 @@ const sanitizePicture = v => (USER_PICTURES.some(p => p.id === v) ? v : customFr
 // 공간이 하나뿐이던 옛 형식({ owner, items })은 내 방으로 옮긴다.
 export function sanitizeHome(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const owner = line(raw.owner, MAX_NAME); // slice로 자르면 12번째 자리에 걸친 이모지가 반으로 잘려 깨진 글자가 남는다
+  const owner = ownerName(raw.owner);
   const src = raw.scenes && typeof raw.scenes === 'object' ? raw.scenes : { room: raw.items };
   const scenes = {};
   for (const sc of SCENES) scenes[sc.id] = sanitizeItems(src[sc.id], sc.id);

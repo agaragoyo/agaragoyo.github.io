@@ -9,7 +9,7 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
-// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 사진 바꾸기 창(시작 메뉴 맨 위의 내 사진으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
+// 창 다섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
@@ -130,12 +130,13 @@ function openStartMenu() {
   return !menu.hidden;
 }
 
-// 시작 메뉴를 열어 맨 위의 내 사진을 누른다. 사진 바꾸기 창(src/user-pictures.js)이 열리고 시작 메뉴는 닫힌다
-function openPictureWindow() {
+// 시작 메뉴를 열어 맨 위의 내 사진(sel이 .start-pic)이나 내 이름(.start-name)을 누른다.
+// 사진 바꾸기 창(src/user-pictures.js)이나 이름 바꾸기 창(src/user-name.js)이 열리고 시작 메뉴는 닫힌다
+function openUserWindow(sel) {
   if (document.getElementById('start-menu').hidden) document.querySelector('#taskbar .start-btn').click();
-  const pic = document.querySelector('#start-menu .start-pic');
-  if (!pic) return false;
-  pic.click();
+  const btn = document.querySelector(`#start-menu ${sel}`);
+  if (!btn) return false;
+  btn.click();
   return true;
 }
 
@@ -323,8 +324,10 @@ async function main() {
     await sleep(300);
   }
   await until(page, s => s.windows >= OPEN.length, `창 ${OPEN.length}개가 열리지 않았다`, 5000);
-  if (!(await page.run(openPictureWindow))) throw new Stop('시작 메뉴 맨 위에 내 사진 단추(.start-pic)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openPictureWindow도 고친다.');
+  if (!(await page.run(openUserWindow, '.start-pic'))) throw new Stop('시작 메뉴 맨 위에 내 사진 단추(.start-pic)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 1, '사진 바꾸기 창이 열리지 않았다', 5000);
+  if (!(await page.run(openUserWindow, '.start-name'))) throw new Stop('시작 메뉴 맨 위에 내 이름 단추(.start-name)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
+  await until(page, s => s.windows >= OPEN.length + 2, '이름 바꾸기 창이 열리지 않았다', 5000);
 
   const results = [];
   for (const era of ERAS) {

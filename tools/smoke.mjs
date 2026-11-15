@@ -7,7 +7,7 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
-// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림),
+// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
@@ -349,6 +349,10 @@ function pickOther(scope, avoid = null) {
 const shownPic = sel => document.querySelector(`${sel} .user-pic`)?.dataset.pic ?? null;
 const clickOnce = sel => { const el = document.querySelector(sel); if (!el) return false; el.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true; };
 const clickText = (sel, text) => { const el = [...document.querySelectorAll(sel)].find(b => b.textContent.includes(text)); if (!el) return false; el.click(); return true; };
+// 이름 바꾸기 창(src/user-name.js)의 입력 칸에 v를 넣고 이름 바꾸기를 누른다. 입력 칸은 순서 대신 종류로 찾는다(known-issues 72)
+const nameSubmit = v => { const f = document.querySelector('#windows .name-app form'); if (!f) return false; f.querySelector('input[type="text"]').value = v; f.requestSubmit(); return true; };
+// 저장된 내 집의 주인 이름(src/login.js의 로그인 화면과 os.saveHome이 쓰는 값)
+const savedOwner = () => JSON.parse(localStorage.getItem('agarago.home.v3') || 'null')?.owner ?? null;
 
 // 미니게임 창(제목이 title로 시작)에서 act를 한 뒤 게임 페이지의 상태를 돌려준다. 창이나 게임 페이지가 아직 없으면 null
 //   act: 'card:<글>' 떠 있는 카드에서 글로 시작하는 단추, 'min' 최소화 단추, 'task' 작업 표시줄 단추, 'drop' 판 가운데를 누르고 바로 최소화
@@ -584,6 +588,24 @@ async function walk(page, base) {
       }, firstPic));
       check('링크를 만든 뒤에는 링크 지우기 단추가 보인다', (await page.run(winText)).includes('링크 지우기'));
       await probe('링크를 만든 공유하기 창');
+      // 이름 바꾸기(F28): 링크를 만든 방은 이름을 바꾸면 3초 뒤 서버의 방도 새 이름으로 고친다(src/cloud.js의 syncLater).
+      // 공유하기 창을 연 채로 바꾸면 인사말 칸에 보이는 "주인 이름의 컴퓨터"도 따라 바뀐다. 이름 바꾸기 창의 나머지는 시작 메뉴 점검에서 본다
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickOnce, '#start-menu .start-name');
+      await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+      check('링크를 만든 방의 이름 바꾸기 창은 링크로 오는 친구에게도 새 이름이 보인다고 알린다', await page.run(() => document.querySelector('.name-app .meta')?.textContent.startsWith('링크로 오는 친구에게도 새 이름이 보입니다.')));
+      const sentBefore = await page.run(() => window.__cloudSent.length);
+      await page.run(nameSubmit, '서버 이름');
+      check('링크를 만든 방은 이름을 바꾸면 3초 뒤 서버의 방도 새 이름으로 바뀐다', await until(page, async n => {
+        const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+        return window.__cloudSent.length > n && decodeHome(window.__cloudSent.at(-1))?.owner === '서버 이름';
+      }, 6000, sentBefore));
+      check('공유하기 창을 연 채 이름을 바꾸면 인사말 칸의 이름도 바뀐다', await page.run(() => document.querySelector('#windows input[aria-label="화면 보호기 인사말"]')?.placeholder === '서버 이름의 컴퓨터'));
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickOnce, '#start-menu .start-name');
+      await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+      await page.run(nameSubmit, '점검');
+      await until(page, () => !document.querySelector('#windows .name-app'), 3000);
       await page.run(clickText, '#windows .win .btn', '링크 지우기');
       check('링크 지우기를 누르면 지우기 전에 이 링크가 더는 열리지 않는다고 알린다', (await page.run(winText)).includes('이 링크는 더는 열리지 않습니다.'));
       await page.run(clickText, '#windows .win .btn', '지우기');
@@ -696,7 +718,41 @@ async function walk(page, base) {
   await closeWindows();
   await page.run(clickOnce, '.start-btn');
   check('바꾼 사진이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === nextPic);
+  // 이름 바꾸기(F28): 시작 메뉴 맨 위의 내 이름을 누르면 이름 바꾸기 창이 열린다(src/user-name.js). 빈 이름은 안내만 띄우고 취소는 아무것도 바꾸지 않는다.
+  // 사진을 고른 적 없는 사용자의 사진은 이름으로 정하므로(ownPicture), 이름을 바꿀 때 지금 사진을 저장해 그대로 둔다. 끝에 이름과 사진을 되돌린다
+  check('시작 메뉴 맨 위에 내 이름 단추가 있다', await page.run(() => document.querySelector('#start-menu .start-name')?.textContent === '점검'));
+  await page.run(clickOnce, '#start-menu .start-name');
+  check('내 이름을 누르면 시작 메뉴가 닫히고 이름 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .name-app'), 3000));
+  await sleep(200);
+  await probe('이름 바꾸기 창');
+  check('이름 바꾸기 창의 입력 칸에 지금 이름이 골라져 있다', await page.run(() => {
+    const input = document.querySelector('.name-app input[type="text"]');
+    return input.value === '점검' && input.selectionStart === 0 && input.selectionEnd === 2;
+  }));
+  await page.run(nameSubmit, '  ');
+  check('빈 이름으로 이름 바꾸기를 누르면 안내가 뜨고 이름은 그대로다', (await page.run(() => !document.querySelector('.name-app .like-error').hidden)) && (await page.run(savedOwner)) === '점검');
+  await page.run(clickText, '#windows .name-app .btn', '취소');
+  check('취소를 누르면 창이 닫히고 이름은 그대로다', (await page.run(() => !document.querySelector('#windows .name-app'))) && (await page.run(savedOwner)) === '점검');
+  const namePic = await page.run(async () => {
+    localStorage.removeItem('agarago.picture'); // 사진을 고른 적 없는 사용자처럼 둔다
+    const { ownPicture } = await import(new URL('src/user-pictures.js', document.baseURI).href);
+    return ownPicture('점검');
+  });
   await page.run(clickOnce, '.start-btn');
+  await page.run(clickOnce, '#start-menu .start-name');
+  await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+  await page.run(nameSubmit, ' 바꾼 이름 ');
+  check('이름을 바꾸면 앞뒤 공백을 지운 이름이 집에 저장되고 창이 닫히며 알린다', await until(page, () => !document.querySelector('#windows .name-app')
+    && JSON.parse(localStorage.getItem('agarago.home.v3')).owner === '바꾼 이름' && document.getElementById('toast').textContent === '이름을 바꿨습니다.', 3000));
+  check('사진을 고른 적 없는 사용자도 이름을 바꾸면 사진은 그대로다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === namePic, namePic);
+  await page.run(clickOnce, '.start-btn');
+  check('바꾼 이름이 시작 메뉴에 보인다', await page.run(() => document.querySelector('#start-menu .start-name')?.textContent === '바꾼 이름'));
+  await page.run(clickOnce, '#start-menu .start-name');
+  await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+  await page.run(nameSubmit, '점검');
+  await until(page, () => !document.querySelector('#windows .name-app'), 3000);
+  await page.run(p => localStorage.setItem('agarago.picture', JSON.stringify(p)), nextPic); // 뒤의 손님 점검이 내 사진(nextPic)과 다른 사진을 친구 사진으로 고른다
+  check('이름을 다시 바꾸면 처음 이름으로 돌아간다', (await page.run(savedOwner)) === '점검');
 
   // ---------- 기믹이 없는 가구의 혼잣말 ----------
   // 점검용 집의 침대에는 기믹이 없다. 두 번 누르면 아바타가 걸어가 data/furniture.js의 say를 말풍선 한 줄로 말한다(src/furniture-line.js)
@@ -714,7 +770,7 @@ async function walk(page, base) {
       === '벌써 3시 40분이네.|벌써 3시 정각이네.|벌써 3시 반이네.|벌써 12시 5분이네.|벌써 12시 59분이네.|옷장이네.|소파네.';
   }));
 
-  // ---------- 분신사바(F28) ----------
+  // ---------- 분신사바(F29) ----------
   // 말풍선에 분신사바를 말하면 불이 꺼지고 공포 모드가 된다(src/horror.js). 작업 표시줄 시계가 04:44에 멈추고, 벽에 건 것 하나(점검용 집은 코르크 보드)가 기울고,
   // 기믹이 없는 가구는 다른 혼잣말을 한다. 저장된 집과 밤 설정은 그대로다. 스탠드를 두 번 누르면 풀리고 아바타가 안도하는 한마디를 한다. 새로 고침해도 풀린다
   const horrorState = () => [document.getElementById('stage').dataset.theme, document.querySelector('#taskbar .clock').textContent,
@@ -918,8 +974,8 @@ async function walk(page, base) {
   check('연습 방은 가구가 없는 빈 방이다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0);
   await probe('연습 방');
   await page.run(clickOnce, '.start-btn');
-  check('연습 방의 시작 메뉴에는 내 사진이 보이기만 하고 바꾸는 단추는 없다', await page.run(() => !document.querySelector('#start-menu .start-pic')
-    && !!document.querySelector('#start-menu .start-head .user-pic')));
+  check('연습 방의 시작 메뉴에는 내 사진과 이름이 보이기만 하고 바꾸는 단추는 없다', await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
+    && !!document.querySelector('#start-menu .start-head .user-pic') && document.querySelector('#start-menu .start-head').textContent === '점검'));
   await page.run(clickOnce, '.start-btn');
 
   // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 놀이터 가기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
@@ -993,8 +1049,8 @@ async function walk(page, base) {
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
   check('손님으로 들어오면 걷고 쓰는 법을 알림으로 알려 준다', await page.run(() => document.getElementById('toast').classList.contains('show')));
   await page.run(clickOnce, '.start-btn');
-  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 바꾸는 단추는 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
-    && await page.run(() => !document.querySelector('#start-menu .start-pic')));
+  check('손님의 시작 메뉴에는 내 사진 대신 링크에 담긴 주인 사진이 보이고 사진과 이름을 바꾸는 단추는 없다', (await page.run(shownPic, '#start-menu .start-head')) === friendPic
+    && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')));
   await page.run(clickOnce, '.start-btn');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
