@@ -169,6 +169,8 @@ async function upload(code) {
 export const share = code => queue(() => upload(code));
 
 // 서버의 방과 그 방에 붙은 쪽지를 지우고 번호를 잊는다. 이미 보낸 짧은 링크는 더는 열리지 않는다.
+// 이웃집에 고정한 방(data/neighbors.js의 keep)은 지우지 않는다. 부르는 쪽(로그인 화면의 이 컴퓨터 초기화, 공유하기의 링크 지우기)이
+// 먼저 src/neighbors.js의 pinnedHere()를 보고 막는다(이 파일이 neighbors.js를 부르면 서로 부르게 되어 여기서는 보지 않는다). tools/check.py가 부르는 파일에 pinnedHere가 있는지 본다.
 export function unshare() {
   return queue(async () => {
     const { id } = state();

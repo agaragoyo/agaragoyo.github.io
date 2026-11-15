@@ -5,7 +5,7 @@ import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare } from './cloud.js';
-import { NEIGHBOR_LIST, neighborHome, neighborNow } from './neighbors.js';
+import { NEIGHBOR_LIST, neighborHome, neighborNow, pinnedHere } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
@@ -135,9 +135,16 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
   const ownKey = key => key.startsWith('agarago.') || ownApps.some(p => key.startsWith(p));
   // 되돌릴 수 없는 일이라 바로 지우지 않고, 지울 것을 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
   // 짧은 링크로 서버에 올린 방(src/cloud.js)도 같이 지운다. 서버가 늦으면 3초까지만 기다리고 이 컴퓨터의 것은 지운다.
+  // 이웃집에 고정한 방(data/neighbors.js의 keep)을 올린 브라우저에서는 초기화를 내놓지 않고 이유만 보인다.
+  // 서버의 방이 지워지면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고, 이 컴퓨터의 방도 사라지기 때문이다.
   function resetButton() {
     const box = h('div', { className: 'reset-box' });
+    if (pinnedHere()) {
+      box.append(h('p', {}, '내 방이 이웃집에 고정되어 있어 초기화할 수 없습니다.'));
+      return box;
+    }
     const wipe = async () => {
+      if (pinnedHere()) return showLogin(); // 확인 창을 띄워 둔 사이에 다른 탭에서 방이 고정되었을 수 있다
       if (sharedId()) await Promise.race([unshare().catch(err => console.warn('서버의 방을 지우지 못했다', err)), wait(3000)]);
       try {
         for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);

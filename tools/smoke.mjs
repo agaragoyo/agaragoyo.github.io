@@ -9,7 +9,7 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
-// 이웃집(서버에서 받는 link 이웃집, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 이웃집(서버에서 받는 link 이웃집, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -1677,9 +1677,10 @@ async function walk(page, base) {
   await open();
   await page.run(fakeCloud, 'hold', neighborRooms);
   await powerOn();
+  // links: 서버에 방이 없으면 빠지는 link 이웃집의 수. 복사본(keep)이 있는 고정한 집은 서버에 방이 없어도 남으므로 세지 않는다
   const [neighbors, links] = await page.run(async () => {
     const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
-    return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link).length];
+    return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link && !n.keep).length];
   });
   check('link 이웃집은 서버에서 방을 받는 동안 문패 이름만 보이고 눌리지 않는다', await page.run(linkTile, LINK_NEIGHBOR.name)
     .then(t => !!t && t.disabled && t.text.includes('불러오는 중')));
@@ -1716,17 +1717,23 @@ async function walk(page, base) {
   const myName = await page.run(savedOwner);
   const loginRooms = { ...neighborRooms, [LINK_NEIGHBOR.link]: await page.run(linkOf, HOME, myName) };
   const cloudBefore = await page.run(() => localStorage.getItem('agarago.cloud'));
-  const bootWith = async uploadedId => {
+  // 서버의 답(how, rooms)은 고를 수 있다. 돌려주는 것: mine 내 사용자 이름, near 이웃집 이름들, reset 초기화 단추가 있는가, note 초기화 자리의 글
+  const bootWith = async (uploadedId, how = 'serve', rooms = loginRooms) => {
     await open();
     await page.run(id => (id
       ? localStorage.setItem('agarago.cloud', JSON.stringify({ uid: 'fake-uid', refresh: 'fake-refresh', id }))
       : localStorage.removeItem('agarago.cloud')), uploadedId);
-    await page.run(fakeCloud, 'serve', loginRooms);
+    await page.run(fakeCloud, how, rooms);
     await powerOn();
     await until(page, () => !document.querySelector('.users .user.neighbor[disabled]'), 3000); // 받는 중인 자리가 모두 걷히면 이웃집 칸이 정해진 것이다
     return page.run(() => {
       const names = sel => [...document.querySelectorAll(sel)].map(t => t.querySelector('.user-name').firstChild.textContent);
-      return { mine: names('.users .user:not(.neighbor):not(.new)'), near: names('.users .user.neighbor') };
+      return {
+        mine: names('.users .user:not(.neighbor):not(.new)'),
+        near: names('.users .user.neighbor'),
+        reset: !!document.querySelector('.reset-link'),
+        note: document.querySelector('.reset-box p')?.textContent || '',
+      };
     });
   };
   const noRecord = await bootWith(null);
@@ -1750,6 +1757,61 @@ async function walk(page, base) {
   }, 3000, LINK_NEIGHBOR.name, neighbors, links));
   check('서버에 방이 없을 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - links);
+
+  // 고정한 이웃집(keep). 복사본이 있는 link 이웃집은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌어도 복사본으로 뜨고, 서버에 방이 있으면 서버의 방을 따른다.
+  // 그런 방을 올린 브라우저(agarago.cloud의 id가 그 link)에서는 이 컴퓨터 초기화와 공유하기의 링크 지우기를 쓸 수 없다(src/neighbors.js의 pinnedHere).
+  // 점검용 이웃집 둘(복사본이 있는 것과 없는 것)을 목록 앞에 더해 본다. 레포 목록의 고정한 집도 함께 서므로 수는 새로 연 페이지에서 센다
+  const PINNED_NEIGHBOR = { id: 'smoke-pinned', name: '고정이웃', link: 'PqRs9012', keep: await page.run(linkOf, HOME, '고정이웃') };
+  await extraNeighbor(page, [PINNED_NEIGHBOR, LINK_NEIGHBOR]);
+  await open();
+  const [total, droppable] = await page.run(async () => {
+    const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link && !n.keep).length];
+  });
+  // 풀리지 않는 복사본은 목록에서 조용히 없는 것이 되어 고정이 풀리므로, keep이 적힌 줄이 모두 살아 있는지 센다
+  const keepLines = 1 + [...fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8').matchAll(/keep: '/g)].length;
+  check('목록에 keep이 적힌 줄은 모두 쓸 수 있는 복사본이다', await page.run(async n => {
+    const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    return NEIGHBOR_LIST.filter(x => x.keep).length === n;
+  }, keepLines));
+  const pinnedRooms = { ...neighborRooms, [PINNED_NEIGHBOR.link]: await page.run(linkOf, HOME, '서버고정') }; // 서버에 방이 있을 때의 답. 주인 이름이 복사본과 다르다
+  const gone = await bootWith(null, 'missing');
+  check('복사본이 있는 이웃집은 서버에 방이 없어도 복사본으로 뜨고, 복사본이 없는 이웃집은 빠진다', gone.near.includes(PINNED_NEIGHBOR.name)
+    && !gone.near.includes(LINK_NEIGHBOR.name) && gone.near.length === total - droppable, JSON.stringify(gone));
+  check('고정한 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('복사본이 있는 이웃집은 서버에 방이 없어도 놀이터에 문패가 남는다', (await page.run(neighborGates)) === total - droppable);
+  const down = await bootWith(null, 'offline');
+  check('서버에 닿지 못해도 복사본이 있는 이웃집은 복사본으로 뜬다', down.near.includes(PINNED_NEIGHBOR.name) && down.near.length === total - droppable, JSON.stringify(down));
+  const live = await bootWith(null, 'serve', pinnedRooms);
+  check('서버에 방이 있으면 복사본 대신 서버의 방을 따른다', live.near.includes('서버고정') && !live.near.includes(PINNED_NEIGHBOR.name), JSON.stringify(live));
+  const broken = await bootWith(null, 'serve', { ...pinnedRooms, [PINNED_NEIGHBOR.link]: '!!!깨진방' });
+  check('서버가 돌려준 방이 깨졌으면 복사본으로 뜬다', broken.near.includes(PINNED_NEIGHBOR.name), JSON.stringify(broken));
+  // 고정한 방을 올린 브라우저: 로그인 화면의 초기화와 공유하기 창의 링크 지우기가 없고 이유가 보인다. 다른 방을 올렸다면 둘 다 그대로 있다
+  const shareWindow = async () => {
+    await page.run(clickOnce, '.users .user:not(.neighbor)');
+    await desktop();
+    await openIcon('share');
+    await until(page, () => !!document.querySelector('#windows .win input[aria-label="공유 링크"]'), 5000);
+    return page.run(() => ({
+      link: document.querySelector('#windows .win input[aria-label="공유 링크"]')?.value || '',
+      remove: [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 지우기'),
+      tip: document.querySelector('#windows .win .share-save-tip')?.textContent || '',
+    }));
+  };
+  const pinnedLogin = await bootWith(PINNED_NEIGHBOR.link, 'write', pinnedRooms);
+  check('고정한 방을 올린 브라우저의 로그인 화면에는 초기화가 없고 이유가 보인다', !pinnedLogin.reset && pinnedLogin.note.includes('초기화할 수 없습니다'), JSON.stringify(pinnedLogin));
+  await probe('초기화가 막힌 로그인 화면');
+  const pinnedShare = await shareWindow();
+  check('고정한 방을 올린 브라우저의 공유하기 창에는 링크 지우기가 없고 이유가 보인다', pinnedShare.link.endsWith(`#s=${PINNED_NEIGHBOR.link}`)
+    && !pinnedShare.remove && pinnedShare.tip.includes('지울 수 없습니다'), JSON.stringify(pinnedShare));
+  await probe('링크 지우기가 막힌 공유하기 창');
+  await closeWindows();
+  const plainLogin = await bootWith('AbCd1234', 'write', pinnedRooms); // 고정한 집이 아닌 방을 올렸다면 막지 않는다
+  check('고정한 집이 아닌 방을 올린 브라우저의 로그인 화면에는 초기화가 그대로 있다', plainLogin.reset && plainLogin.note === '', JSON.stringify(plainLogin));
+  const plainShare = await shareWindow();
+  check('고정한 집이 아닌 방을 올린 브라우저의 공유하기 창에는 링크 지우기가 그대로 있다', plainShare.remove, JSON.stringify(plainShare));
+  await closeWindows();
+  await page.run(v => (v === null ? localStorage.removeItem('agarago.cloud') : localStorage.setItem('agarago.cloud', v)), cloudBefore);
   await extraNeighbor(page, null);
 
   // ---------- 깨진 링크와 HTML이 든 링크 ----------

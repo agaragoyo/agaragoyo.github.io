@@ -500,10 +500,24 @@ def check_tutorial():
 
 # 이웃집 목록 (data/neighbors.js). 한 줄은 link(공유하기에서 만든 링크의 #s= 뒤 번호)와 room(예전 긴 링크의 글자) 가운데 하나를 쓴다.
 # link는 방이 서버에 있어서 번호의 모양만 본다. room은 링크가 풀리는지, 링크 속 주인 이름이 문패 닉네임과 같은지 본다.
+# link 줄에는 고정하는 집의 복사본 keep을 더할 수 있고(서버의 방 글자), keep도 room처럼 풀리는지와 주인 이름을 본다.
 # 링크(base64)는 누구나 풀어 읽을 수 있어서, 다르면 공개 레포에 다른 이름(실명일 수 있다)이 숨어 올라간다. 그래서 오류 문구에도 그 이름을 적지 않는다.
-def check_neighbors():
+def decode_room(code):
+    """방 글자(room, keep)를 풀어 돌려준다. 풀리지 않으면 None."""
     import base64
     import json
+    try:
+        raw = base64.urlsafe_b64decode(code + '=' * (-len(code) % 4))
+        if raw[:1] in (b'\x04', b'\x05'):  # 짧은 형식(src/share.js의 encodeShort): [4나 5][이름 바이트 수][이름]... (5는 벽지나 주인 사진이 덧붙은 것)
+            if len(raw) < 2 or len(raw) < 2 + raw[1]:
+                raise ValueError('짧다')
+            return {'v': 4, 'o': raw[2:2 + raw[1]].decode('utf-8')}
+        return json.loads(raw.decode('utf-8'))
+    except Exception:
+        return None
+
+
+def check_neighbors():
     path = 'data/neighbors.js'
     items = entries(read(path))
     ids = set()
@@ -517,25 +531,25 @@ def check_neighbors():
         name = n.get('name', '')
         if not name.strip() or len(name) > 12:
             err(where, 'name(문패 닉네임)은 1~12글자다')
+        if 'keep' in n and 'link' not in n:
+            err(where, 'keep(고정하는 집의 복사본)은 link 줄에만 쓴다. room 줄은 링크를 보낸 때의 모습에 멈춰 있어 복사본이 필요 없다')
         if 'link' in n:
             if 'room' in n:
                 err(where, 'link와 room 가운데 하나만 쓴다. 링크 번호를 받았으면 room을 지운다')
             if not re.fullmatch(r'[0-9A-Za-z]{8}', n['link']):
                 err(where, 'link는 공유하기에서 만든 링크의 #s= 뒤 여덟 글자(영어와 숫자)다')
+            if 'keep' in n:
+                kept = decode_room(n['keep'])
+                if not isinstance(kept, dict) or kept.get('v') not in (3, 4):
+                    err(where, 'keep 이 풀리지 않는다. 서버의 방 글자(Firestore의 homes/<link> 문서의 code 칸) 전부를 넣는다')
+                elif kept.get('o') != name:
+                    err(where, 'keep 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 글자를 받는다')
             continue
         if 'room' not in n:
             err(where, 'link(공유하기에서 만든 링크의 #s= 뒤 여덟 글자)가 없다')
             continue
-        room = n.get('room', '')
-        try:
-            raw = base64.urlsafe_b64decode(room + '=' * (-len(room) % 4))
-            if raw[:1] == b'\x04':  # 짧은 형식(src/share.js의 encodeShort): [4][이름 바이트 수][이름]...
-                if len(raw) < 2 or len(raw) < 2 + raw[1]:
-                    raise ValueError('짧다')
-                data = {'v': 4, 'o': raw[2:2 + raw[1]].decode('utf-8')}
-            else:
-                data = json.loads(raw.decode('utf-8'))
-        except Exception:
+        data = decode_room(n.get('room', ''))
+        if data is None:
             err(where, 'room 이 풀리지 않는다. 공유 링크에서 #r= 뒤(예전 링크는 #room= 뒤)의 글자 전부를 넣는다')
             continue
         if not isinstance(data, dict) or data.get('v') not in (3, 4) or (data.get('v') == 3 and not isinstance(data.get('s'), dict)):
@@ -544,6 +558,17 @@ def check_neighbors():
             err(where, '링크 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
     if len(items) > 6:
         warn(path, f'이웃집이 {len(items)}집이다. 로그인 화면과 놀이터에는 앞의 여섯 집까지만 나온다(src/neighbors.js의 MAX_NEIGHBORS)')
+
+
+# 서버의 방을 지우는 unshare()를 부르는 파일은 pinnedHere()도 불러, 이웃집에 고정한 방(data/neighbors.js의 keep)을 지우지 않게 한다.
+# 새 단추가 unshare()를 부르면서 이 확인을 빼면 고정한 방이 지워진다(src/cloud.js는 neighbors.js를 부르면 서로 부르게 되어 부르는 쪽이 본다).
+def check_pinned_unshare():
+    for p in sorted((ROOT / 'src').rglob('*.js')):
+        if p.name == 'cloud.js' or not in_repo(p):
+            continue
+        text = p.read_text(encoding='utf-8')
+        if re.search(r'\bunshare\s*\(', text) and 'pinnedHere' not in text:
+            err(p.relative_to(ROOT).as_posix(), 'unshare()로 서버의 방을 지우면서 pinnedHere()를 보지 않는다. 이웃집에 고정한 방은 지우지 않는다(data/neighbors.js의 keep)')
 
 
 # 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
@@ -981,6 +1006,7 @@ def main():
     check_furniture_fit()
     check_tutorial()
     check_neighbors()
+    check_pinned_unshare()
     check_avatars()
     check_user_pictures()
     check_wall_patterns()
