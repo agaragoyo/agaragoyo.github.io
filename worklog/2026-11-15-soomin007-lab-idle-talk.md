@@ -9,10 +9,11 @@
 
 ## 바꾼 파일
 - `src/idle-talk.js`(새 파일): 입력이 없는 시간 재기, 갈 가구 고르기, 걸어가서 말하기, 입력이 오면 멈추기
-- `src/furniture-line.js`(새 파일): 가구의 혼잣말 한 줄을 꺼내는 `furnitureLine(def)`. 두 번 누르기와 혼잣말이 같이 쓴다
+- `src/furniture-line.js`: 머리 주석에 혼잣말도 이 함수를 쓴다고 적었다. 파일은 같은 날 가구마다 혼잣말 한 줄을 넣은 작업이 만들었다
 - `src/avatar.js`: 가구 옆에 설 칸을 고르는 부분을 `besideOf`, `besideWall`로 떼고, 가구 옆까지의 걸음 수 `stepsTo`, 가던 길을 버리는 `halt`, 말풍선에 쓰는 중인지 묻는 `typing`을 더했다
 - `src/os.js`: 혼잣말을 붙이고 쉬는 때(`canRun`)를 정한다. `os.openFurniture`는 `furnitureLine`으로 말한다
-- `src/screensaver.js`: 떠 있는지 묻는 `showing`. `src/config.js`: 기다리는 시간 `IDLE_TALK`. `src/labs.js`: `LABS`에 한 줄
+- `src/screensaver.js`: 떠 있는지 묻는 `showing`. `src/config.js`: 기다리는 시간 `IDLE_TALK`.
+  `src/labs.js`: `LABS`에 한 줄. 움직임 줄이기를 켠 컴퓨터에서는 놀이터에 눈처럼 설명을 그 컴퓨터에서 하는 일로 바꿔 보여 준다
 - `assets/fonts/aga-ui*.woff2`, `aga-ui.txt`: 실험실 창의 새 글자 '심', '잣', '혼'을 넣었다(`python tools/ui_font.py`)
 - `tools/smoke.mjs`: 켠 때의 흐름(아래)
 - `docs/requirements.md`, `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`
@@ -29,7 +30,8 @@
   화면 보호기가 떠 있을 때, 말풍선에 쓰는 중에는 하지 않는다. 화면 보호기처럼 탭이 뒤로 간 동안에도 쉰다.
 - 움직임 줄이기를 켠 사람에게는 혼자 걷지 않고 바로 옆에 있는 가구에만 말한다. 실험실의 고양이가 걷지 않는 것과 같은 기준이다.
 - 말을 꺼내는 곳은 `src/furniture-line.js` 한 곳이다. 같은 날 가구마다 혼잣말 한 줄을 넣는 작업이 같은 파일 이름과 함수 이름(`furnitureLine`)을 쓰고 있어서
-  그대로 맞췄다. 그 작업이 들어오면 이 파일을 그쪽 것으로 바꾸기만 하면 된다.
+  처음부터 그대로 맞췄고, 그 작업이 먼저 main에 들어와 그쪽 파일을 썼다. 그래서 혼잣말도 가구마다의 `say` 줄을 말하고, 시계 옆에서는 지금 시각을 말한다.
+  기믹이 있는 가구(컴퓨터, 라디오처럼 두 번 누르면 창이 열리는 가구)는 `say`가 없어 "컴퓨터네."처럼 이름을 말한다.
 - 눌러 보기 점검은 30초와 40~60초를 기다리지 않게 `IDLE_TALK`를 숫자 대신 객체로 두고, 페이지 안에서 0.8초와 1.0~1.2초로 줄여 본다.
   그림은 `.click()`(click 하나만 보낸다)으로 눌러 입력으로 세지 않게 하고, 멈추는지는 아바타 위로 진짜 마우스 이동(CDP)을 보내서 본다.
 

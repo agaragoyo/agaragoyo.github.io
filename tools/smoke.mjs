@@ -255,6 +255,54 @@ async function petScene() {
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
   };
 }
+
+// 실험실의 놀이터 눈(src/snow.js) 캔버스에 그려진 송이. 흰 칸이 이어진 덩어리 하나를 한 송이로 센다(송이 아래 그늘은 반투명이라 세지 않는다).
+// k: 무대 1px가 캔버스 몇 칸인지, small과 big: 그 배율에서 작은 송이와 큰 송이의 칸 수(snow.js와 같은 셈), fit: 폭이 그 둘 가운데 하나인 송이 수,
+// sum: 흰 칸 자리의 합(두 번 재어 다르면 움직인 것이다), covers: 캔버스가 바탕화면을 꼭 덮는지, layer: 가구와 아바타 위, 고양이 하트(9998) 아래이고
+// 방 상자가 쌓임 맥락이라 아이콘과 창 아래인지, through: 바탕화면 곳곳을 눌러도 캔버스가 받지 않는지
+function snowScene() {
+  const c = document.querySelector('#wallpaper .snow');
+  if (!c) return null;
+  const w = c.width, hgt = c.height;
+  const data = c.getContext('2d').getImageData(0, 0, w, hgt).data;
+  const white = i => data[i * 4] === 255 && data[i * 4 + 1] === 255 && data[i * 4 + 2] === 255 && data[i * 4 + 3] === 255;
+  const seen = new Uint8Array(w * hgt);
+  const widths = [];
+  let sum = 0;
+  for (let i = 0; i < w * hgt; i++) {
+    if (seen[i] || !white(i)) continue;
+    let lo = Infinity, hi = -1;
+    const stack = [i];
+    seen[i] = 1;
+    while (stack.length) {
+      const j = stack.pop(), x = j % w;
+      lo = Math.min(lo, x); hi = Math.max(hi, x); sum += j;
+      for (const n of [j - 1, j + 1, j - w, j + w]) {
+        if (n >= 0 && n < w * hgt && !seen[n] && Math.abs((n % w) - x) <= 1 && white(n)) { seen[n] = 1; stack.push(n); }
+      }
+    }
+    widths.push(hi - lo + 1);
+  }
+  const k = w / 1280;
+  const small = Math.max(1, Math.round(2 * k));
+  const big = Math.max(small + 1, Math.round(3 * k));
+  const z = el => Number(getComputedStyle(el).zIndex) || 0;
+  const desk = document.getElementById('desktop');
+  const wall = document.getElementById('wallpaper');
+  const r = c.getBoundingClientRect(), d = desk.getBoundingClientRect();
+  const under = [...wall.querySelectorAll('.item, .room-avatar, .room-pet')].map(z);
+  const through = [];
+  for (let i = 1; i < 6; i++) for (let j = 1; j < 5; j++) through.push(document.elementFromPoint(d.left + d.width * i / 6, d.top + d.height * j / 5) !== c);
+  return {
+    flakes: widths.length, k, small, big, sum,
+    fit: widths.filter(x => x === small || x === big).length,
+    covers: [r.left - d.left, r.top - d.top, r.width - d.width, r.height - d.height].every(v => Math.abs(v) < 1),
+    layer: getComputedStyle(c).pointerEvents === 'none' && Math.max(100, ...under) < z(c) && z(c) < 9998
+      && getComputedStyle(wall).isolation === 'isolate' && z(wall) < z(document.getElementById('icons')) && z(wall) < z(document.getElementById('windows')),
+    through: through.every(Boolean),
+  };
+}
+
 // 실험실의 심심할 때 혼잣말(src/idle-talk.js)을 지켜본다. 내 아바타의 말풍선에 말이 뜰 때마다 그 말, 뜬 때, 아바타가 선 칸과
 // 그 말을 하는 가구 가운데 바로 옆(벽 가구는 벽 바로 앞)에 선 가구의 id를 window.__said에 적는다(같은 말을 다시 해도 글을 새로 넣으므로 따로 센다).
 // 아바타 그림이 움직인 횟수는 window.__moves, 입력 이벤트(pointermove, pointerdown, keydown, wheel)는 window.__inputs와 마지막 때 window.__lastInput에 적는다
@@ -289,7 +337,7 @@ async function watchIdle() {
     addEventListener(type, () => { window.__inputs++; window.__lastInput = performance.now(); }, { capture: true });
   }
 }
-const clickTwice = sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
+const clickTwice =sel => { const el = document.querySelector(sel); if (!el) return false; const c = () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); return true; };
 // 사진 고르는 줄(scope 안의 .pic-choice)에서 지금 골라져 있지 않은 사진 하나를 눌러 그 id를 돌려준다(src/user-pictures.js). avoid: 고르지 않을 사진 id
 function pickOther(scope, avoid = null) {
   const b = [...document.querySelectorAll(`${scope} .pic-choice`)].find(c => c.getAttribute('aria-pressed') !== 'true' && c.querySelector('.user-pic').dataset.pic !== avoid);
@@ -649,6 +697,22 @@ async function walk(page, base) {
   await page.run(clickOnce, '.start-btn');
   check('바꾼 사진이 시작 메뉴에 보인다', (await page.run(shownPic, '#start-menu .start-head')) === nextPic);
   await page.run(clickOnce, '.start-btn');
+
+  // ---------- 기믹이 없는 가구의 혼잣말 ----------
+  // 점검용 집의 침대에는 기믹이 없다. 두 번 누르면 아바타가 걸어가 data/furniture.js의 say를 말풍선 한 줄로 말한다(src/furniture-line.js)
+  await use('bed', async () => {
+    const b = document.querySelector('#wallpaper .room-avatar-say');
+    if (!b || b.hidden) return false;
+    const { BY_ID } = await import(new URL('data/furniture.js', document.baseURI).href);
+    return !!BY_ID.bed.say && b.textContent === BY_ID.bed.say && b.offsetHeight < 2 * parseFloat(getComputedStyle(b).lineHeight);
+  }, '아바타가 침대의 혼잣말을 한 줄로 말한다');
+  check('혼잣말의 {시각}은 말로 읽는 시각이 되고, say가 없는 가구는 이름을 말한다', await page.run(async () => {
+    const { furnitureLine } = await import(new URL('src/furniture-line.js', document.baseURI).href);
+    const clock = { name: '시계', say: '벌써 {시각}이네.' };
+    const at = (h, m) => furnitureLine(clock, new Date(2026, 10, 15, h, m));
+    return [at(15, 40), at(15, 0), at(15, 30), at(0, 5), at(12, 59), furnitureLine({ name: '옷장' }), furnitureLine({ name: '소파' })].join('|')
+      === '벌써 3시 40분이네.|벌써 3시 정각이네.|벌써 3시 반이네.|벌써 12시 5분이네.|벌써 12시 59분이네.|옷장이네.|소파네.';
+  }));
 
   // ---------- 가구 가까이 보기 ----------
   const closed = () => !document.querySelector('.closeup');
@@ -1272,6 +1336,55 @@ async function walk(page, base) {
   await sleep(600);
   check('친구 집 배경음악을 끄면 친구 집에 들어가도 음악 창이 열리지 않는다', await page.run(() => !document.querySelector('#windows .radio-player')));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), bgmSettings);
+
+  // ---------- 놀이터에 눈(snow) ----------
+  // 켜 두면 바탕화면이 놀이터일 때만 방 상자 안에 눈 캔버스(src/snow.js)가 깔려 송이가 내리고, 방으로 돌아오거나 끄면 바로 그친다. 친구 집의 놀이터에서도 내린다.
+  // 송이의 색과 내리는 느낌은 보지 않는다(직접 본다). 움직임 줄이기를 켠 사람에게는 내리지 않는 것은 크롬의 미디어 흉내로 본다.
+  // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
+  const snowSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  const snowBox = '.labs-item[data-lab="snow"] input';
+  const snowing = () => page.run(() => !!document.querySelector('#wallpaper .snow'));
+  const setSnow = on => page.run(async on => (await import(new URL('src/labs.js', document.baseURI).href)).setLab('snow', on), on);
+  const goOut = async () => {
+    await page.run(clickTwice, '#wallpaper .door-hit');
+    return until(page, () => !!document.querySelector('#wallpaper .gate-hit'), 15000);
+  };
+  check('놀이터에 눈: 내 집으로 돌아온다', await enterMine());
+  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
+  await openIcon('labs');
+  check('실험실 창에 놀이터에 눈 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, snowBox));
+  await page.run(sel => document.querySelector(sel).click(), snowBox);
+  check('놀이터에 눈을 켜도 방에는 눈이 내리지 않는다', !(await snowing()));
+  await closeWindows();
+  check('켜고 현관문으로 놀이터에 나가면 눈 캔버스가 깔린다', (await goOut()) && await snowing());
+  await sleep(400); // 처음 몇 프레임이 그려지기를 기다린다
+  const snow1 = await page.run(snowScene);
+  await sleep(300);
+  const snow2 = await page.run(snowScene);
+  check('눈송이 40~80개가 무대 2~3px 네모(화면 픽셀 정수 개)로 그려진다', snow1 && snow1.flakes >= 40 && snow1.flakes <= 80 && snow1.fit >= snow1.flakes * 0.9, JSON.stringify(snow1));
+  check('눈송이가 내린다(0.3초 뒤에 다시 그린 자리가 다르다)', snow1 && snow2 && snow1.sum !== snow2.sum);
+  check('눈 캔버스는 바탕화면을 꼭 덮고, 가구와 아바타 위이면서 아이콘과 창 아래이고, 누르기를 받지 않는다', snow1?.covers && snow1.layer && snow1.through, JSON.stringify(snow1));
+  await probe('눈 오는 놀이터');
+  await setSnow(false);
+  check('끄면 눈이 바로 그친다', !(await snowing()));
+  await setSnow(true);
+  check('다시 켜면 놀이터에 바로 내린다', await snowing());
+  await page.run(clickTwice, '#wallpaper .gate-hit');
+  check('방으로 돌아오면 눈이 그친다', (await until(page, () => !!document.querySelector('#wallpaper .door-hit'), 15000)) && !(await snowing()));
+  await open(`#r=${bare}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  check('친구 집에서도 방에는 내리지 않고 놀이터에 나가면 눈이 내린다', !(await snowing()) && (await goOut()) && await snowing());
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  check('움직임 줄이기: 내 집으로 돌아온다', await enterMine());
+  await openIcon('labs');
+  check('움직임 줄이기를 켠 사람에게는 실험실 창의 설명이 눈이 내리지 않는다고 알린다',
+    await until(page, () => /움직임 줄이기를 켠/.test(document.querySelector('.labs-item[data-lab="snow"]')?.textContent || ''), 3000));
+  await closeWindows();
+  check('움직임 줄이기를 켠 사람에게는 놀이터에 눈이 내리지 않는다', (await goOut()) && !(await snowing()));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), snowSettings);
 
   // ---------- 심심할 때 혼잣말(idle-talk) ----------
   // 켜고 바탕화면을 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 옆으로 가서 그 가구의 혼잣말을 하고, 같은 가구를 연달아 고르지 않고 되풀이한다(src/idle-talk.js).

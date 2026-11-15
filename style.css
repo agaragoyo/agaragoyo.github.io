@@ -501,6 +501,10 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .room-pet-heart { animation: none; }
 }
+/* 실험실의 '놀이터에 눈'(snow, src/snow.js). 바탕화면(1280×800) 크기의 캔버스 한 장이다. 방 상자(.wallpaper)가 바탕화면보다 40px 아래에서 시작하므로
+   그만큼 올려 하늘 끝부터 덮는다. 가구와 아바타(100부터)와 밤 그늘 위, 고양이 하트(9998)와 주인 이름표(9999)와 말풍선(10000) 아래 층이다.
+   방 상자가 쌓임 맥락이라 아이콘과 창보다는 늘 아래다(known-issues 7). 캔버스 한 칸이 화면 픽셀 하나라서(snow.js의 fit) 흐려지지 않게 pixelated로 그린다 */
+.wallpaper .snow { position: absolute; left: 0; top: -40px; z-index: 9990; width: 1280px; height: 800px; pointer-events: none; image-rendering: pixelated; }
 
 .ghost { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
 .ghost .item .hit { pointer-events: none; }

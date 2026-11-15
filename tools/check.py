@@ -221,6 +221,40 @@ def check_furniture(app_ids):
             warn(f"data/furniture.js '{f['id']}'", "src/share.js 의 LINK_CODES 에 없다. 공유 링크가 조금 길어지니 LINK_CODES 끝에 더한다(중간에 끼우지 않는다)")
 
 
+# ---------- 가구의 혼잣말(say) ----------
+# 기믹이 없는 가구를 두 번 누르면 아바타가 data/furniture.js 의 say 를 말풍선으로 말한다(src/furniture-line.js 의 furnitureLine).
+# 말풍선(style.css 의 .room-avatar-say)의 안쪽 폭은 212px(max-width 240px에서 안쪽 여백 24px와 테두리 4px를 뺀 값)이고,
+# 글꼴(갈무리11)에서 한글 한 자는 16px, 공백은 8px다. 한글만 13자(208px)가 한 줄의 끝이라, 공백과 문장부호도 한 자로 세어 13자까지 허용한다(2026-11-15에 실제 폭을 쟀다).
+SAY_MAX = 13
+SAY_CLOCK = '12시 59분'  # {시각}이 가장 길게 바뀐 모습(src/furniture-line.js 의 clockWords)
+
+
+def check_furniture_say():
+    seen = {}
+    for f in entries(read('data/furniture.js')):
+        where = f"data/furniture.js '{f['id']}'"
+        say = f.get('say')
+        if 'say:' in f['_line'] and say is None:
+            err(where, "say 값을 읽지 못했다. 작은따옴표(')가 든 글이거나 글자 한 줄('...')이 아니다")
+            continue
+        if not say:
+            if not f.get('gimmick'):
+                err(where, f"기믹이 없는 가구는 두 번 눌렀을 때 아바타가 하는 혼잣말 say 가 있어야 한다(반말 한 줄, {SAY_MAX}자 이하). 없으면 이름만 되풀이한다")
+            continue
+        text = say.replace('{시각}', SAY_CLOCK)
+        if len(text) > SAY_MAX:
+            err(where, f"say '{say}' 는 {len(text)}자라 말풍선 한 줄({SAY_MAX}자, 공백과 문장부호 포함)에 들지 않는다")
+        if '{' in text or '}' in text:
+            err(where, "say 의 중괄호는 {시각} 하나만 쓴다")
+        if not text.endswith(('.', '?', '!')):
+            err(where, "say 는 마침표, 물음표, 느낌표 가운데 하나로 끝낸다")
+        if re.fullmatch(re.escape(f['name']) + r'(이네|네)\.', text):
+            err(where, "say 가 가구 이름만 되풀이한다. 그 물건을 본 사람이 할 말로 쓴다")
+        if say in seen:
+            err(where, f"say 가 '{seen[say]}' 와 같다. 가구마다 다른 줄로 쓴다")
+        seen.setdefault(say, f['id'])
+
+
 # ---------- 가구 그림이 칸에 맞는지 ----------
 # 가구 그림은 data/furniture.js 의 칸(size)과 높이(height)로 만든 상자에 맞춰 줄어 아래 가운데에 붙는다(src/iso.js 의 boxSize,
 # style.css 의 .furn img). 사이트와 같은 식으로 그림을 상자에 얹어 재고, 바닥 밖으로 나오거나 칸을 다 채우지 못하거나 벽 가구가 기울어 있으면 경고한다.
@@ -859,6 +893,7 @@ def main():
     app_ids = check_apps()
     check_pixel_icons()
     check_furniture(app_ids)
+    check_furniture_say()
     check_furniture_fit()
     check_tutorial()
     check_neighbors()
