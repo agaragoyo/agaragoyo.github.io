@@ -6,7 +6,7 @@
 // 공유하기로 가는 단추를, 예전 긴 링크(#r=)와 이웃집으로 온 손님에게는 쪽지를 남길 수 없다는 안내를 띄운다.
 // 쪽지는 보드를 열 때만 한 장(NOTE.page장)씩 받는다(Firestore는 받은 문서마다 읽기를 센다).
 // 받은 글은 누구든 쓸 수 있는 값이라 글자 수를 다시 줄이고 h()의 자식(글자)으로만 넣는다.
-import { h } from '../util.js';
+import { h, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { isOwner, line } from '../likes.js';
 import { linkCode } from '../share.js';
@@ -113,7 +113,11 @@ export function openCorkboardApp(os, app) {
       }
 
       function render() {
-        if (notes.length) area.replaceChildren(h('div', { className: 'cork-notes' }, ...notes.map(noteEl)));
+        if (notes.length) {
+          area.replaceChildren(h('div', { className: 'cork-notes' }, ...notes.map(noteEl)));
+          // 쪽지의 글과 닉네임은 자리가 정해져 있어 넘치면 말줄임표로 끝나고, 마우스를 올리면 전체가 보인다(화면에 붙은 뒤에야 잴 수 있다)
+          area.querySelectorAll('.cork-text, .cork-name').forEach(el => fitText(el));
+        }
         else if (page || more) message(h('p', {}, '이 장의 쪽지를 모두 지웠습니다.')); // 가장 최근 장을 다 지워도 지난 쪽지가 남아 있으면 빈 보드라고 하지 않는다
         else if (owner) message(h('p', {}, '아직 붙은 쪽지가 없습니다.'), h('p', {}, '링크를 받은 친구가 여기에 쪽지를 남길 수 있습니다.'));
         else message(h('p', {}, '아직 붙은 쪽지가 없습니다.'));

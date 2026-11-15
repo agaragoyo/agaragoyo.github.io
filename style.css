@@ -662,6 +662,7 @@ button { font-family: inherit; }
   font-size: 16px;
   line-height: 1.6;
   word-break: keep-all;
+  overflow-wrap: break-word; /* 한 줄에 들어가지 않는 긴 낱말(주인이 쓴 이름, 열리는 곳의 주소)만 글자 사이에서 꺾는다(known-issues 80) */
   color: var(--win-text);
 }
 .win-body.flush { padding: 0; overflow: hidden; background: #111; }
@@ -1344,7 +1345,18 @@ form.user { cursor: var(--cur-arrow); }
   white-space: nowrap;
   will-change: transform;
 }
-.saver-text.still { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+/* 움직임 줄이기를 켠 사람에게는 가운데에 멈춰 보여 준다. 흘러가지 않으므로 화면보다 긴 인사말(30자)은 줄을 바꾼다 */
+.saver-text.still {
+  left: 50%;
+  top: 50%;
+  width: max-content;
+  max-width: 1120px;
+  transform: translate(-50%, -50%);
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fx-flicker, .no-signal, .shelf.hint .card { animation: none; }
@@ -1565,6 +1577,11 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .closeup-ghost img.mirror { transform: scaleX(-1); }
 .closeup-foot { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #fff; text-shadow: 0 1px 2px #000; }
 .closeup-foot .btn { text-shadow: none; }
+/* 주인과 손님이 쓴 글(known-issues 80). 자리가 넓은 글(남긴 말, 추천 이유)은 줄을 바꿔 다 보이고, 넘치면 그 칸 안에서 스크롤한다.
+   크기가 정해진 자리(책 표지와 책등, TV 포스터, CD 라벨, 라디오 표시창, 코르크 쪽지)는 줄 수를 정해 말줄임표로 끝낸다.
+   줄은 띄어쓰기에서 바꾸고(keep-all), 그 줄 수를 넘는 글에만 src/util.js의 fitText가 .tight를 붙여 글자 사이에서도 바꾼다.
+   그래도 넘치면 fitText가 전체 글을 title에 넣어 마우스를 올리면 보이게 한다 */
+.closeup .tight { word-break: break-all; }
 
 /* 게임기: 가구 그림(assets/furniture/console.png)처럼 연보라 휴대용 게임기를 앞에서 본 모습.
    바탕화면(1280×800)에 1240×700으로 들고, 가운데 화면(게임 고르기)은 940×600이다 */
@@ -1788,7 +1805,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: center; /* 넘치면 위아래가 같이 잘려서, 아래의 줄 수 제한으로 넘치지 않게 한다 */
   gap: 10px;
   padding: 12px;
   overflow: hidden;
@@ -1797,11 +1814,25 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   text-align: center;
   color: #2a1f18;
 }
-.book-title { font-size: 22px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
-.book-title.long { font-size: 18px; }
-.book-author { font-size: 15px; color: #5a4a3c; }
+/* 이름표 안쪽(162×146px)에 제목 세 줄(22px)이나 네 줄(18px)과 작가 두 줄이 함께 들어간다 */
+.book-title, .book-author { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.book-title { -webkit-line-clamp: 3; font-size: 22px; }
+.book-title.long { -webkit-line-clamp: 4; font-size: 18px; }
+.book-author { -webkit-line-clamp: 2; font-size: 15px; color: #5a4a3c; }
 .shelf-info { display: flex; flex-direction: column; gap: 14px; }
-.shelf-note { min-height: 180px; padding: 16px 18px; border: 3px solid #2f231b; border-radius: 8px; background: #fbf4e4; color: #2a1f18; }
+/* 남긴 말은 120자까지 줄바꿈과 함께 쓴다. 표지 높이(364px)에서 아래 단추 줄을 뺀 만큼만 자라고 그보다 길면 이 칸 안에서 스크롤한다 */
+.shelf-note {
+  min-height: 180px;
+  max-height: 316px;
+  overflow-y: auto;
+  padding: 16px 18px;
+  border: 3px solid #2f231b;
+  border-radius: 8px;
+  background: #fbf4e4;
+  color: #2a1f18;
+  scrollbar-width: thin;
+  scrollbar-color: #a8957c transparent;
+}
 .shelf-note p { margin: 0; }
 .shelf-note .shelf-note-head { margin-bottom: 8px; font-size: 14px; font-weight: 700; color: #5f4e3e; }
 .shelf-note-text { font-size: 19px; line-height: 1.7; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
@@ -1832,17 +1863,18 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   cursor: var(--cur-hand);
   transition: transform 0.12s;
 }
+/* 책등의 제목은 세로 한 줄이다. 짧으면 가운데에 쓰고, 길면 위에서부터 쓰다가 말줄임표로 끝낸다(전체는 표지와 마우스를 올린 단추에) */
 .book-spine span {
   position: absolute;
   inset: 16px 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   background: #fbf4e4;
   writing-mode: vertical-rl;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
   font-size: 13px;
+  line-height: 26px;
   color: #2a1f18;
 }
 .book-spine.on { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffd76a; }
@@ -1906,7 +1938,8 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .cd-pick.in .cd-name { color: #b3ada0; }
 /* CD 이름(LIMIT.cdName, 한글 16자)은 두 줄까지 쓴다. 이름 길이와 관계없이 자리를 두 줄로 잡아 CD마다 기우는 중심이 같다.
    줄은 띄어쓰기에서 바꾼다("플레이리 / 스트"로 꺾이지 않게). 그러면 두 줄을 넘는 이름에만 src/apps/radio-app.js의 fitName이
-   .tight를 붙여 글자 사이에서도 바꾼다. 이름 칸이 생기기 전에 넣은 CD처럼 서비스에서 받은 긴 이름은 두 줄 뒤를 말줄임표로 줄인다 */
+   .tight를 붙여 글자 사이에서도 바꾼다. 이름 칸이 생기기 전에 넣은 CD처럼 서비스에서 받은 긴 이름은 두 줄 뒤를 말줄임표로 줄이고,
+   CD에 마우스를 올리면 전체가 보인다 */
 .cd-name {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1919,7 +1952,6 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   line-height: 16px;
   text-align: center;
 }
-.cd-name.tight { word-break: break-all; }
 /* CD: 색을 입힌 무지개 원판 가운데에 앨범 표지를 둥글게 깐다 */
 .cd {
   position: relative;
@@ -1974,7 +2006,8 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .radio-middle { display: grid; justify-items: center; gap: 12px; }
 .radio-slot { display: grid; place-items: center; width: 140px; height: 140px; border: 4px solid #5e5548; border-radius: 50%; background: #3b3631; box-shadow: inset 0 4px 10px #0008; }
 .radio-slot .cd { width: 122px; height: 122px; }
-/* 표시창: 갈무리11이 또렷한 12px로 써서 CD 이름(한글 16자, 192px)이 한 줄에 다 들어간다 */
+/* 표시창: 갈무리11이 또렷한 12px로 써서 CD 이름(한글 16자, 192px)이 한 줄에 다 들어간다. 더 넓은 이름(이모지)은 말줄임표로 끝나고
+   마우스를 올리면 전체가 보인다(src/apps/radio-app.js의 fitName) */
 .radio-lcd {
   width: 220px;
   padding: 3px 8px;
@@ -2101,18 +2134,22 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   background: var(--book);
   box-shadow: inset 0 0 0 3px #0003;
 }
-.tv-poster-label { display: flex; flex-direction: column; gap: 4px; max-height: 120px; padding: 8px 6px; overflow: hidden; border: 2px solid #2f231b; background: #fbf4e4; color: #2a1f18; text-align: center; }
-.tv-poster-label b { font-size: 15px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
-.tv-poster-label span { font-size: 12px; color: #5a4a3c; }
+/* 제목은 네 줄(한글 24자)까지 쓰고 그보다 길면 말줄임표로 끝낸다. 연도는 제목이 길어도 늘 보인다 */
+.tv-poster-label { display: flex; flex-direction: column; gap: 4px; max-height: 140px; padding: 8px 6px; overflow: hidden; border: 2px solid #2f231b; background: #fbf4e4; color: #2a1f18; text-align: center; }
+.tv-poster-label b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; font-size: 15px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.tv-poster-label span { flex: none; font-size: 12px; color: #5a4a3c; }
 .tv-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #141414; } /* 바탕이 투명한 그림이어도 아래 제목 카드가 비치지 않게 */
-.tv-detail { padding: 2px 20px 14px; overflow: hidden; }
+/* 고른 작품: 포스터 줄 아래 남은 높이를 쓰고, 긴 제목과 줄바꿈이 많은 추천 이유처럼 그보다 길면 이 칸 안에서 스크롤한다 */
+.tv-detail { flex: 1; min-height: 0; padding: 2px 20px 14px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #555 transparent; }
 .tv-detail p { margin: 0 0 6px; }
+.tv-title, .tv-by { word-break: keep-all; overflow-wrap: anywhere; }
 .tv-title { font-size: 20px; font-weight: 700; }
 .tv-title span { font-weight: 400; color: #c9c9c9; }
 .tv-by { font-size: 14px; color: #c9c9c9; }
 .tv-why { font-size: 16px; line-height: 1.6; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
 .tv-link { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c9c9c9; }
-.tv-link a.btn { display: inline-block; text-decoration: none; }
+.tv-link a.btn { display: inline-block; flex: none; text-decoration: none; }
+.tv-link span { overflow-wrap: anywhere; } /* 열리는 곳: 긴 주소 */
 .tv-none { margin: auto; font-size: 16px; color: #c9c9c9; }
 /* 넣는 칸(종이 카드)을 화면 가운데에 띄운다 */
 .tv-card { width: 724px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; } /* TV 화면(760px)을 거의 다 쓴다 */
@@ -2180,9 +2217,21 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   background: radial-gradient(circle at 35% 35%, #ff9a88, #c0392b 70%);
   box-shadow: 0 2px 0 #0004;
 }
-.cork-text { flex: 1; margin: 0; overflow: hidden; font-size: 15px; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
+/* 글(60자)은 네 줄, 긴 글은 다섯 줄까지 쓴다. 띄어쓰기에서만 바꿔 넘치는 글은 글자 사이에서도 바꾸고(.tight), 그래도 넘치면 말줄임표로 끝낸다 */
+.cork-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
 .cork-note.mid .cork-text { font-size: 14px; }
-.cork-note.long .cork-text { font-size: 13px; line-height: 1.4; }
+.cork-note.long .cork-text { -webkit-line-clamp: 5; font-size: 13px; line-height: 1.4; }
 /* 아래 두 줄: 닉네임(12자가 한 줄에 들어간다), 붙인 날과 지우기 단추 */
 .cork-foot { display: grid; gap: 2px; margin-top: 6px; font-size: 12px; line-height: 1.35; }
 .cork-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

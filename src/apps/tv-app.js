@@ -3,7 +3,7 @@
 // 주인은 작품을 6편까지 넣는다. 넣을 때는 이름으로 찾는 단계를 거치고, 찾기는 API 키가 필요 없는 위키데이터를 쓴다(2026-11-10 정함).
 // 찾은 작품을 고르면 이름, 연도, 감독, 위키백과 링크가 채워지고, 포스터는 주인이 그림 주소를 붙여 넣는다. 포스터가 없으면 책 표지처럼 제목 카드를 건다.
 // 넣은 작품은 likes.tv에 저장되고 공유 링크에도 담긴다(src/likes.js). 손님에게는 넣기, 고치기, 빼기 단추가 없다.
-import { h, clamp } from '../util.js';
+import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { BOOK_COLORS } from './bookshelf-app.js';
 import { LIMIT, safeLink, safeImage, setLike, isOwner, nextColor } from '../likes.js';
@@ -103,7 +103,8 @@ async function workDetails(id) {
   };
 }
 
-// 포스터 하나. 주인이 넣은 그림이 있으면 제목 카드 위에 덮고, 그림을 못 받으면 제목 카드가 그대로 보인다
+// 포스터 하나. 주인이 넣은 그림이 있으면 제목 카드 위에 덮고, 그림을 못 받으면 제목 카드가 그대로 보인다.
+// 제목 카드는 제목을 네 줄까지 쓰고 그보다 길면 말줄임표로 끝낸다. 전체 제목은 포스터를 누르면 아래에 뜨고, 마우스를 올려도 보인다(show의 fitText)
 function poster(w) {
   const card = h('div', { className: 'tv-poster' }, h('div', { className: 'tv-poster-label' }, h('b', {}, w.title), w.year ? h('span', {}, w.year) : null));
   card.style.setProperty('--book', BOOK_COLORS[w.color]);
@@ -177,6 +178,7 @@ export function openTvApp(os, app) {
           h('div', { className: 'tv-head' }, h('b', {}, `${os.home.owner}의 추천 작품`), list.length > 1 ? h('span', {}, '휠이나 방향키로 넘겨 보세요.') : null),
           list.length ? row : h('p', { className: 'tv-none' }, '아직 넣은 작품이 없습니다.'),
           detail);
+        row.querySelectorAll('.tv-poster-label b').forEach(b => fitText(b, b.closest('.tv-pick'))); // 화면에 붙은 뒤에야 줄 수를 잴 수 있다
         // 고른 포스터가 보이게 줄만 옮긴다(scrollIntoView는 화면 바깥 상자까지 옮길 수 있어 쓰지 않는다)
         const c = row.children[at];
         if (c && c.offsetLeft + c.offsetWidth > row.clientWidth) row.scrollLeft = c.offsetLeft + c.offsetWidth - row.clientWidth + 12;

@@ -9,8 +9,10 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
-// 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 이 컴퓨터 초기화의 지우기를 차례로 본다.
-// 화면을 바꿀 때마다 되풀이된 함정 두 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13)와 창 안에서 가로로 넘친 상자.
+// 이웃집(서버에서 받는 link 이웃집), 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 이 컴퓨터 초기화의 지우기를 차례로 본다.
+// 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
+// 상자 밖으로 나가거나 말없이 잘린 글(80).
 // 서버(Firebase)와 다른 사이트에는 요청을 보내지 않는다. 짧은 링크의 방, 공유하기 창의 링크 만들기와 지우기, link 이웃집의 방은 페이지 안의 fetch를 바꿔 껴서
 // 서버 대신 답하고(fakeCloud), 유튜브 CD의 이름과 재생할 수 있는지도 같은 방법으로 대신 답한다(fakeYouTube).
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
@@ -40,6 +42,36 @@ const EVIL = {
   greeting: '<i>안녕</i>',
 };
 
+// 긴 글 점검(known-issues 80)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄이 는다),
+// 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
+// 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
+const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
+const WORST = {
+  ko: fill([...'가나다라마바사아자차카타파하']),
+  words: `가나다라 ${fill([...'마바사아자차카타파하거너더러머버서어저'])}`,
+  wide: fill(['W']),
+  emoji: fill(['🎮']),
+  mixed: fill([...'AB12가나']),
+  lines: fill(['가', '\n']),
+};
+const KINDS = Object.keys(WORST);
+const LONG_LINK = `https://${'a'.repeat(63)}.${'b'.repeat(50)}.example.com/`; // 열리는 곳에 띄어쓰기 없이 길게 나오는 주소
+// 책은 다섯 권까지 들어가 줄바꿈 글(lines)은 둘째 책의 남긴 말에 넣는다. CD는 이름과 표지를 받으러 가지 않는 애플 뮤직 플레이리스트다
+const LONG = {
+  owner: WORST.emoji,
+  greeting: WORST.ko,
+  scenes: HOME.scenes,
+  likes: {
+    computer: { url: LONG_LINK, name: WORST.emoji },
+    console: 'file-ten',
+    bookshelf: KINDS.map((k, i) => ({ title: WORST[k], author: WORST[k], note: WORST[i === 1 ? 'lines' : k], color: i })),
+    tv: KINDS.map((k, i) => ({ title: WORST[k], year: WORST[k], by: WORST[k], why: WORST[k], link: LONG_LINK, color: i })),
+    radio: KINDS.map((k, i) => ({ url: `https://music.apple.com/kr/playlist/x/pl.u-longtext${i}`, name: WORST[k], color: i })),
+  },
+};
+// 코르크 보드에 붙은 쪽지(서버 대신 fakeCloud가 답한다). 닉네임과 글을 한도까지 채운다(쪽지 화면이 다시 자른다)
+const LONG_NOTES = KINDS.map(k => ({ name: WORST[k], text: WORST[k] }));
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok: !!ok });
@@ -60,17 +92,84 @@ function shownHidden() {
 // 픽셀 아이콘(.app-icon.pixel)은 한 칸을 화면 픽셀 정수 개로 맞추느라 상자보다 최대 1.4배까지 일부러 넘치므로 뺀다(src/icons.js의 fitPixelIcons)
 function overflowing() {
   const out = [];
+  // 펼친 CD(두 장부터)와 코르크 쪽지는 일부러 기울여 놓아서, 기운 네모의 모서리가 판 밖으로 조금 나온다(보이는 것은 그 안의 동그라미와 종이다).
+  // 재는 동안만 기울기를 풀어 안의 것이 넘친 것만 센다
+  const flat = document.head.appendChild(document.createElement('style'));
+  flat.textContent = '.cd-pick, .cork-note { transform: none !important; transition: none !important; animation: none !important; }';
   for (const el of document.querySelectorAll('#windows .win-body, #windows .win-body *, .closeup *, #start-menu *, #login *')) {
     if (!(el instanceof HTMLElement) || !el.offsetParent || ['INPUT', 'TEXTAREA', 'I'].includes(el.tagName)) continue;
     if (el.matches('.app-icon.pixel')) continue;
-    // 펼친 CD는 부채꼴로 기울여 놓았고(두 장부터) 라디오에 든 CD는 음악이 나오는 동안 돈다(transform). 기울거나 도는 네모가 상자 밖으로 조금 나오는데,
-    // 보이는 것은 그 안의 동그라미뿐이라 일부러 그대로 둔다. 도는 CD는 재는 순간의 각도에 따라 넘침이 달라 점검이 들쭉날쭉해진다
+    // 라디오에 든 CD는 음악이 나오는 동안 돈다(transform). 도는 네모가 상자 밖으로 조금 나오는데 보이는 것은 그 안의 동그라미뿐이고,
+    // 재는 순간의 각도에 따라 넘침이 달라 점검이 들쭉날쭉해진다
     if (el.matches('.radio-fan, .radio-slot')) continue;
     if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible') {
       out.push(`${el.tagName.toLowerCase()}.${String(el.className).replace(/\s+/g, '.')} ${el.scrollWidth}>${el.clientWidth} "${(el.textContent || '').trim().slice(0, 24)}"`);
     }
   }
+  flat.remove();
   return [...new Set(out)].slice(0, 8);
+}
+
+// 글이 상자 밖으로 나가거나 말없이 잘린 곳(known-issues 80). 글 조각마다 그 글을 자르는 가장 가까운 조상(overflow가 visible이 아닌 상자, 무대 포함)을 찾는다.
+// 크기가 정해진 자리에서 말줄임표(text-overflow, -webkit-line-clamp)로 끝난 글은 그 글이나 조상의 title에 전체 글이 있어야 하고,
+// 스크롤되는 칸에서 가려진 글은 스크롤하면 보이므로 괜찮다. 기울인 CD와 쪽지는 재는 동안만 기울기를 푼다(overflowing과 같다)
+function cutText(scope = '#windows .win, .closeup, #start-menu, #login, #toast') {
+  const flat = document.head.appendChild(document.createElement('style'));
+  flat.textContent = '.cd-pick, .cork-note { transform: none !important; transition: none !important; animation: none !important; }';
+  const out = new Set();
+  const name = el => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().replace(/\s+/g, '.')}` : ''}`;
+  const stage = document.getElementById('stage');
+  const k = stage.getBoundingClientRect().width / stage.offsetWidth; // 무대 배율
+  for (const root of document.querySelectorAll(scope)) {
+    if (!root.getClientRects().length) continue;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const text = n.data.trim();
+      const el = n.parentElement;
+      if (!text || !el.getClientRects().length || el.closest('svg, option, textarea, script, style') || getComputedStyle(el).visibility === 'hidden') continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const rects = [...range.getClientRects()].filter(r => r.width > 0.5 && r.height > 0.5);
+      if (!rects.length) continue;
+      const box = { l: Math.min(...rects.map(r => r.left)), r: Math.max(...rects.map(r => r.right)), t: Math.min(...rects.map(r => r.top)), b: Math.max(...rects.map(r => r.bottom)) };
+      // 글자 상자(갈무리는 글자 크기의 1.4배)가 줄 높이보다 크면 위아래로 그 반씩 줄 밖에 걸친다. 글자가 잘린 것이 아니라서 그만큼 봐준다
+      const slack = Math.max(1, (rects[0].height - (parseFloat(getComputedStyle(el).lineHeight) * k || rects[0].height)) / 2 + 1);
+      for (let a = el; a && a !== document.body; a = a.parentElement) {
+        const s = getComputedStyle(a);
+        if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+        if (a.matches('.shelf-track')) break; // 가구 선반은 화살표로 넘기는 줄이라 가려진 가구는 넘기면 보인다
+        // 무대는 transform으로 늘이고 줄이므로 화면의 상자에서 테두리 두께만 그 배율로 덜어 낸다
+        const b = a.getBoundingClientRect();
+        const sx = a.offsetWidth ? b.width / a.offsetWidth : 1;
+        const sy = a.offsetHeight ? b.height / a.offsetHeight : 1;
+        const left = b.left + a.clientLeft * sx;
+        const top = b.top + a.clientTop * sy;
+        const right = b.right - (a.offsetWidth - a.clientWidth - a.clientLeft) * sx;
+        const bottom = b.bottom - (a.offsetHeight - a.clientHeight - a.clientTop) * sy;
+        const x = box.l < left - 1 || box.r > right + 1;
+        const y = box.t < top - slack || box.b > bottom + slack;
+        if (!x && !y) continue;
+        if ((x && /auto|scroll/.test(s.overflowX)) || (y && /auto|scroll/.test(s.overflowY))) break;
+        let titled = false;
+        for (let t = el; t && !titled; t = t.parentElement) titled = (t.getAttribute('title') || '').includes(text);
+        const short = text.slice(0, 12).replace(/\s+/g, ' ');
+        if (s.textOverflow !== 'ellipsis' && s.webkitLineClamp === 'none') out.add(`${name(el)}의 글이 ${name(a)}에서 잘림 "${short}"`);
+        else if (!titled) out.add(`${name(el)}의 글이 말줄임표로 끝나는데 전체를 볼 title이 없음 "${short}"`);
+        break;
+      }
+    }
+  }
+  flat.remove();
+  return [...out].slice(0, 8);
+}
+
+// 놀이터 울타리의 문패 글이 팻말 폭에 드는지. 넘치면 "글 폭>팻말 폭 글" 목록을 돌려준다
+function plateOverflow() {
+  return [...document.querySelectorAll('#wallpaper .neighbor-text, #wallpaper .gate-text')].map(t => {
+    const sign = t.previousElementSibling.getBBox().width;
+    const len = t.getComputedTextLength();
+    return len > sign - 4 ? `${Math.round(len)}>${Math.round(sign)} "${t.textContent}"` : null;
+  }).filter(Boolean);
 }
 
 // 집을 링크 글자로 바꾼다. 예전 긴 링크(#r=)의 뒤이고, 짧은 링크의 서버에도 같은 글자가 들어간다
@@ -83,8 +182,9 @@ async function linkOf(home, owner) {
 // rooms: 방 번호마다 방 글자. 목록에 없는 방은 그런 방이 없다는 404로 답한다
 // how: hold(방 읽기를 window.__cloudAnswer()를 부를 때까지 기다렸다가 답한다), serve(바로 답한다), missing(모든 방이 404), offline(연결 실패),
 //   write(serve에 더해 익명 로그인, 방 올리기, 쪽지 찾기, 방 지우기에도 답한다. 올린 방 글자는 window.__cloudSent에 차례로 남긴다)
-// 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다
-function fakeCloud(how, rooms = {}) {
+// 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다.
+// notes: 코르크 보드의 쪽지 찾기에 답할 쪽지들({ name, text }). 하루씩 앞서 붙인 것으로, 색은 차례로 돌린다
+function fakeCloud(how, rooms = {}, notes = []) {
   const real = window.fetch;
   const held = [];
   window.__cloudCalls = {};
@@ -98,7 +198,12 @@ function fakeCloud(how, rooms = {}) {
     const write = how === 'write';
     if (u.includes('accounts:signUp')) return write ? reply({ idToken: 'fake-token', localId: 'fake-uid', refreshToken: 'fake-refresh', expiresIn: '3600' }) : reply({}, 403);
     if (u.includes('securetoken.googleapis.com')) return write ? reply({ id_token: 'fake-token', user_id: 'fake-uid', refresh_token: 'fake-refresh', expires_in: '3600' }) : reply({}, 403);
-    if (u.includes(':runQuery')) return reply([]);
+    if (u.includes(':runQuery')) {
+      return reply(notes.map((n, i) => ({ document: { name: `notes/smoke${i}`, fields: {
+        uid: { stringValue: 'smoke-guest' }, name: { stringValue: n.name }, text: { stringValue: n.text },
+        color: { integerValue: String(i % 4) }, createdAt: { timestampValue: new Date(Date.now() - i * 864e5).toISOString() },
+      } } })));
+    }
     if (u.includes(':commit')) {
       if (!write) return reply({}, 403);
       for (const w of JSON.parse(opts.body).writes) {
@@ -131,8 +236,9 @@ async function extraNeighbor(page, row) {
     page.on('Fetch.requestPaused', null);
     return page.send('Fetch.disable');
   }
+  const rows = [].concat(row).map(r => `\n  ${JSON.stringify(r)},`).join(''); // 여러 집을 한꺼번에 더할 때는 배열로 넘긴다
   const text = fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8')
-    .replace('export const NEIGHBORS = [', `export const NEIGHBORS = [\n  ${JSON.stringify(row)},`);
+    .replace('export const NEIGHBORS = [', `export const NEIGHBORS = [${rows}`);
   page.on('Fetch.requestPaused', ({ requestId }) => page.send('Fetch.fulfillRequest', {
     requestId,
     responseCode: 200,
@@ -439,6 +545,8 @@ async function walk(page, base) {
     check(`${where}: hidden인데 보이는 요소가 없다`, shown.length === 0, shown.join(', '));
     const over = await page.run(overflowing);
     check(`${where}: 가로로 넘친 상자가 없다`, over.length === 0, over.join(' | '));
+    const cut = await page.run(cutText);
+    check(`${where}: 글이 잘리거나 상자 밖으로 나간 곳이 없다`, cut.length === 0, cut.join(' | '));
   };
   const openIcon = id => page.run(clickTwice, `#icons .desk-icon[data-app="${id}"]`);
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
@@ -1577,6 +1685,100 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
+  // ---------- 긴 글(known-issues 80) ----------
+  // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
+  // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
+  const shut = async () => { await closeWindows(); await press(page, 'Escape'); await until(page, closed, 3000); };
+  check('긴 글 집이 검사를 통과한다', (await page.run(plantHome, LONG)) === HOME.scenes.room.length + HOME.scenes.playground.length);
+  await open();
+  await powerOn();
+  await probe('긴 이름의 로그인 화면');
+  await page.run(clickOnce, '.users .user:not(.neighbor)');
+  check('긴 이름의 내 사용자로 들어간다', await desktop());
+  await page.run(clickOnce, '.start-btn');
+  await probe('긴 이름의 시작 메뉴');
+  await page.run(clickOnce, '.start-btn');
+  await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '긴 글의 책장이 열린다');
+  for (let i = 1; i < 5; i++) {
+    await page.run(n => document.querySelectorAll('.closeup .book-spine:not(.add)')[n].click(), i);
+    await probe(`긴 글의 책 ${i + 1}권`);
+  }
+  await shut();
+  await use('tv', () => !!document.querySelector('.closeup .tv-pick'), '긴 글의 TV가 켜진다');
+  for (let i = 1; i < KINDS.length; i++) {
+    await page.run(n => document.querySelectorAll('.closeup .tv-pick')[n].click(), i);
+    await probe(`긴 글의 작품 ${i + 1}편`);
+  }
+  await shut();
+  await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '긴 이름의 CD 여섯 장이 펼쳐진다');
+  // 이모지 이름은 표시창 한 줄에 들지 않아 말줄임표로 끝나고, 표시창에 마우스를 올리면 전체가 보인다
+  await page.run(n => document.querySelectorAll('.closeup .cd-pick')[n].click(), KINDS.indexOf('emoji'));
+  check('긴 이름의 CD를 넣으면 라디오 표시창에 이름이 뜬다', await until(page, () => !!document.querySelector('.closeup .radio-lcd')?.textContent.startsWith('🎮'), 3000));
+  await probe('긴 이름의 CD를 넣은 라디오');
+  await shut();
+  await use('computer', () => !!document.querySelector('#windows .computer-app .link-row'), '긴 이름의 게임과 긴 주소를 넣은 옛날 컴퓨터가 열린다');
+  await closeWindows();
+  // 움직임 줄이기를 켠 사람에게는 화면 보호기가 인사말을 가운데에 멈춰 보인다. 화면보다 긴 인사말은 줄을 바꿔 화면 안에 든다
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await open();
+  await powerOn();
+  await page.run(clickOnce, '.users .user:not(.neighbor)');
+  await desktop();
+  await openIcon('share');
+  await until(page, () => !!document.querySelector('#windows .share-row'), 3000);
+  await page.run(clickText, '#windows .btn', '미리 보기');
+  check('움직임 줄이기를 켜면 화면 보호기의 긴 인사말이 화면 안에 멈춰 있다', await until(page, () => {
+    const s = document.querySelector('.saver');
+    const t = s?.querySelector('.saver-text.still');
+    if (!t || s.hidden) return false;
+    const a = t.getBoundingClientRect();
+    const b = s.getBoundingClientRect();
+    return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;
+  }, 3000));
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+
+  // 손님: 같은 집을 짧은 링크로 열어 친구 집으로 구경한다. 코르크 보드에는 닉네임과 글이 긴 쪽지가 붙어 있다(fakeCloud가 답한다)
+  const LONG_ROOM = 'LongTxt1';
+  const longCode = await page.run(linkOf, LONG);
+  await open(`#s=${LONG_ROOM}`);
+  await page.run(fakeCloud, 'serve', { [LONG_ROOM]: longCode }, LONG_NOTES);
+  await powerOn();
+  check('긴 이름의 친구 방이 손님 자리로 나온다', await until(page, () => [...document.querySelectorAll('.users .user')]
+    .some(t => !t.disabled && t.textContent.includes('손님으로 구경하기')), 5000));
+  await probe('긴 이름의 친구 방이 있는 로그인 화면');
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  check('긴 이름의 친구 방에 손님으로 들어간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden, 5000));
+  await probe('긴 이름의 친구 방에 들어온 알림');
+  await page.run(clickOnce, '.start-btn');
+  await probe('긴 이름의 친구 방 시작 메뉴');
+  await page.run(clickOnce, '.start-btn');
+  await use('corkboard', () => document.querySelectorAll('.closeup .cork-note').length === 6, '긴 글의 쪽지가 붙은 코르크 보드가 열린다');
+  await shut();
+  await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님에게도 긴 글의 책장이 열린다');
+  await shut();
+  await use('tv', () => !!document.querySelector('.closeup .tv-pick'), '손님에게도 긴 글의 TV가 켜진다');
+  await shut();
+  await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '손님에게도 긴 이름의 CD가 펼쳐진다');
+  await shut();
+
+  // 이웃집의 긴 이름: 로그인 화면의 이웃집 자리, 놀이터 울타리의 문패(팻말 폭에 맞춰 줄이고 그래도 길면 말줄임표로 끝낸다), 놀러 갈지 묻는 창.
+  // 놀이터는 주인과 이름이 같은 이웃집의 문패를 빼므로(내 집이다) 주인(🎮)과 다른 이모지를 쓴다
+  const LONG_NEIGHBORS = [{ id: 'smoke-long-wide', name: WORST.wide, room: longCode }, { id: 'smoke-long-emoji', name: fill(['🏠']), room: longCode }];
+  await extraNeighbor(page, LONG_NEIGHBORS);
+  await open();
+  await powerOn();
+  await probe('긴 이름의 이웃집이 있는 로그인 화면');
+  check('긴 이름의 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  const plates = await page.run(plateOverflow);
+  check('놀이터 울타리의 문패 글이 팻말 안에 든다', plates.length === 0, plates.join(' | '));
+  check('줄인 문패에 마우스를 올리면 전체 이름이 보인다', await page.run(names => names.every(n => [...document.querySelectorAll('#wallpaper .neighbor-hit title')]
+    .some(t => t.textContent.includes(n))), LONG_NEIGHBORS.map(n => Array.from(n.name).slice(0, 12).join(''))));
+  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LONG_NEIGHBORS[1].id}"]`);
+  check('긴 이름의 이웃집 문을 두 번 누르면 놀러 갈지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
+  await probe('긴 이름의 이웃집에 놀러 갈지 묻는 창');
+  await closeWindows();
+  await extraNeighbor(page, null);
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;
@@ -1611,7 +1813,8 @@ async function main() {
   await page.send('Runtime.enable');
   // 유튜브 CD의 플레이어(iframe)와 IFrame Player API 스크립트는 받지 않는다. 음악 창이 열리고 화면 효과가 꺼지는 것까지만 본다
   // Firebase 주소도 막는다. 서버 대신 답하는 fakeCloud는 페이지 안에서 fetch를 가로채므로 막아도 그대로 돈다
-  const BLOCKED = ['*youtube.com/*', '*youtube-nocookie.com/*', '*ytimg.com/*', '*googlevideo.com/*',
+  // 긴 글 점검의 CD(애플 뮤직 플레이리스트)를 라디오에 넣으면 뜨는 플레이어도 막는다
+  const BLOCKED = ['*youtube.com/*', '*youtube-nocookie.com/*', '*ytimg.com/*', '*googlevideo.com/*', '*music.apple.com/*',
     '*firestore.googleapis.com/*', '*identitytoolkit.googleapis.com/*', '*securetoken.googleapis.com/*'];
   await page.send('Network.enable');
   await page.send('Network.setBlockedURLs', { urls: BLOCKED });

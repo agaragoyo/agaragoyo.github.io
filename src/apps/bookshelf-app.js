@@ -3,7 +3,7 @@
 // 책은 5권까지 꽂고, 2권 이상이면 방향키(←, →)나 아래 선반의 책등을 눌러 옆 책으로 넘어간다.
 // 주인(내 컴퓨터)에게는 책 넣기, 고치기, 빼기 단추가 있고 손님에게는 없다. 책이 없는 책장을 손님이 쓰면 아바타가 한마디 한다.
 // 넣은 책은 집 상태의 likes.bookshelf에 저장되고 공유 링크에도 담긴다(src/likes.js).
-import { h, clamp } from '../util.js';
+import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { LIMIT, setLike, isOwner, nextColor } from '../likes.js';
 
@@ -13,7 +13,8 @@ export const BOOK_COLORS = ['#c9766a', '#7f9a6c', '#5d84b8', '#d4a12a', '#8b72b8
 // 책 색을 CSS 변수(--book)로 넣는다. h()의 style은 Object.assign이라 사용자 정의 속성은 setProperty로 따로 넣는다
 const tint = (el, book) => { el.style.setProperty('--book', BOOK_COLORS[book.color]); return el; };
 
-// 표지 하나. 제목이 길면 글자를 줄인다(이름표 자리는 늘 같다)
+// 표지 하나. 제목이 길면 글자를 줄인다(이름표 자리는 늘 같다). 제목은 세 줄(긴 제목은 네 줄), 작가는 두 줄까지 쓰고
+// 그보다 길면 말줄임표로 끝내 마우스를 올리면 전체가 보이게 한다(show의 fitText)
 function cover(book) {
   return tint(h('div', { className: 'book-cover' },
     h('div', { className: 'book-band top' }),
@@ -76,6 +77,9 @@ export function openBookshelfApp(os, app) {
           h('button', { type: 'button', className: 'shelf-arrow', 'aria-label': '다음 책', disabled: at >= list.length - 1, onclick: () => go(at + 1) }, '▶'));
         const count = list.length > 1 ? h('p', { className: 'shelf-count' }, h('b', {}, `${at + 1} / ${list.length}`), '방향키로 넘겨 보세요.') : null;
         panel.replaceChildren(...[main, count, row].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣는다(책이 한 권이면 count가 없다)
+        // 화면에 붙은 뒤에야 줄 수를 잴 수 있다. 책등은 한 줄이라 넘치면 말줄임표로 끝나고, 단추에 마우스를 올리면 전체 제목이 보인다
+        panel.querySelectorAll('.book-title, .book-author').forEach(el => fitText(el));
+        panel.querySelectorAll('.book-spine:not(.add) span').forEach(el => fitText(el, el.parentElement));
       }
 
       // 주인이 책을 넣거나 고친다. i가 -1이면 새 책

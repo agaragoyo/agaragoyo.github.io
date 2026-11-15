@@ -17,7 +17,7 @@
 // 주인(내 컴퓨터)에게는 CD 넣기와 고치기, 지우기 단추가 있고 손님에게는 없다. 넣은 CD는 likes.radio에 저장되고 공유 링크에도 담긴다(src/likes.js).
 // 목록에서 지우는 단추를 다른 가구처럼 "빼기"라고 하면 라디오에서 꺼내기로 읽혀서, 라디오만 "지우기"라고 쓴다.
 // 실험실의 친구 집 배경음악(home-bgm)을 켜면 친구 집에 들어올 때 누르지 않아도 음악 창이 열린다(맨 아래 startHomeMusic).
-import { h, reduceMotion } from '../util.js';
+import { h, reduceMotion, fitText } from '../util.js';
 import { CHROME_W, CHROME_H } from '../win.js';
 import { DESK_W } from '../config.js';
 import { holdMusic, watchMusic } from '../sound.js';
@@ -46,14 +46,15 @@ const naming = new WeakMap();
 function nameOf(m, el) {
   naming.set(el, m);
   el.textContent = m.name || label(m);
+  if (el.isConnected) fitName(el);
   if (!m.name) loadMeta(m).then(info => { if (info?.title && naming.get(el) === m) { el.textContent = info.title; fitName(el); } });
 }
 // 펼친 CD의 이름은 띄어쓰기에서 줄을 바꾼다(style.css의 .cd-name). 짧은 낱말 뒤에 긴 낱말이 오면 그렇게 해서 두 줄을 넘는
-// 이름("가나다라 마바사아자차 카타파하")이 있어서, 그런 이름만 글자 사이에서도 줄을 바꿔 16자가 두 줄에 다 들어가게 한다
+// 이름("가나다라 마바사아자차 카타파하")이 있어서, 그런 이름만 글자 사이에서도 줄을 바꿔 16자가 두 줄에 다 들어가게 한다.
+// 그래도 넘치는 이름(이모지 16개, 서비스에서 받은 긴 이름)은 말줄임표로 끝나므로 CD에 마우스를 올리면 전체가 보이게 한다.
+// 한 줄인 라디오 표시창도 같다(known-issues 80)
 function fitName(el) {
-  if (!el.classList.contains('cd-name')) return; // 라디오 표시창은 한 줄이다
-  el.classList.remove('tight');
-  if (el.scrollHeight > el.clientHeight + 1) el.classList.add('tight');
+  fitText(el, el.closest('.cd-pick') || el);
 }
 // 공식 플레이어 높이(서비스가 권하는 크기). 창 안쪽은 플레이어와 아래 안내 줄이다.
 // 유튜브는 16:9 영상이라 폭 340px이면 191px이 맞지만, 플레이어를 200×200px보다 작게 띄우지 말라는 요건에 맞춰 200px로 둔다
@@ -310,6 +311,7 @@ export function openRadioApp(os, app) {
         else {
           naming.delete(lcd);
           lcd.textContent = 'CD를 골라 주세요';
+          fitName(lcd); // 앞 CD의 긴 이름을 넣어 둔 title을 지운다
         }
         cu.el.classList.toggle('beside', !!player);
       }
@@ -321,7 +323,8 @@ export function openRadioApp(os, app) {
         fan.replaceChildren(...list.map((m, i) => {
           const name = h('span', { className: 'cd-name' });
           nameOf(m, name);
-          const tilt = (i - (list.length - 1) / 2) * 7;
+          // 여섯 장을 7도씩 펼치면 양 끝 CD가 라디오 판(820px) 밖으로 나가서 4도씩 펼친다
+          const tilt = (i - (list.length - 1) / 2) * (list.length > 5 ? 4 : 7);
           // 라디오에 든 CD의 제자리는 점선 동그라미로 남고 누를 수 없다(꺼내기 단추로 돌려놓는다)
           const inside = current?.link === m.link;
           const item = h('button', {
