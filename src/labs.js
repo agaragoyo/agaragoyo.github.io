@@ -21,6 +21,7 @@ export const LABS = [
   { id: 'host-avatar', title: '주인 아바타 남기기', desc: '친구 집에 가면 주인 아바타가 방에 서 있고,\n내 아바타는 빨간 옷을 입습니다.' },
   { id: 'like-sparkle', title: '담긴 가구 반짝임', desc: '주인이 무언가 담아 둔 가구 위에\n작은 반짝임이 뜹니다.' },
   { id: 'pause-hidden', title: '최소화하면 게임 멈추기', desc: '미니게임 창을 최소화하면 게임이 멈추고,\n다시 띄우면 멈춘 곳에서 이어서 할 수 있습니다.' },
+  { id: 'pet', title: '펫 데려오기', desc: '내 방에 고양이 한 마리가 돌아다니고,\n두 번 누르면 쓰다듬을 수 있습니다.' },
 ];
 
 export const labsOpen = () => !!settings.get('labsOpen');

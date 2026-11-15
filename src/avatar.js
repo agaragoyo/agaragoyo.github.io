@@ -4,6 +4,7 @@
 // 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 // 실험실의 주인 아바타 남기기(host-avatar)를 켜고 친구 집을 구경하면 그 집 주인의 아바타가 방에 서 있다(mountOwner).
+// 실험실의 펫 데려오기(pet)를 켜면 내 방에 고양이가 걸어 다닌다(src/pet.js). 주인 아바타와 고양이는 host.others로 아바타와 칸과 앞뒤를 맞춘다.
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
 import { dims, isWall, supportOf, elevOf } from './rules.js';
@@ -77,8 +78,8 @@ function placeholderSheet(shirt) {
 
 const inRoom = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
 
-// 바닥 가구가 차지한 칸들. 책상 위 물건은 책상 칸 안에 있으므로 따로 세지 않아도 된다.
-function blockedOf(items) {
+// 바닥 가구가 차지한 칸들. 책상 위 물건은 책상 칸 안에 있으므로 따로 세지 않아도 된다. 고양이(src/pet.js)도 쓴다.
+export function blockedOf(items) {
   const blocked = new Set();
   for (const it of items) {
     if (isWall(it)) continue;
@@ -107,7 +108,7 @@ export function spriteRect(cell) {
   return { l: c.x - FW / 2, t: c.y - FOOT, r: c.x + FW / 2, b: c.y - FOOT + FH };
 }
 const unionRect = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
-const overlaps = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+export const overlaps = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
 
 // 가구 그림 상자가 화면에서 차지하는 네모(무대 px). room.js가 놓는 자리(placementOf)와 크기(boxSize) 그대로다.
 function furnRect(items, it) {
@@ -186,9 +187,10 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   sayRoot        말하기 입력 칸을 넣을 상자
 //   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
 //   onSay(text)    사용자가 말하기 칸에 쳐서 말했을 때(앞뒤 공백을 뺀 글). 가구가 시킨 혼잣말(say)에는 부르지 않는다
-//   others()       같은 공간에 선 다른 아바타 목록(친구 집의 주인, mountOwner). 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 없어도 된다
+//   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 실험실의 고양이 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
+//                  order()로 앞뒤를 알려 준다. 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 고양이는 걸어 다니므로 칸은 그때그때 묻는다. 없어도 된다
 // guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
-// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, destroy
+// 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, approachCell, restack, destroy
 export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   const el = avatarEl(avatarId, guest);
   el.title = '눌러서 말하기';
@@ -210,10 +212,14 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   let raf = 0;
   let sayTimer = 0;
   let blocked = new Set();
-  let arrive = null; // 가구 옆에 다 왔을 때 할 일 { face(), then() }. 다른 데로 걸으면 버린다
+  let arrive = null; // 가구 옆에 다 왔을 때 할 일 { goal(x, y), face(), then() }. 다른 데로 걸으면 버린다
+  let target = null; // 바닥을 눌러 가려는 칸. 길에 고양이가 들어오면 이 칸으로 길을 다시 찾는다
+  let drawnAt = null; // 마지막으로 앞뒤를 정한 자리 [at, rect]. 고양이가 움직이면 이 자리로 앞뒤를 다시 맞춘다(restack)
   const held = []; // 누르고 있는 방향키. 나중에 누른 것이 먼저다
 
-  const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y));
+  // 다른 그림(친구 집의 주인, 실험실의 고양이)이 차지한 칸. 고양이는 걸어 다니므로 attach 때 적어 두지 않고 그때그때 묻는다
+  const taken = (x, y) => (host.others?.() || []).some(o => o.cells().some(c => c.x === x && c.y === y));
+  const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y)) && !taken(x, y);
 
   // 지금 칸에서 갈 수 있는 칸을 가까운 순서로 훑어, to에 가장 가까운 칸까지의 길을 돌려준다(지금 칸은 빼고).
   // to가 가구에 막혀 있거나 갈 수 없으면 그 근처까지 간다. 바닥이 144칸뿐이라 매번 새로 훑어도 순식간이다.
@@ -280,12 +286,18 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     go((x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)), () => FACING[wall === 'R' ? '0,-1' : '-1,0'], then);
   }
 
+  // 칸 c 바로 옆 칸까지 걸어가 c 쪽을 본 뒤 then을 부른다. 실험실의 고양이를 쓰다듬으러 갈 때 쓴다(src/pet.js)
+  function approachCell(c, then) {
+    const face = () => FACING[me.x < c.x ? '1,0' : me.x > c.x ? '-1,0' : me.y < c.y ? '0,1' : '0,-1'];
+    go((x, y) => Math.abs(x - c.x) + Math.abs(y - c.y) === 1, face, then);
+  }
+
   // goal(x, y)를 만족하는 가장 가까운 빈칸까지 걸어가 face()쪽을 본 뒤 then을 부른다. 갈 수 있는 칸이 없으면 그 자리에서 바로 부른다.
   function go(goal, face, then) {
     held.length = 0;
     const route = pathTo(goal);
     if (!route) { then(); return; }
-    arrive = { face, then };
+    arrive = { goal, face, then };
     path = route;
     if (!walking) nextStep();
   }
@@ -295,6 +307,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   function draw(at, rect) {
     const c = placeAt(el, pos, facing, col);
     if (at) {
+      drawnAt = [at, rect];
       let z = depthZ(host.items(), at, rect);
       for (const o of host.others?.() || []) z = o.order(at, rect || spriteRect(at), z);
       el.style.zIndex = z;
@@ -312,6 +325,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     walking = false;
     path = [];
     arrive = null;
+    target = null;
     col = 0;
   }
 
@@ -323,6 +337,8 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
       const n = { x: me.x + held1[0], y: me.y + held1[1] };
       if (free(n.x, n.y)) path = [n];
     }
+    // 걸어가던 길에 고양이(실험실 pet)가 들어와 있으면 그 칸을 피해 같은 곳으로 길을 다시 찾는다
+    if (path.length && !free(path[0].x, path[0].y)) path = arrive ? pathTo(arrive.goal) || [] : target ? findPath(target) : [];
     if (!path.length) {
       walking = false;
       col = 0;
@@ -358,9 +374,10 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     raf = requestAnimationFrame(tick);
   }
 
-  function walkTo(target) {
+  function walkTo(to) {
     arrive = null;
-    path = findPath(target);
+    target = to;
+    path = findPath(to);
     if (!walking) nextStep();
   }
 
@@ -460,12 +477,14 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     // 방을 다시 그린 뒤 부른다. 방 그림(room.js의 renderStatic)이 상자를 비우고 다시 채우므로 아바타와 말풍선을 다시 넣는다.
     // 서 있던 칸에 가구가 놓였으면(방 꾸미기에서 옮겼으면) 가장 가까운 빈칸으로 옮긴다.
     // 다른 아바타(친구 집의 주인)가 선 칸도 막힌 칸으로 본다. 그 아바타가 먼저 attach되어 있어야 한다.
+    // 고양이(src/pet.js)는 이 아바타 다음에 attach해서 아바타가 선 칸을 피해 앉는다.
     attach() {
       stop();
       blocked = blockedOf(host.items());
-      for (const c of (host.others?.() || []).map(o => o.cell()).filter(Boolean)) blocked.add(key(c.x, c.y));
       if (!placed || !free(me.x, me.y)) {
-        const spot = nearestFree(blocked, placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
+        const busy = new Set(blocked);
+        for (const o of host.others?.() || []) for (const c of o.cells()) busy.add(key(c.x, c.y));
+        const spot = nearestFree(busy, placed ? me.x : SPAWN.x, placed ? me.y : SPAWN.y);
         if (!spot) { el.remove(); return; }
         me.x = spot.x;
         me.y = spot.y;
@@ -490,6 +509,11 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     say,
     approach,
     approachWall,
+    approachCell,
+    // 다른 그림(실험실의 고양이)이 움직였을 때 부른다. 마지막으로 그린 자리로 그 그림과의 앞뒤를 다시 맞춘다
+    restack() {
+      if (drawnAt && el.isConnected) draw(...drawnAt);
+    },
     destroy() {
       stop();
       clearTimeout(sayTimer);
@@ -584,7 +608,7 @@ export function mountOwner(host, name, avatarId = 'basic') {
   };
 
   return {
-    cell: () => cell,
+    cells: () => (cell ? [cell] : []), // 차지한 칸. 손님 아바타가 이 칸을 지나가지 못한다(mountAvatar의 host.others)
     // 방을 다시 그린 뒤, 손님 아바타보다 먼저 부른다(손님이 주인이 선 칸을 피해 서야 한다).
     // here: 주인이 서 있는 공간인지. door: 손님이 문으로 들어와 서는 칸. 주인은 그 칸과 그림이 겹치지 않는 곳에 선다
     attach(here, door) {
