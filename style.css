@@ -1888,14 +1888,14 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   justify-content: center;
   gap: 8px;
   min-width: 320px;
-  height: 150px;
+  height: 162px; /* 책등(140px)이 고를 때 12px 들려도 위의 쪽수 글에 닿지 않는 높이(아래 띠 14px 포함) */
   padding: 0 18px;
   border-bottom: 14px solid #3b2a20;
 }
 .book-spine {
   position: relative;
   width: 42px;
-  height: 128px;
+  height: 140px;
   padding: 0;
   border: 3px solid #2f231b;
   border-radius: 3px;
@@ -1903,19 +1903,31 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   cursor: var(--cur-hand);
   transition: transform 0.12s;
 }
-/* 책등의 제목은 세로 한 줄이다. 짧으면 가운데에 쓰고, 길면 위에서부터 쓰다가 말줄임표로 끝낸다(전체는 표지와 마우스를 올린 단추에) */
+/* 책등의 제목: 이름표(26×122px)에 13px 한 줄로 들면 가운데에 쓰고(한글 9자 남짓, 세로 글에서는 띄어쓰기와 숫자도 한 칸을 다 쓴다),
+   들지 않으면 src/apps/bookshelf-app.js의 fitSpine이 .two를 붙여 11px 두 줄로 쓴다(18자 남짓). 그래도 넘치면 말줄임표로 끝내고
+   전체 제목은 표지와 마우스를 올린 책등에 있다. 영문은 세로 글에서 옆으로 눕는다 */
 .book-spine span {
   position: absolute;
-  inset: 16px 5px;
+  inset: 6px 5px;
   overflow: hidden;
   background: #fbf4e4;
   writing-mode: vertical-rl;
   white-space: nowrap;
   text-overflow: ellipsis;
   text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 26px;
   color: #2a1f18;
+}
+.book-spine span.two {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 13px;
 }
 .book-spine.on { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffd76a; }
 .book-spine.add { border: 3px dashed #f6ecdc; background: none; font-size: 24px; color: #f6ecdc; }

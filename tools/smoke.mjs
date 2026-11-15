@@ -1122,7 +1122,13 @@ async function walk(page, base) {
   await press(page, 'ArrowRight');
   check('책장에서 방향키로 다음 책으로 넘어간다', (await page.run(() => document.querySelector('.closeup .book-title').textContent)) !== title0);
   await page.run(clickOnce, '.closeup .book-spine.add');
-  await page.run(() => { const f = document.querySelector('.closeup form'); f.querySelector('input').value = '넷째 책'; f.requestSubmit(); });
+  // 넷째 책은 띄어쓰기와 영문이 섞인 18자 제목이다. 책등에 한 줄로 들지 않아 두 줄로 쓰고, 말줄임표 없이 다 보여야 한다(known-issues 83)
+  await page.run(() => { const f = document.querySelector('.closeup form'); f.querySelector('input').value = '처음 배우는 알고리즘 with 파이썬'; f.requestSubmit(); });
+  check('18자 제목의 책은 책등에 두 줄로 다 보인다', await page.run(() => {
+    const spine = [...document.querySelectorAll('.closeup .book-spine:not(.add)')][3];
+    const span = spine?.querySelector('span');
+    return !!span && span.classList.contains('two') && !spine.title && span.scrollHeight <= span.clientHeight + 1 && span.scrollWidth <= span.clientWidth + 1;
+  }));
   const colors = (await page.run(savedHome)).likes.bookshelf.map(b => b.color);
   check('새 책이 저장되고 색이 앞 책과 다르다', colors.length === 4 && colors[3] !== colors[2] && colors[3] >= 0 && colors[3] < 8, colors.join());
   await page.run(clickText, '.closeup .shelf-tools .btn', '고치기');

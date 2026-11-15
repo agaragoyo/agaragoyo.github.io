@@ -24,6 +24,14 @@ function cover(book) {
     h('div', { className: 'book-band bottom' })), book);
 }
 
+// 책등의 제목: 13px 한 줄에 들지 않으면 11px 두 줄(.two)로 쓰고, 그래도 넘치면 fitText가 글자 사이에서도 꺾고(.tight)
+// 말줄임표로 끝난 책등에 마우스를 올리면 전체 제목이 보이게 한다(known-issues 83)
+function fitSpine(span) {
+  span.classList.remove('two');
+  if (span.scrollHeight > span.clientHeight + 1 || span.scrollWidth > span.clientWidth + 1) span.classList.add('two');
+  fitText(span, span.parentElement);
+}
+
 export function openBookshelfApp(os, app) {
   const owner = isOwner(os);
   const books = () => os.home.likes.bookshelf || [];
@@ -77,9 +85,9 @@ export function openBookshelfApp(os, app) {
           h('button', { type: 'button', className: 'shelf-arrow', 'aria-label': '다음 책', disabled: at >= list.length - 1, onclick: () => go(at + 1) }, '▶'));
         const count = list.length > 1 ? h('p', { className: 'shelf-count' }, h('b', {}, `${at + 1} / ${list.length}`), '방향키로 넘겨 보세요.') : null;
         panel.replaceChildren(...[main, count, row].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣는다(책이 한 권이면 count가 없다)
-        // 화면에 붙은 뒤에야 줄 수를 잴 수 있다. 책등은 한 줄이라 넘치면 말줄임표로 끝나고, 단추에 마우스를 올리면 전체 제목이 보인다
+        // 화면에 붙은 뒤에야 줄 수를 잴 수 있다
         panel.querySelectorAll('.book-title, .book-author').forEach(el => fitText(el));
-        panel.querySelectorAll('.book-spine:not(.add) span').forEach(el => fitText(el, el.parentElement));
+        panel.querySelectorAll('.book-spine:not(.add) span').forEach(fitSpine);
       }
 
       // 주인이 책을 넣거나 고친다. i가 -1이면 새 책
