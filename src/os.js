@@ -372,7 +372,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else out();
   };
 
-  // 놀이터 왼쪽 울타리의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다.
+  // 놀이터 앞쪽 끝의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다.
   // 지금 이 컴퓨터의 집은 목록에 넣지 않는다(아파트 문이 그 집으로 가는 문이다). gate: 문 자리({ wall, x, w }, src/neighbors.js의 neighborGate)
   os.useNeighbor = gate => {
     const list = () => openNeighbors(os);

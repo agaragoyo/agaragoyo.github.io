@@ -1,6 +1,6 @@
-// 이웃집(docs/requirements.md의 F19). data/neighbors.js의 목록을 로그인 화면과 놀이터 울타리에 내놓는다.
+// 이웃집(docs/requirements.md의 F19). data/neighbors.js의 목록을 로그인 화면과 놀이터에 내놓는다.
 // 로그인 화면에서는 사용자처럼 늘어서 누르면 바로 손님으로 들어가고(누르기 전에 이름과 "이웃집 구경하기"가 보인다),
-// 놀이터에서는 왼쪽 울타리의 '이웃집' 문 하나를 두 번 누르면 이웃집 목록 창(openNeighbors)이 뜨고, 그 창에서 갈 집을 고른다.
+// 놀이터에서는 앞쪽 끝의 '이웃집' 문 하나를 두 번 누르면 이웃집 목록 창(openNeighbors)이 뜨고, 그 창에서 갈 집을 고른다.
 // 내 컴퓨터를 떠나 다른 컴퓨터로 가는 일이라 누르기 전에 어느 집인지 보인다(동물의 숲 꿈 방문은 섬 이름을, Gather는 다른 공간으로 가는 문에서 확인을 받는다).
 // 예전에는 이웃마다 문패를 단 문을 하나씩 달았는데, 세 집만으로 울타리 12칸 가운데 8칸이 문이 되어 2026-11-16 문 하나와 목록 창으로 바꿨다(known-issues 90).
 // 한 줄은 두 가지다. link(주인이 공유하기에서 만든 링크의 번호)는 방을 서버(src/cloud.js)에서 받아 와서 주인이 방을 고치면 따라 바뀌고,
@@ -102,10 +102,10 @@ export function prefetchNeighbors(got) {
 // 서버에 방이 없다고 확인된 link 이웃집도 뺀다. 받는 중이거나 받지 못한 집은 넣어 두고, 목록 창을 열 때 다시 받는다.
 export const shownNeighbors = (owner = '') => NEIGHBOR_LIST.filter(n => neighborNow(n) !== null && shownName(n) !== owner);
 
-// 놀이터 왼쪽 울타리의 이웃집 문({ wall: 'L', x, w }). scene: config.js의 SCENES 한 줄(문 자리는 그 줄의 neighborGate).
+// 놀이터 앞쪽 끝의 이웃집 문({ wall: 'F', x, w }, 'F'는 y = N 줄의 앞쪽 끝). scene: config.js의 SCENES 한 줄(문 자리는 그 줄의 neighborGate).
 // 이웃이 몇 집이든 문은 하나다. 보여 줄 이웃이 하나도 없으면(그 놀이터 주인의 집뿐이거나 서버에 방이 없는 집뿐이면) null이고 문을 달지 않는다.
 export function neighborGate(scene, owner = '') {
-  return scene.neighborGate && shownNeighbors(owner).length ? { wall: 'L', ...scene.neighborGate } : null;
+  return scene.neighborGate && shownNeighbors(owner).length ? { wall: 'F', ...scene.neighborGate } : null;
 }
 
 // 놀이터의 이웃집 문을 두 번 눌렀을 때 뜨는 목록 창. 아바타가 문 앞까지 걸어간 뒤에 뜬다(src/os.js의 useNeighbor).

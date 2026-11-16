@@ -112,7 +112,7 @@ export function lightPoint(item, elev = 0) {
   return { x: left + boxSize(def, item.r).w / 2, y: top + TH / 2 };
 }
 
-// 공간 배경. scene: config.js의 SCENES 한 줄. kind가 'outdoor'면 울타리, 땅, 뒤쪽 아파트와 울타리 문(fenceGates)을,
+// 공간 배경. scene: config.js의 SCENES 한 줄. kind가 'outdoor'면 울타리, 땅, 뒤쪽 아파트와 울타리의 문(fenceGates)을(앞쪽 끝의 문은 sceneFrontSVG),
 // 'indoor'면 벽과 바닥과 현관문(door)을 그린다. owner: 그 공간이 있는 집의 주인 이름(이웃집 문을 달지 정한다, src/neighbors.js의 neighborGate).
 // decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 지금은 벽지(decor.wall)만 있고, 없으면 기본 벽이다.
 export function sceneSVG(scene, owner = '', decor = null) {
@@ -121,10 +121,12 @@ export function sceneSVG(scene, owner = '', decor = null) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-// 바깥 공간의 울타리에 다는 문들. 그림(outdoorSVG), 방 꾸미기의 문 앞 칸(src/rules.js의 blocksGate), 문을 가리는 가구(coversGate)가 같이 쓴다.
-//   오른쪽 뒤 울타리(wall 'R', y = 0 줄)의 아파트 문(scene.gate): 이 컴퓨터의 방으로 돌아가는 문이다
-//   왼쪽 울타리(wall 'L', x = 0 줄)의 이웃집 문(scene.neighborGate): 보여 줄 이웃이 있을 때만 단다(src/neighbors.js의 neighborGate)
-// x, w: 그 울타리를 따라 뒤 모서리에서 센 칸과 폭. cls: 그림의 클래스 앞머리(.gate-*, .neighbor-*), text: 팻말 글, title: 마우스를 올리면 보이는 글
+// 바깥 공간의 문들. 그림(outdoorSVG, sceneFrontSVG), 방 꾸미기의 문 안쪽 칸(src/rules.js의 blocksGate), 문을 가리는 가구(coversGate)가 같이 쓴다.
+//   오른쪽 뒤 울타리(wall 'R', y = 0 줄)의 아파트 문(scene.gate): 이 컴퓨터의 방으로 돌아가는 문이다. 뒤로 보이는 아파트 쪽이라 울타리에 단다
+//   앞쪽 끝(wall 'F', y = N 줄)의 이웃집 문(scene.neighborGate): 보여 줄 이웃이 있을 때만 단다(src/neighbors.js의 neighborGate).
+//     울타리가 없는 쪽이고, 가구보다 위층에 그려 가구에 가리지 않는다(sceneFrontSVG)
+// 왼쪽 뒤 울타리(wall 'L', x = 0 줄)에는 지금 문이 없다. 2026-11-16까지 이웃집 문이 있었는데 팀원 놀이터의 그네와 나무에 가렸다(known-issues 90).
+// x, w: 그 변을 따라 왼쪽 끝(R과 L은 뒤 모서리, F는 왼쪽 모서리)에서 센 칸과 폭. cls: 그림의 클래스 앞머리(.gate-*, .neighbor-*), text: 팻말 글, title: 마우스를 올리면 보이는 글
 export function fenceGates(scene, owner = '') {
   if (scene.kind !== 'outdoor') return [];
   const near = neighborGate(scene, owner);
@@ -136,7 +138,8 @@ export function fenceGates(scene, owner = '') {
 
 const GATE_POST = 60; // 울타리 문 기둥 높이(px)
 const GATE_SIGN = 18; // 문 위 팻말 높이(px)
-const fenceAt = (wall, i) => (wall === 'R' ? tile(i, 0) : tile(0, i));
+const fenceAt = (wall, i) => (wall === 'R' ? tile(i, 0) : wall === 'F' ? tile(i, N) : tile(0, i));
+const isFront = g => g.wall === 'F'; // 앞쪽 끝의 문. 배경이 아니라 가구 위층(sceneFrontSVG)에 그린다
 
 // 울타리 문 하나가 화면에서 차지하는 자리(무대 px): 양쪽 기둥의 밑동과 꼭대기를 잇는 평행사변형이다. 팻말도 이 안에 든다.
 // 문을 두 번 누르는 판(.gate-hit, .neighbor-hit)과 문을 가리는 가구를 재는 곳(coversGate)이 같이 쓴다
@@ -182,16 +185,18 @@ function overlapArea(subject, clip) {
   return Math.abs(out.reduce((s, p, i) => { const q = out[(i + 1) % out.length]; return s + p.x * q.y - q.x * p.y; }, 0)) / 2;
 }
 
-// 바닥 가구 item이 울타리 문(gates, fenceGates)을 가리는가. 가구 상자(boxOutline)가 문 자리(gateOutline)와 겹치는 넓이가
+// 바닥 가구 item이 뒤쪽 울타리의 문(gates, fenceGates)을 가리는가. 가구 상자(boxOutline)가 문 자리(gateOutline)와 겹치는 넓이가
 // 문 자리의 COVER(8분의 1) 넘게 겹치면 가린다고 본다. 울타리는 바닥 뒤 끝에 있어 바닥 가구는 늘 문보다 앞에 그려진다.
 // 가리는 가구는 반쯤 비치게 그려 문과 팻말이 보이게 한다(src/room.js의 markCover, 심즈가 앞쪽 벽을 낮추는 것과 같은 까닭).
-// 2026-11-16에 왼쪽 울타리 문(칸 5~6)으로 잰 값: 문 옆 칸 (0, 7)의 벤치는 기둥 밑동만 스쳐 10%, (4, 9)와 (4, 10)의 나무는 문 아래 모서리만 덮어 5%라 그대로 두고,
-// (3, 10)의 나무(20%), (0, 8)의 미끄럼틀(42%), 문 앞 둘째 줄 (1, 6)의 가로등(50%)부터 비친다
+// 앞쪽 끝의 문(F)은 가구보다 위층에 그려 가릴 일이 없으므로 보지 않는다.
+// 2026-11-16에 그때 왼쪽 울타리에 있던 이웃집 문(칸 5~6)으로 잰 값: 문 옆 칸 (0, 7)의 벤치는 기둥 밑동만 스쳐 10%, (4, 9)와 (4, 10)의 나무는 문 아래 모서리만 덮어 5%라 그대로 두고,
+// (3, 10)의 나무(20%), (0, 8)의 미끄럼틀(42%), 문 앞 둘째 줄 (1, 6)의 가로등(50%)부터 비친다. 아파트 문(칸 5~6)은 좌우만 바뀐 자리라 x와 y를 맞바꾼 칸에서 같은 값이다
 const COVER = 1 / 8;
 export function coversGate(item, elev, gates) {
-  if (BY_ID[item.id].zone === 'wall' || !gates.length) return false;
+  const back = gates.filter(g => !isFront(g));
+  if (BY_ID[item.id].zone === 'wall' || !back.length) return false;
   const box = boxOutline(item, elev);
-  return gates.some(g => overlapArea(box, gateOutline(g)) > COVER * g.w * (TW / 2) * GATE_POST);
+  return back.some(g => overlapArea(box, gateOutline(g)) > COVER * g.w * (TW / 2) * GATE_POST);
 }
 
 // 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트. 울타리에는 문(doors, fenceGates)을 낸다.
@@ -214,21 +219,20 @@ function outdoorSVG(doors) {
     .map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="fill:var(--apt)" />
       <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#apt-windows)" />
       <rect x="${x}" y="${y - 10}" width="${w}" height="10" style="fill:var(--apt-roof)" />`).join('');
-  // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대. 문 자리는 비운다.
+  // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대. 뒤쪽 문 자리는 비운다(앞쪽 끝의 문은 sceneFrontSVG가 가구 위층에 그린다).
   const H = 34;
-  const up = (p, h) => ({ x: p.x, y: p.y - h });
-  const post = (p, h, cls = '') => `<line${cls && ` class="${cls}"`} x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - h}" />`;
   const at = fenceAt;
-  const isOpen = (wall, i) => doors.some(d => d.wall === wall && i >= d.x && i <= d.x + d.w);
+  const back = doors.filter(d => !isFront(d));
+  const isOpen = (wall, i) => back.some(d => d.wall === wall && i >= d.x && i <= d.x + d.w);
   const fence = [];
   for (let i = 0; i <= N; i += 0.5) {
-    for (const wall of ['R', 'L']) if (!isOpen(wall, i)) fence.push(post(at(wall, i), H));
+    for (const wall of ['R', 'L']) if (!isOpen(wall, i)) fence.push(postLine(at(wall, i), H));
   }
   // 가로대: 한 변에서 문 사이사이의 막힌 구간 [a, b]마다 긋는다. 두 변의 첫 구간이 뒤 모서리(0)에서 시작하면 모서리를 지나는 한 줄로 잇는다.
   const spans = wall => {
     const out = [];
     let from = 0;
-    for (const d of doors.filter(o => o.wall === wall).sort((p, q) => p.x - q.x)) {
+    for (const d of back.filter(o => o.wall === wall).sort((p, q) => p.x - q.x)) {
       if (d.x > from) out.push([from, d.x]);
       from = Math.max(from, d.x + d.w);
     }
@@ -239,25 +243,12 @@ function outdoorSVG(doors) {
     const L = spans('L');
     const R = spans('R');
     const join = L[0]?.[0] === 0 && R[0]?.[0] === 0;
-    const lines = join ? [[up(at('L', L[0][1]), h), up(tile(0, 0), h), up(at('R', R[0][1]), h)]] : [];
-    for (const [a, b] of join ? L.slice(1) : L) lines.push([up(at('L', a), h), up(at('L', b), h)]);
-    for (const [a, b] of join ? R.slice(1) : R) lines.push([up(at('R', a), h), up(at('R', b), h)]);
+    const lines = join ? [[lift(at('L', L[0][1]), h), lift(tile(0, 0), h), lift(at('R', R[0][1]), h)]] : [];
+    for (const [a, b] of join ? L.slice(1) : L) lines.push([lift(at('L', a), h), lift(at('L', b), h)]);
+    for (const [a, b] of join ? R.slice(1) : R) lines.push([lift(at('R', a), h), lift(at('R', b), h)]);
     return lines.map(p => `<polyline points="${pts(p)}" />`).join('');
   };
-  // 문: 양쪽 높은 기둥과 팻말. 팻말 글자는 울타리 비탈(가로 2 : 세로 1, 26.57도)을 따라 기울인다(왼쪽 울타리는 반대쪽으로).
-  // .gate-hit와 .neighbor-hit는 문 자리 전체(gateOutline)를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 아바타가 걸어가
-  // 아파트 문은 이 컴퓨터의 방으로 돌아가고, 이웃집 문은 이웃집 목록 창을 띄운다(room.js의 renderStatic).
-  const G = GATE_POST;
-  const S = GATE_SIGN;
-  const doorSVG = doors.map(d => {
-    const a = at(d.wall, d.x);
-    const b = at(d.wall, d.x + d.w);
-    const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - G + S / 2 };
-    fence.push(post(a, G, 'gate-post'), post(b, G, 'gate-post'));
-    return `<polygon class="${d.cls}-sign" points="${pts([up(a, G), up(b, G), up(b, G - S), up(a, G - S)])}" />
-    <text class="${d.cls}-text" transform="translate(${c.x} ${c.y}) skewY(${d.wall === 'R' ? 26.57 : -26.57})" text-anchor="middle" dominant-baseline="central">${esc(d.text)}</text>
-    <polygon class="${d.cls}-hit" points="${pts(gateOutline(d))}"><title>${esc(d.title)}</title></polygon>`;
-  }).join('');
+  const gates = back.map(gateParts);
   return `<svg class="room-bg" width="1280" height="720" viewBox="0 0 1280 720">
     <defs>
       <pattern id="apt-windows" width="34" height="30" patternUnits="userSpaceOnUse">
@@ -268,9 +259,43 @@ function outdoorSVG(doors) {
     <polygon points="${pts([tile(0, N), tile(N, N), below(tile(N, N)), below(tile(0, N))])}" style="fill:var(--dirt-a)" />
     <polygon points="${pts([tile(N, N), tile(N, 0), below(tile(N, 0)), below(tile(N, N))])}" style="fill:var(--dirt-b)" />
     ${ground.join('')}
-    <g class="fence">${fence.join('')}${rail(12)}${rail(28)}</g>
+    <g class="fence">${fence.join('')}${gates.map(g => g.posts).join('')}${rail(12)}${rail(28)}</g>
     <g class="grid">${gridLines.join('')}</g>
-    ${doorSVG}
+    ${gates.map(g => g.sign).join('')}
+  </svg>`;
+}
+
+const lift = (p, h) => ({ x: p.x, y: p.y - h });
+const postLine = (p, h, cls = '') => `<line${cls && ` class="${cls}"`} x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - h}" />`;
+
+// 문 하나의 그림 조각. posts: 양쪽 높은 기둥(울타리 무리 .fence 안에 넣는다), sign: 팻말과 글, 두 번 누르는 판.
+// 팻말 글자는 문이 선 변의 비탈(가로 2 : 세로 1, 26.57도)을 따라 기울인다. 오른쪽 뒤 울타리(R)와 앞쪽 끝(F)은 같은 쪽으로, 왼쪽 울타리(L)는 반대쪽으로 기운다.
+// .gate-hit와 .neighbor-hit는 문 자리 전체(gateOutline)를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 아바타가 걸어가
+// 아파트 문은 이 컴퓨터의 방으로 돌아가고, 이웃집 문은 이웃집 목록 창을 띄운다(room.js의 renderStatic).
+function gateParts(d) {
+  const G = GATE_POST;
+  const S = GATE_SIGN;
+  const a = fenceAt(d.wall, d.x);
+  const b = fenceAt(d.wall, d.x + d.w);
+  const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - G + S / 2 };
+  return {
+    posts: postLine(a, G, 'gate-post') + postLine(b, G, 'gate-post'),
+    sign: `<polygon class="${d.cls}-sign" points="${pts([lift(a, G), lift(b, G), lift(b, G - S), lift(a, G - S)])}" />
+    <text class="${d.cls}-text" transform="translate(${c.x} ${c.y}) skewY(${d.wall === 'L' ? -26.57 : 26.57})" text-anchor="middle" dominant-baseline="central">${esc(d.text)}</text>
+    <polygon class="${d.cls}-hit" points="${pts(gateOutline(d))}"><title>${esc(d.title)}</title></polygon>`,
+  };
+}
+
+// 앞쪽 끝(F)의 문 그림(지금은 이웃집 문). 바닥 앞 끝에 서 있어 놓인 가구와 아바타가 모두 그 뒤에 있으므로, 배경(sceneSVG)이 아니라
+// 가구 위층(.room-fg)에 그린다. 그래서 어떤 가구도 문과 팻말을 가리지 않는다(known-issues 90). 포켓몬, 스타듀 밸리, 동물의 숲이
+// 방의 출구를 화면 아래 끝에 두는 것과 같은 까닭이다. 앞쪽 끝에 문이 없으면 빈 글자다.
+// 바탕화면(src/room.js의 renderStatic), 방 꾸미기(setSceneBg), 공유하기의 방 그림(src/room-image.js)이 가구 위에 놓는다.
+export function sceneFrontSVG(scene, owner = '') {
+  const gates = fenceGates(scene, owner).filter(isFront).map(gateParts);
+  if (!gates.length) return '';
+  return `<svg class="room-fg" width="1280" height="720" viewBox="0 0 1280 720">
+    <g class="fence">${gates.map(g => g.posts).join('')}</g>
+    ${gates.map(g => g.sign).join('')}
   </svg>`;
 }
 
