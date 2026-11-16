@@ -135,10 +135,11 @@ export function openNeighbors(os) {
       body.classList.add('neighbor-app');
       const rows = h('ul', { className: 'neighbor-list' });
       let missed = false; // 서버에 닿지 못해 뺀 집이 있는가(빈 목록에 띄울 글을 고른다)
+      // 오류는 일어난 일과 할 일을 한 줄씩 쓴다. 두 문장을 이어 쓰면 창 폭(360px)을 넘어 둘째 문장의 구절 중간에서 꺾인다
       const empty = () => {
         if (rows.children.length) return;
         rows.append(h('li', { className: 'neighbor-empty meta' },
-          missed ? '이웃집을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.' : '놀러 갈 수 있는 이웃집이 없습니다.'));
+          ...(missed ? ['이웃집을 불러오지 못했습니다.', h('br'), '잠시 후 다시 시도해 주세요.'] : ['놀러 갈 수 있는 이웃집이 없습니다.'])));
       };
       const go = n => {
         const home = neighborNow(n); // 누를 때마다 새로 푼 집이라 구경하는 동안 바뀐 것이 목록에 남지 않는다

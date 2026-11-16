@@ -2425,6 +2425,22 @@ async function walk(page, base) {
     const gates = fenceGates(SCENES.find(s => s.id === 'playground'), owner);
     return gates.length === 1 && !blocksGate(gates, { id: 'bench', x: 0, y: 6 }) && blocksGate(gates, { id: 'bench', x: 5, y: 0 });
   }, GATES.owner));
+  // 서버에 닿지 못한 집은 문을 쓸 때 다시 받으므로 문은 달려 있다. 목록 창에서 다시 받아도 닿지 못해 줄이 모두 빠지면 불러오지 못했다는 글과 할 일이 한 줄씩 뜬다
+  await open();
+  await page.run(fakeCloud, 'offline');
+  await powerOn();
+  check('서버에 닿지 못할 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('받지 못한 이웃집만 있어도 놀이터에 이웃집 문은 달려 있다', (await page.run(neighborDoor)).doors === 1);
+  await page.run(clickTwice, '#wallpaper .neighbor-hit');
+  check('목록 창에서도 받지 못하면 그 줄이 빠지고, 불러오지 못했다는 글과 할 일이 두 줄로 뜬다', await until(page, () => {
+    const li = document.querySelector('#windows .neighbor-app .neighbor-empty');
+    if (!li || document.querySelector('#windows .neighbor-row')) return false;
+    const st = getComputedStyle(li);
+    const lines = Math.round((li.clientHeight - parseFloat(st.paddingTop) - parseFloat(st.paddingBottom)) / parseFloat(st.lineHeight));
+    return lines === 2 && li.textContent === '이웃집을 불러오지 못했습니다.잠시 후 다시 시도해 주세요.';
+  }, 15000));
+  await probe('이웃집을 불러오지 못한 목록 창');
+  await closeWindows();
   await extraNeighbor(page, null);
 
   // ---------- 긴 글(known-issues 83) ----------
