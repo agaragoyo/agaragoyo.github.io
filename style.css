@@ -325,7 +325,8 @@ button { font-family: inherit; }
 .room-bg .gate-sign { fill: #3f7a4f; stroke: #f4efe3; stroke-width: 2; stroke-linejoin: round; }
 .room-bg .gate-text { font-family: var(--font); font-size: 12px; font-weight: 700; fill: #f4efe3; }
 .room-bg .gate-hit { fill: transparent; pointer-events: none; }
-/* 놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js). 나무 문패에 닉네임을 쓴다. 바탕화면에서 두 번 누르면 그 집에 놀러 갈지 묻는다 */
+/* 놀이터 왼쪽 울타리의 이웃집 문(src/neighbors.js의 neighborGate). 이웃이 몇 집이든 하나이고 나무 팻말에 "이웃집"이라고 쓴다.
+   바탕화면에서 두 번 누르면 이웃집 목록 창이 뜬다(.neighbor-app) */
 .room-bg .neighbor-sign { fill: #8a5a32; stroke: #f4efe3; stroke-width: 2; stroke-linejoin: round; }
 .room-bg .neighbor-text { font-family: var(--font); font-size: 12px; font-weight: 700; fill: #fff4dc; }
 .room-bg .neighbor-hit { fill: transparent; pointer-events: none; }
@@ -446,6 +447,9 @@ button { font-family: inherit; }
 @media (hover: hover) {
   .item:has(.hit:hover) { filter: brightness(1.08) drop-shadow(0 0 3px #fff) drop-shadow(0 0 3px #fff); }
 }
+/* 놀이터의 울타리 문(아파트 문, 이웃집 문)이나 그 팻말을 가리는 가구는 반쯤 비치게 그려 문이 보이게 한다(src/room.js의 markCover, src/iso.js의 coversGate).
+   문은 배경 그림이라 가구가 늘 그 위에 그려진다. 바탕화면과 방 꾸미기에서 같고, 공유하기의 방 그림 파일에는 넣지 않는다(문을 찾는 화면용이다) */
+.item.covers-gate { opacity: 0.45; }
 .item.lifted { opacity: 0.2; }
 /* 실험실의 '담긴 가구 반짝임'(like-sparkle). src/os.js의 markLiked가 주인이 무언가 담아 둔 바탕화면 가구에 has-like를 달면,
    그 가구 위쪽 가운데에서 4px 위에 작은 별이 깜박인다. 별은 가구 상자의 ::after라서 그 가구와 같은 쌓임 맥락의 바로 위에 놓이고(known-issues 7),
@@ -1124,10 +1128,25 @@ form.user { cursor: var(--cur-arrow); }
 }
 .user-name { display: grid; gap: 4px; font-size: 24px; }
 .user-name small { font-size: 15px; color: #e6e2ff; }
-/* 이웃집(data/neighbors.js): 내 사용자보다 작게, 놀이터 문패와 같은 나무색 그림으로 늘어선다(여섯 집까지 들어간다) */
+/* 이웃집(data/neighbors.js): 내 사용자보다 작게, 놀이터 이웃집 문의 팻말과 같은 나무색 그림으로 늘어선다(여섯 집까지 들어간다, src/neighbors.js의 MAX_NEIGHBORS) */
 .user.neighbor { gap: 12px; padding: 6px 14px 6px 10px; }
 .user.neighbor .avatar { width: 48px; height: 48px; font-size: 22px; background: linear-gradient(#b07a4a, #8a5a32); }
 .user.neighbor .user-name { gap: 2px; font-size: 20px; }
+/* 놀이터의 이웃집 목록 창(src/neighbors.js의 openNeighbors). 줄마다 주인 사진(사진이 없으면 로그인 화면의 이웃집처럼 나무색 글자 그림), 이름, 놀러 가기 단추.
+   줄 높이 60px(ROW_H)로 창 높이를 정하고, 그보다 줄이 많으면 목록만 스크롤한다. 이름은 두 줄까지 쓰고 넘치면 글자 사이에서도 바꾼다(.tight, known-issues 83) */
+.neighbor-app { display: flex; flex-direction: column; }
+.neighbor-list { flex: 1; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.neighbor-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 4px; border-bottom: 1px solid #8a5a3233; }
+.neighbor-row:last-child { border-bottom: 0; }
+.neighbor-row .avatar { width: var(--user-pic-36, 36px); height: var(--user-pic-36, 36px); border-width: 2px; font-size: 18px; background: linear-gradient(#b07a4a, #8a5a32); box-shadow: 0 0 0 1px #0004; }
+.neighbor-row .avatar.has-pic { width: auto; height: auto; }
+.neighbor-name { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-width: 0; line-height: 1.3; } /* 띄어쓰기 없는 긴 이름도 칸 폭 안에서 줄을 바꾼다 */
+.neighbor-name b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.neighbor-name b.tight { word-break: break-all; }
+.neighbor-row .btn { flex: none; }
+.neighbor-empty { padding: 14px 4px; }
+.neighbor-app p.meta { margin-top: 10px; }
+.neighbor-app .link-row { margin-top: auto; padding-top: 12px; }
 .new-row { position: relative; display: flex; gap: 8px; width: 330px; }
 .new-row input { font-size: 16px; color: var(--ink); }
 /* 빈 닉네임으로 확인을 누르면 입력칸을 빨갛게 두르고, 그 아래에 튜토리얼 안내와 같은 노란 풍선으로 할 일을 알린다 */
