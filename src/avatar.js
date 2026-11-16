@@ -297,11 +297,12 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   }
 
   // 벽(놀이터에서는 울타리)의 칸 from부터 w칸 바로 앞에 설 칸과 볼 쪽. 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
+  // 놀이터 앞쪽 끝의 문(wall 'F', src/iso.js의 fenceGates)은 그 안쪽 y = N - 1 줄에 서서 앞쪽(화면 왼쪽 아래)을 본다.
   function besideWall(wall, from, w) {
     const along = u => u >= from && u < from + w;
     return {
-      goal: (x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)),
-      face: () => FACING[wall === 'R' ? '0,-1' : '-1,0'],
+      goal: (x, y) => (wall === 'R' ? y === 0 && along(x) : wall === 'F' ? y === N - 1 && along(x) : x === 0 && along(y)),
+      face: () => FACING[wall === 'R' ? '0,-1' : wall === 'F' ? '0,1' : '-1,0'],
     };
   }
 

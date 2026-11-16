@@ -10,7 +10,8 @@
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 놀이터의 이웃집 문 하나와 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
-// 놀이터의 울타리 문(방 꾸미기에서 문 앞 칸에 가구를 놓지 못하는 것, 문을 가리는 가구가 비치는 것, 보여 줄 이웃이 없으면 이웃집 문을 달지 않는 것),
+// 놀이터의 문(방 꾸미기에서 문 안쪽 칸에 가구를 놓지 못하는 것, 아파트 문을 가리는 가구가 비치는 것, 앞쪽 끝의 이웃집 문이 바로 뒤의 가구보다 위에 그려지는 것,
+// 보여 줄 이웃이 없으면 이웃집 문을 달지 않는 것),
 // 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
@@ -480,6 +481,30 @@ const savedHome = () => JSON.parse(localStorage.getItem('agarago.home.v3'));
 const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
+// 내 아바타가 선 칸. 아바타 상자는 발끝(칸 가운데 tile(x + 0.5, y + 0.5))보다 32px 왼쪽, 100px 위다(petScene의 cellOf와 같은 풀이)
+const myCell = () => {
+  const a = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
+  if (!a) return null;
+  const s = (parseFloat(a.style.left) + 32 - 640) / 36;
+  const t = (parseFloat(a.style.top) + 100 - 270) / 18 - 1;
+  return { x: (s + t) / 2, y: (t - s) / 2 };
+};
+// 앞쪽 끝의 이웃집 문(src/iso.js의 sceneFrontSVG) 팻말에서 왼쪽 끝부터 4분의 3 자리를 누르면 무엇이 받는지.
+// 문 바로 안쪽 칸 (7, 11)에 둔 가로등과 겹치는 자리다. 문이 가구 위층에 있어 문의 누르는 판이 받고, 그 아래에 가구가 있어야 'ok'다
+function gateOnTop() {
+  const sign = document.querySelector('#wallpaper .neighbor-sign');
+  if (!sign) return '팻말 없음';
+  const p = [...sign.points]; // 위 왼쪽, 위 오른쪽, 아래 오른쪽, 아래 왼쪽
+  const l = { x: (p[0].x + p[3].x) / 2, y: (p[0].y + p[3].y) / 2 };
+  const r = { x: (p[1].x + p[2].x) / 2, y: (p[1].y + p[2].y) / 2 };
+  const m = sign.ownerSVGElement.createSVGPoint();
+  m.x = l.x + (r.x - l.x) * 0.75;
+  m.y = l.y + (r.y - l.y) * 0.75;
+  const c = m.matrixTransform(sign.getScreenCTM());
+  const top = document.elementFromPoint(c.x, c.y);
+  const under = document.elementsFromPoint(c.x, c.y).some(e => e.closest?.('.furn'));
+  return top?.classList.contains('neighbor-hit') && under ? 'ok' : `맨 위 ${top?.getAttribute('class')}, 아래 가구 ${under}`;
+}
 
 // 바탕화면 방의 주인 아바타(실험실 host-avatar)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
 async function ownerScene() {
@@ -1689,7 +1714,7 @@ async function walk(page, base) {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return t ? { disabled: t.disabled, text: t.textContent, pic: t.querySelector('.user-pic')?.dataset.pic ?? null } : null;
   };
-  // 놀이터 왼쪽 울타리의 이웃집 문: 문의 수와 팻말 글
+  // 놀이터 앞쪽 끝의 이웃집 문: 문의 수와 팻말 글
   const neighborDoor = () => ({ doors: document.querySelectorAll('#wallpaper .neighbor-hit').length, text: [...document.querySelectorAll('#wallpaper .neighbor-text')].map(t => t.textContent).join() });
   // 이웃집 목록 창의 줄들. wait: 받는 중("불러오는 중"), off: 놀러 가기 단추가 눌리지 않는다
   const listRows = () => [...document.querySelectorAll('#windows .neighbor-row')].map(r => ({
@@ -1738,8 +1763,11 @@ async function walk(page, base) {
   }, SERVER_NAME, LINK_NEIGHBOR.name, LINK_NEIGHBOR.id));
   check('이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   const door = await page.run(neighborDoor);
-  check('놀이터 왼쪽 울타리에는 이웃이 몇 집이든 "이웃집" 팻말을 단 문 하나만 있다', neighbors > 1 && door.doors === 1 && door.text === '이웃집', JSON.stringify(door));
+  check('놀이터 앞쪽 끝에는 이웃이 몇 집이든 "이웃집" 팻말을 단 문 하나만 있다', neighbors > 1 && door.doors === 1 && door.text === '이웃집', JSON.stringify(door));
   check('이웃집 문을 두 번 누르면 이웃집 목록 창이 뜨고 집마다 한 줄씩 있다', await openList(neighbors));
+  // 문 자리는 src/config.js의 neighborGate(앞쪽 끝 y = 12 줄의 칸 6~7)다. 아바타는 그 안쪽 y = 11 줄에 선다(src/avatar.js의 besideWall)
+  const atGate = await page.run(myCell);
+  check('아바타는 이웃집 문 바로 안쪽 칸까지 걸어간 뒤 목록 창을 띄운다', atGate?.y === 11 && (atGate.x === 6 || atGate.x === 7), JSON.stringify(atGate));
   await probe('이웃집 목록 창');
   const shown = (await page.run(listRows)).find(r => r.id === LINK_NEIGHBOR.id);
   check('목록 창에는 서버의 방 주인 이름과 사진이 보이고 놀러 가기 단추가 눌린다', shown?.name === SERVER_NAME && shown.pic === 'cake' && !shown.wait && !shown.off, JSON.stringify(shown));
@@ -2370,32 +2398,34 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
-  // ---------- 놀이터의 울타리 문: 문 앞 칸과 문을 가리는 가구(known-issues 90) ----------
-  // 방 꾸미기는 울타리 문(오른쪽의 아파트 문, 왼쪽의 이웃집 문) 바로 앞 칸에 바닥 가구를 새로 놓지 못하게 하고(src/rules.js의 blocksGate),
-  // 그 규칙 전에 그 칸에 놓은 가구는 불러올 때 지우지 않는다. 문 자리를 8분의 1 넘게 덮는 가구는 바탕화면과 방 꾸미기에서 반쯤 비친다(src/iso.js의 coversGate).
-  // 놀이터의 가구는 바탕화면과 방 꾸미기 모두 이 차례로 그려진다. cover: 가려서 그 가구를 비치게 할 문(L 이웃집 문, R 아파트 문, 없으면 null)
+  // ---------- 놀이터의 문: 문 안쪽 칸과 문을 가리는 가구(known-issues 90) ----------
+  // 방 꾸미기는 놀이터 문(오른쪽 뒤 울타리의 아파트 문, 앞쪽 끝의 이웃집 문) 바로 안쪽 칸에 바닥 가구를 새로 놓지 못하게 하고(src/rules.js의 blocksGate),
+  // 그 규칙 전에 그 칸에 놓은 가구는 불러올 때 지우지 않는다. 아파트 문 자리를 8분의 1 넘게 덮는 가구는 바탕화면과 방 꾸미기에서 반쯤 비친다(src/iso.js의 coversGate).
+  // 이웃집 문은 앞쪽 끝에 서 있어 가구 위층(.room-fg)에 그리므로, 바로 뒤에 선 가로등과 나무도 비치지 않고 문이 그 위에 보인다.
+  // 놀이터의 가구는 바탕화면과 방 꾸미기 모두 이 차례로 그려진다. cover: 가려서 그 가구를 비치게 할 문(R 아파트 문, 없으면 null)
   const FENCE = [
-    { id: 'streetlight', x: 0, y: 5, cover: 'L' },  // 규칙이 생기기 전에 이웃집 문 앞 칸에 놓은 가로등. 불러와도 남는다
-    { id: 'streetlight', x: 1, y: 6, cover: 'L' },  // 이웃집 문 앞 둘째 줄의 가로등
-    { id: 'tree', x: 4, y: 10, cover: null },       // 이웃집 문 아래 모서리만 덮는 먼 나무(5%)
-    { id: 'bench', x: 0, y: 8, cover: null },       // 이웃집 문 옆 칸의 벤치
-    { id: 'tree', x: 7, y: 1, cover: 'R' },         // 아파트 문 앞 둘째 줄의 나무
+    { id: 'streetlight', x: 7, y: 11, cover: null }, // 규칙이 생기기 전에 이웃집 문 안쪽 칸에 놓은 가로등. 불러와도 남고, 문이 그 위에 그려진다
+    { id: 'tree', x: 6, y: 10, cover: null },        // 이웃집 문 뒤 둘째 줄의 나무
+    { id: 'streetlight', x: 0, y: 5, cover: null },  // 2026-11-16까지 왼쪽 울타리에 있던 이웃집 문 앞 칸의 가로등. 이제 그 자리에 문이 없다
+    { id: 'tree', x: 7, y: 1, cover: 'R' },          // 아파트 문 앞 둘째 줄의 나무
   ];
   const GATES = { owner: '울타리', scenes: { room: [], playground: FENCE.map(({ cover, ...item }) => item) } };
   const covers = sel => [...document.querySelectorAll(`${sel} .furn`)].map(f => (f.classList.contains('covers-gate') && getComputedStyle(f).opacity === '0.45'));
   const fenceWant = JSON.stringify(FENCE.map(f => !!f.cover));
-  check('울타리 문 앞 칸에 놓인 가구가 있는 집도 가구가 모두 검사를 통과한다', (await page.run(plantHome, GATES)) === FENCE.length);
+  check('놀이터 문 안쪽 칸에 놓인 가구가 있는 집도 가구가 모두 검사를 통과한다', (await page.run(plantHome, GATES)) === FENCE.length);
   await open();
   await page.run(fakeCloud, 'serve', neighborRooms);
   await powerOn();
-  check('울타리 문 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('바탕화면의 놀이터에서 울타리 문을 가리는 가구만 반쯤 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === fenceWant, JSON.stringify(await page.run(covers, '#wallpaper')));
-  await probe('울타리 문을 가구가 가린 놀이터');
+  check('놀이터 문 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('바탕화면의 놀이터에서 아파트 문을 가리는 가구만 반쯤 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === fenceWant, JSON.stringify(await page.run(covers, '#wallpaper')));
+  check('앞쪽 끝의 이웃집 문은 바로 뒤에 놓인 가로등보다 위에 그려지고 눌린다', (await page.run(gateOnTop)) === 'ok', await page.run(gateOnTop));
+  await probe('문 둘레에 가구를 둔 놀이터');
   await openIcon('room');
   await until(page, () => !!document.querySelector('.room-app .scene-tab[data-scene="playground"]'), 5000);
   await page.run(clickOnce, '.room-app .scene-tab[data-scene="playground"]');
-  check('방 꾸미기의 놀이터에서도 울타리 문을 가리는 가구만 반쯤 비친다', await until(page, (want, sel) => JSON.stringify([...document.querySelectorAll(`${sel} .furn`)]
+  check('방 꾸미기의 놀이터에서도 아파트 문을 가리는 가구만 반쯤 비친다', await until(page, (want, sel) => JSON.stringify([...document.querySelectorAll(`${sel} .furn`)]
     .map(f => f.classList.contains('covers-gate') && getComputedStyle(f).opacity === '0.45')) === want, 3000, fenceWant, '.room-app .items'));
+  check('방 꾸미기의 놀이터에서도 이웃집 문은 가구 층 바로 다음 층에 있다', await page.run(() => !!document.querySelector('.room-app .items + .room-fg .neighbor-sign')));
   // 선반의 벤치(2×1칸, 높이 30)를 끌어 (x, y)에 대 본다. 끄는 동안의 상태(ok, bad)와 놓은 뒤 그 자리에 벤치가 저장되었는지 돌려준다.
   // 벤치를 잡는 점은 가로 1칸, 세로 0.5칸, 높이 15px이다(src/room.js의 shelfGrab). 그 점이 칸 (x + 1, y + 0.5)에 오는 무대 점을 방 그림의 비율 자리로 바꾼다
   const dropBench = async (x, y) => {
@@ -2414,13 +2444,14 @@ async function walk(page, base) {
     const placed = (await page.run(savedHome)).scenes.playground.some(i => i.id === 'bench' && i.x === x && i.y === y);
     return { state, placed };
   };
-  const leftFront = await dropBench(0, 6);
-  check('방 꾸미기에서 이웃집 문 앞 칸에는 바닥 가구를 놓을 수 없다', leftFront.state === 'bad' && !leftFront.placed, JSON.stringify(leftFront));
+  // (5, 11)의 벤치는 칸 (5, 11)과 (6, 11)을 덮는다. (6, 11)이 이웃집 문 안쪽 칸이고 두 칸 모두 비어 있어, 막는 것은 문 안쪽 칸 규칙뿐이다
+  const front = await dropBench(5, 11);
+  check('방 꾸미기에서 이웃집 문 안쪽 칸에 걸치게는 바닥 가구를 놓을 수 없다', front.state === 'bad' && !front.placed, JSON.stringify(front));
   const rightFront = await dropBench(4, 0);
   check('방 꾸미기에서 아파트 문 앞 칸에 걸치게도 바닥 가구를 놓을 수 없다', rightFront.state === 'bad' && !rightFront.placed, JSON.stringify(rightFront));
-  const beside = await dropBench(0, 3);
-  check('문 앞 칸이 아니면 울타리 바로 앞에도 놓을 수 있다', beside.state === 'ok' && beside.placed, JSON.stringify(beside));
-  check('규칙 전에 문 앞 칸에 놓은 가로등은 방을 고쳐 저장해도 그대로 남는다', (await page.run(savedHome)).scenes.playground.some(i => i.id === 'streetlight' && i.x === 0 && i.y === 5));
+  const beside = await dropBench(3, 11);
+  check('문 안쪽 칸이 아니면 앞쪽 끝 줄에도 놓을 수 있다', beside.state === 'ok' && beside.placed, JSON.stringify(beside));
+  check('규칙 전에 문 안쪽 칸에 놓은 가로등은 방을 고쳐 저장해도 그대로 남는다', (await page.run(savedHome)).scenes.playground.some(i => i.id === 'streetlight' && i.x === 7 && i.y === 11));
   await closeWindows();
   // 보여 줄 이웃이 없으면 이웃집 문을 달지 않는다: 이웃집 목록을 이 집 주인의 방 하나로 바꾼다(그 놀이터 주인의 집은 목록에서 빠진다).
   // 문이 없으면 문 앞 칸도 막지 않고, 그 칸의 가로등도 비치지 않는다
@@ -2430,16 +2461,17 @@ async function walk(page, base) {
   await powerOn();
   await until(page, () => !document.querySelector('.users .user.neighbor[disabled]'), 3000);
   check('이웃집 없는 놀이터 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('보여 줄 이웃이 없으면 놀이터에 이웃집 문을 달지 않는다', (await page.run(neighborDoor)).doors === 0 && !(await page.run(() => !!document.querySelector('#wallpaper .neighbor-sign'))));
-  // 맨 끝은 위에서 끌어 (0, 3)에 놓은 벤치다. 아무 문도 가리지 않는다
-  check('이웃집 문이 없으면 그 자리의 가구는 비치지 않고 아파트 문을 가리는 가구만 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === JSON.stringify([...FENCE.map(f => f.cover === 'R'), false]),
+  check('보여 줄 이웃이 없으면 놀이터에 이웃집 문을 달지 않는다', (await page.run(neighborDoor)).doors === 0
+    && !(await page.run(() => !!document.querySelector('#wallpaper .neighbor-sign') || !!document.querySelector('#wallpaper .room-fg'))));
+  // 맨 끝은 위에서 끌어 (3, 11)에 놓은 벤치다. 아무 문도 가리지 않는다
+  check('이웃집 문이 없어도 아파트 문을 가리는 가구만 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === JSON.stringify([...FENCE.map(f => f.cover === 'R'), false]),
     JSON.stringify(await page.run(covers, '#wallpaper')));
-  check('이웃집 문이 없으면 왼쪽 울타리 앞 칸을 막지 않는다', await page.run(async owner => {
+  check('이웃집 문이 없으면 앞쪽 끝의 문 안쪽 칸을 막지 않는다', await page.run(async owner => {
     const { SCENES } = await import(new URL('src/config.js', document.baseURI).href);
     const { fenceGates } = await import(new URL('src/iso.js', document.baseURI).href);
     const { blocksGate } = await import(new URL('src/rules.js', document.baseURI).href);
     const gates = fenceGates(SCENES.find(s => s.id === 'playground'), owner);
-    return gates.length === 1 && !blocksGate(gates, { id: 'bench', x: 0, y: 6 }) && blocksGate(gates, { id: 'bench', x: 5, y: 0 });
+    return gates.length === 1 && !blocksGate(gates, { id: 'bench', x: 5, y: 11 }) && blocksGate(gates, { id: 'bench', x: 5, y: 0 });
   }, GATES.owner));
   // 서버에 닿지 못한 집은 문을 쓸 때 다시 받으므로 문은 달려 있다. 목록 창에서 다시 받아도 닿지 못해 줄이 모두 빠지면 불러오지 못했다는 글과 할 일이 한 줄씩 뜬다
   await open();

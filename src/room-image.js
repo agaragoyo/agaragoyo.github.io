@@ -9,7 +9,7 @@
 import { ROOM_W, ROOM_H } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { elevOf } from './rules.js';
-import { boxSize, placementOf, placeholderSVG, sceneSVG } from './iso.js';
+import { boxSize, placementOf, placeholderSVG, sceneSVG, sceneFrontSVG } from './iso.js';
 import { imageFor, zOf } from './room.js';
 import { avatarStill } from './avatar.js';
 
@@ -220,14 +220,17 @@ export async function renderRoomImage(items, scene, owner = '', avatar = null, d
     if (!cache.has(key)) cache.set(key, makeSprite(item));
     return cache.get(key);
   };
-  // 아바타 그림을 불러오지 못하면 아바타만 빼고 방은 그린다
-  const [back, ...sprites] = await Promise.all([
+  // 아바타 그림을 불러오지 못하면 아바타만 빼고 방은 그린다.
+  // 놀이터 앞쪽 끝의 문(sceneFrontSVG)은 화면처럼 가구와 아바타를 다 그린 뒤 그 위에 그린다
+  const front = sceneFrontSVG(scene, owner);
+  const [back, fore, ...sprites] = await Promise.all([
     bakeSVG(sceneSVG(scene, owner, decor)),
+    front ? bakeSVG(front) : null,
     ...order.map(o => (o.still ? loadImage(o.still.src).catch(() => null) : sprite(o.item))),
   ]);
 
   // 글자는 쓰기 전에 글꼴이 불려 와 있어야 한다(처음 쓰는 글자의 글꼴 조각이 늦게 오면 다른 글꼴로 써진다)
-  const texts = [back, ...sprites].flatMap(s => s?.texts || []);
+  const texts = [back, fore, ...sprites].flatMap(s => s?.texts || []);
   await Promise.all(texts.map(t => document.fonts.load(t.font, t.text).catch(() => {})));
 
   paintBackdrop(g, scene.kind);
@@ -245,5 +248,9 @@ export async function renderRoomImage(items, scene, owner = '', avatar = null, d
     drawSprite(g, sprites[k]);
     g.restore();
   });
+  if (fore) {
+    g.drawImage(fore.img, 0, 0, ROOM_W, ROOM_H);
+    drawTexts(g, fore.texts);
+  }
   return canvas;
 }
