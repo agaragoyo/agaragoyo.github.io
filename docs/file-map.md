@@ -50,7 +50,7 @@
 | 2005년식 모니터와 창 모양 | `style.css`의 "모니터", "창", "작업 표시줄과 시작 메뉴", "부팅", "로그인" 절. 요소마다 규칙이 한 곳에만 있다(덮어쓰던 "2005 모습" 절은 2026-11-11에 합쳤다) |
 | 처음 접속해서 모니터가 그려지기 전의 화면(가림막, 점 세 개, 새로 고침 안내) | `index.html`의 `#page-loader`, `style.css`의 "첫 화면 가림막" 절. 걷는 곳은 `src/main.js` 맨 끝 |
 | 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
-| 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 미리 받는 줄은 `index.html`, 갈무리 전체를 이어 받는 곳은 `src/main.js` 맨 끝의 `FULL_FONTS` |
+| 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 작은 글꼴을 미리 받는 줄은 `index.html`. 갈무리 전체는 작은 글꼴에 없는 글자가 나올 때 브라우저가 `style.css`의 `@font-face` 주소에서 받는다 |
 | 커서 그림 | `src/cursors.js` |
 | 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
 | 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 여는 암호는 `src/secrets.js` |
