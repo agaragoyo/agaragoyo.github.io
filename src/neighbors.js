@@ -78,6 +78,7 @@ export async function neighborHome(n) {
 }
 
 // 기다리지 않고 지금 아는 모습. room 줄은 바로 풀고, link 줄은 받은 뒤에만 집이나 null이고 아직 모르면 undefined다.
+// 서버에 닿지 못해 복사본(keep)으로 연 고정한 집도 undefined다(다음에 서버에 다시 묻도록 기억하지 않는다). 그 집으로 들어가는 곳은 neighborHome이 준 집으로 대신한다.
 export function neighborNow(n) {
   if (!n.link) return toHome(n, n.room);
   return known.has(n.link) ? toHome(n, known.get(n.link)) : undefined;
@@ -141,14 +142,14 @@ export function openNeighbors(os) {
         rows.append(h('li', { className: 'neighbor-empty meta' },
           ...(missed ? ['이웃집을 불러오지 못했습니다.', h('br'), '잠시 후 다시 시도해 주세요.'] : ['놀러 갈 수 있는 이웃집이 없습니다.'])));
       };
-      const go = n => {
-        const home = neighborNow(n); // 누를 때마다 새로 푼 집이라 구경하는 동안 바뀐 것이 목록에 남지 않는다
-        if (!home) return;
+      // 누를 때마다 새로 푼 집(neighborNow)이라 구경하는 동안 바뀐 것이 목록에 남지 않는다. 서버에 닿지 못해 복사본(keep)으로 연 고정한 집은
+      // neighborNow가 모르므로(다음에 서버에 다시 묻는다) 받은 집(got)으로 간다. 로그인 화면의 이웃집 자리(src/login.js의 neighborTile)와 같다
+      const go = (n, got) => {
         win.close();
         play('enter');
-        os.visit(home, neighborBoard(n));
+        os.visit(neighborNow(n) || got, neighborBoard(n));
       };
-      const ready = (n, home) => row(n, home.owner, home.picture, () => go(n));
+      const ready = (n, home) => row(n, home.owner, home.picture, () => go(n, home));
       for (const n of list) {
         const now = neighborNow(n);
         if (now) {

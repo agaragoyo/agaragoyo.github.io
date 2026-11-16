@@ -2441,6 +2441,20 @@ async function walk(page, base) {
   }, 15000));
   await probe('이웃집을 불러오지 못한 목록 창');
   await closeWindows();
+  // 서버에 닿지 못할 때 복사본(keep)으로 뜨는 고정한 이웃집도 목록 창에서 놀러 갈 수 있다. 이때는 받아 둔 방이 없어(neighborNow가 모른다) 목록 창이 받은 집으로 간다
+  await extraNeighbor(page, PINNED_NEIGHBOR, { only: true });
+  await open();
+  await page.run(fakeCloud, 'offline');
+  await powerOn();
+  check('서버에 닿지 못할 때 고정한 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  await page.run(clickTwice, '#wallpaper .neighbor-hit');
+  check('서버에 닿지 못해도 고정한 이웃집은 목록 창에 복사본의 이름으로 뜨고 놀러 가기가 눌린다', await until(page, (id, name) => {
+    const r = document.querySelector(`#windows .neighbor-row[data-neighbor="${id}"]`);
+    return !!r && r.querySelector('.neighbor-name b').textContent === name && !r.querySelector('.btn').disabled;
+  }, 15000, PINNED_NEIGHBOR.id, PINNED_NEIGHBOR.name));
+  check('서버에 닿지 못할 때 목록 창의 놀러 가기를 누르면 복사본의 집에 손님으로 들어간다', (await page.run(goRow, PINNED_NEIGHBOR.id))
+    && await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
+      && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
   await extraNeighbor(page, null);
 
   // ---------- 긴 글(known-issues 83) ----------
