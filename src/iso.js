@@ -5,7 +5,7 @@
 import { N, TW, TH, WALL_ROWS, WH, ORIGIN as O, SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { dims } from './rules.js';
-import { neighborGates } from './neighbors.js';
+import { neighborGate } from './neighbors.js';
 import { batchim } from './util.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
 
@@ -112,35 +112,90 @@ export function lightPoint(item, elev = 0) {
   return { x: left + boxSize(def, item.r).w / 2, y: top + TH / 2 };
 }
 
-// 공간 배경. scene: config.js의 SCENES 한 줄. kind가 'outdoor'면 울타리, 땅, 뒤쪽 아파트와 울타리 문(gate, 이웃집 문)을,
-// 'indoor'면 벽과 바닥과 현관문(door)을 그린다. owner: 그 공간이 있는 집의 주인 이름(그 집의 이웃집 문패는 달지 않는다).
+// 공간 배경. scene: config.js의 SCENES 한 줄. kind가 'outdoor'면 울타리, 땅, 뒤쪽 아파트와 울타리 문(fenceGates)을,
+// 'indoor'면 벽과 바닥과 현관문(door)을 그린다. owner: 그 공간이 있는 집의 주인 이름(이웃집 문을 달지 정한다, src/neighbors.js의 neighborGate).
 // decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 지금은 벽지(decor.wall)만 있고, 없으면 기본 벽이다.
 export function sceneSVG(scene, owner = '', decor = null) {
-  return scene.kind === 'outdoor' ? outdoorSVG(scene.gate, scene.neighbors ? neighborGates(owner) : []) : roomSVG(scene.door, decor?.wall);
+  return scene.kind === 'outdoor' ? outdoorSVG(fenceGates(scene, owner)) : roomSVG(scene.door, decor?.wall);
 }
 
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
-// 문패 글자: 문 폭(width px)에 들어가게 12px에서 9px(75%)까지 줄이고, 그래도 넘치면 뒤를 줄임표로 줄인다.
-// 전체 이름은 문에 마우스를 올리면 보인다(문의 <title>). 폭은 문패 글꼴(.neighbor-text의 굵은 갈무리)로 캔버스에서 잰다.
-// 글자 모양으로 어림하면 넓은 영문(W는 0.83배)과 이모지(1.4배)를 좁게 셈해서 12자 이름이 문패 밖으로 나갔다(known-issues 80)
-let ruler = null;
-function textWidth(text, size) {
-  ruler ??= document.createElement('canvas').getContext('2d');
-  ruler.font = `700 ${size}px ${getComputedStyle(document.documentElement).getPropertyValue('--font')}`;
-  return ruler.measureText(text).width;
-}
-function fitLabel(text, width) {
-  for (let size = 12; size >= 9; size--) if (textWidth(text, size) <= width) return { text, size };
-  const chars = Array.from(text);
-  while (chars.length && textWidth(`${chars.join('')}…`, 9) > width) chars.pop();
-  return { text: `${chars.join('')}…`, size: 9 };
+// 바깥 공간의 울타리에 다는 문들. 그림(outdoorSVG), 방 꾸미기의 문 앞 칸(src/rules.js의 blocksGate), 문을 가리는 가구(coversGate)가 같이 쓴다.
+//   오른쪽 뒤 울타리(wall 'R', y = 0 줄)의 아파트 문(scene.gate): 이 컴퓨터의 방으로 돌아가는 문이다
+//   왼쪽 울타리(wall 'L', x = 0 줄)의 이웃집 문(scene.neighborGate): 보여 줄 이웃이 있을 때만 단다(src/neighbors.js의 neighborGate)
+// x, w: 그 울타리를 따라 뒤 모서리에서 센 칸과 폭. cls: 그림의 클래스 앞머리(.gate-*, .neighbor-*), text: 팻말 글, title: 마우스를 올리면 보이는 글
+export function fenceGates(scene, owner = '') {
+  if (scene.kind !== 'outdoor') return [];
+  const near = neighborGate(scene, owner);
+  return [
+    ...(scene.gate ? [{ wall: 'R', x: scene.gate.x, w: scene.gate.w, cls: 'gate', text: '아파트', title: '두 번 눌러 집으로 돌아가기' }] : []),
+    ...(near ? [{ ...near, cls: 'neighbor', text: '이웃집', title: '두 번 눌러 이웃집 목록 보기' }] : []),
+  ];
 }
 
-// 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트. 울타리에는 문을 낸다.
-//   gate: 오른쪽 뒤 울타리(y = 0 줄)의 아파트 문. 이 컴퓨터의 방으로 돌아가는 문이다
-//   neighbors: 왼쪽 울타리(x = 0 줄)의 이웃집 문(src/neighbors.js의 neighborGates). 문마다 닉네임을 쓴 문패를 단다
-function outdoorSVG(gate, neighbors = []) {
+const GATE_POST = 60; // 울타리 문 기둥 높이(px)
+const GATE_SIGN = 18; // 문 위 팻말 높이(px)
+const fenceAt = (wall, i) => (wall === 'R' ? tile(i, 0) : tile(0, i));
+
+// 울타리 문 하나가 화면에서 차지하는 자리(무대 px): 양쪽 기둥의 밑동과 꼭대기를 잇는 평행사변형이다. 팻말도 이 안에 든다.
+// 문을 두 번 누르는 판(.gate-hit, .neighbor-hit)과 문을 가리는 가구를 재는 곳(coversGate)이 같이 쓴다
+export function gateOutline(g) {
+  const a = fenceAt(g.wall, g.x);
+  const b = fenceAt(g.wall, g.x + g.w);
+  return [a, b, { x: b.x, y: b.y - GATE_POST }, { x: a.x, y: a.y - GATE_POST }];
+}
+
+// 바닥 가구 상자가 화면에서 차지하는 자리(무대 px): 바닥 마름모를 가구 높이만큼 세운 육각형이다. elev: 책상 위에 올라가 있으면 책상 높이.
+// 그림은 이 상자 안에 그린다(boxSize). 상자의 네모난 테두리로 재면 상자 모서리의 빈 곳까지 세어 문 옆에 붙은 벤치까지 문을 가린다고 여긴다
+export function boxOutline(item, elev = 0) {
+  const def = BY_ID[item.id];
+  const [w, d] = dims(item);
+  const at = (x, y, up) => { const p = tile(x, y); return { x: p.x, y: p.y - elev - up }; };
+  return [at(item.x, item.y + d, 0), at(item.x + w, item.y + d, 0), at(item.x + w, item.y, 0),
+    at(item.x + w, item.y, def.height), at(item.x, item.y, def.height), at(item.x, item.y + d, def.height)];
+}
+
+// 볼록 다각형 subject를 볼록 다각형 clip으로 자른 넓이(px²). 둘 다 꼭짓점을 한 방향으로 돈다(서덜랜드-호지먼 자르기와 신발끈 공식)
+function overlapArea(subject, clip) {
+  const side = (a, b, p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+  const turn = Math.sign(clip.reduce((s, p, i) => s + side(clip[0], p, clip[(i + 1) % clip.length]), 0)) || 1;
+  let out = subject;
+  for (let i = 0; i < clip.length && out.length; i++) {
+    const a = clip[i];
+    const b = clip[(i + 1) % clip.length];
+    const inside = p => side(a, b, p) * turn >= 0;
+    const cut = (p, q) => {
+      const t = side(a, b, p) / (side(a, b, p) - side(a, b, q));
+      return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+    };
+    const next = [];
+    out.forEach((p, j) => {
+      const q = out[(j + 1) % out.length];
+      if (inside(p)) {
+        next.push(p);
+        if (!inside(q)) next.push(cut(p, q));
+      } else if (inside(q)) next.push(cut(p, q));
+    });
+    out = next;
+  }
+  return Math.abs(out.reduce((s, p, i) => { const q = out[(i + 1) % out.length]; return s + p.x * q.y - q.x * p.y; }, 0)) / 2;
+}
+
+// 바닥 가구 item이 울타리 문(gates, fenceGates)을 가리는가. 가구 상자(boxOutline)가 문 자리(gateOutline)와 겹치는 넓이가
+// 문 자리의 COVER(8분의 1) 넘게 겹치면 가린다고 본다. 울타리는 바닥 뒤 끝에 있어 바닥 가구는 늘 문보다 앞에 그려진다.
+// 가리는 가구는 반쯤 비치게 그려 문과 팻말이 보이게 한다(src/room.js의 markCover, 심즈가 앞쪽 벽을 낮추는 것과 같은 까닭).
+// 2026-11-16에 왼쪽 울타리 문(칸 5~6)으로 잰 값: 문 옆 칸 (0, 7)의 벤치는 기둥 밑동만 스쳐 10%, (4, 9)와 (4, 10)의 나무는 문 아래 모서리만 덮어 5%라 그대로 두고,
+// (3, 10)의 나무(20%), (0, 8)의 미끄럼틀(42%), 문 앞 둘째 줄 (1, 6)의 가로등(50%)부터 비친다
+const COVER = 1 / 8;
+export function coversGate(item, elev, gates) {
+  if (BY_ID[item.id].zone === 'wall' || !gates.length) return false;
+  const box = boxOutline(item, elev);
+  return gates.some(g => overlapArea(box, gateOutline(g)) > COVER * g.w * (TW / 2) * GATE_POST);
+}
+
+// 바깥 공간: 잔디 바닥, 낮은 울타리, 뒤로 보이는 아파트. 울타리에는 문(doors, fenceGates)을 낸다.
+function outdoorSVG(doors) {
   const SLAB = 16;
   const below = p => ({ x: p.x, y: p.y + SLAB });
   const ground = [];
@@ -159,19 +214,11 @@ function outdoorSVG(gate, neighbors = []) {
     .map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="fill:var(--apt)" />
       <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#apt-windows)" />
       <rect x="${x}" y="${y - 10}" width="${w}" height="10" style="fill:var(--apt-roof)" />`).join('');
-  // 울타리의 문: 오른쪽 울타리의 아파트 문(.gate-*)과 왼쪽 울타리의 이웃집 문(.neighbor-*). wall 'R'은 y = 0 줄, 'L'은 x = 0 줄이다.
-  const doors = [
-    ...(gate ? [{ wall: 'R', x: gate.x, w: gate.w, cls: 'gate', text: '아파트', size: 12, title: '두 번 눌러 집으로 돌아가기' }] : []),
-    ...neighbors.map(n => ({
-      wall: 'L', x: n.x, w: n.w, cls: 'neighbor', id: n.id,
-      ...fitLabel(n.name, (n.w * TW) / 2 - 8), title: `두 번 눌러 ${n.name}의 집에 놀러 가기`,
-    })),
-  ];
   // 울타리: 뒤쪽 두 변을 따라 기둥과 가로대. 문 자리는 비운다.
   const H = 34;
   const up = (p, h) => ({ x: p.x, y: p.y - h });
   const post = (p, h, cls = '') => `<line${cls && ` class="${cls}"`} x1="${p.x}" y1="${p.y}" x2="${p.x}" y2="${p.y - h}" />`;
-  const at = (wall, i) => (wall === 'R' ? tile(i, 0) : tile(0, i));
+  const at = fenceAt;
   const isOpen = (wall, i) => doors.some(d => d.wall === wall && i >= d.x && i <= d.x + d.w);
   const fence = [];
   for (let i = 0; i <= N; i += 0.5) {
@@ -198,20 +245,18 @@ function outdoorSVG(gate, neighbors = []) {
     return lines.map(p => `<polyline points="${pts(p)}" />`).join('');
   };
   // 문: 양쪽 높은 기둥과 팻말. 팻말 글자는 울타리 비탈(가로 2 : 세로 1, 26.57도)을 따라 기울인다(왼쪽 울타리는 반대쪽으로).
-  // .gate-hit와 .neighbor-hit는 문 자리 전체를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 아바타가 걸어가
-  // 아파트 문은 이 컴퓨터의 방으로 돌아가고, 이웃집 문은 그 집에 놀러 갈지 묻는다(room.js의 renderStatic).
-  const G = 60; // 문 기둥 높이(px)
-  const S = 18; // 팻말 높이(px)
+  // .gate-hit와 .neighbor-hit는 문 자리 전체(gateOutline)를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 아바타가 걸어가
+  // 아파트 문은 이 컴퓨터의 방으로 돌아가고, 이웃집 문은 이웃집 목록 창을 띄운다(room.js의 renderStatic).
+  const G = GATE_POST;
+  const S = GATE_SIGN;
   const doorSVG = doors.map(d => {
     const a = at(d.wall, d.x);
     const b = at(d.wall, d.x + d.w);
     const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - G + S / 2 };
     fence.push(post(a, G, 'gate-post'), post(b, G, 'gate-post'));
-    const size = d.size === 12 ? '' : ` style="font-size:${d.size}px"`;
-    const data = d.id ? ` data-neighbor="${esc(d.id)}"` : '';
     return `<polygon class="${d.cls}-sign" points="${pts([up(a, G), up(b, G), up(b, G - S), up(a, G - S)])}" />
-    <text class="${d.cls}-text"${size} transform="translate(${c.x} ${c.y}) skewY(${d.wall === 'R' ? 26.57 : -26.57})" text-anchor="middle" dominant-baseline="central">${esc(d.text)}</text>
-    <polygon class="${d.cls}-hit"${data} points="${pts([a, b, up(b, G), up(a, G)])}"><title>${esc(d.title)}</title></polygon>`;
+    <text class="${d.cls}-text" transform="translate(${c.x} ${c.y}) skewY(${d.wall === 'R' ? 26.57 : -26.57})" text-anchor="middle" dominant-baseline="central">${esc(d.text)}</text>
+    <polygon class="${d.cls}-hit" points="${pts(gateOutline(d))}"><title>${esc(d.title)}</title></polygon>`;
   }).join('');
   return `<svg class="room-bg" width="1280" height="720" viewBox="0 0 1280 720">
     <defs>

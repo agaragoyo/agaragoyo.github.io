@@ -9,7 +9,9 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문과 놀이터 문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
-// 이웃집(서버에서 받는 link 이웃집과 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 이웃집(서버에서 받는 link 이웃집, 놀이터의 이웃집 문 하나와 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
+// 놀이터의 울타리 문(방 꾸미기에서 문 앞 칸에 가구를 놓지 못하는 것, 문을 가리는 가구가 비치는 것, 보여 줄 이웃이 없으면 이웃집 문을 달지 않는 것),
+// 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -164,7 +166,7 @@ function cutText(scope = '#windows .win, .closeup, #start-menu, #login, #toast')
   return [...out].slice(0, 8);
 }
 
-// 놀이터 울타리의 문패 글이 팻말 폭에 드는지. 넘치면 "글 폭>팻말 폭 글" 목록을 돌려준다
+// 놀이터 울타리 문의 팻말 글(아파트, 이웃집)이 팻말 폭에 드는지. 넘치면 "글 폭>팻말 폭 글" 목록을 돌려준다
 function plateOverflow() {
   return [...document.querySelectorAll('#wallpaper .neighbor-text, #wallpaper .gate-text')].map(t => {
     const sign = t.previousElementSibling.getBBox().width;
@@ -233,15 +235,18 @@ function fakeCloud(how, rooms = {}, notes = []) {
 }
 
 // data/neighbors.js를 받을 때 목록 맨 앞에 row(이웃집 한 줄)를 더해 준다. 레포의 목록에 link 줄이 없어도 link 이웃집을 볼 수 있다.
-// row 자리에 null을 넣으면 가로채기를 푼다. 바꾼 목록은 다음에 여는 페이지부터 쓰인다
-async function extraNeighbor(page, row) {
+// only를 켜면 레포의 줄을 모두 빼고 row만 둔다(빈 배열이면 이웃집이 없는 목록). row 자리에 null을 넣으면 가로채기를 푼다. 바꾼 목록은 다음에 여는 페이지부터 쓰인다
+async function extraNeighbor(page, row, { only = false } = {}) {
   if (!row) {
     page.on('Fetch.requestPaused', null);
     return page.send('Fetch.disable');
   }
   const rows = [].concat(row).map(r => `\n  ${JSON.stringify(r)},`).join(''); // 여러 집을 한꺼번에 더할 때는 배열로 넘긴다
-  const text = fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8')
-    .replace('export const NEIGHBORS = [', `export const NEIGHBORS = [${rows}`);
+  const source = fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8');
+  const text = only
+    ? source.replace(/export const NEIGHBORS = \[[\s\S]*?\r?\n\];/, `export const NEIGHBORS = [${rows}\n];`)
+    : source.replace('export const NEIGHBORS = [', `export const NEIGHBORS = [${rows}`);
+  if (text === source) throw new Error('data/neighbors.js에서 NEIGHBORS 목록을 찾지 못했다');
   page.on('Fetch.requestPaused', ({ requestId }) => page.send('Fetch.fulfillRequest', {
     requestId,
     responseCode: 200,
@@ -959,7 +964,7 @@ async function walk(page, base) {
   await sleep(1200);
   check('게임 창 안을 누르면 초점이 게임으로 가도 소리는 그대로 난다', (await page.run(() => document.activeElement?.tagName === 'IFRAME')) && (await page.run(musicIs, 'on')));
   // 제목 줄 단추와 제목 줄 두 번 누르기는 게임의 키보드 초점을 거두지 않고, 최소화한 창을 작업 표시줄에서 다시 띄우면 초점을 돌려준다.
-  // 초점을 잃으면 그리기를 멈추는 게임은 그사이 창 크기가 바뀌면 게임 안을 누를 때까지 빈 화면이 된다(known-issues 90)
+  // 초점을 잃으면 그리기를 멈추는 게임은 그사이 창 크기가 바뀌면 게임 안을 누를 때까지 빈 화면이 된다(known-issues 91)
   const gameWin = '#windows .win:has(iframe)';
   const gameState = sel => ({ max: document.querySelector(sel).classList.contains('maximized'), hidden: document.querySelector(sel).hidden, frame: document.activeElement?.tagName === 'IFRAME' });
   await tap(page, await page.run(centreOf, `${gameWin} .win-max`));
@@ -1672,7 +1677,7 @@ async function walk(page, base) {
 
   // ---------- 이웃집 ----------
   // data/neighbors.js 맨 앞에 link 이웃집 한 집을 더해 받게 하고(extraNeighbor), 그 집의 방은 서버 대신 답한다(fakeCloud).
-  // 받는 동안의 자리, 받은 뒤의 주인 사진과 서버의 주인 이름, 놀이터 문패와 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
+  // 받는 동안의 자리, 받은 뒤의 주인 사진과 서버의 주인 이름, 놀이터의 이웃집 문 하나와 목록 창, 목록 창에서 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
   const LINK_NEIGHBOR = { id: 'smoke-link', name: '링크이웃', link: 'NbHd5678' };
   const SERVER_NAME = '서버의이름'; // 서버의 방 주인 이름. 받은 뒤에는 목록의 이름(링크이웃) 대신 이 이름이 보여야 한다
   const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, SERVER_NAME);
@@ -1684,7 +1689,20 @@ async function walk(page, base) {
     const t = [...document.querySelectorAll('.users .user.neighbor')].find(x => x.textContent.includes(name));
     return t ? { disabled: t.disabled, text: t.textContent, pic: t.querySelector('.user-pic')?.dataset.pic ?? null } : null;
   };
-  const neighborGates = () => document.querySelectorAll('#wallpaper .neighbor-hit').length;
+  // 놀이터 왼쪽 울타리의 이웃집 문: 문의 수와 팻말 글
+  const neighborDoor = () => ({ doors: document.querySelectorAll('#wallpaper .neighbor-hit').length, text: [...document.querySelectorAll('#wallpaper .neighbor-text')].map(t => t.textContent).join() });
+  // 이웃집 목록 창의 줄들. wait: 받는 중("불러오는 중"), off: 놀러 가기 단추가 눌리지 않는다
+  const listRows = () => [...document.querySelectorAll('#windows .neighbor-row')].map(r => ({
+    id: r.dataset.neighbor, name: r.querySelector('.neighbor-name b').textContent, wait: !!r.querySelector('.neighbor-name small'),
+    off: r.querySelector('.btn').disabled, pic: r.querySelector('.user-pic')?.dataset.pic ?? null,
+  }));
+  // 놀이터의 이웃집 문을 두 번 눌러 목록 창을 연다(아바타가 문 앞까지 걸어간 뒤 뜬다). n: 창에 설 줄 수
+  const openList = async n => {
+    await page.run(clickTwice, '#wallpaper .neighbor-hit');
+    return until(page, k => document.querySelectorAll('#windows .neighbor-app .neighbor-row').length === k, 15000, n);
+  };
+  // 목록 창에서 그 집 줄의 놀러 가기를 누른다. 줄이 없거나 단추가 눌리지 않으면 false
+  const goRow = id => { const b = document.querySelector(`#windows .neighbor-row[data-neighbor="${id}"] .btn`); if (!b || b.disabled) return false; b.click(); return true; };
   const toPlayground = async () => {
     await page.run(clickOnce, '.users .user:not(.neighbor)');
     await desktop();
@@ -1713,26 +1731,49 @@ async function walk(page, base) {
     const text = document.getElementById('login').textContent;
     return text.includes(server) && !text.includes(listed);
   }, LINK_NEIGHBOR.name, SERVER_NAME));
-  check('놀이터 문패는 서버의 방 주인 이름과 같은 집을 빼고 목록의 이름으로는 빼지 않는다', await page.run(async (server, listed, id) => {
-    const { neighborGates } = await import(new URL('src/neighbors.js', document.baseURI).href);
-    const has = owner => neighborGates(owner).some(g => g.id === id);
+  check('놀이터의 이웃집 목록은 서버의 방 주인 이름과 같은 집을 빼고 목록의 이름으로는 빼지 않는다', await page.run(async (server, listed, id) => {
+    const { shownNeighbors } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    const has = owner => shownNeighbors(owner).some(g => g.id === id);
     return !has(server) && has(listed);
   }, SERVER_NAME, LINK_NEIGHBOR.name, LINK_NEIGHBOR.id));
   check('이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('놀이터 울타리에 이웃집 문이 집마다 하나씩 있다', (await page.run(neighborGates)) === neighbors);
-  check('놀이터 문패에는 서버의 방 주인 이름이 쓰여 있다', await page.run((id, name) => document.querySelector(`#wallpaper .neighbor-hit[data-neighbor="${id}"] title`)?.textContent === `두 번 눌러 ${name}의 집에 놀러 가기`, LINK_NEIGHBOR.id, SERVER_NAME));
-  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LINK_NEIGHBOR.id}"]`);
-  check('이웃집 문을 두 번 누르면 어느 집으로 가는지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
-  await probe('이웃집 놀러 가기 창');
-  check('놀러 가기 창이 서버의 방 주인 이름을 말한다', (await page.run(() => document.querySelector('#windows .win').textContent)).includes(`${SERVER_NAME}의 집에 놀러 갑니다.`));
-  await page.run(clickText, '#windows .btn', '놀러 가기');
+  const door = await page.run(neighborDoor);
+  check('놀이터 왼쪽 울타리에는 이웃이 몇 집이든 "이웃집" 팻말을 단 문 하나만 있다', neighbors > 1 && door.doors === 1 && door.text === '이웃집', JSON.stringify(door));
+  check('이웃집 문을 두 번 누르면 이웃집 목록 창이 뜨고 집마다 한 줄씩 있다', await openList(neighbors));
+  await probe('이웃집 목록 창');
+  const shown = (await page.run(listRows)).find(r => r.id === LINK_NEIGHBOR.id);
+  check('목록 창에는 서버의 방 주인 이름과 사진이 보이고 놀러 가기 단추가 눌린다', shown?.name === SERVER_NAME && shown.pic === 'cake' && !shown.wait && !shown.off, JSON.stringify(shown));
+  check('목록 창 아래에 돌아오는 길을 알린다', (await page.run(() => document.querySelector('#windows .neighbor-app p.meta')?.textContent || '')).includes('내 컴퓨터로 아이콘'));
+  check('목록 창에서 놀러 가기를 누른다', await page.run(goRow, LINK_NEIGHBOR.id));
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
+  check('놀러 간 집의 놀이터 목록 창에는 그 집이 빠진다', await page.run(async (owner, id) => {
+    const { shownNeighbors } = await import(new URL('src/neighbors.js', document.baseURI).href);
+    return !shownNeighbors(owner).some(n => n.id === id);
+  }, SERVER_NAME, LINK_NEIGHBOR.id));
   check('로그인 화면과 놀이터가 받아 둔 방을 같이 써서 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
   // 서버에서 받은 이웃집의 손님은 짧은 링크로 온 손님처럼 그 집의 코르크 보드에 쪽지를 남긴다(src/neighbors.js의 neighborBoard)
   await use('corkboard', () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), '이웃집 손님에게도 쪽지 남기기 단추가 보인다');
   check('이웃집의 코르크 보드는 그 집의 링크 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === LINK_NEIGHBOR.link);
   await press(page, 'Escape');
+  // 받는 중인 집: 서버의 답을 붙잡아 둔 채 놀이터로 나가 목록 창을 연다. 그 줄은 "불러오는 중"으로 눌리지 않다가 답이 오면 놀러 갈 수 있게 바뀐다
+  await open();
+  await page.run(fakeCloud, 'hold', neighborRooms);
+  await powerOn();
+  check('받는 중 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('서버에서 받는 중인 이웃집도 목록 창에 줄이 있다', await openList(neighbors));
+  const waiting = (await page.run(listRows)).find(r => r.id === LINK_NEIGHBOR.id);
+  check('받는 중인 줄은 목록의 이름과 "불러오는 중"이 보이고 놀러 가기가 눌리지 않는다', waiting?.name === LINK_NEIGHBOR.name && waiting.wait && waiting.off, JSON.stringify(waiting));
+  check('받는 중인 줄의 놀러 가기를 눌러도 아무 일도 없다', !(await page.run(goRow, LINK_NEIGHBOR.id)) && (await page.run(() => document.getElementById('stage').dataset.mode)) === 'edit');
+  await probe('받는 중인 이웃집 목록 창');
+  await page.run(() => window.__cloudAnswer());
+  check('받으면 그 줄이 서버의 방 주인 이름과 사진으로 바뀌고 놀러 가기가 눌린다', await until(page, (id, name) => {
+    const r = document.querySelector(`#windows .neighbor-row[data-neighbor="${id}"]`);
+    return !!r && r.querySelector('.neighbor-name b').textContent === name && !r.querySelector('.neighbor-name small') && !r.querySelector('.btn').disabled
+      && r.querySelector('.user-pic')?.dataset.pic === 'cake';
+  }, 3000, LINK_NEIGHBOR.id, SERVER_NAME));
+  check('목록 창을 연 뒤에 받은 집도 서버에 다시 묻지 않는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
+  await closeWindows();
   // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(src/login.js의 uploadedHere). 이 컴퓨터가 기억하는 올린 방 번호(agarago.cloud의 id)가
   // 이웃집의 link와 같을 때만 빠지고, 이름으로는 가리지 않는다. 그래서 점검용 이웃집의 방 주인 이름을 내 이름과 같게 답하게 해(loginRooms), 이름으로 가렸다면 함께 사라졌을 경우까지 본다.
   // 올린 기록은 부팅하기 전에 localStorage에 심는다. 끝나면 이 점검 앞의 기록으로 돌려놓는다
@@ -1778,7 +1819,9 @@ async function walk(page, base) {
     return tiles.length === n - k && !tiles.some(t => t.textContent.includes(name));
   }, 3000, LINK_NEIGHBOR.name, neighbors, links));
   check('서버에 방이 없을 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('서버에 방이 없는 link 이웃집은 놀이터에 문패를 달지 않는다', (await page.run(neighborGates)) === neighbors - links);
+  check('서버에 방이 없는 link 이웃집은 이웃집 목록 창에서 빠진다', await openList(neighbors - links)
+    && !(await page.run(listRows)).some(r => r.id === LINK_NEIGHBOR.id), JSON.stringify(await page.run(listRows)));
+  await closeWindows();
 
   // 고정한 이웃집(keep). 복사본이 있는 link 이웃집은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌어도 복사본으로 뜨고, 서버에 방이 있으면 서버의 방을 따른다.
   // 그런 방을 올린 브라우저(agarago.cloud의 id가 그 link)에서는 이 컴퓨터 초기화와 공유하기의 링크 지우기를 쓸 수 없다(src/neighbors.js의 pinnedHere).
@@ -1801,11 +1844,10 @@ async function walk(page, base) {
   check('복사본이 있는 이웃집은 서버에 방이 없어도 복사본으로 뜨고, 복사본이 없는 이웃집은 빠진다', gone.near.includes(PINNED_NEIGHBOR.name)
     && !gone.near.includes(LINK_NEIGHBOR.name) && gone.near.length === total - droppable, JSON.stringify(gone));
   check('고정한 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
-  check('복사본이 있는 이웃집은 서버에 방이 없어도 놀이터에 문패가 남는다', (await page.run(neighborGates)) === total - droppable);
+  check('복사본이 있는 이웃집은 서버에 방이 없어도 이웃집 목록 창에 남는다', await openList(total - droppable)
+    && (await page.run(listRows)).some(r => r.id === PINNED_NEIGHBOR.id), JSON.stringify(await page.run(listRows)));
   // 복사본으로 연 집에는 쪽지를 남기지 못한다. 서버 규칙이 서버에 있는 방에만 쪽지를 받아서, 보드 번호를 넘기면 붙일 때마다 실패한다(firestore.rules)
-  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${PINNED_NEIGHBOR.id}"]`);
-  await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000);
-  await page.run(clickText, '#windows .btn', '놀러 가기');
+  check('목록 창에서 고정한 이웃집의 놀러 가기를 누른다', await page.run(goRow, PINNED_NEIGHBOR.id));
   check('서버에 방이 없을 때: 고정한 이웃집에 복사본으로 놀러 간다', await until(page, () => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden, 5000));
   await use('corkboard', () => !!document.querySelector('.closeup .cork-card')?.textContent.includes('쪽지를 남길 수 없습니다'), '복사본으로 연 이웃집은 쪽지를 남길 수 없다고 알린다');
   check('복사본으로 연 이웃집의 코르크 보드는 서버에 쪽지를 찾지 않는다', (await page.run(() => window.__noteBoards.length)) === 0);
@@ -2328,6 +2370,109 @@ async function walk(page, base) {
   check('끄면 바탕화면을 그냥 둬도 아바타가 움직이거나 말하지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), idleSettings);
 
+  // ---------- 놀이터의 울타리 문: 문 앞 칸과 문을 가리는 가구(known-issues 90) ----------
+  // 방 꾸미기는 울타리 문(오른쪽의 아파트 문, 왼쪽의 이웃집 문) 바로 앞 칸에 바닥 가구를 새로 놓지 못하게 하고(src/rules.js의 blocksGate),
+  // 그 규칙 전에 그 칸에 놓은 가구는 불러올 때 지우지 않는다. 문 자리를 8분의 1 넘게 덮는 가구는 바탕화면과 방 꾸미기에서 반쯤 비친다(src/iso.js의 coversGate).
+  // 놀이터의 가구는 바탕화면과 방 꾸미기 모두 이 차례로 그려진다. cover: 가려서 그 가구를 비치게 할 문(L 이웃집 문, R 아파트 문, 없으면 null)
+  const FENCE = [
+    { id: 'streetlight', x: 0, y: 5, cover: 'L' },  // 규칙이 생기기 전에 이웃집 문 앞 칸에 놓은 가로등. 불러와도 남는다
+    { id: 'streetlight', x: 1, y: 6, cover: 'L' },  // 이웃집 문 앞 둘째 줄의 가로등
+    { id: 'tree', x: 4, y: 10, cover: null },       // 이웃집 문 아래 모서리만 덮는 먼 나무(5%)
+    { id: 'bench', x: 0, y: 8, cover: null },       // 이웃집 문 옆 칸의 벤치
+    { id: 'tree', x: 7, y: 1, cover: 'R' },         // 아파트 문 앞 둘째 줄의 나무
+  ];
+  const GATES = { owner: '울타리', scenes: { room: [], playground: FENCE.map(({ cover, ...item }) => item) } };
+  const covers = sel => [...document.querySelectorAll(`${sel} .furn`)].map(f => (f.classList.contains('covers-gate') && getComputedStyle(f).opacity === '0.45'));
+  const fenceWant = JSON.stringify(FENCE.map(f => !!f.cover));
+  check('울타리 문 앞 칸에 놓인 가구가 있는 집도 가구가 모두 검사를 통과한다', (await page.run(plantHome, GATES)) === FENCE.length);
+  await open();
+  await page.run(fakeCloud, 'serve', neighborRooms);
+  await powerOn();
+  check('울타리 문 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('바탕화면의 놀이터에서 울타리 문을 가리는 가구만 반쯤 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === fenceWant, JSON.stringify(await page.run(covers, '#wallpaper')));
+  await probe('울타리 문을 가구가 가린 놀이터');
+  await openIcon('room');
+  await until(page, () => !!document.querySelector('.room-app .scene-tab[data-scene="playground"]'), 5000);
+  await page.run(clickOnce, '.room-app .scene-tab[data-scene="playground"]');
+  check('방 꾸미기의 놀이터에서도 울타리 문을 가리는 가구만 반쯤 비친다', await until(page, (want, sel) => JSON.stringify([...document.querySelectorAll(`${sel} .furn`)]
+    .map(f => f.classList.contains('covers-gate') && getComputedStyle(f).opacity === '0.45')) === want, 3000, fenceWant, '.room-app .items'));
+  // 선반의 벤치(2×1칸, 높이 30)를 끌어 (x, y)에 대 본다. 끄는 동안의 상태(ok, bad)와 놓은 뒤 그 자리에 벤치가 저장되었는지 돌려준다.
+  // 벤치를 잡는 점은 가로 1칸, 세로 0.5칸, 높이 15px이다(src/room.js의 shelfGrab). 그 점이 칸 (x + 1, y + 0.5)에 오는 무대 점을 방 그림의 비율 자리로 바꾼다
+  const dropBench = async (x, y) => {
+    const card = await until(page, shelfCard, 4000, 'bench');
+    if (!card) return { state: 'no-card' };
+    const tx = x + 1;
+    const ty = y + 0.5;
+    const to = await page.run(roomPoint, (640 + (tx - ty) * 36) / 1280, (270 + (tx + ty) * 18 - 15) / 720);
+    await mouse(page, 'mousePressed', card);
+    await mouse(page, 'mouseMoved', { x: card.x + 4, y: card.y - 6 });
+    await mouse(page, 'mouseMoved', { x: card.x + 9, y: card.y - 12 });
+    await mouse(page, 'mouseMoved', to);
+    const state = await until(page, () => document.querySelector('.ghost')?.dataset.state || '', 1000);
+    await mouse(page, 'mouseReleased', to);
+    await sleep(200);
+    const placed = (await page.run(savedHome)).scenes.playground.some(i => i.id === 'bench' && i.x === x && i.y === y);
+    return { state, placed };
+  };
+  const leftFront = await dropBench(0, 6);
+  check('방 꾸미기에서 이웃집 문 앞 칸에는 바닥 가구를 놓을 수 없다', leftFront.state === 'bad' && !leftFront.placed, JSON.stringify(leftFront));
+  const rightFront = await dropBench(4, 0);
+  check('방 꾸미기에서 아파트 문 앞 칸에 걸치게도 바닥 가구를 놓을 수 없다', rightFront.state === 'bad' && !rightFront.placed, JSON.stringify(rightFront));
+  const beside = await dropBench(0, 3);
+  check('문 앞 칸이 아니면 울타리 바로 앞에도 놓을 수 있다', beside.state === 'ok' && beside.placed, JSON.stringify(beside));
+  check('규칙 전에 문 앞 칸에 놓은 가로등은 방을 고쳐 저장해도 그대로 남는다', (await page.run(savedHome)).scenes.playground.some(i => i.id === 'streetlight' && i.x === 0 && i.y === 5));
+  await closeWindows();
+  // 보여 줄 이웃이 없으면 이웃집 문을 달지 않는다: 이웃집 목록을 이 집 주인의 방 하나로 바꾼다(그 놀이터 주인의 집은 목록에서 빠진다).
+  // 문이 없으면 문 앞 칸도 막지 않고, 그 칸의 가로등도 비치지 않는다
+  await extraNeighbor(page, LINK_NEIGHBOR, { only: true });
+  await open();
+  await page.run(fakeCloud, 'serve', { [LINK_NEIGHBOR.link]: await page.run(linkOf, HOME, GATES.owner) });
+  await powerOn();
+  await until(page, () => !document.querySelector('.users .user.neighbor[disabled]'), 3000);
+  check('이웃집 없는 놀이터 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('보여 줄 이웃이 없으면 놀이터에 이웃집 문을 달지 않는다', (await page.run(neighborDoor)).doors === 0 && !(await page.run(() => !!document.querySelector('#wallpaper .neighbor-sign'))));
+  // 맨 끝은 위에서 끌어 (0, 3)에 놓은 벤치다. 아무 문도 가리지 않는다
+  check('이웃집 문이 없으면 그 자리의 가구는 비치지 않고 아파트 문을 가리는 가구만 비친다', JSON.stringify(await page.run(covers, '#wallpaper')) === JSON.stringify([...FENCE.map(f => f.cover === 'R'), false]),
+    JSON.stringify(await page.run(covers, '#wallpaper')));
+  check('이웃집 문이 없으면 왼쪽 울타리 앞 칸을 막지 않는다', await page.run(async owner => {
+    const { SCENES } = await import(new URL('src/config.js', document.baseURI).href);
+    const { fenceGates } = await import(new URL('src/iso.js', document.baseURI).href);
+    const { blocksGate } = await import(new URL('src/rules.js', document.baseURI).href);
+    const gates = fenceGates(SCENES.find(s => s.id === 'playground'), owner);
+    return gates.length === 1 && !blocksGate(gates, { id: 'bench', x: 0, y: 6 }) && blocksGate(gates, { id: 'bench', x: 5, y: 0 });
+  }, GATES.owner));
+  // 서버에 닿지 못한 집은 문을 쓸 때 다시 받으므로 문은 달려 있다. 목록 창에서 다시 받아도 닿지 못해 줄이 모두 빠지면 불러오지 못했다는 글과 할 일이 한 줄씩 뜬다
+  await open();
+  await page.run(fakeCloud, 'offline');
+  await powerOn();
+  check('서버에 닿지 못할 때: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  check('받지 못한 이웃집만 있어도 놀이터에 이웃집 문은 달려 있다', (await page.run(neighborDoor)).doors === 1);
+  await page.run(clickTwice, '#wallpaper .neighbor-hit');
+  check('목록 창에서도 받지 못하면 그 줄이 빠지고, 불러오지 못했다는 글과 할 일이 두 줄로 뜬다', await until(page, () => {
+    const li = document.querySelector('#windows .neighbor-app .neighbor-empty');
+    if (!li || document.querySelector('#windows .neighbor-row')) return false;
+    const st = getComputedStyle(li);
+    const lines = Math.round((li.clientHeight - parseFloat(st.paddingTop) - parseFloat(st.paddingBottom)) / parseFloat(st.lineHeight));
+    return lines === 2 && li.textContent === '이웃집을 불러오지 못했습니다.잠시 후 다시 시도해 주세요.';
+  }, 15000));
+  await probe('이웃집을 불러오지 못한 목록 창');
+  await closeWindows();
+  // 서버에 닿지 못할 때 복사본(keep)으로 뜨는 고정한 이웃집도 목록 창에서 놀러 갈 수 있다. 이때는 받아 둔 방이 없어(neighborNow가 모른다) 목록 창이 받은 집으로 간다
+  await extraNeighbor(page, PINNED_NEIGHBOR, { only: true });
+  await open();
+  await page.run(fakeCloud, 'offline');
+  await powerOn();
+  check('서버에 닿지 못할 때 고정한 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
+  await page.run(clickTwice, '#wallpaper .neighbor-hit');
+  check('서버에 닿지 못해도 고정한 이웃집은 목록 창에 복사본의 이름으로 뜨고 놀러 가기가 눌린다', await until(page, (id, name) => {
+    const r = document.querySelector(`#windows .neighbor-row[data-neighbor="${id}"]`);
+    return !!r && r.querySelector('.neighbor-name b').textContent === name && !r.querySelector('.btn').disabled;
+  }, 15000, PINNED_NEIGHBOR.id, PINNED_NEIGHBOR.name));
+  check('서버에 닿지 못할 때 목록 창의 놀러 가기를 누르면 복사본의 집에 손님으로 들어간다', (await page.run(goRow, PINNED_NEIGHBOR.id))
+    && await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
+      && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
+  await extraNeighbor(page, null);
+
   // ---------- 긴 글(known-issues 83) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
@@ -2410,21 +2555,30 @@ async function walk(page, base) {
   await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '손님에게도 긴 이름의 CD가 펼쳐진다');
   await shut();
 
-  // 이웃집의 긴 이름: 로그인 화면의 이웃집 자리, 놀이터 울타리의 문패(팻말 폭에 맞춰 줄이고 그래도 길면 말줄임표로 끝낸다), 놀러 갈지 묻는 창.
-  // 놀이터는 주인과 이름이 같은 이웃집의 문패를 빼므로(내 집이다) 주인(🎮)과 다른 이모지를 쓴다
+  // 이웃집의 긴 이름: 로그인 화면의 이웃집 자리, 놀이터의 이웃집 목록 창(이름은 두 줄까지 쓰고, 넘치면 말줄임표로 끝내고 마우스를 올리면 전체가 보인다).
+  // 목록 창은 주인과 이름이 같은 이웃집을 빼므로(내 집이다) 주인(🎮)과 다른 이모지를 쓴다. 레포의 link 이웃집에도 서버 대신 답해 여섯 줄을 다 채운다
   const LONG_NEIGHBORS = [{ id: 'smoke-long-wide', name: WORST.wide, room: longCode }, { id: 'smoke-long-emoji', name: fill(['🏠']), room: longCode }];
   await extraNeighbor(page, LONG_NEIGHBORS);
   await open();
+  await page.run(fakeCloud, 'serve', neighborRooms);
   await powerOn();
   await probe('긴 이름의 이웃집이 있는 로그인 화면');
   check('긴 이름의 이웃집 점검: 내 사용자로 들어가 놀이터로 나간다', await toPlayground());
   const plates = await page.run(plateOverflow);
-  check('놀이터 울타리의 문패 글이 팻말 안에 든다', plates.length === 0, plates.join(' | '));
-  check('줄인 문패에 마우스를 올리면 전체 이름이 보인다', await page.run(names => names.every(n => [...document.querySelectorAll('#wallpaper .neighbor-hit title')]
-    .some(t => t.textContent.includes(n))), LONG_NEIGHBORS.map(n => Array.from(n.name).slice(0, 12).join(''))));
-  await page.run(clickTwice, `#wallpaper .neighbor-hit[data-neighbor="${LONG_NEIGHBORS[1].id}"]`);
-  check('긴 이름의 이웃집 문을 두 번 누르면 놀러 갈지 묻는 창이 뜬다', await until(page, () => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'), 15000));
-  await probe('긴 이름의 이웃집에 놀러 갈지 묻는 창');
+  check('놀이터 울타리 문의 팻말 글이 팻말 안에 든다', plates.length === 0, plates.join(' | '));
+  const most = await page.run(async () => (await import(new URL('src/neighbors.js', document.baseURI).href)).MAX_NEIGHBORS);
+  check('긴 이름의 이웃집이 든 목록 창에 여섯 줄이 뜬다', await openList(most), JSON.stringify(await page.run(listRows)));
+  await probe('긴 이름의 이웃집이 든 목록 창');
+  check('목록 창의 긴 이름은 두 줄 안에 들거나, 잘리면 마우스를 올렸을 때 전체 이름이 보인다', await page.run(list => list.every(({ id, name }) => {
+    const b = document.querySelector(`#windows .neighbor-row[data-neighbor="${id}"] .neighbor-name b`);
+    return !!b && (b.scrollHeight <= b.clientHeight + 1 || b.title === name);
+  }), LONG_NEIGHBORS.map(n => ({ id: n.id, name: Array.from(n.name).slice(0, 12).join('') }))));
+  check('여섯 줄과 알림 줄, 닫기 단추가 목록을 스크롤하지 않고 창 안에 든다', await page.run(() => {
+    const list = document.querySelector('#windows .neighbor-list');
+    const body = list.closest('.win-body');
+    const close = [...body.querySelectorAll('.btn')].find(b => b.textContent === '닫기');
+    return list.scrollHeight <= list.clientHeight + 1 && body.scrollHeight <= body.clientHeight + 1 && close.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom;
+  }));
   await closeWindows();
   await extraNeighbor(page, null);
 

@@ -195,7 +195,8 @@ function drawAvatar(g, a, img) {
 }
 
 // 한 공간의 그림을 캔버스로 만든다. items: 그 공간의 가구 목록, scene: config.js의 SCENES 한 줄
-// owner: 집 주인 이름. 화면과 같이 놀이터에 이 집의 이웃집 문패는 그리지 않는다.
+// owner: 집 주인 이름. 화면과 같이 이 집 말고 보여 줄 이웃이 없으면 놀이터에 이웃집 문을 그리지 않는다.
+// 울타리 문을 가리는 가구를 반쯤 비치게 하는 것(src/room.js의 markCover)은 문을 찾는 화면에만 두고 그림에는 넣지 않는다.
 // avatar: 아바타가 설 칸과 방향(os.avatarSpot). 비우면 처음 서는 곳에 서고, false면 아바타를 그리지 않는다.
 // decor: 집의 방 꾸밈(벽지). 화면과 같은 벽지로 그린다
 export async function renderRoomImage(items, scene, owner = '', avatar = null, decor = null) {

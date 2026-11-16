@@ -22,7 +22,7 @@ import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
-import { askVisit, prefetchNeighbors } from './neighbors.js';
+import { openNeighbors, prefetchNeighbors } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { openNameWindow } from './user-name.js';
@@ -121,7 +121,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
     const sid = linkId(location.hash);
     if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
-    prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 놀이터 문패가 받은 값을 같이 쓴다)
+    prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 놀이터의 이웃집 목록 창이 받은 값을 같이 쓴다)
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
@@ -191,7 +191,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else showLogin();
   };
 
-  // 이웃집에 손님으로 들어간다(src/neighbors.js의 askVisit). 놀이터의 이웃집 문에서 온다. boardId는 enter와 같다.
+  // 이웃집에 손님으로 들어간다(src/neighbors.js의 openNeighbors). 놀이터의 이웃집 목록 창에서 온다. boardId는 enter와 같다.
   os.visit = (home, boardId = null) => {
     clearHash();
     switchTo('visit', home, boardId);
@@ -372,12 +372,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else out();
   };
 
-  // 놀이터 왼쪽 울타리의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 그 집에 놀러 갈지 묻는다.
-  // 지금 이 컴퓨터의 집 문패는 놀이터에 달지 않으므로(아파트 문이 그 집으로 가는 문이다) 여기 오는 문은 늘 다른 집이다.
-  os.useNeighbor = n => {
-    const ask = () => askVisit(os, n);
-    if (walker) walker.approachWall(n.wall, n.x, n.w, ask);
-    else ask();
+  // 놀이터 왼쪽 울타리의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다.
+  // 지금 이 컴퓨터의 집은 목록에 넣지 않는다(아파트 문이 그 집으로 가는 문이다). gate: 문 자리({ wall, x, w }, src/neighbors.js의 neighborGate)
+  os.useNeighbor = gate => {
+    const list = () => openNeighbors(os);
+    if (walker) walker.approachWall(gate.wall, gate.x, gate.w, list);
+    else list();
   };
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
 

@@ -9,7 +9,7 @@
 ## 바꾼 파일
 - `src/win.js`: 제목 줄 pointerdown의 기본 동작을 막음, `giveFrame`을 더해 최소화에서 돌아올 때와 `setMax` 뒤에 부름
 - `tools/smoke.mjs`: 파일 정리 10 창에서 □, 되돌리기, 제목 줄 두 번 누르기, 최소화, 작업 표시줄을 진짜 마우스로 누르며 초점을 보는 점검 6개
-- `known-issues.md`: 90 추가
+- `known-issues.md`: 91 추가
 - `docs/guide.md`: 창 설명에 초점 이야기 두 줄
 - `docs/tasks.md`: 알려진 문제 표에 한 줄
 
