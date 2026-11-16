@@ -1954,9 +1954,12 @@ async function walk(page, base) {
   await closeWindows();
   check('주인 아바타 남기기를 켜도 내 집에는 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
   if (neighbors) {
+    // 레포의 이웃집이 서버에서 받는 link 줄이면 받기 전에는 눌리지 않는다. 서버 대신 답하고, 받아서 눌리게 된 첫 집에 들어간다(known-issues 87)
     await open();
+    await page.run(fakeCloud, 'serve', neighborRooms);
     await powerOn();
-    await page.run(clickOnce, '.users .user.neighbor');
+    await until(page, () => !!document.querySelector('.users .user.neighbor:not([disabled])'), 3000);
+    await page.run(clickOnce, '.users .user.neighbor:not([disabled])');
     check('주인 아바타 남기기를 켜고 이웃집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await desktop()) && /^주인 기본 옷 .+, 나 손님 옷$/.test(await page.run(ownerScene)), await page.run(ownerScene));
     // 주인이 선 칸의 바닥을 누르면 손님은 그 칸에 들어가지 않고 바로 옆 칸에 멈춘다(주인 칸은 지나갈 수 없다)
     await page.run(() => {
