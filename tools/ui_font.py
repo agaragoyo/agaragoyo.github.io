@@ -1,8 +1,10 @@
-# 사이트가 스스로 쓰는 글자만 담은 작은 글꼴(AgaUI)을 만든다(known-issues 42, 45).
-# 첫 화면이 갈무리 전체(보통 505KB, 굵게 167KB)를 기다리지 않도록, 가림막은 이 작은 글꼴만 기다린다.
-# 사이트 글자에 없는 글자(사용자가 치는 닉네임과 말풍선)는 style.css에서 그다음에 적힌 갈무리 전체가 그린다.
+# 사이트가 스스로 쓰는 글자와 한글 완성형(KS X 1001) 2,350자만 담은 작은 글꼴(AgaUI)을 만든다(known-issues 42, 45, 89).
+# 첫 화면이 갈무리 전체(보통 505KB, 굵게 167KB)를 기다리지 않도록, 가림막은 이 작은 글꼴만 기다린다. 두 벌 합쳐 약 86KB다.
+# 사용자가 치는 닉네임과 말풍선의 한글은 대부분 완성형 2,350자 안에 들어서 처음 방문에도 이 글꼴이 그린다.
+# 그 밖의 글자(완성형에 없는 한글, 한자, 이모지)는 style.css에서 그다음에 적힌 갈무리 전체가 그린다.
 #
 # 다시 만드는 때: 사이트에 새 글자를 넣어 tools/check.py가 "작은 글꼴에 없는 글자" 경고를 낼 때.
+# 완성형 2,350자 안의 한글은 이미 들어 있어서 새로 넣어도 경고하지 않는다.
 # 다시 만들지 않아도 깨지지는 않는다. 그 글자만 갈무리 전체가 올 때까지 기본 글꼴로 보인다.
 #   pip install fonttools brotli   (글꼴을 만들 때만 필요하다. 사이트와 GitHub Actions에는 필요 없다)
 #   python tools/ui_font.py
@@ -25,8 +27,11 @@ LIST = OUT / 'aga-ui.txt'
 FAMILY = 'AgaUI'
 # style.css의 갈무리 전체 주소. 이 주소의 버전을 원본으로 쓴다
 GALMURI = re.compile(r'url\("(https://cdn\.jsdelivr\.net/npm/galmuri@([\d.]+)/dist/Galmuri11(-Bold)?\.woff2)"\)')
-# 사이트 글자 말고도 늘 넣는 글자: 키보드로 치는 ASCII 전부, 한글을 입력하는 동안 잠깐 보이는 자모(ㄱ~ㅣ)
-ALWAYS = {chr(c) for c in range(0x20, 0x7f)} | {chr(c) for c in range(0x3131, 0x3164)}
+# 한글 완성형(KS X 1001)의 한글 2,350자. 현대 한글 11,172자(0xAC00~0xD7A3) 가운데 파이썬의 euc-kr 코덱이 2바이트로 바꾸는 글자가 바로 이 글자들이다.
+# 일상 글에 나오는 한글은 대부분 이 안에 들어서, 사용자가 치는 닉네임과 말풍선도 대부분 이 글꼴이 그린다.
+KSX1001_HANGUL = {chr(c) for c in range(0xAC00, 0xD7A4) if len(chr(c).encode('euc-kr', errors='ignore')) == 2}
+# 사이트 글자 말고도 늘 넣는 글자: 키보드로 치는 ASCII 전부, 한글을 입력하는 동안 잠깐 보이는 자모(ㄱ~ㅣ), 한글 완성형 2,350자
+ALWAYS = {chr(c) for c in range(0x20, 0x7f)} | {chr(c) for c in range(0x3131, 0x3164)} | KSX1001_HANGUL
 
 
 # ---------- 사이트가 쓰는 글자 모으기 ----------
