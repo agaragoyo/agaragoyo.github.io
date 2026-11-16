@@ -36,13 +36,26 @@ export function elevOf(items, item) {
 }
 
 // 벽 가구 item이 그 공간의 현관문(config.js의 SCENES door) 자리를 가리는지. scene: SCENES 한 줄.
-// 방 꾸미기에서 새로 걸 때만 막고(room.js의 beginDrag), 저장본이나 링크를 불러올 때는 막지 않는다.
+// 방 꾸미기에서 새로 걸 때만 막고(room.js의 beginDrag), 저장본이나 링크를 불러올 때는 막지 않는다(canPlace에 넣지 않는 까닭이다. src/share.js의 sanitizeHome이 canPlace로 거른다).
 // 현관문이 생기기 전에 그 자리에 걸어 둔 창문이 불러올 때 조용히 사라지지 않게 하려는 것이다. 옮기면 다시는 그 자리에 걸지 못한다.
 export function coversDoor(scene, item) {
   const d = scene?.door;
   if (!d || !isWall(item) || item.wall !== d.wall) return false;
   const [w] = dims(item);
   return item.x < d.x + d.w && d.x < item.x + w && item.y < d.h;
+}
+
+// 바닥 가구 item이 울타리 문 바로 앞 칸(문 폭 × 1줄)을 막는지. gates: 그 공간에 단 울타리 문들({ wall, x, w }, src/iso.js의 fenceGates).
+// 오른쪽 뒤 울타리(wall 'R')의 문 앞 칸은 y = 0 줄의 x ~ x + w - 1이고, 왼쪽 울타리('L')의 문 앞 칸은 x = 0 줄의 y = x ~ x + w - 1이다.
+// 아바타가 문을 쓰러 걸어가 서는 칸이라(src/avatar.js의 besideWall) 비워 두고, 키 큰 가구가 문을 덮을 일도 줄인다.
+// coversDoor처럼 방 꾸미기에서 새로 놓을 때만 막고 저장본이나 링크를 불러올 때는 막지 않는다. 이 규칙이 생기기 전에 그 칸에 놓은 가구가 사라지지 않게 하려는 것이다.
+// 그런 가구가 문을 가리면 반쯤 비치게 그린다(src/iso.js의 coversGate).
+export function blocksGate(gates, item) {
+  if (isWall(item)) return false;
+  const [w, d] = dims(item);
+  return gates.some(g => (g.wall === 'R'
+    ? item.y === 0 && item.x < g.x + g.w && g.x < item.x + w
+    : item.x === 0 && item.y < g.x + g.w && g.x < item.y + d));
 }
 
 // others: 이미 놓여 있는 가구들. item 을 그 사이에 놓을 수 있는지.

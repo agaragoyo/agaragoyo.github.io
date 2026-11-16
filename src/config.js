@@ -40,15 +40,17 @@ export const HORROR = {
 
 // 집 안의 공간들. 'indoor'는 벽과 바닥이 있는 방, 'outdoor'는 울타리와 땅만 있는 바깥이다.
 // 새 공간을 넣으려면 여기에 한 줄, 가구 목록의 scene 에 그 id를 쓴다. 바탕화면은 첫 공간(내 방)에서 시작한다.
-// gate: 바깥 공간에서 내 방으로 돌아가는 울타리 문. 오른쪽 뒤 울타리(y = 0 줄)의 칸 x부터 w칸이다.
+// gate: 바깥 공간에서 내 방으로 돌아가는 울타리 문("아파트" 문). 오른쪽 뒤 울타리(y = 0 줄)의 칸 x부터 w칸이다.
 //       바탕화면에서 두 번 누르면 아바타가 걸어가 내 방으로 돌아가고, 이 공간에 들어올 때는 문으로 막 들어온 칸에 선다.
 // door: 방에서 바깥 공간(to)으로 나가는 현관문. 벽 wall('L'|'R')의 칸 x부터 w칸, 바닥에서 h줄 높이다.
 //       가구가 아니라 방 그림의 일부라 늘 있다. 두 번 누르면 아바타가 걸어가 나가고, 방에 들어올 때는 문 앞 칸에 선다.
 //       방 꾸미기에서는 이 자리에 벽 가구를 걸 수 없다(예전에 걸어 둔 가구는 그대로 둔다, src/rules.js의 coversDoor).
-// neighbors: true이면 이 바깥 공간의 왼쪽 울타리(x = 0 줄)에 이웃집 문을 단다(data/neighbors.js, src/neighbors.js).
+// neighborGate: 이웃집 문. 왼쪽 울타리(x = 0 줄)의 칸 x부터 w칸이고, 보여 줄 이웃이 있을 때만 단다(data/neighbors.js, src/neighbors.js의 neighborGate).
+//       이웃이 몇 집이든 문은 하나이고, 두 번 누르면 아바타가 걸어간 뒤 이웃집 목록 창이 뜬다. 오른쪽 울타리의 아파트 문과 마주 보는 자리다.
+// 울타리 문(gate, neighborGate) 바로 앞 칸(문 폭 × 1줄)에는 방 꾸미기에서 바닥 가구를 놓을 수 없다(src/rules.js의 blocksGate).
 export const SCENES = [
   { id: 'room', name: '내 방', kind: 'indoor', door: { wall: 'L', x: 9, w: 2, h: 4, to: 'playground' } },
-  { id: 'playground', name: '놀이터', kind: 'outdoor', gate: { x: 5, w: 2 }, neighbors: true },
+  { id: 'playground', name: '놀이터', kind: 'outdoor', gate: { x: 5, w: 2 }, neighborGate: { x: 5, w: 2 } },
 ];
 
 export const STORAGE_ROOM = 'agarago.home.v3';

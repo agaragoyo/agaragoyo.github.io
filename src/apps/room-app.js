@@ -76,7 +76,7 @@ export function openRoomApp(os, appInfo) {
         },
         get mode() { return os.mode; },
         get scene() { return scene; }, // 지금 꾸미는 공간(config.js의 SCENES 한 줄). 현관문 자리 검사에 쓴다
-        get owner() { return os.home.owner; }, // 집 주인 이름. 놀이터에 이 집의 이웃집 문패는 달지 않는다
+        get owner() { return os.home.owner; }, // 집 주인 이름. 이 집 말고 보여 줄 이웃이 없으면 놀이터에 이웃집 문을 달지 않는다
         get decor() { return os.home.decor; }, // 방 꾸밈(벽지). 집 상태의 decor
         // 화면 좌표 → 공간 좌표 (1280×840)
         toLocal(clientX, clientY) {
@@ -143,7 +143,7 @@ export function openRoomApp(os, appInfo) {
         render();
       }
 
-      // 창을 연 채 이름을 바꾸면(src/user-name.js) 위의 "주인 이름의 집"과 놀이터 울타리의 이웃집 문패를 새 이름으로 다시 그린다
+      // 창을 연 채 이름을 바꾸면(src/user-name.js) 위의 "주인 이름의 집"과 놀이터 울타리의 이웃집 문을 새 이름으로 다시 그린다
       win.refreshOwner = () => {
         setSceneBg(ctx, scene);
         render();
