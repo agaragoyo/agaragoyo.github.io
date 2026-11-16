@@ -27,12 +27,22 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible
   }
 
   function focus(win) {
-    if (win.minimized) restore(win);
+    const back = win.minimized;
+    if (back) restore(win);
     releaseFrame(win);
     focused = win;
     win.el.style.zIndex = ++topZ;
     for (const w of wins.values()) w.el.classList.toggle('inactive', w !== win);
     syncTasks();
+    if (back) giveFrame(win);
+  }
+
+  // 앞에 있는 창의 앱(iframe)에 키보드 초점을 돌려준다. 최소화했던 창을 다시 띄우거나 최대화, 복원으로 창 크기를 바꾼 뒤에 부른다.
+  // 다른 사이트 게임 가운데 초점을 잃으면 그리기를 멈추는 것이 있다(말랑이 디저트가게, Unity). 초점이 없는 채로 다시 보이거나
+  // 크기가 바뀌면 그 게임은 게임 안을 누를 때까지 빈 화면으로 남는다(known-issues 91).
+  function giveFrame(win) {
+    if (win !== focused || win.minimized || !win.iframe || document.activeElement === win.iframe) return;
+    win.iframe.focus({ preventScroll: true });
   }
 
   // 바탕화면을 누르면 어느 창도 앞에 두지 않는다. 그동안 키는 바탕화면(아바타)이 받는다.
@@ -73,6 +83,7 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible
     } else if (win.prev) {
       Object.assign(win.el.style, win.prev);
     }
+    giveFrame(win);
     onChange();
   }
 
@@ -165,6 +176,9 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible
     el.addEventListener('pointerdown', () => { if (focused !== win) focus(win); });
     const twice = doubleClick();
     bar.addEventListener('pointerdown', e => {
+      // 제목 줄과 그 단추를 눌러도 앱(iframe)의 키보드 초점을 거두지 않는다. 윈도우의 제목 줄 단추처럼 창 안의 초점은 그대로 둔다.
+      // 거두면 초점을 잃자마자 그리기를 멈추는 게임이 멈춘 채로 크기가 바뀌어 빈 화면이 된다(known-issues 91). 끌기도 같은 까닭으로 막는다(36)
+      e.preventDefault();
       if (e.target.closest('.win-btn')) return; // 제목 줄 단추는 끌기와 두 번 누르기에서 뺀다
       if (twice(bar)) { setMax(win, !win.maximized); return; }
       if (!win.maximized) dragWindow(win, e);

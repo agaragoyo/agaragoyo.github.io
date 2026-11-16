@@ -963,6 +963,22 @@ async function walk(page, base) {
   await tap(page, await page.run(centreOf, '#windows iframe'));
   await sleep(1200);
   check('게임 창 안을 누르면 초점이 게임으로 가도 소리는 그대로 난다', (await page.run(() => document.activeElement?.tagName === 'IFRAME')) && (await page.run(musicIs, 'on')));
+  // 제목 줄 단추와 제목 줄 두 번 누르기는 게임의 키보드 초점을 거두지 않고, 최소화한 창을 작업 표시줄에서 다시 띄우면 초점을 돌려준다.
+  // 초점을 잃으면 그리기를 멈추는 게임은 그사이 창 크기가 바뀌면 게임 안을 누를 때까지 빈 화면이 된다(known-issues 91)
+  const gameWin = '#windows .win:has(iframe)';
+  const gameState = sel => ({ max: document.querySelector(sel).classList.contains('maximized'), hidden: document.querySelector(sel).hidden, frame: document.activeElement?.tagName === 'IFRAME' });
+  await tap(page, await page.run(centreOf, `${gameWin} .win-max`));
+  check('게임 창의 최대화 단추를 눌러도 초점이 게임에 남는다', JSON.stringify(await page.run(gameState, gameWin)) === '{"max":true,"hidden":false,"frame":true}');
+  await tap(page, await page.run(centreOf, `${gameWin} .win-max`));
+  check('되돌리기 단추를 눌러도 초점이 게임에 남는다', JSON.stringify(await page.run(gameState, gameWin)) === '{"max":false,"hidden":false,"frame":true}');
+  for (let i = 0; i < 2; i++) await tap(page, await page.run(centreOf, `${gameWin} .win-title`));
+  check('게임 창 제목 줄을 두 번 눌러 최대화해도 초점이 게임에 남는다', JSON.stringify(await page.run(gameState, gameWin)) === '{"max":true,"hidden":false,"frame":true}');
+  await sleep(600);
+  for (let i = 0; i < 2; i++) await tap(page, await page.run(centreOf, `${gameWin} .win-title`));
+  await tap(page, await page.run(centreOf, `${gameWin} .win-min`));
+  check('게임 창을 최소화하면 게임의 초점을 거둔다', JSON.stringify(await page.run(gameState, gameWin)) === '{"max":false,"hidden":true,"frame":false}');
+  await tap(page, await page.run(centreOf, '#tasks .task:last-child'));
+  check('작업 표시줄에서 다시 띄우면 초점이 게임으로 돌아간다', await until(page, sel => !document.querySelector(sel).hidden && document.activeElement?.tagName === 'IFRAME', 2000, gameWin));
   // 초점이 게임 안에 있으면 다른 프로그램으로 넘어가거나 돌아와도 이 문서에 blur와 focus가 오지 않는다(known-issues 74). hasFocus만 바꿔 끼운다
   await page.run(() => { document.hasFocus = () => false; });
   check('초점이 게임 안에 있을 때 다른 프로그램으로 넘어가면 알림이 없어도 1초 안에 꺼진다', await until(page, musicIs, 1000, 'muted'));
