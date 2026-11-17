@@ -2294,6 +2294,27 @@ async function walk(page, base) {
     return said;
   }, FIRST * 4);
   check('갈 수 있는 가구가 지난번 가구 하나뿐이면 같은 말을 되풀이하지 않고 쉰다', alone.length === 1, JSON.stringify(alone));
+  // 걷는 길이 다음 차례보다 길어서 도착하기 전에 길이 바뀌는 가구(far)가 끼어도, 말하지 못한 가구를 지난번 가구로 치지 않는다(known-issues 94).
+  // 바로 도착하는 가구(lamp)와 영영 도착하지 못하는 가구(far)만 있는 가짜 아바타로 20ms 간격의 차례를 0.6초 동안 돌린다.
+  // 고르기만 한 가구를 지난번 가구로 치면 lamp, radio, lamp 순으로 lamp의 말을 연달아 하고, 말한 가구만 치면 lamp를 한 번만 말한다
+  const crowded = await page.run(async () => {
+    const { createIdleTalk } = await import(new URL('src/idle-talk.js', document.baseURI).href);
+    const { IDLE_TALK } = await import(new URL('src/config.js', document.baseURI).href);
+    const kept = { ...IDLE_TALK };
+    const said = [];
+    let far = 0;
+    const me = { spot: () => ({ x: 5, y: 5 }), stepsTo: () => 0, approach: (item, then) => { if (item.id === 'lamp') then(); else far++; }, say: text => said.push(text), halt() {} };
+    try {
+      Object.assign(IDLE_TALK, { first: 20, again: [20, 20] });
+      createIdleTalk({ avatar: () => me, items: () => [{ id: 'lamp', x: 0, y: 0 }, { id: 'radio', x: 3, y: 3 }], canRun: () => true });
+      await new Promise(r => setTimeout(r, 600));
+    } finally {
+      Object.assign(IDLE_TALK, kept);
+    }
+    return { said, far };
+  });
+  check('도착하지 못한 가구를 고르는 사이에도 같은 가구의 혼잣말을 연달아 하지 않는다',
+    crowded.far >= 3 && crowded.said.every((s, i) => i === 0 || s !== crowded.said[i - 1]), JSON.stringify(crowded));
   // 끄면 지금과 같다. 방에서 걷기 시작하지 않게 방 꾸미기 창을 닫기 전에 끈다
   await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).setLab('idle-talk', false));
   await closeWindows();

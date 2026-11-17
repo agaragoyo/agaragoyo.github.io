@@ -15,7 +15,7 @@
 - `src/pet-picker.js`, `style.css`: 같은 폭의 단추(`--pet-pick`), 닭을 맡는 병아리 단추, 종류를 바꾸면 횟수를 0으로
 - `tools/check.py`: 이름 네 글자 한도, 자라는 종류의 짝(목록에 있는지, 색 id가 같은지, 아바타가 할 말이 있는지)
 - `tools/smoke.mjs`: 종류 단추 여덟 개와 한 줄 배치, 병아리를 쓰다듬어 닭이 되는 흐름
-- `known-issues.md`: 94(단추 이름이 그림보다 넓어지면 종류 줄이 꺾이는 함정)
+- `known-issues.md`: 95(단추 이름이 그림보다 넓어지면 종류 줄이 꺾이는 함정)
 - `docs/requirements.md`, `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`
 
 ## 정한 것과 이유

@@ -1,6 +1,6 @@
 // 실험실의 '심심할 때 혼잣말'(idle-talk, src/labs.js). 켜고 바탕화면을 30초 동안 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 하나로 걸어가
-// 그 가구의 혼잣말(가구를 두 번 눌렀을 때 하는 말)을 한 번 하고, 그 뒤로 40~60초마다 되풀이한다. 같은 가구를 연달아 고르지 않아서,
-// 갈 수 있는 가구가 지난번 가구 하나뿐이면 그 차례는 쉰다. 시간 숫자는 src/config.js의 IDLE_TALK에 있다.
+// 그 가구의 혼잣말(가구를 두 번 눌렀을 때 하는 말)을 한 번 하고, 그 뒤로 40~60초마다 되풀이한다. 같은 가구의 혼잣말을 연달아 하지 않아서(말한 차례 기준),
+// 갈 수 있는 가구가 지난번에 말한 가구 하나뿐이면 그 차례는 쉰다. 시간 숫자는 src/config.js의 IDLE_TALK에 있다.
 // 말은 가구를 두 번 눌렀을 때와 같은 줄을 src/furniture-line.js에서 꺼낸다.
 // 레퍼런스는 시킨 일이 없으면 심이 스스로 움직이는 심즈의 자유 의지(설정에서 끌 수 있다)와 스스로 끼어들어 미움받은 오피스 도우미다.
 // 방이 살아 보이는지 귀찮은지는 켜 봐야 알아서 실험실에 둔다.
@@ -31,7 +31,7 @@ export function createIdleTalk({ avatar, items, canRun, line = item => furniture
   }
   const again = () => IDLE_TALK.again[0] + Math.random() * (IDLE_TALK.again[1] - IDLE_TALK.again[0]);
 
-  // 걸어서 갈 수 있는 가구 가운데 지난번 가구가 아닌 것 하나를 무작위로 고른다
+  // 걸어서 갈 수 있는 가구 가운데 지난번에 말한 가구가 아닌 것 하나를 무작위로 고른다
   function pick(me) {
     const can = items().filter(item => {
       if (item.id === last) return false;
@@ -41,19 +41,20 @@ export function createIdleTalk({ avatar, items, canRun, line = item => furniture
     return can[Math.floor(Math.random() * can.length)] || null;
   }
 
-  // 다음 차례는 걷기 전에 한 번 걸어 두고(걷다가 공간을 옮겨 도착하지 못해도 다음 차례가 온다), 말하고 나면 그때부터 다시 잰다
+  // 다음 차례는 걷기 전에 한 번 걸어 두고(걷다가 공간을 옮겨 도착하지 못해도 다음 차례가 온다), 말하고 나면 그때부터 다시 잰다.
+  // 걷는 길이 다음 차례까지의 시간보다 길면 다음 차례가 길을 바꾸어 앞에 고른 가구는 말하지 못한다. 그래서 last는 고를 때가 아니라 말할 때 적는다(known-issues 94)
   function fire() {
     if (!canRun()) return arm(IDLE_TALK.first);
     arm(again());
     const me = avatar();
     const item = me?.spot() && pick(me);
     if (!item) return;
-    last = item.id;
     const n = trip = ++trips;
     me.approach(item, () => {
       if (trip !== n) return;
       trip = 0;
       if (!canRun()) return;
+      last = item.id;
       me.say(line(item));
       arm(again());
     });
