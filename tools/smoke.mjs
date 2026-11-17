@@ -2469,40 +2469,55 @@ async function walk(page, base) {
   check('고양이는 따라오지 않고, 메뉴의 점도 혼자 놀게 하기에 그대로 있다', catStays.pet.x === catAt.x && catStays.pet.y === catAt.y
     && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', JSON.stringify(catStays));
   await press(page, 'Escape');
-  // 가구 위에 올라가기(src/pet.js의 perchTrip, climb, descend, vacate). 고양이는 혼자 놀다 쉬고 일어날 때 가끔 가구 옆 칸까지 걸어가 윗면에 뛰어올라 웅크리고,
-  // 아바타가 그 가구를 쓰러 오면 뛰어내리며, 방 꾸미기에서 그 가구를 돌려 놓으면 뛰어내린다. 움직임 줄이기를 켠 사람에게는 뛰지 않고 자리만 바뀐다.
-  // 쉬는 시간과 몫(data/pets.js의 mood.rest, src/config.js의 PERCH)은 페이지 안에서 바꾼다(새로 고침하면 돌아온다). 점검용 집에서 올라갈 수 있는 가구는
-  // 침대와 책상인데, 책상의 윗면(data/furniture.js의 perch)을 페이지 안에서 빼서 침대로만 가게 한다. 끝나면 침대를 돌리기 전의 집으로 다시 들어간다
+  // 가구 위에 올라가기(src/pet.js의 perchTrip, climb, descend, vacate). 고양이는 방에 처음 나올 때 몫(src/config.js의 PERCH.start)만큼 가구 위에서 시작하고,
+  // 혼자 놀다 쉬고 일어날 때 가끔 가구 옆 칸까지 걸어가 윗면에 뛰어올라 웅크린다. 아바타가 그 가구를 쓰러 오면 뛰어내리고, 방 꾸미기에서 그 가구를 돌려 놓으면 뛰어내린다.
+  // 움직임 줄이기를 켠 사람에게는 뛰지 않고 자리만 바뀐다. 쉬는 시간과 몫(data/pets.js의 mood.rest, src/config.js의 PERCH)은 페이지 안에서 바꾼다(새로 고침하면 돌아온다).
+  // 점검용 집에서 올라갈 수 있는 가구는 침대와 책상인데, 책상의 윗면(data/furniture.js의 perch)을 페이지 안에서 빼서 침대로만 가게 한다.
+  // 고양이는 침대에서 여덟 칸(PERCH_REACH) 안에 있어야 침대로 가므로, 바닥 아무 칸에서 시작하면 언제 오를지 정해지지 않는다. 그래서 침대 위에서 시작해
+  // 아바타가 침대를 쓰면 침대 옆으로 내려오게 하고, 거기서 쉰 뒤 다시 올라가는 것을 본다. 끝나면 침대를 돌리기 전의 집으로 다시 들어간다
   const perchHome = await page.run(() => localStorage.getItem('agarago.home.v3'));
   const tune = (rest, extra = {}) => page.run(async (rest, extra) => {
     Object.assign((await import(new URL('src/config.js', document.baseURI).href)).PERCH, extra);
     (await import(new URL('data/pets.js', document.baseURI).href)).PET_SPECIES.find(s => s.id === 'cat').mood.rest = rest;
     (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.desk.perch = 0;
   }, rest, extra);
+  // 고양이가 침대 위에서 시작하게 들어간다(로그인 화면에서 시작 몫을 1로 두고 책상의 윗면을 뺀다)
+  const enterOnBed = async () => {
+    await open();
+    await powerOn();
+    await page.run(async () => {
+      (await import(new URL('src/config.js', document.baseURI).href)).PERCH.start = 1;
+      (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.desk.perch = 0;
+    });
+    await page.run(clickOnce, '.users .user:not(.neighbor)');
+    return desktop();
+  };
   const onBed = ms => until(page, () => !!document.querySelector('#wallpaper .room-pet[data-perch="bed"]'), ms);
   // 침대(점검용 집의 (0, 3)에 놓인 3×4칸) 둘레의 바닥 칸인지(모서리의 대각선 칸은 빼고)
   const besideBed = c => !!c && Math.max(0 - c.x, 0, c.x - 2) + Math.max(3 - c.y, 0, c.y - 6) === 1;
-  await tune([300, 400], { odds: 1, stay: [60000, 60000] });
-  await page.run(watchPoses);
-  // 고양이에게 기다리게 하면 쳐다보다 돌아선 뒤 다시 혼자 놀며, 이번에는 짧게 쉬고 가구로 간다
-  await page.run(rightClickPet);
-  await page.run(clickText, '.pet-menu .pet-menu-item', '기다리게 하기');
-  const climbed = (await onBed(12000)) && await page.run(perchScene);
-  check('고양이는 혼자 놀다 침대 옆 칸까지 걸어가 침대 위로 뛰어올라 웅크린다(발끝이 침대 그림 안이고 침대보다 위에 그려진다)', !!climbed && climbed.inside && climbed.above
-    && /^loaf/.test(climbed.frame) && (await page.run(() => window.__petPoses.has('walk2'))), JSON.stringify(climbed));
+  await enterOnBed();
+  const startUp = (await onBed(3000)) && await page.run(perchScene);
+  check('방에 처음 나올 때 고양이가 침대 위에 웅크린 채 시작할 수 있다(발끝이 침대 그림 안이고 침대보다 위에 그려진다)', !!startUp && startUp.inside && startUp.above
+    && /^loaf/.test(startUp.frame), JSON.stringify(startUp));
   await probe('침대 위의 고양이');
   check('침대 위에 있는 동안에도 쓰다듬기와 할 일 메뉴가 뜬다', (await page.run(rightClickPet)) === true && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
   await press(page, 'Escape');
   // 아바타가 침대를 쓰러 오면(두 번 누르기) 다 왔을 때 고양이가 침대 둘레의 빈 바닥 칸으로 뛰어내린다. 내려온 뒤에는 5초 쉬어 바로 다시 올라가지 않는다
-  await tune([5000, 5000]);
+  await tune([5000, 5000], { odds: 1, stay: [60000, 60000] });
+  await page.run(watchPoses);
   await page.run(clickTwice, '#wallpaper .furn[data-id="bed"]');
   const jumped = await waitPet(s => !s.perch && s.floor && !/^walk/.test(s.frame), 8000);
   const bedWords = await page.run(avatarSays);
   check('아바타가 침대를 쓰러 오면 고양이가 침대 둘레의 빈 바닥 칸으로 뛰어내리고, 아바타는 침대의 혼잣말을 한다', !jumped.perch && jumped.floor && besideBed(jumped.pet)
-    && !(jumped.pet.x === jumped.me.x && jumped.pet.y === jumped.me.y) && bedWords === '눕자마자 잠들겠다.', JSON.stringify({ jumped, bedWords }));
-  // 다시 올라간 뒤 방 꾸미기에서 침대를 끌며 R로 돌려 놓으면, 바탕화면의 방을 다시 그릴 때 고양이가 뛰어내린다. 내려온 뒤로는 1분 쉬어 다시 올라가지 않는다
+    && !(jumped.pet.x === jumped.me.x && jumped.pet.y === jumped.me.y) && bedWords === '눕자마자 잠들겠다.'
+    && (await page.run(() => window.__petPoses.has('walk2'))), JSON.stringify({ jumped, bedWords }));
+  // 쉬고 일어나면 가구로 가는 몫을 1로 두었으므로 침대 옆 칸까지 걸어가 다시 뛰어오른다. 올라간 뒤로는 1분 머문다
   await tune([300, 400]);
-  check('쉬고 나면 고양이가 다시 침대에 올라간다', await onBed(12000));
+  await page.run(watchPoses);
+  const climbed = (await onBed(12000)) && await page.run(perchScene);
+  check('고양이는 혼자 놀다 침대 옆 칸에서 침대 위로 뛰어올라 웅크린다', !!climbed && climbed.inside && climbed.above && /^loaf/.test(climbed.frame)
+    && (await page.run(() => window.__petPoses.has('walk1'))), JSON.stringify(climbed));
+  // 방 꾸미기에서 침대를 끌며 R로 돌려 놓으면, 바탕화면의 방을 다시 그릴 때 고양이가 뛰어내린다. 내려온 뒤로는 1분 쉬어 다시 올라가지 않는다
   await tune([60000, 60000]);
   await openIcon('room');
   await until(page, () => !!document.querySelector('.room-app .items .furn[data-id="bed"] .hit'), 5000);
@@ -2519,19 +2534,11 @@ async function walk(page, base) {
   const fell = await waitPet(s => !s.perch && s.floor && !/^walk/.test(s.frame), 4000);
   check('방 꾸미기에서 고양이가 앉은 침대를 돌려 놓으면 고양이가 침대에서 바닥 칸으로 뛰어내린다', turned?.r === 1 && !fell.perch && fell.floor, JSON.stringify({ turned, fell }));
   await closeWindows();
-  // 움직임 줄이기를 켠 사람. 방에 처음 나올 때 가구 위에서 시작하는 몫을 1로 두고 들어가면 고양이가 침대 위에서 시작하고(책상의 윗면은 로그인 화면에서 뺀다),
-  // 아바타가 침대를 쓰러 오면 뛰지 않고(걷는 그림 없이) 바닥 칸에 바로 앉는다
+  // 움직임 줄이기를 켠 사람. 고양이가 침대 위에서 시작하고, 아바타가 침대를 쓰러 오면 뛰지 않고(걷는 그림 없이) 바닥 칸에 바로 앉는다
   await page.run(home => localStorage.setItem('agarago.home.v3', home), perchHome);
   await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-  await open();
-  await powerOn();
-  await page.run(async () => {
-    (await import(new URL('src/config.js', document.baseURI).href)).PERCH.start = 1;
-    (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.desk.perch = 0;
-  });
-  await page.run(clickOnce, '.users .user:not(.neighbor)');
-  await desktop();
-  check('방에 처음 나올 때 고양이가 침대 위에서 시작할 수 있다', await onBed(3000), JSON.stringify(await page.run(perchScene)));
+  await enterOnBed();
+  check('움직임 줄이기를 켜도 고양이가 침대 위에서 시작할 수 있다', await onBed(3000), JSON.stringify(await page.run(perchScene)));
   await page.run(watchPoses);
   await page.run(clickTwice, '#wallpaper .furn[data-id="bed"]');
   const calm = await waitPet(s => !s.perch && s.floor, 8000);
