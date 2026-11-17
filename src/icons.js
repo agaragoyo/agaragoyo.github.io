@@ -122,37 +122,7 @@ const PIXEL = {
       '........................',
     ],
   },
-  // 놀이터: 파란 목줄을 한 강아지
-  playground: {
-    colors: { k: '#9a6a45', W: '#fffaf2', f: '#f0e2cc', O: '#c98a52', o: '#e3ad74', n: '#2e211c', m: '#ff7f9a', R: '#3b7be0', Y: '#ffd23f' },
-    24: [
-      '........................',
-      '........................',
-      '........kkkkkkkk........',
-      '......kkWWWWWWWWkk......',
-      '.....kWWWWWWWWWWWWk.....',
-      '...kkkWWWWWWWWWWWWkkk...',
-      '..kOOkWWWWWWWWWWWWkOOk..',
-      '..kOOkWWWWWWWoooWWkOOk..',
-      '..kOokWWnnWWWonnoWkoOk..',
-      '..kOokWWnnWWWonnoWkoOk..',
-      '..kOokWWWWWnnWoooWkoOk..',
-      '...kkkfWWWnmmnWWWfkkk...',
-      '......kffWWmmWWffk......',
-      '.......kRRRRRRRRk.......',
-      '......kWWWWYYWWWWk..kk..',
-      '.....kWWWWWWWWWWWWkkWWk.',
-      '.....kWWWWWWWWWWWfWWk...',
-      '.....kfWWWWWWWWWWfkk....',
-      '.....kfWWkWWWWkWWfk.....',
-      '.....kfWWkWWWWkWWfk.....',
-      '.....kffWkWWWWkWffk.....',
-      '......kkkkkkkkkkkk......',
-      '........................',
-      '........................',
-    ],
-  },
-  // 집으로: 주황 기와지붕 집. 16칸 그림은 작업 표시줄의 시작 단추에도 쓴다
+  // 집: 주황 기와지붕 집. 16칸 그림을 작업 표시줄의 시작 단추에 쓴다(2026-11-17까지는 '집으로' 바로 가기 아이콘이기도 했다)
   home: {
     colors: {
       K: '#9c3f26', r: '#ffa47c', R: '#ec6b42', Q: '#c4502e', e: '#c9785a', k: '#9a7a62', W: '#fff6e6',

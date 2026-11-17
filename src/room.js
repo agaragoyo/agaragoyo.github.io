@@ -1,8 +1,8 @@
 // 방 그리기와 가구 끌어 놓기.
 import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { canPlace, coversDoor, blocksGate, dims, supportOf, elevOf, isWall } from './rules.js';
-import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, sceneFrontSVG, lightPoint, fenceGates, coversGate } from './iso.js';
+import { canPlace, coversDoor, dims, supportOf, elevOf, isWall } from './rules.js';
+import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 import { clamp, doubleClick } from './util.js';
 import { play } from './sound.js';
 
@@ -123,13 +123,9 @@ export function furnitureEl(id, r = 0) {
 }
 
 // 공간 배경을 그린다(공간을 바꿀 때도 부른다). scene: config.js의 SCENES 한 줄
-// 놀이터 앞쪽 끝의 문(src/iso.js의 sceneFrontSVG)은 가구 층(.items) 바로 뒤에 두어 가구 위, 밤 그늘(.night-shade) 아래에 그린다
 export function setSceneBg(app, scene) {
   app.roomEl.querySelector('.room-bg')?.remove();
-  app.roomEl.querySelector('.room-fg')?.remove();
-  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene, app.owner, app.decor));
-  app.itemsEl.insertAdjacentHTML('afterend', sceneFrontSVG(scene, app.owner));
-  app.roomEl.dataset.kind = scene.kind;
+  app.roomEl.insertAdjacentHTML('afterbegin', sceneSVG(scene, app.decor));
 }
 
 // 밤 그늘: 공간 전체를 덮는 어두운 층에, 불빛 가구 둘레만 구멍을 낸다(밤이 아니면 CSS가 숨긴다).
@@ -149,32 +145,18 @@ function renderShade(container, items) {
   shade.style.webkitMaskImage = mask;
 }
 
-// 뒤쪽 울타리의 문(gates, src/iso.js의 fenceGates)을 가리는 가구에 covers-gate 클래스를 단다. style.css가 반쯤 비치게 그려 문과 팻말이 보인다.
-// 그 문은 배경 그림의 일부라 바닥 가구가 늘 그 위에 그려진다. 방 꾸미기가 문 안쪽 칸을 비워 두게 해도(src/rules.js의 blocksGate)
-// 그 둘째 줄에 세운 가로등과 나무, 규칙이 생기기 전에 놓은 가구는 문을 덮는다. 앞쪽 끝의 문은 가구 위에 그려 이 일이 없다(sceneFrontSVG)
-function markCover(el, items, item, gates) {
-  el.classList.toggle('covers-gate', coversGate(item, elevOf(items, item), gates));
-}
-
 // 바탕화면 배경의 공간 그림 한 장. container 는 1280×720 크기여야 한다. scene: config.js의 SCENES 한 줄.
 // 두 번 누르면 on에 넘긴 함수를 부른다(아바타가 그 옆으로 걸어가 쓴다).
-//   on.use(item, el)  가구          on.gate(gate)      바깥 공간의 아파트 문
-//   on.door(door)     방의 현관문    on.neighbor(gate)  놀이터 앞쪽 끝의 이웃집 문({ wall, x, w }, 이웃집 목록 창을 띄운다)
+//   on.use(item, el)  가구          on.door(door)  방의 현관문(이웃집 목록 창을 띄운다)
 // on.use의 el은 그 가구의 상자다. 가까이 보기가 그 자리에서 커지며 다가온다(src/closeup.js).
 // 한 번 누르기는 바닥을 눌러 걷기와 헷갈리지 않게 아무것도 하지 않는다(바탕화면 아이콘처럼 두 번 눌러 연다).
 // 두 번 누르기는 바탕화면 아이콘과 같이 클릭 간격으로 직접 잰다(src/util.js의 doubleClick).
-// owner: 이 집의 주인 이름. 보여 줄 이웃(이 집 말고)이 없으면 놀이터에 이웃집 문을 달지 않는다(src/neighbors.js의 neighborGate).
 // decor: 이 집의 방 꾸밈(벽지). 집 상태의 decor 그대로다
-// 앞쪽 끝의 문(sceneFrontSVG)은 배경 바로 뒤에 붙이고, style.css의 .wallpaper .room-fg가 가구와 아바타보다 높은 층에 올린다.
-export function renderStatic(container, items, scene, on = {}, owner = '', decor = null) {
-  container.innerHTML = sceneSVG(scene, owner, decor) + sceneFrontSVG(scene, owner);
+export function renderStatic(container, items, scene, on = {}, decor = null) {
+  container.innerHTML = sceneSVG(scene, decor);
   const twice = doubleClick();
   const onTwice = (what, use) => () => { if (twice(what)) use(); };
-  const gates = fenceGates(scene, owner);
-  const near = gates.find(g => g.cls === 'neighbor');
-  container.querySelector('.gate-hit')?.addEventListener('click', onTwice(scene.gate, () => on.gate?.(scene.gate)));
   container.querySelector('.door-hit')?.addEventListener('click', onTwice(scene.door, () => on.door?.(scene.door)));
-  if (near) container.querySelector('.neighbor-hit')?.addEventListener('click', onTwice(near, () => on.neighbor?.(near)));
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
@@ -183,7 +165,6 @@ export function renderStatic(container, items, scene, on = {}, owner = '', decor
     el.addEventListener('click', onTwice(item, () => on.use?.(item, el)));
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
-    markCover(el, items, item, gates);
     container.append(el);
   }
   renderShade(container, items);
@@ -191,7 +172,6 @@ export function renderStatic(container, items, scene, on = {}, owner = '', decor
 
 export function renderItems(app) {
   const items = app.room.items;
-  const gates = fenceGates(app.scene, app.owner);
   app.itemEls.clear();
   app.itemsEl.replaceChildren();
   for (const item of items) {
@@ -200,7 +180,6 @@ export function renderItems(app) {
     if (BY_ID[item.id].light) el.classList.add('light');
     placeEl(el, item, elevOf(items, item));
     el.style.zIndex = zOf(items, item);
-    markCover(el, items, item, gates);
     el.addEventListener('pointerdown', e => onItemDown(app, item, e));
     app.itemEls.set(item, el);
     app.itemsEl.append(el);
@@ -325,11 +304,9 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     return moved;
   };
 
-  // 현관문 자리(config.js의 SCENES door)에는 벽 가구를 새로 걸 수 없고, 울타리 문 바로 앞 칸에는 바닥 가구를 새로 놓을 수 없다.
-  // 불러올 때는 막지 않으므로 여기서만 본다(src/rules.js의 coversDoor, blocksGate). 문은 끌기를 시작할 때 그려진 것을 쓴다
-  const gates = fenceGates(app.scene, app.owner);
+  // 현관문 자리(config.js의 SCENES door)에는 벽 가구를 새로 걸 수 없다. 불러올 때는 막지 않으므로 여기서만 본다(src/rules.js의 coversDoor)
   const valid = (base, moved) =>
-    moved.every((m, i) => canPlace([...base, ...moved.filter((_, j) => j !== i)], m) && !coversDoor(app.scene, m) && !blocksGate(gates, m));
+    moved.every((m, i) => canPlace([...base, ...moved.filter((_, j) => j !== i)], m) && !coversDoor(app.scene, m));
 
   const update = (clientX, clientY) => {
     const p = app.toLocal(clientX, clientY);

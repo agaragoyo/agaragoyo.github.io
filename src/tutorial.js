@@ -1,9 +1,10 @@
-// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 놀이터에 나갔다 돌아오면서
-// 가구 놓기, 가구 쓰기, 놀이터를 배운다(2026-11-10까지는 창문도 놓고 창문으로 나갔다).
+// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 이웃집 목록 창을 열어 보면서
+// 가구 놓기, 가구 쓰기, 이웃집 가기를 배운다. 2026-11-10까지는 창문도 놓고 창문으로 나갔고,
+// 2026-11-17까지는 현관문으로 놀이터에 나갔다가 울타리의 아파트 문으로 돌아왔다.
 // 화면 구석의 작은 안내 카드가 한 번에 한 가지 행동만 부탁하고 화살표가 그 자리를 가리킨다. 글을 읽고 넘기는 "다음" 단추는 없다.
 //
-// 지금이 몇 단계인지는 저장하지 않고, 매 화면 지금 상태(방의 가구, 열린 창, 공간, 밤낮)를 읽어 아직 하지 않은 첫 단계를 고른다.
-// 그래서 순서를 바꿔 해도, 놓은 가구를 치워도, 새로 고침을 해도 맞는 단계로 돌아온다. 가구, 창, 탭이 바뀌는 길이 여럿이라
+// 지금이 몇 단계인지는 저장하지 않고, 매 화면 지금 상태(방의 가구, 열린 창, 밤낮)를 읽어 아직 하지 않은 첫 단계를 고른다.
+// 그래서 순서를 바꿔 해도, 놓은 가구를 치워도, 새로 고침을 해도 맞는 단계로 돌아온다. 가구와 창이 바뀌는 길이 여럿이라
 // 길마다 알림을 심는 대신 이렇게 읽는다. 읽기만 하고 달라진 것이 없으면 다시 그리지 않는다.
 // 스탠드를 썼는지처럼 상태로 남지 않는 일만 passed에 적어 저장한다.
 //
@@ -17,8 +18,7 @@ import { BY_ID, TUTORIAL_FURNITURE } from '../data/furniture.js';
 import { batchim, h, loadJSON, saveJSON } from './util.js';
 
 const HOME = 'room';
-const OUTSIDE = 'playground';
-const LESSONS = ['가구 놓기', '가구 쓰기', '놀이터 가기'];
+const LESSONS = ['가구 놓기', '가구 쓰기', '이웃집 가기'];
 const ARROW_H = 56; // 화살표가 차지하는 높이(그림 48px, 튀는 폭 8px). 대상 위쪽에 이만큼 자리가 없으면 아래에 둔다
 const CARD = { left: 860, top: 470, bottom: 628 }; // 안내 카드의 기본 자리(style.css의 .coach-card). 대상이 여기에 걸리면 카드가 왼쪽으로 비킨다
 
@@ -41,7 +41,6 @@ export function createTutorial(os) {
     return w && !w.minimized ? w : null;
   };
   const inWallpaper = selector => os.stage.querySelector(`#wallpaper ${selector}`);
-  const notHome = () => (os.place === HOME ? null : GATE);
   const shelfCard = id => roomWin()?.el.querySelector(`.card .furn[data-id="${id}"]`)?.closest('.card');
   // 사용자가 선반을 넘겨서 가구 카드가 밖으로 나갔으면, 그 카드 쪽으로 넘기는 단추를 대신 가리킨다.
   function cardOrArrow(card) {
@@ -67,22 +66,7 @@ export function createTutorial(os) {
     text: () => `${lead} ${eul(BY_ID[id].name)} 끌어다\n${BY_ID[id].zone === 'wall' ? '벽에 거세요' : '바닥에 놓으세요'}.`,
     done: () => has(id),
     target: () => cardOrArrow(shelfCard(id)),
-    detour: () => (roomWin()?.el.querySelector('.scene-tab[aria-selected="true"]')?.dataset.scene === HOME ? null : TAB),
   });
-  // 놀이터 탭을 보고 있으면 선반에 내 방 가구가 없다.
-  const TAB = {
-    id: 'tab',
-    text: () => '위쪽 내 방 탭을 누르면\n선반에 내 방 가구가 나옵니다.',
-    target: () => roomWin()?.el.querySelector(`.scene-tab[data-scene="${HOME}"]`),
-  };
-  const GATE = {
-    id: 'gate',
-    lesson: 2,
-    use: true,
-    text: () => '내 방으로 돌아가려면 울타리의\n아파트 문을 두 번 누르세요.',
-    done: () => os.place === HOME,
-    target: () => inWallpaper('.gate-hit'),
-  };
   const STEPS = [
     {
       id: 'open',
@@ -108,7 +92,6 @@ export function createTutorial(os) {
       text: () => `${lightName} 두 번 누르면 아바타가\n걸어가서 방을 ${os.settings.get('night') ? '낮' : '밤'}으로 바꿉니다.`,
       done: () => false, // 쓰면 used()가 passed에 적는다
       target: () => inWallpaper(`.furn[data-id="${light}"]`),
-      detour: notHome,
     },
     {
       id: 'day',
@@ -117,18 +100,16 @@ export function createTutorial(os) {
       text: () => `${lightName} 다시 두 번 누르면\n낮으로 돌아옵니다.`,
       done: () => !os.settings.get('night'),
       target: () => inWallpaper(`.furn[data-id="${light}"]`),
-      detour: notHome,
     },
     {
-      id: 'out',
+      id: 'neighbor',
       lesson: 2,
       use: true,
-      once: true,
-      text: () => '방 벽의 현관문을 두 번 누르면\n아바타가 놀이터로 나갑니다.',
-      done: () => os.place === OUTSIDE,
+      once: true, // 목록 창을 닫아도 되돌아가지 않는다
+      text: () => '방 벽의 현관문을 두 번 누르면\n이웃집 목록 창이 열립니다.',
+      done: () => !!os.wm.get('neighbor'),
       target: () => inWallpaper('.door-hit'),
     },
-    GATE,
   ];
   const END = {
     id: 'end',

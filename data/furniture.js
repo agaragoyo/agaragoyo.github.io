@@ -43,7 +43,7 @@ export const FURNITURE = [
   { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
   { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8', say: '멍하니 보게 된다.' },
   // 내 방: 벽
-  // 창문은 2026-11-10까지 두 번 누르면 놀이터로 나갔다. 지금은 방 벽의 현관문(src/config.js의 SCENES door)이 그 일을 한다
+  // 창문은 2026-11-10까지 두 번 누르면 놀이터로 나갔다. 그 뒤로는 방 벽의 현관문(src/config.js의 SCENES door)이 문 일을 맡는다
   { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', say: '바깥 날씨는 어떨까.' },
   { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', say: '탁 트여서 시원하다.' },
   { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba', say: '바람 불면 찰랑이겠다.' },
@@ -53,14 +53,6 @@ export const FURNITURE = [
   { id: 'wall-clock', scene: 'room', name: '벽시계',  zone: 'wall', size: [1, 1], color: '#f2e6cb', say: '{시각}이구나.' },
   // 코르크 보드: 손님이 쪽지를 붙이는 방명록(시험, src/apps/corkboard-app.js). 그림이 오기 전까지는 코르크색 액자 상자로 보인다
   { id: 'corkboard', scene: 'room', name: '코르크 보드', zone: 'wall', size: [3, 2], color: '#c69a64', gimmick: 'app:corkboard' },
-  // 놀이터
-  { id: 'sandbox',   scene: 'playground', name: '모래 놀이터', zone: 'floor', size: [3, 3], height: 14, color: '#e3cf98', say: '두꺼비집 지어 볼까.' },
-  { id: 'slide',     scene: 'playground', name: '미끄럼틀', zone: 'floor', size: [3, 1], height: 96, color: '#e5534b', say: '거꾸로 올라가면 혼나지.' },
-  { id: 'swing',     scene: 'playground', name: '그네',     zone: 'floor', size: [3, 1], height: 112, color: '#4a90c2', say: '더 높이 구르고 싶다.' },
-  { id: 'seesaw',    scene: 'playground', name: '시소',     zone: 'floor', size: [3, 1], height: 30, color: '#f2c14e', say: '둘이 타야 재밌는데.' },
-  { id: 'bench',     scene: 'playground', name: '벤치',     zone: 'floor', size: [2, 1], height: 30, color: '#8b6a4a', say: '잠깐 앉았다 갈까.' },
-  { id: 'tree',      scene: 'playground', name: '나무',     zone: 'floor', size: [1, 1], height: 150, color: '#5a9a4f', say: '그늘이 시원하겠다.' },
-  { id: 'streetlight', scene: 'playground', name: '가로등', zone: 'floor', size: [1, 1], height: 160, color: '#6d7380', light: true, gimmick: 'night' },
 ];
 
 export const BY_ID = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
@@ -68,5 +60,5 @@ export const BY_ID = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 // 튜토리얼(src/tutorial.js)에서 놓아 보는 기본 가구. 여기의 id만 바꾸면 안내 문구와 화살표가 따라간다.
 //   first  놓는 법을 배우는 가구. 기믹을 쓰지 않으므로 내 방 가구 아무거나 된다. 가구별 인터랙션이 정해지면 바뀔 수 있다
 //   light  가구를 쓸 수 있다는 것을 배우는 가구. gimmick: 'night'여야 한다
-// 놀이터는 가구가 아니라 방 벽의 현관문으로 나가서 배운다(2026-11-10까지는 door: 'window'로 창문을 놓고 썼다).
+// 이웃집 가기는 가구가 아니라 방 벽의 현관문으로 배운다(2026-11-10까지는 door: 'window'로 창문을 놓고 놀이터로 나갔다).
 export const TUTORIAL_FURNITURE = { first: 'bed', light: 'lamp' };

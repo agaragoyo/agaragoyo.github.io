@@ -296,13 +296,12 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     };
   }
 
-  // 벽(놀이터에서는 울타리)의 칸 from부터 w칸 바로 앞에 설 칸과 볼 쪽. 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
-  // 놀이터 앞쪽 끝의 문(wall 'F', src/iso.js의 fenceGates)은 그 안쪽 y = N - 1 줄에 서서 앞쪽(화면 왼쪽 아래)을 본다.
+  // 벽의 칸 from부터 w칸 바로 앞에 설 칸과 볼 쪽. 오른쪽 벽은 y = 0 줄, 왼쪽 벽은 x = 0 줄 바로 앞이다(iso.js의 wallPoint).
   function besideWall(wall, from, w) {
     const along = u => u >= from && u < from + w;
     return {
-      goal: (x, y) => (wall === 'R' ? y === 0 && along(x) : wall === 'F' ? y === N - 1 && along(x) : x === 0 && along(y)),
-      face: () => FACING[wall === 'R' ? '0,-1' : wall === 'F' ? '0,1' : '-1,0'],
+      goal: (x, y) => (wall === 'R' ? y === 0 && along(x) : x === 0 && along(y)),
+      face: () => FACING[wall === 'R' ? '0,-1' : '-1,0'],
     };
   }
 
@@ -312,7 +311,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     go(goal, face, then);
   }
 
-  // 벽의 칸 from부터 w칸 바로 앞까지 걸어가 벽 쪽을 본 뒤 then을 부른다. 벽 가구와 놀이터 문이 쓴다.
+  // 벽의 칸 from부터 w칸 바로 앞까지 걸어가 벽 쪽을 본 뒤 then을 부른다. 벽 가구와 현관문이 쓴다.
   function approachWall(wall, from, w, then) {
     const { goal, face } = besideWall(wall, from, w);
     go(goal, face, then);
@@ -635,7 +634,7 @@ export function mountOwner(host, name, avatarId = 'basic') {
   el.classList.add('room-owner');
   const tag = h('div', { className: 'room-owner-name' }, name);
   const bubble = h('div', { className: 'room-avatar-say', hidden: true });
-  let cell = null; // 서 있는 칸. 주인이 없는 공간(놀이터)이거나 방이 꽉 차 설 칸이 없으면 null
+  let cell = null; // 서 있는 칸. 주인이 없는 공간(내 방이 아닌 공간)이거나 방이 꽉 차 설 칸이 없으면 null
   let facing = FACING['0,1'];
   let base = 0;    // 가구와의 앞뒤로 정한 순서(depthZ)
   let greetTimer = 0;

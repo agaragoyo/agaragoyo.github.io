@@ -22,7 +22,8 @@
 //   music    창이 열려 있는 동안 틀 배경음악 이름(src/sound.js 의 MUSIC). 게임 안에 음악이 이미 있으면 'own' 으로 적어
 //            그 창이 열려 있는 동안 사이트 음악을 멈춘다(두 음악이 겹치지 않게). 없으면 바탕화면 음악이 그대로 나온다
 //   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다.
-//            지금 바탕화면에 보이는 공간의 바로 가기는 나오지 않는다(놀이터에서는 놀이터 대신 집으로가 보인다)
+//            지금 바탕화면에 보이는 공간의 바로 가기는 나오지 않는다. 지금은 공간이 내 방 하나라 쓰는 앱이 없다
+//            (2026-11-17까지 놀이터와 집으로 바로 가기가 있었다)
 //   href     창 대신 새 탭으로 여는 바깥 주소(https). 다른 사이트의 창(iframe) 안에서는 돌지 않는 남의 게임에 쓴다.
 //            열기 전에 새 탭에서 열린다는 것과 열리는 주소를 보여 준다(src/apps/link-app.js). builtin, src 없이 쓴다
 //   links    href 앱의 주소가 여럿일 때 [{ label, href }]. 여는 창에 label이 단추로 하나씩 나온다(예: '초급으로 열기'). href에는 첫 주소를 같이 적는다
@@ -56,8 +57,6 @@ export const APPS = [
   { id: 'room', title: '방 꾸미기', icon: 'builtin:room', builtin: 'room', editOnly: true },
   { id: 'make-mine', title: '나도 만들기', icon: 'builtin:make', builtin: 'mine', visitOnly: true, ownHome: false },
   { id: 'my-computer', title: '내 컴퓨터로', icon: 'builtin:computer', builtin: 'mine', visitOnly: true, ownHome: true },
-  { id: 'playground', title: '놀이터', icon: 'builtin:playground', scene: 'playground' },
-  { id: 'go-home', title: '집으로', icon: 'builtin:home', scene: 'room' },
   { id: 'games', title: '게임', icon: 'builtin:games', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },

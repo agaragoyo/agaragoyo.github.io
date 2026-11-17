@@ -169,7 +169,6 @@ export const TEST_HOME = {
       { id: 'bookshelf', x: 7, y: 0 }, { id: 'bed', x: 0, y: 3 }, { id: 'tv', x: 8, y: 3 }, { id: 'console', x: 10, y: 3 },
       { id: 'corkboard', wall: 'R', x: 0, y: 4 },
     ],
-    playground: [{ id: 'bench', x: 9, y: 10 }],
   },
   likes: {
     computer: { url: 'https://example.com/', name: '점검용 게임' },

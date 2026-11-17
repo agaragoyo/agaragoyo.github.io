@@ -10,7 +10,7 @@ import { ownPicture, saveOwnPicture, pictureEl, shownSize } from './user-picture
 import { h } from './util.js';
 
 // 이름을 바꾼다. 이름이 나오는 곳은 대부분 열 때마다 os.home.owner를 새로 읽는다(로그인 화면, 시작 메뉴, 화면 보호기, 방 그림 PNG, 앱의 AGA.info).
-// 바탕화면은 놀이터의 이웃집 문을 달지가 주인 이름으로 정해지므로(src/neighbors.js의 neighborGate) 다시 그리고, 연 채로 이름을 보이는 창은 win.refreshOwner로 다시 쓴다.
+// 연 채로 이름을 보이는 창은 win.refreshOwner로 다시 쓴다.
 function rename(os, name) {
   const before = os.home.owner;
   // 사진을 고른 적 없는 사용자의 사진은 이름으로 정한다(ownPicture). 이름과 함께 사진까지 바뀌지 않게 지금 사진을 저장해 둔다

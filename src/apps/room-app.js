@@ -1,4 +1,4 @@
-// 기본 앱: 방 꾸미기. 집 안의 공간(내 방, 놀이터 ...)을 탭으로 오가며 꾸민다.
+// 기본 앱: 방 꾸미기. 집 안의 공간(지금은 내 방 하나)을 꾸민다. 공간이 둘 이상이면 탭으로 오가며 꾸민다.
 // 1280×840 크기의 공간과 선반을 창 크기에 맞춰 줄여 보여 준다.
 import { ROOM_W, STAGE_H, SCENES } from '../config.js';
 import { renderItems, setSceneBg } from '../room.js';
@@ -22,7 +22,7 @@ function stageOffset(el, stage) {
   return { x, y };
 }
 
-// 처음 열 때는 바탕화면에 보이는 공간(os.place)의 탭부터 보여 준다. 놀이터에 나가 있으면 놀이터부터 꾸민다.
+// 처음 열 때는 바탕화면에 보이는 공간(os.place)부터 보여 준다. 공간이 둘 이상이면 위쪽 탭으로 꾸밀 공간을 고른다.
 // 방 꾸미기 창은 하나뿐이라, 이미 열려 있으면 고르던 탭 그대로 그 창을 앞으로 가져온다.
 export function openRoomApp(os, appInfo) {
   const opened = os.wm.get('room');
@@ -76,7 +76,6 @@ export function openRoomApp(os, appInfo) {
         },
         get mode() { return os.mode; },
         get scene() { return scene; }, // 지금 꾸미는 공간(config.js의 SCENES 한 줄). 현관문 자리 검사에 쓴다
-        get owner() { return os.home.owner; }, // 집 주인 이름. 이 집 말고 보여 줄 이웃이 없으면 놀이터에 이웃집 문을 달지 않는다
         get decor() { return os.home.decor; }, // 방 꾸밈(벽지). 집 상태의 decor
         // 화면 좌표 → 공간 좌표 (1280×840)
         toLocal(clientX, clientY) {
@@ -94,9 +93,10 @@ export function openRoomApp(os, appInfo) {
         },
       };
 
-      // 공간 탭
+      // 공간 탭. 공간이 둘 이상일 때만 단다(2026-11-17 놀이터를 빼서 지금은 내 방 하나다).
+      // 빈 자리(.scene-tabs)는 남겨 두어 주인 이름과 오른쪽 단추 사이를 지금처럼 띄운다
       const tabs = root.querySelector('.scene-tabs');
-      for (const sc of SCENES) {
+      for (const sc of SCENES.length > 1 ? SCENES : []) {
         const t = document.createElement('button');
         t.type = 'button';
         t.className = 'scene-tab';
@@ -143,11 +143,8 @@ export function openRoomApp(os, appInfo) {
         render();
       }
 
-      // 창을 연 채 이름을 바꾸면(src/user-name.js) 위의 "주인 이름의 집"과 놀이터 앞쪽 끝의 이웃집 문을 새 이름으로 다시 그린다
-      win.refreshOwner = () => {
-        setSceneBg(ctx, scene);
-        render();
-      };
+      // 창을 연 채 이름을 바꾸면(src/user-name.js) 위의 "주인 이름의 집"을 새 이름으로 다시 쓴다
+      win.refreshOwner = render;
 
       function render() {
         renderItems(ctx);

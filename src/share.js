@@ -1,5 +1,5 @@
 // 집 상태 검사와 공유 링크(#r=..., 예전 #room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
-// 집 상태: { v: 3, owner, scenes: { room: [가구...], playground: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말,
+// 집 상태: { v: 3, owner, scenes: { room: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말,
 //           decor: { wall: 벽지 id }, picture: 주인 사진 값 }. decor는 기본 벽이 아닌 벽지를 골랐을 때만 있다(F13).
 // picture는 링크로 연 친구 집에만 있다(F25). 내 사진은 집과 따로 저장하고, 링크를 만들 때 withPicture(src/user-pictures.js)로 붙인다.
 // picture는 목록 사진의 id이거나, 그림 파일로 만든 내 그림('my:'로 시작하는 글, src/custom-picture.js, F26)이다.
@@ -67,6 +67,7 @@ export function sanitizeHome(raw) {
 
 // 짧은 형식에서 가구를 가리키는 번호(배열 순서). 순서를 바꾸거나 중간에 끼우면 이미 보낸 링크의 가구가 다른 가구로 열리므로
 // 새 가구는 끝에만 더한다. 여기 없는 가구도 링크에 담기지만 id 글자를 그대로 넣어 조금 길어진다(tools/check.py가 알린다).
+// 'sandbox'부터 'streetlight'까지 일곱 개는 2026-11-17에 뺀 놀이터의 가구다. 자리를 지키려고 남겨 두었고, 예전 링크에 든 이 가구는 풀 때 버린다.
 export const LINK_CODES = [
   'desk', 'dining-table', 'bed', 'sofa', 'bookshelf', 'wardrobe', 'armchair', 'fridge', 'lamp', 'audio',
   'big-plant', 'computer', 'tv', 'console', 'camera', 'diary', 'desk-lamp', 'desk-lamp-2', 'mug', 'plant',
