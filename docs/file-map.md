@@ -63,7 +63,7 @@
 | 분신사바의 공포 모드(어둠과 깜박임, 04:44 시계, 기우는 벽 가구, 혼잣말, 시간이 갈수록 늘어나는 이상한 일, 불 켜서 풀기) | 켜고 풀기, 혼잣말 줄(`LINES`), 늘어나는 단계(`STEPS`)는 `src/horror.js`, 단계의 때는 `src/config.js`의 `HORROR`, 어둠과 깜박임과 기울기와 빈칸의 말풍선은 `style.css`의 "분신사바" 절, 밤 색과 시계와 불빛 가구와 시작 메뉴를 잇는 곳은 `src/os.js`의 `syncTheme`, `tick`, `toggleNight`, `openFurniture`, `openStartMenu` |
 | 주인이 담아 둔 가구 위에 반짝임 띄우기(F12) | 가구에 `has-like` 클래스를 다는 곳은 `src/os.js`의 `markLiked`, 별 그림과 깜박임은 `style.css`의 `.has-like::after`, 별 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--sparkle-cell`) |
 | 바탕화면을 그냥 두면 아바타가 가구로 가서 혼잣말하기(실험실의 `idle-talk`) | 기다리기와 가구 고르기는 `src/idle-talk.js`, 시간은 `src/config.js`의 `IDLE_TALK`, 쉬는 때(`canRun`)는 `src/os.js`, 가구의 혼잣말 한 줄은 `src/furniture-line.js`, 가구 옆까지의 걸음 수와 가던 길 버리기는 `src/avatar.js`의 `stepsTo`와 `halt` |
-| 내 방에 펫 두기(F30) | 펫의 그림과 색, 종류마다의 성격(쉬는 시간, 걷는 칸 수, 명령을 듣는지, 처음부터 따라오는지, 벽 앞을 좋아하는지, 폴짝 뛰기, 바닥 쪼기)은 `data/pets.js`(`DEFAULT_MOOD`와 종류의 `mood`), 걷기와 숨쉬기와 쓰다듬기, 할 일(혼자 놀기, 따라오기, 기다리기)과 오른쪽 단추 메뉴(`openMenu`, 메뉴 줄은 `ORDERS`), 병아리가 닭으로 자라기(`patted`)는 `src/pet.js`, 종류와 색을 고르는 펫 바꾸기 창은 `src/pet-picker.js`(여는 곳은 `src/os.js`의 시작 메뉴 `openStartMenu`, 메뉴 아이콘은 `src/icons.js`의 `pet`), 고른 펫은 `src/settings.js`의 `pet`(쓰다듬은 횟수는 `petPats`), 바탕화면에 붙이고 떼는 곳과 쓰다듬은 횟수를 세는 곳은 `src/os.js`의 `syncPet`과 `petPatted`, 아바타가 펫 칸을 피하고 옆으로 다가가는 곳은 `src/avatar.js`의 `host.others`와 `approachCell`, 모양은 `style.css`의 `.room-pet`과 `.pet-app`, 그림 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--pet-cell`) |
+| 내 방에 펫 두기(F30) | 펫의 그림과 색, 종류마다의 성격(쉬는 시간, 걷는 칸 수, 명령을 듣는지, 처음부터 따라오는지, 벽 앞을 좋아하는지, 폴짝 뛰기, 바닥 쪼기)은 `data/pets.js`(`DEFAULT_MOOD`와 종류의 `mood`), 걷기와 숨쉬기와 쓰다듬기, 할 일(혼자 놀기, 따라오기, 기다리기)과 오른쪽 단추 메뉴(`openMenu`, 메뉴 줄은 `ORDERS`), 병아리가 닭으로 자라기(`patted`)는 `src/pet.js`, 쓰다듬을 때 내는 소리는 종류의 `sound`(`data/pets.js`)와 `src/sound.js`의 `EFFECTS`(파일은 `assets/sounds/pet-*.mp3`), 종류와 색을 고르는 펫 바꾸기 창은 `src/pet-picker.js`(여는 곳은 `src/os.js`의 시작 메뉴 `openStartMenu`, 메뉴 아이콘은 `src/icons.js`의 `pet`), 고른 펫은 `src/settings.js`의 `pet`(쓰다듬은 횟수는 `petPats`), 바탕화면에 붙이고 떼는 곳과 쓰다듬은 횟수를 세는 곳은 `src/os.js`의 `syncPet`과 `petPatted`, 아바타가 펫 칸을 피하고 옆으로 다가가는 곳은 `src/avatar.js`의 `host.others`와 `approachCell`, 모양은 `style.css`의 `.room-pet`과 `.pet-app`, 그림 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--pet-cell`) |
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 링크(`#s=` 뒤 방 번호)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules`. 서버에 두는 방 글자는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`(예전 긴 링크 `#r=`도 같은 글자라 그대로 열린다) |
@@ -93,7 +93,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼과 그 OSD, 전원 연출(켤 때 디가우스)을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
-| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`, 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
+| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`(아바타가 걸어간 뒤처럼 기다렸다 낼 소리는 누른 순간에 `prime`으로 만들어 둔다, known-issues 100), 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `prime`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악, 실험실, 고른 펫과 병아리를 쓰다듬은 횟수, TV가 다음에 보일 소문의 차례) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 여는 암호는 `src/secrets.js`에 있다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
 | `src/secrets.js` | 말풍선 암호. 내 컴퓨터의 바탕화면에서 말풍선에 말하면 숨은 기능을 여는 말과 그때 할 일의 목록(실험실 F24, 분신사바 F29, 비둘기 F32). `os.js`의 `onSay`가 말풍선의 말을 넘긴다. 손님 화면과 튜토리얼, 그 연습 방에서는 듣지 않는다. 내 집의 TV가 화면 아래 띠에 하나씩 보이는 숨은 기능의 소문 목록(`HINTS`, 실험실 암호는 넣지 않는다)도 여기 있다 | `SECRETS`, `trySecret`, `HINTS` |
@@ -192,7 +192,7 @@
 | 경로 | 하는 일 |
 | --- | --- |
 | `assets/favicon.png` | 브라우저 탭 아이콘. 32×32px 작은 집 |
-| `assets/sounds/` | 효과음과 배경음악 mp3. 팀 드라이브의 원본을 줄이고 잘라 넣었다(어디서 무엇을 잘랐는지는 `docs/requirements.md`의 "소리"). 배경음악은 `bgm-`로 시작한다 |
+| `assets/sounds/` | 효과음과 배경음악 mp3. 팀 드라이브의 원본을 줄이고 잘라 넣었다(어디서 무엇을 잘랐는지는 `docs/requirements.md`의 "소리"). 배경음악은 `bgm-`로, 펫을 쓰다듬을 때의 소리는 `pet-`로 시작한다 |
 | `assets/furniture/` | 가구 그림. `<가구 id>.png`, 돌려 놓은 모습은 `<가구 id>-r.png`(없으면 좌우로 뒤집어 쓴다). 첫 그림은 식탁(`dining-table.png`)이다 |
 | `assets/fonts/` | 사이트가 쓰는 글자와 한글 완성형 2,350자만 남긴 작은 글꼴 AgaUI(보통 `aga-ui.woff2`, 굵게 `aga-ui-bold.woff2`), 들어 있는 글자 목록(`aga-ui.txt`), 갈무리 라이선스(`OFL.txt`). `tools/ui_font.py`가 만든다. 이름을 바꾼 까닭과 다시 만드는 법은 `assets/fonts/README.md` |
 

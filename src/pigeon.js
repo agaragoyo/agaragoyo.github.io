@@ -1,7 +1,7 @@
 // 말풍선 암호 999999999로 부르는 비둘기(docs/requirements.md의 F32). 숫자 9는 "구"라서, 9를 아홉 번 부르면 "구구" 우는 비둘기가 온다는 말장난이다.
 // 방 벽에 창문(id가 window로 끝나는 벽 가구)이 있으면 그 가운데 하나로, 없으면 방의 현관문(src/config.js의 SCENES door)으로 날아 들어와
 // 빈 바닥 칸에 내려앉아 "구구" 하고, 내 펫처럼 몇 칸씩 걷다가 12~18초 뒤 가장 가까운 창문(없으면 현관문)으로 날아 나간다.
-// 두 번 누르면 아바타가 옆으로 다가오고, 비둘기는 놀라 바로 날아 나간다. 현관문으로 드나들 때는 문 닫히는 소리를 낸다.
+// 두 번 누르면 아바타가 옆으로 다가오고, 비둘기는 놀라 새소리(src/sound.js의 pet-bird)를 내며 바로 날아 나간다. 현관문으로 드나들 때는 문 닫히는 소리를 낸다.
 // 움직임 줄이기를 켠 사람에게는 날지 않고 내려앉을 칸에 나타났다가 그 자리에서 사라진다.
 // 걷기, 날기, 그림은 내 펫과 같은 src/pet.js의 mountPet이 맡고(그림은 data/pets.js의 비둘기), 여기서는 드나드는 곳과 머무는 시간만 정한다.
 // 한 번에 한 마리만 오고, 와 있을 때 또 부르면 한 번 더 "구구" 한다(src/os.js의 callPigeon). 집 저장 형식과 링크에는 아무것도 담지 않는다.
@@ -55,7 +55,7 @@ export function visitPigeon(host) {
     others: host.others,
     look: () => LOOK,
     rest: PIGEON.rest,
-    shy: () => leave(),
+    shy: () => leave(true),
     title: '두 번 눌러 다가가기',
   });
   const coo = () => bird.say(COO, PIGEON.coo);
@@ -75,7 +75,7 @@ export function visitPigeon(host) {
   function land() {
     arrived = true;
     coo();
-    stayTimer = setTimeout(leave, PIGEON.stay[0] + Math.random() * (PIGEON.stay[1] - PIGEON.stay[0]));
+    stayTimer = setTimeout(() => leave(false), PIGEON.stay[0] + Math.random() * (PIGEON.stay[1] - PIGEON.stay[0]));
   }
 
   // 지금 칸에서 가장 가까운 창문, 창문이 없으면 현관문으로 나간다. 거리는 창문 앞에 내려앉는 칸(near)까지 잰다
@@ -87,10 +87,12 @@ export function visitPigeon(host) {
     return gates.reduce((a, b) => (d(b) < d(a) ? b : a));
   }
 
-  function leave() {
+  // startled: 다가온 아바타에 놀라 날아간다(두 번 누르기). 그때만 새소리를 내고, 머무는 시간이 다 되어 날아갈 때는 조용히 간다
+  function leave(startled) {
     if (leaving) return;
     leaving = true;
     clearTimeout(stayTimer);
+    if (startled) play('pet-bird');
     const out = exit();
     bird.flyOut(out, () => {
       if (out.door) play('enter');
