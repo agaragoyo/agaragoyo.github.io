@@ -15,15 +15,22 @@
 // 물과 밥은 집에 저장해야 해서 넣지 않았다. 펫은 화면에만 있고 집 저장 형식과 공유 링크에는 아무것도 담지 않는다(새로 고침하면 다른 칸에서 시작하고, 할 일도 처음으로 돌아간다).
 // 혼자 놀거나 기다리는 펫이 차지한 칸(걷는 동안은 두 칸)은 아바타가 지나가지 못하고(src/avatar.js의 host.others가 부르는 cells), 두 그림이 겹치면 앞에 선 쪽이 위에 그려진다(order).
 // 가구와의 앞뒤는 아바타와 같은 규칙(depthZ)이다. 혼자 놀 때는 벽에 붙은 줄(x나 y가 0)에 가지 않는다. 아바타가 벽 가구와 문을 쓰러 가서 서는 칸이라서다.
+// 가구에 올라가는 종류(mood.perch, 고양이)는 혼자 놀다 쉬고 일어날 때 가끔(src/config.js의 PERCH.odds) 바닥 대신 가구로 걸어가, 가구 옆 칸에서
+// 윗면(data/furniture.js의 perch, src/rules.js의 perchesOf)으로 뛰어올라 웅크린 그림(loaf)으로 PERCH.stay 동안 쉬다가 옆 칸으로 뛰어내린다.
+// 방에 처음 나올 때도 PERCH.start의 몫으로 가구 위에서 시작한다. 가구 위에서는 그 가구 바로 위에 그리고(perchZ), 차지한 칸은 발끝이 든 가구 칸이다.
+// 아바타가 그 가구를 쓰러 오면(src/os.js의 useFurniture가 부르는 vacate) 뛰어내려 비키고, 방 꾸미기에서 가구를 옮기거나 치우거나 그 칸에 물건을 올리면
+// 방을 다시 그릴 때(attach) 뛰어내린다. 마인크래프트의 고양이가 앉은 상자는 열리지 않는데 그것이 고장으로 보고되어 왔으므로, 아바타가 쓰려는 가구는 늘 비켜 준다.
 // 움직임 줄이기를 켠 사람에게는 걸어 다니지 않고 숨도 쉬지 않으며 앉아만 있는다(눈 깜박이기와 쓰다듬기는 된다). 따라오는 펫은 걷지 않고,
-// 아바타가 멈춰 서면 그 바로 뒤 칸에 나타난다.
+// 아바타가 멈춰 서면 그 바로 뒤 칸에 나타난다. 가구 위에서 시작하거나 가구에서 내려올 때도 뛰지 않고 자리만 바뀐다.
 // 한 칸은 2px 안팎이고, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값(--pet-cell)으로 그린다(known-issues 67).
 // 말풍선에 999999999를 말하면 날아오는 비둘기(src/pigeon.js)도 이 코드로 걷는다(비둘기의 성격 그대로 혼자 논다). 그 비둘기는 창문이나 현관문에서 날아 들어오고(flyIn)
 // 날아 나가며(flyOut), 두 번 누르면 쓰다듬는 대신 아바타가 다가온 뒤 놀라 날아간다(host.shy). 오른쪽 단추 메뉴는 없다. 내 펫과 그 비둘기는 서로의 칸과
 // 그 둘레 한 칸에 들어가지 않아(host.others) 두 그림이 겹치지 않는다. 따라오는 펫만은 비둘기 옆 칸을 지나갈 수 있다.
-import { N } from './config.js';
+import { N, PERCH } from './config.js';
 import { tile } from './iso.js';
 import { depthZ, blockedOf, overlaps } from './avatar.js';
+import { dims, perchesOf, supportOf } from './rules.js';
+import { zOf } from './room.js';
 import { h, clamp, doubleClick, reduceMotion } from './util.js';
 import { PET_SPECIES, DEFAULT_PET, DEFAULT_MOOD } from '../data/pets.js';
 
@@ -52,6 +59,10 @@ const FLY_MS = [900, 1800];     // 한 번 나는 시간의 범위
 const FLAP_MS = 110;            // 날개를 든 장과 내린 장을 바꾸는 간격
 const FADE_MS = 250;            // 창문이나 현관문에서 나타나고 사라지는 시간
 const ARC = 18;                 // 나는 길 가운데가 곧은 줄보다 솟는 높이(무대 px)
+const LEAP_MS = 380;            // 가구에 뛰어오르거나 뛰어내리는 시간
+const LEAP_ARC = 10;            // 뛰는 길이 높은 쪽 끝보다 더 솟는 높이(무대 px). 윗면 높이 차의 절반에 더해 곧은 줄보다 솟는다
+const LEAP_REACH = 2.1;         // 뛰는 칸(가구 옆 바닥 칸의 가운데)에서 가구 위 앉는 자리까지의 가장 먼 거리(칸). 바로 옆과 한 칸 비낀 칸까지다
+const PERCH_REACH = 8;          // 혼자 놀다 가구로 갈 때 걸어가는 가장 먼 거리(길을 따라 센 칸 수)
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 // 오른쪽 단추 메뉴에서 시키는 할 일. [할 일, 메뉴 줄, 시킬 때 아바타가 하는 말]. 메뉴에는 이 차례로 나오고 지금 하는 일 앞에 점이 찍힌다.
 // 혼자 놀게 하기는 따라오기나 기다리기를 풀어 처음처럼 돌아다니게 한다
@@ -62,9 +73,11 @@ export const ORDERS = [
 ];
 export const IGNORED = '못 들은 척하네.'; // 명령을 듣지 않는 펫이 쳐다보다 돌아서면 아바타가 하는 말
 // 그림 한 마리에 넣는 장. 숨 쉬는 장과 눈 감은 장, 바닥을 쪼는 장은 앉은 그림에서 만든다(framesOf).
-// 나는 그림(fly1, fly2)이 있는 종류는 그 두 장을, 바닥을 쪼는 종류(mood.peck)는 쪼는 장(peck)을 더 넣는다
+// 나는 그림(fly1, fly2)이 있는 종류는 그 두 장을, 바닥을 쪼는 종류(mood.peck)는 쪼는 장(peck)을,
+// 웅크린 그림(loaf)이 있는 종류는 웅크린 장과 그 숨 쉬는 장, 눈 감은 장(LOAF)을 더 넣는다
 const FRAMES = ['sit', 'breath', 'blink', 'breath-blink', 'walk1', 'walk2'];
-const framesFor = species => [...FRAMES, ...(species.fly1 ? ['fly1', 'fly2'] : []), ...(moodOf(species).peck ? ['peck'] : [])];
+const LOAF = ['loaf', 'loaf-breath', 'loaf-blink', 'loaf-breath-blink'];
+const framesFor = species => [...FRAMES, ...(species.fly1 ? ['fly1', 'fly2'] : []), ...(moodOf(species).peck ? ['peck'] : []), ...(species.loaf ? LOAF : [])];
 
 const key = (x, y) => `${x},${y}`;
 const near = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
@@ -133,12 +146,18 @@ function shut(rows) {
   return g.map(r => r.join(''));
 }
 
-// 종류마다 그림 장을 한 번만 만든다. 바닥을 쪼는 장(peck)은 숨 쉬는 장처럼 줄을 빼되 두 줄을 빼서, 머리와 몸 윗부분이 두 칸 숙여진다
+// 종류마다 그림 장을 한 번만 만든다. 바닥을 쪼는 장(peck)은 숨 쉬는 장처럼 줄을 빼되 두 줄을 빼서, 머리와 몸 윗부분이 두 칸 숙여진다.
+// 웅크린 그림(loaf)도 앉은 그림과 같은 줄(breath)을 빼서 숨 쉬는 장을 만든다
 const frameCache = new Map();
 function framesOf(species) {
   if (!frameCache.has(species.id)) {
     const breath = inhale(species.sit, species.breath);
+    const loafBreath = species.loaf && inhale(species.loaf, species.breath);
     frameCache.set(species.id, {
+      loaf: species.loaf,
+      'loaf-breath': loafBreath,
+      'loaf-blink': species.loaf && shut(species.loaf),
+      'loaf-breath-blink': loafBreath && shut(loafBreath),
       sit: species.sit,
       breath,
       blink: shut(species.sit),
@@ -201,18 +220,19 @@ export function petSvg(choice, frames = framesFor(choice.species)) {
 // 지금 그림 한 칸의 크기(무대 px). 무대 배율에 따라 바뀐다(src/icons.js의 fitPixelIcons)
 export const petCell = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pet-cell')) || 2;
 
-// 쓰다듬을 때 하트를 띄울 높이. 머리 가운데 위 7칸 폭에서 가장 위에 칠한 줄을 찾아, 그 한 칸 위에 하트(6줄)의 아래가 오게 한다.
-// 고양이처럼 귀가 양옆에 선 종류는 귀 사이에 뜬다. 돌려주는 값은 발끝에서 하트 위까지의 칸 수(음수)다
-function heartRise(species) {
-  const top = species.sit.findIndex(row => /[^.]/.test(row.slice(HEAD_X - 3.5, HEAD_X + 3.5)));
+// 쓰다듬을 때 하트를 띄울 높이. 그림 rows(앉은 그림이나 웅크린 그림)의 머리 가운데 위 7칸 폭에서 가장 위에 칠한 줄을 찾아,
+// 그 한 칸 위에 하트(6줄)의 아래가 오게 한다. 고양이처럼 귀가 양옆에 선 종류는 귀 사이에 뜬다. 돌려주는 값은 발끝에서 하트 위까지의 칸 수(음수)다
+function heartRise(rows) {
+  const top = rows.findIndex(row => /[^.]/.test(row.slice(HEAD_X - 3.5, HEAD_X + 3.5)));
   return top - 1 - HEART.rows.length - PET_ROWS;
 }
 
 // 펫 그림을 담은 상자(방의 .room-pet, 펫 바꾸기 창의 큰 그림)를 움직인다.
 //   look(choice)  종류와 색을 정하고 그림을 다시 넣는다(petChoice가 돌려준 것)
-//   pose(name)    'sit'(앉기), 'walk1', 'walk2'(걷기 두 장), 'fly1', 'fly2'(날기 두 장, 나는 그림이 있는 종류만), 'peck'(바닥 쪼기, mood.peck인 종류만)
-//   shut(on)      앉아 있을 때 눈을 감는다(쓰다듬는 동안)
-//   live(on)      켜면 앉아 있는 동안 숨을 쉬고 눈을 깜박인다. 움직임 줄이기를 켠 사람에게는 깜박이기만 한다. 끌 때 타이머를 모두 멈춘다
+//   pose(name)    'sit'(앉기), 'loaf'(가구 위에 웅크리기, 웅크린 그림이 있는 종류만), 'walk1', 'walk2'(걷기 두 장),
+//                 'fly1', 'fly2'(날기 두 장, 나는 그림이 있는 종류만), 'peck'(바닥 쪼기, mood.peck인 종류만)
+//   shut(on)      앉거나 웅크려 있을 때 눈을 감는다(쓰다듬는 동안)
+//   live(on)      켜면 앉거나 웅크려 있는 동안 숨을 쉬고 눈을 깜박인다. 움직임 줄이기를 켠 사람에게는 깜박이기만 한다. 끌 때 타이머를 모두 멈춘다
 export function petPuppet(box) {
   let groups = [];
   let pose = 'sit';
@@ -222,11 +242,13 @@ export function petPuppet(box) {
   let breathTimer = 0;
   let blinkTimer = 0;
 
+  const still = () => pose === 'sit' || pose === 'loaf'; // 숨 쉬고 눈을 깜박이는 자세
   const frame = () => {
-    if (pose !== 'sit') return pose;
+    if (!still()) return pose;
     const closed = eyesShut || blinking;
-    if (breathIn) return closed ? 'breath-blink' : 'breath';
-    return closed ? 'blink' : 'sit';
+    const pre = pose === 'loaf' ? 'loaf-' : '';
+    if (breathIn) return pre + (closed ? 'breath-blink' : 'breath');
+    return closed ? `${pre}blink` : pose;
   };
   const show = () => {
     const name = frame();
@@ -253,8 +275,8 @@ export function petPuppet(box) {
       show();
     },
     pose(name) {
-      if (name !== 'sit') breathIn = false;
       pose = name;
+      if (!still()) breathIn = false;
       show();
     },
     shut(on) {
@@ -268,7 +290,7 @@ export function petPuppet(box) {
       if (on) {
         if (!reduceMotion) {
           breathTimer = setInterval(() => {
-            if (pose !== 'sit') return;
+            if (!still()) return;
             breathIn = !breathIn;
             show();
           }, BREATH_MS);
@@ -295,8 +317,9 @@ export function petPuppet(box) {
 //   menu      있으면 오른쪽 단추로 눌렀을 때 할 일 메뉴를 띄운다. { root, toStage }: 메뉴를 넣을 무대와 화면 좌표를 무대 좌표로 바꾸는 함수.
 //             가구와 펫이 든 상자(layer)는 쌓임 맥락이 따로라 그 안에 넣으면 창 아래에 깔리므로 무대에 넣는다
 //   title     마우스를 올리면 보이는 글. 없으면 "두 번 눌러 쓰다듬기"다
-// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), order(at, rect, z), flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
-// cells와 order는 아바타가 부른다(host.others). flyIn, flyOut, say는 날아오는 비둘기(src/pigeon.js)가 쓴다
+// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), order(at, rect, z), vacate(item), flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
+// cells와 order는 아바타가 부른다(host.others). vacate는 아바타가 가구를 쓸 때 os.js가 부른다. flyIn, flyOut, say는 날아오는 비둘기(src/pigeon.js)가 쓴다.
+// 가구 위에 웅크리고 있는 동안에는 펫 상자(.room-pet)의 data-perch에 그 가구의 id가 있다(눌러 보기 점검이 읽는다)
 export function mountPet(host) {
   const el = h('div', { className: 'room-pet', title: host.title || '두 번 눌러 쓰다듬기' });
   const puppet = petPuppet(el);
@@ -307,8 +330,12 @@ export function mountPet(host) {
   let species = null;   // 지금 종류(data/pets.js). 성격(mood)도 여기서 읽는다
   let mode = 'free';    // 할 일. 'free' 혼자 놀기, 'follow' 따라오기, 'stay' 기다리기
   let told = false;     // 지금 할 일이 메뉴로 시킨 일인지. 시키지 않았으면 종류가 바뀔 때(병아리가 닭이 되면) 새 종류가 처음 하는 일로 바뀐다
-  let cell = null;      // 앉은 칸(걷는 중에는 들어가는 칸). 방에 없으면 null
-  let from = null;      // 걷는 중이면 나오는 칸
+  let cell = null;      // 앉은 칸(걷는 중에는 들어가는 칸). 가구 위에서는 발끝이 든 가구 칸이다. 방에 없으면 null
+  let from = null;      // 걷는 중이면 나오는 칸(가구에 뛰어오르거나 내리는 중이면 뛰기 전 칸)
+  let perch = null;     // 가구 위에 올라가 있으면 그 자리 { item, x, y, h }. item은 앉은 가구의 { id, x, y, r }(놓인 자리를 적어 둔 것),
+                        // x와 y는 발끝 자리(방의 칸 좌표, 소수), h는 윗면 높이(무대 px)다. 바닥에 있으면 null
+  let aim = null;       // 혼자 놀다 가구로 걸어가는 중이면 올라갈 자리(perch와 같은 모양). 남은 길(route)의 끝 칸에서 뛰어오른다
+  let leaving = false;  // 뛰어오르는 동안 아바타가 그 가구를 쓰러 왔다. 다 오르면 바로 내려온다
   let pos = null;       // 그리는 자리. 걷는 동안은 두 칸 사이의 소수
   let right = false;    // 화면 오른쪽을 보는지(그림을 뒤집는다)
   let route = [];       // 혼자 놀 때 남은 길
@@ -347,8 +374,12 @@ export function mountPet(host) {
     const was = species;
     species = choice.species;
     puppet.look(choice);
-    heart.style.setProperty('--dy', heartRise(species)); // h()로 넣은 CSS 변수는 빠지므로 setProperty로 넣는다(known-issues 50)
+    heart.style.setProperty('--dy', heartRise(species.sit)); // h()로 넣은 CSS 변수는 빠지므로 setProperty로 넣는다(known-issues 50)
     headRows = Math.max(0, species.sit.findIndex(row => /[^.]/.test(row)));
+    if (!mood().perch) {
+      aim = null;
+      if (perch) drop(); // 가구 위에 있다가 올라가지 않는 종류로 바뀌었다
+    }
     const grew = was?.grow === species.id;
     if (was && was.id !== species.id) closeMenu(); // 열려 있던 메뉴의 점은 바뀌기 전 펫의 할 일이다
     if (!was || (was.id !== species.id && !(grew && told && mood().obey))) {
@@ -371,21 +402,36 @@ export function mountPet(host) {
   // 벽 앞(벽에 붙은 줄 바로 앞 줄)이나 가구 옆 칸인지. 겁 많은 펫(mood.edge)이 혼자 놀 때 고르는 칸이다
   const edgy = (x, y) => x === 1 || y === 1 || DIRS.some(([dx, dy]) => blocked.has(key(x + dx, y + dy)));
 
-  // 칸 c에 선 그림이 화면에서 차지하는 네모(무대 px). 그림의 아래 가운데가 칸 가운데(발끝)다
-  const rectAt = c => {
-    const p = tile(c.x + 0.5, c.y + 0.5);
-    return { l: p.x - (size * PET_COLS) / 2, t: p.y - size * PET_ROWS, r: p.x + (size * PET_COLS) / 2, b: p.y };
-  };
+  // 발끝 자리 q(무대 px)에 선 그림이 화면에서 차지하는 네모(무대 px). 그림의 아래 가운데가 발끝이다
+  const rectOf = q => ({ l: q.x - (size * PET_COLS) / 2, t: q.y - size * PET_ROWS, r: q.x + (size * PET_COLS) / 2, b: q.y });
+  // 칸 c에 선 그림의 네모. 발끝은 칸 가운데다
+  const rectAt = c => rectOf(tile(c.x + 0.5, c.y + 0.5));
+  const floorOf = s => ({ x: Math.floor(s.x), y: Math.floor(s.y) }); // 가구 위 자리 s의 발끝이 든 칸
+  // 가구 위 자리 p에 앉은 발끝 자리(무대 px). 바닥의 그 자리보다 윗면 높이만큼 위다
+  const perchPoint = p => { const q = tile(p.x, p.y); return { x: q.x, y: q.y - p.h }; };
+  // 가구 위 자리 p가 그 가구의 자리인지. it은 방의 가구나 적어 둔 { id, x, y, r }이다
+  const onItem = (p, it) => !!p && p.item.id === it.id && p.item.x === it.x && p.item.y === it.y && !p.item.r === !it.r;
+
+  // 가구 위 자리 p에 앉은 그림(네모 rect)의 순서. 그 가구 바로 위에 그리고, 가구 위 물건 가운데 뒤의 것보다 위, 앞의 것보다 아래다
+  // (src/room.js의 zOf가 책상 위 물건에 매기는 순서와 같은 셈이다). 그림이 겹치는 뒤쪽 가구보다도 위다(depthZ).
+  // 그 가구가 방에 없으면(옮겨서 뛰어내리는 중) 바닥처럼 depthZ로만 정한다
+  function perchZ(p, rect) {
+    const items = host.items();
+    const c = floorOf(p);
+    const it = items.find(i => onItem(p, i));
+    return Math.max(depthZ(items, c, rect), it ? zOf(items, it) + 1 + Math.round((c.x + c.y + 1) * 3) : 0);
+  }
 
   // 지금 자리(pos)에 그리고 가구와의 앞뒤를 정한다. 아바타와 겹치면 앞에 선 쪽이 위에 오게 아바타가 order를 다시 부른다.
-  // p는 발끝 자리(무대 px)다. 날 때는 바닥에서 떠 있으므로 바닥 칸(pos) 대신 그 점을 넘긴다
-  function draw(at, w, d, rect, p = tile(pos.x + 0.5, pos.y + 0.5)) {
+  // p는 발끝 자리(무대 px)다. 날거나 가구 위에 있을 때는 바닥에서 떠 있으므로 바닥 칸(pos) 대신 그 점을 넘긴다.
+  // z는 가구와의 앞뒤로 정한 순서다. 가구 위에서는 perchZ를 넘긴다
+  function draw(at, w, d, rect, p = tile(pos.x + 0.5, pos.y + 0.5), z = depthZ(host.items(), at, rect)) {
     el.style.left = `${Math.round(p.x)}px`;
     el.style.top = `${Math.round(p.y)}px`;
     el.classList.toggle('flip', right);
     if (!bubble.hidden) placeBubble(p);
     foot = { at, w, d, rect };
-    base = depthZ(host.items(), at, rect);
+    base = z;
     el.style.zIndex = base;
     host.avatar()?.restack();
   }
@@ -396,8 +442,19 @@ export function mountPet(host) {
     bubble.style.top = `${Math.round(p.y - size * (PET_ROWS - headRows) - 4)}px`;
   }
 
+  // 지금 칸에 앉는다. 가구 위에 있으면 그 자리에 웅크린다
   function sit() {
     size = petCell();
+    if (perch) {
+      const q = perchPoint(perch);
+      const rect = rectOf(q);
+      pos = { x: perch.x - 0.5, y: perch.y - 0.5 };
+      el.dataset.perch = perch.item.id;
+      puppet.pose('loaf');
+      draw(cell, 1, 1, rect, q, perchZ(perch, rect));
+      return;
+    }
+    delete el.dataset.perch;
     pos = { ...cell };
     puppet.pose('sit');
     draw(cell, 1, 1, rectAt(cell));
@@ -410,6 +467,7 @@ export function mountPet(host) {
     if (!cell || !el.isConnected || flying) return;
     if (walking) {
       route = [];
+      aim = null;
       return;
     }
     begin();
@@ -423,13 +481,18 @@ export function mountPet(host) {
     watchTimer = 0;
     trail = [];
     seen = null;
-    if (cell && !walking) puppet.pose('sit'); // 바닥을 쪼던 중이었으면 머리를 든다
+    if (cell && !walking) puppet.pose(perch ? 'loaf' : 'sit'); // 바닥을 쪼던 중이었으면 머리를 든다. 가구 위에서는 웅크린 채다
   }
 
   // 앉은 자리에서 지금 할 일을 시작한다. 혼자 놀 때는 쉬다가 걷고(닭은 그사이 바닥을 쫀다), 따라올 때는 앞선 이를 지켜보며, 기다릴 때는 앉아만 있는다.
-  // 따라오다가 혼자 놀게 되면 벽에 붙은 줄에 앉아 있을 수도 있는데, 다음에 걸을 때(hop) 빈칸으로만 가므로 그 줄을 벗어난다
+  // 따라오다가 혼자 놀게 되면 벽에 붙은 줄에 앉아 있을 수도 있는데, 다음에 걸을 때(hop) 빈칸으로만 가므로 그 줄을 벗어난다.
+  // 가구 위에서 따라오게 되면 먼저 뛰어내린다(내려앉은 뒤 settle이 다시 부른다). 기다리게 하면 가구 위에서 기다린다
   function begin() {
     stopMode();
+    if (perch && (mode === 'follow' || !mood().perch)) {
+      descend();
+      return;
+    }
     if (mode === 'follow') {
       watchTimer = setInterval(watch, WATCH_MS);
       watch();
@@ -439,11 +502,11 @@ export function mountPet(host) {
     }
   }
 
-  // 혼자 놀 때 앉아서 쉬다가 다시 걷는다. 움직임 줄이기를 켠 사람에게는 앉아만 있는다
+  // 혼자 놀 때 앉아서 쉬다가 다시 걷는다. 가구 위에서는 PERCH.stay 동안 웅크리고 있다가 뛰어내린다. 움직임 줄이기를 켠 사람에게는 앉아만 있는다
   function rest() {
     clearTimeout(restTimer);
     if (reduceMotion) return;
-    const [a, b] = host.rest || mood().rest;
+    const [a, b] = perch ? PERCH.stay : host.rest || mood().rest;
     restTimer = setTimeout(wander, a + Math.random() * (b - a));
   }
 
@@ -557,19 +620,204 @@ export function mountPet(host) {
     return out;
   }
 
+  // 혼자 놀 때 쉬고 일어난다. 가구 위에 있으면 뛰어내리고(내려앉을 칸이 없으면 더 쉰다), 가구에 올라가는 펫(mood.perch)은 PERCH.odds의 몫으로
+  // 가구 옆 칸까지 걸어가 뛰어오른다(perchTrip, climb). 아니면 몇 칸 떨어진 빈칸으로 걷는다(hop)
   function wander() {
     if (!cell || waiting || mode !== 'free') return;
     clearTimeout(peckTimer);
-    route = hop();
-    if (route.length) step();
+    if (perch) {
+      if (!descend()) rest();
+      return;
+    }
+    const trip = mood().perch && Math.random() < PERCH.odds ? perchTrip() : null;
+    route = trip || hop();
+    if (route.length || aim) step();
     else begin();
+  }
+
+  // 지금 방에서 올라갈 수 있는 자리들(perch와 같은 모양). 다른 펫과 붙는 자리는 뺀다
+  function perchSpots() {
+    const items = host.items();
+    const out = [];
+    for (const it of items) {
+      for (const s of perchesOf(items, it)) {
+        const c = floorOf(s);
+        if (!crowded(c.x, c.y)) out.push({ item: { id: it.id, x: it.x, y: it.y, r: it.r }, x: s.x, y: s.y, h: s.h });
+      }
+    }
+    return out;
+  }
+
+  // 가구 위 자리 p가 지금 방에 그대로 있는지. 그 가구를 옮기거나 돌리거나 치웠으면, 또 그 칸에 물건을 올렸으면 거짓이다
+  function holds(p) {
+    const items = host.items();
+    const it = items.find(i => onItem(p, i));
+    return !!it && perchesOf(items, it).some(s => s.x === p.x && s.y === p.y);
+  }
+
+  // 가구 it 위의 자리 s로 뛰어오르거나 거기서 뛰어내릴 수 있는 바닥 칸들. 가구 둘레(모서리의 대각선 칸은 빼고)에서 칸 가운데가 자리와
+  // LEAP_REACH칸 안이고 ok(x, y)인 칸이며, 자리에서 가까운 차례다
+  function launchCells(it, s, ok) {
+    const [w, d] = dims(it);
+    const far = c => Math.hypot(c.x + 0.5 - s.x, c.y + 0.5 - s.y);
+    const out = [];
+    for (let x = it.x - 1; x <= it.x + w; x++) {
+      for (let y = it.y - 1; y <= it.y + d; y++) {
+        const side = (x === it.x - 1 || x === it.x + w) !== (y === it.y - 1 || y === it.y + d);
+        if (side && far({ x, y }) <= LEAP_REACH && ok(x, y)) out.push({ x, y });
+      }
+    }
+    return out.sort((a, b) => far(a) - far(b));
+  }
+
+  // 올라갈 자리 하나와 그 자리로 뛸 바닥 칸(jump)을 고른다. ok(x, y)인 칸에서 뛸 수 있는 자리 가운데 가구를 먼저 무작위로 고르고(가구마다 같은 몫),
+  // 그 가구의 자리를 무작위로 고른다. 뛸 칸은 그 자리로 뛸 수 있는 칸 가운데 score(칸)가 가장 작은 칸이다. 고를 것이 없으면 null
+  function choosePerch(ok, score) {
+    const byItem = new Map();
+    for (const s of perchSpots()) {
+      const cells = launchCells(s.item, s, ok);
+      if (!cells.length) continue;
+      const jump = cells.reduce((m, c) => (score(c) < score(m) ? c : m));
+      const k = key(s.item.x, s.item.y);
+      if (!byItem.has(k)) byItem.set(k, []);
+      byItem.get(k).push({ s, jump });
+    }
+    const groups = [...byItem.values()];
+    if (!groups.length) return null;
+    const g = groups[Math.floor(Math.random() * groups.length)];
+    return g[Math.floor(Math.random() * g.length)];
+  }
+
+  // 혼자 놀다 가구로 갈 길. 지금 칸에서 빈칸만 지나 PERCH_REACH칸 안에 닿는 가구 옆 칸 가운데 한 곳까지의 길(지금 칸은 빼고, 이미 그 칸이면 빈 길)을
+  // 돌려주고 올라갈 자리를 aim에 둔다. 갈 수 있는 자리가 없으면 null
+  function perchTrip() {
+    const prev = new Map([[key(cell.x, cell.y), null]]);
+    const dist = new Map([[key(cell.x, cell.y), 0]]);
+    const queue = [cell];
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      const dc = dist.get(key(c.x, c.y));
+      if (dc === PERCH_REACH) continue;
+      for (const [dx, dy] of DIRS) {
+        const n = { x: c.x + dx, y: c.y + dy };
+        if (!open(n.x, n.y) || prev.has(key(n.x, n.y))) continue;
+        prev.set(key(n.x, n.y), c);
+        dist.set(key(n.x, n.y), dc + 1);
+        queue.push(n);
+      }
+    }
+    const pick = choosePerch((x, y) => dist.has(key(x, y)), c => dist.get(key(c.x, c.y)));
+    if (!pick) return null;
+    aim = pick.s;
+    const out = [];
+    for (let c = pick.jump; !same(c, cell); c = prev.get(key(c.x, c.y))) out.unshift(c);
+    return out;
+  }
+
+  // 방에 처음 나올 때 올라가 있을 자리를 고른다. 뛰어내릴 빈칸이 있고 그 칸까지 아바타가 걸어갈 수 있는 자리 가운데 하나다
+  function startPerch() {
+    const seen = reachable();
+    const pick = choosePerch((x, y) => open(x, y) && (!seen || seen.has(key(x, y))), () => 0);
+    if (!pick) return;
+    perch = pick.s;
+    cell = floorOf(pick.s);
+  }
+
+  // 발끝 자리 a에서 b까지(무대 px) 폴짝 뛰어 가구에 오르거나 내린다. 곧은 줄보다 (높이 차의 절반 + LEAP_ARC)만큼 솟는 활 모양으로 LEAP_MS 동안 뛴다.
+  // c0과 c1은 뛰기 전과 뒤의 칸(가구 위면 발끝이 든 가구 칸)이다. 앞뒤 순서는 반을 뛸 때까지 za, 그 뒤로 zb가 정한다. 둘 다 뛰는 동안 그림이 지나는
+  // 네모를 받아 뛰기 전 자리와 내려앉을 자리의 순서를 돌려준다. 다 뛰면 then을 부른다. 움직임 줄이기를 켠 사람에게는 부르지 않는다
+  function leap(a, b, c0, c1, za, zb, then) {
+    cancelAnimationFrame(raf);
+    walking = true;
+    size = petCell();
+    if (b.x !== a.x) right = b.x > a.x;
+    const lift = Math.abs(a.y - b.y) / 2 + LEAP_ARC;
+    const half = (size * PET_COLS) / 2;
+    const sweep = { l: Math.min(a.x, b.x) - half, t: Math.min(a.y, b.y) - lift - size * PET_ROWS, r: Math.max(a.x, b.x) + half, b: Math.max(a.y, b.y) };
+    const at = { x: Math.min(c0.x, c1.x), y: Math.min(c0.y, c1.y) };
+    const [w, d] = [Math.abs(c0.x - c1.x) + 1, Math.abs(c0.y - c1.y) + 1];
+    const z = [za(sweep), zb(sweep)];
+    const t0 = performance.now();
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / LEAP_MS); // 지난 시간으로 계산해 프레임이 적은 창에서도 제시간에 닿는다(known-issues 23)
+      const p = { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k - lift * 4 * k * (1 - k) };
+      puppet.pose(k < 0.5 ? 'walk1' : 'walk2');
+      draw(at, w, d, sweep, p, z[k < 0.5 ? 0 : 1]);
+      if (k < 1) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      from = null;
+      then();
+    };
+    raf = requestAnimationFrame(tick);
+  }
+
+  // 가구 옆 칸에 다 와서 올라갈 자리(aim)로 뛰어오른다. 그사이 그 자리가 없어졌으면(가구를 옮겼으면) 그 칸에 앉는다
+  function climb() {
+    const p = aim;
+    aim = null;
+    if (!holds(p) || !mood().perch) {
+      settle();
+      return;
+    }
+    const start = cell;
+    perch = p;
+    cell = floorOf(p);
+    if (reduceMotion) {
+      settle();
+      return;
+    }
+    from = start;
+    leap(tile(start.x + 0.5, start.y + 0.5), perchPoint(p), start, cell, rect => depthZ(host.items(), start, rect), rect => perchZ(p, rect), settle);
+  }
+
+  // 가구 위 자리 p에서 뛰어내릴 바닥 칸. 그 자리 바로 아래 칸이 비었으면(가구를 옮기거나 치웠으면) 그 칸이고, 아니면 가구 둘레의 빈칸 가운데
+  // 뛸 수 있는 거리 안에서 가장 가까운 칸, 그것도 없으면 방에서 가장 가까운 빈칸이다. 빈칸이 하나도 없으면 null
+  function landing(p) {
+    const c = floorOf(p);
+    if (open(c.x, c.y)) return c;
+    return launchCells(p.item, p, open)[0] || pickCell(c);
+  }
+
+  // 가구에서 뛰어내린다. 내려앉을 칸(landing)으로 뛰고, 내려앉으면 하던 일을 이어 간다(settle). 움직임 줄이기를 켠 사람에게는 뛰지 않고 그 칸에 바로 앉는다.
+  // 내려앉을 칸이 없으면 그대로 있고 false를 돌려준다
+  function descend() {
+    const p = perch;
+    const to = p && landing(p);
+    if (!to) return false;
+    stopMode();
+    const start = cell;
+    perch = null;
+    cell = to;
+    if (reduceMotion) {
+      settle();
+      return true;
+    }
+    from = start;
+    leap(perchPoint(p), tile(to.x + 0.5, to.y + 0.5), start, to, rect => perchZ(p, rect), rect => depthZ(host.items(), to, rect), settle);
+    return true;
+  }
+
+  // 가구 위에 있다가 올라가지 않는 종류로 바뀌면(펫 바꾸기 창) 뛰지 않고 내려앉을 칸(landing)에 바로 앉는다.
+  // 방에 없으면 다음에 붙일 때(attach) 가장 가까운 빈칸을 고른다
+  function drop() {
+    const p = perch;
+    perch = null;
+    if (!el.isConnected) return;
+    cancelAnimationFrame(raf);
+    walking = false;
+    from = null;
+    cell = landing(p);
+    if (cell) sit();
+    else detach();
   }
 
   // 따라올 때 앞선 이를 지켜본다(WATCH_MS마다). 앞선 이가 옮겨 갔으면 길을 고치고, 앉아 있는데 길이 LAG칸보다 길면 걷기 시작한다.
   // 움직임 줄이기를 켠 사람에게는 걷지 않고, 앞선 이가 SETTLE_MS 동안 서 있으면 그 바로 뒤 칸에 나타난다
   function watch() {
     const s = leader()?.spot();
-    if (!s || !cell || !el.isConnected || flying) return;
+    if (!s || !cell || !el.isConnected || flying || perch) return; // 가구 위에서는 내려올 칸이 없어 내려오지 못한 것이다
     if (!seen || !same(s, seen)) {
       retrace(s);
       seen = { x: s.x, y: s.y };
@@ -628,12 +876,13 @@ export function mountPet(host) {
   }
 
   // 한 칸 걷는다. 혼자 놀 때는 남은 길(route)을, 따라올 때는 따라오는 길(trail)을 걷는다.
-  // 길이 끝났거나 다음 칸에 그사이 가구나 아바타, 다른 펫이 들어왔으면 그 자리에 앉는다
+  // 길이 끝났거나 다음 칸에 그사이 가구나 아바타, 다른 펫이 들어왔으면 그 자리에 앉는다. 가구로 가던 길이 끝났으면 뛰어오른다(climb)
   function step() {
     const follow = mode === 'follow';
     const to = follow ? nextTrail() : route.shift();
     if (!to || (!follow && (!stand(to.x, to.y) || avatarAt(to.x, to.y)))) {
-      settle();
+      if (!to && !follow && aim) climb();
+      else settle();
       return;
     }
     walking = true;
@@ -663,12 +912,18 @@ export function mountPet(host) {
     raf = requestAnimationFrame(tick);
   }
 
-  // 걷기를 마치고 앉는다. 걷던 중에 두 번 눌렸으면 이제 아바타를 부르고, 듣지 않는 명령을 받았으면 아바타를 쳐다본다.
-  // 따라오는 중이면 지켜보기(watch)가 다음 걸음을 정하고, 아니면 할 일을 처음부터 이어 간다
+  // 걷기나 뛰기를 마치고 앉는다. 뛰어오르는 동안 아바타가 그 가구를 쓰러 왔으면 바로 뛰어내린다. 걷던 중에 두 번 눌렸으면 이제 아바타를 부르고,
+  // 듣지 않는 명령을 받았으면 아바타를 쳐다본다. 따라오는 중이면 지켜보기(watch)가 다음 걸음을 정하고, 아니면 할 일을 처음부터 이어 간다
   function settle() {
     walking = false;
     route = [];
+    aim = null;
+    from = null;
     sit();
+    if (leaving) {
+      leaving = false;
+      if (perch && descend()) return;
+    }
     if (pending) {
       pending = false;
       call();
@@ -707,6 +962,7 @@ export function mountPet(host) {
     puppet.shut(true);
     heart.style.left = el.style.left;
     heart.style.top = el.style.top;
+    heart.style.setProperty('--dy', heartRise(perch ? species.loaf : species.sit)); // 웅크린 그림은 머리가 한 칸 낮다
     heart.style.setProperty('--dx', right ? HEAD_DX : -HEAD_DX); // h()로 넣은 CSS 변수는 빠지므로 setProperty로 넣는다(known-issues 50)
     heart.hidden = true;
     void heart.offsetWidth; // 연달아 쓰다듬으면 떠오르기를 처음부터 다시 한다
@@ -731,6 +987,7 @@ export function mountPet(host) {
     if (!cell || waiting || pending || flying) return;
     if (walking) {
       route = [];
+      aim = null;
       pending = true;
     } else {
       call();
@@ -759,6 +1016,7 @@ export function mountPet(host) {
   function snub() {
     if (walking) {
       route = [];
+      aim = null;
       snubbing = true;
       return;
     }
@@ -863,8 +1121,9 @@ export function mountPet(host) {
     puppet.shut(false);
     puppet.live(false);
     if (flying) landed();
-    walking = waiting = pending = snubbing = false;
+    walking = waiting = pending = snubbing = leaving = false;
     route = [];
+    aim = null;
     from = null;
     closeMenu();
   }
@@ -885,16 +1144,7 @@ export function mountPet(host) {
     const me = host.avatar()?.spot();
     let pool = cells;
     if (me) {
-      const seen = new Set([key(me.x, me.y)]);
-      const queue = [me];
-      for (let i = 0; i < queue.length; i++) {
-        for (const [dx, dy] of DIRS) {
-          const n = { x: queue[i].x + dx, y: queue[i].y + dy };
-          if (n.x < 0 || n.y < 0 || n.x >= N || n.y >= N || blocked.has(key(n.x, n.y)) || seen.has(key(n.x, n.y))) continue;
-          seen.add(key(n.x, n.y));
-          queue.push(n);
-        }
-      }
+      const seen = reachable();
       const far = cells.filter(c => seen.has(key(c.x, c.y)) && Math.abs(c.x - me.x) + Math.abs(c.y - me.y) > 2);
       if (far.length) pool = far;
     }
@@ -905,6 +1155,23 @@ export function mountPet(host) {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  // 아바타가 걸어갈 수 있는 칸들(가구가 없는 칸으로 이어진 칸)의 key 묶음. 아바타가 없으면 null
+  function reachable() {
+    const me = host.avatar()?.spot();
+    if (!me) return null;
+    const seen = new Set([key(me.x, me.y)]);
+    const queue = [me];
+    for (let i = 0; i < queue.length; i++) {
+      for (const [dx, dy] of DIRS) {
+        const n = { x: queue[i].x + dx, y: queue[i].y + dy };
+        if (n.x < 0 || n.y < 0 || n.x >= N || n.y >= N || blocked.has(key(n.x, n.y)) || seen.has(key(n.x, n.y))) continue;
+        seen.add(key(n.x, n.y));
+        queue.push(n);
+      }
+    }
+    return seen;
+  }
+
   // 지금 차지한 칸들(걷는 동안은 나오는 칸과 들어가는 칸 둘). 다른 펫이 이 칸과 둘레를 피한다
   const claims = () => (cell && el.isConnected ? (from ? [from, cell] : [cell]) : []);
 
@@ -913,18 +1180,34 @@ export function mountPet(host) {
   return {
     // 방을 다시 그린 뒤 아바타 다음에 부른다(펫이 아바타가 선 칸을 피해 앉는다). here: 펫이 사는 공간(내 방)인지.
     // 다른 공간에 나가 있는 동안에는 방에 없다가, 돌아오면 앉아 있던 칸에 다시 앉는다. 그 칸에 가구나 아바타가 있으면 가장 가까운 빈칸에 앉는다.
-    // 따라오는 펫은 앞선 이 바로 옆이 아니면 앞선 이에게서 가장 가까운 빈칸에 앉는다(아바타를 따라 다른 공간에 다녀온 것처럼)
+    // 따라오는 펫은 앞선 이 바로 옆이 아니면 앞선 이에게서 가장 가까운 빈칸에 앉는다(아바타를 따라 다른 공간에 다녀온 것처럼).
+    // 가구 위에 있던 펫은 그 자리가 그대로면 다시 웅크리고, 그 가구를 옮기거나 돌리거나 치웠거나 그 칸에 물건을 올렸으면 뛰어내린다.
+    // 가구에 올라가는 펫이 처음 나올 때는 PERCH.start의 몫으로 가구 위에서 시작한다
     attach(here) {
       halt();
       if (!here) { detach(); return; }
       blocked = blockedOf(host.items());
-      const lead = mode === 'follow' ? leader()?.spot() : null;
-      if (lead && (!cell || !stand(cell.x, cell.y) || !near(cell, lead))) cell = pickCell(lead);
-      else if (!cell || (mode === 'free' ? !open(cell.x, cell.y) : !stand(cell.x, cell.y) || avatarAt(cell.x, cell.y))) cell = pickCell(cell);
+      const fell = perch && !holds(perch) ? perch : null;
+      if (fell) {
+        perch = null;
+        cell = landing(fell);
+      } else if (!perch) {
+        if (!cell && mode === 'free' && mood().perch && Math.random() < PERCH.start) startPerch();
+        const lead = mode === 'follow' ? leader()?.spot() : null;
+        if (perch) {
+          // 가구 위에서 시작한다
+        } else if (lead && (!cell || !stand(cell.x, cell.y) || !near(cell, lead))) cell = pickCell(lead);
+        else if (!cell || (mode === 'free' ? !open(cell.x, cell.y) : !stand(cell.x, cell.y) || avatarAt(cell.x, cell.y))) cell = pickCell(cell);
+      }
       if (!cell) { detach(); return; }
       host.layer.append(el, heart);
-      sit();
       puppet.live(true);
+      if (fell && !reduceMotion) {
+        const to = cell;
+        leap(perchPoint(fell), tile(to.x + 0.5, to.y + 0.5), floorOf(fell), to, rect => perchZ(fell, rect), rect => depthZ(host.items(), to, rect), settle);
+        return;
+      }
+      sit();
       begin();
     },
     restyle,
@@ -935,6 +1218,23 @@ export function mountPet(host) {
     spot: () => (cell && el.isConnected ? { x: cell.x, y: cell.y } : null),
     // 지금 할 일('free', 'follow', 'stay')
     mode: () => mode,
+    // 아바타가 가구 item을 쓰러 왔다(src/os.js의 useFurniture). 그 가구(책상 위 물건이면 그 책상) 위에 있으면 뛰어내려 비킨다.
+    // 뛰어오르던 중이면 다 오른 뒤 바로 내려오고(settle), 그 가구로 걸어가던 중이면 올라가지 않는다. 쓰다듬으러 오던 아바타는 기다리지 않는다
+    vacate(item) {
+      const base = supportOf(host.items(), item) || item;
+      if (onItem(aim, base)) {
+        aim = null;
+        route = [];
+      }
+      if (!onItem(perch, base)) return;
+      if (walking) {
+        leaving = true;
+        return;
+      }
+      clearTimeout(callTimer);
+      waiting = false;
+      descend();
+    },
     // 아바타가 칸 at(걷는 동안은 두 칸을 합친 자리의 뒤쪽 모서리)에서 그림 네모 rect를 차지하고 순서 z로 그려지려 할 때 부른다(src/avatar.js의 draw).
     // 두 그림이 겹치면 앞에 선 쪽이 위에 오게 아바타의 순서를 돌려주고 펫의 순서를 고친다. 앞뒤는 가구와 같은 규칙(depthZ)으로 가린다
     order(at, rect, z) {

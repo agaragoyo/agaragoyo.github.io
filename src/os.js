@@ -554,9 +554,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   };
 
   // 바탕화면에서 가구를 두 번 눌렀을 때. 아바타가 그 옆으로 걸어간 뒤 기믹을 쓴다(심즈처럼 캐릭터가 가서 쓴다).
+  // 그 가구 위에 고양이가 올라가 있으면 아바타가 다 왔을 때 뛰어내려 비킨다(src/pet.js의 vacate).
   // from은 그 가구의 상자다. 가까이 보기를 열면 판이 그 자리에서 커지며 다가온다(src/closeup.js가 여는 동안에만 읽는다)
   os.useFurniture = (item, from) => {
     const use = () => {
+      pet?.vacate(item);
       os.closeupFrom = from || null;
       try {
         os.openFurniture(item);

@@ -12,7 +12,10 @@
 // 칸
 //   sit은 앉은 그림, walk1과 walk2는 걷는 그림 두 장이다(반 칸마다 바꾼다). walk1이 없으면 앉은 그림을 쓴다.
 //   fly1과 fly2는 나는 그림 두 장(날개를 든 장과 내린 장)이다. 말풍선 암호로 날아오는 비둘기(src/pigeon.js)가 쓰고, 지금은 비둘기에만 있다.
-//   숨 쉬는 그림과 눈 감은 그림은 src/pet.js가 앉은 그림에서 만든다. breath는 숨을 들이쉴 때 빼는 줄의 번호(0부터)이고, 그 위가 한 칸 내려온다.
+//   loaf는 가구 위에서 앞발을 접고 웅크린 그림(식빵 자세)이다. 가구에 올라가는 종류(mood.perch, 고양이)에만 두고, 앉은 그림보다 낮고 길다.
+//   머리는 앉은 그림의 머리를 한 줄 내려 그대로 쓰고(머리 가운데 9번 칸과 눈 자리가 같다), 몸은 머리 뒤로 눕히고 꼬리는 몸 아래로 감는다.
+//   숨 쉬는 그림과 눈 감은 그림은 src/pet.js가 앉은 그림과 웅크린 그림에서 만든다. breath는 숨을 들이쉴 때 빼는 줄의 번호(0부터)이고, 그 위가 한 칸 내려온다.
+//   웅크린 그림도 같은 줄을 빼므로, 그 줄은 두 그림 모두 머리가 없는 줄(앞발이나 다리)이어야 한다.
 //   눈 감은 그림은 하이라이트(h)가 든 눈을 위 칸의 색으로 덮고 맨 아래 줄만 남겨 만든다. 그래서 눈에는 h를 꼭 넣는다.
 //   colors는 색 네 가지다. b 바탕, d 그림자, w 배, m 무늬, e 눈, c 볼이고, 겉선(o)은 적지 않는다. 겉선은 바탕의 명도를 35 낮추고
 //   채도를 30% 줄인 색으로 칠한다(바탕화면 아이콘과 같은 방법, src/pet.js의 outline). 첫 색이 펫 바꾸기 창의 종류 단추에 그려진다.
@@ -34,7 +37,9 @@ export const DEFAULT_PET = 'cat/gray';
 //   hop     혼자 놀 때 한 번에 걷는 거리의 범위(길을 따라 센 칸 수)
 //   pop     쓰다듬으면 제자리에서 두 번 폴짝 뛰는지
 //   peck    혼자 놀며 앉아 있는 동안 가끔 머리를 숙여 바닥을 쪼는지
-export const DEFAULT_MOOD = { obey: true, follow: false, edge: false, rest: [10000, 20000], hop: [2, 4], pop: false, peck: false };
+//   perch   혼자 놀다가 가끔 가구 윗면(data/furniture.js의 perch)에 뛰어올라 웅크리고 쉬는지. 웅크린 그림(loaf)이 있어야 켠다.
+//           얼마나 자주 올라가고 얼마나 머무는지는 src/config.js의 PERCH에 있다
+export const DEFAULT_MOOD = { obey: true, follow: false, edge: false, rest: [10000, 20000], hop: [2, 4], pop: false, peck: false, perch: false };
 
 export const PET_SPECIES = [
   // 강아지. 귀가 늘어지고 주둥이가 밝다. 명령을 잘 듣고, 혼자 놀 때도 자주 멀리 돌아다닌다
@@ -116,12 +121,13 @@ export const PET_SPECIES = [
       '....sssssssssssssss.....',
     ],
   },
-  // 고양이. 귀가 서고 이마에 줄무늬, 분홍 코 아래에 ㅅ자 입이 있다. 제멋대로라 명령을 받으면 쳐다보기만 하고 따르지 않는다
+  // 고양이. 귀가 서고 이마에 줄무늬, 분홍 코 아래에 ㅅ자 입이 있다. 제멋대로라 명령을 받으면 쳐다보기만 하고 따르지 않고,
+  // 혼자 놀다가 침대나 책상 같은 가구 위에 뛰어올라 웅크리고(loaf) 있는다
   {
     id: 'cat',
     name: '고양이',
     breath: 16,
-    mood: { obey: false },
+    mood: { obey: false, perch: true },
     colors: [
       { id: 'gray', name: '회색', b: '#c5cada', d: '#a8aec3', w: '#f6f4f0', m: '#959cb3', e: '#3c3a4c', c: '#ffaec4' },
       { id: 'cheese', name: '치즈', b: '#f8cc94', d: '#eab274', w: '#fff4e4', m: '#e79a5b', e: '#4b3326', c: '#ff9fb0' },
@@ -193,6 +199,28 @@ export const PET_SPECIES = [
       '.....oooodo..oooodo.....',
       '........ooo.....ooo.....',
       '....sssssssssssssss.....',
+    ],
+    loaf: [
+      '........................',
+      '........................',
+      '...o...........o........',
+      '...oo.........oo........',
+      '...oco.......oco........',
+      '...occooooooocco........',
+      '...obbbmbmbmbbbo........',
+      '...obbbmbmbmbbbo........',
+      '..obbbbbbbbbbbbbooooo...',
+      '..obbbbbbbbbbbbbobmbbo..',
+      '..obbhebbbbbhebbobbmbbo.',
+      '..obbeebbcbbeebbobbbmbo.',
+      '..obbeebbobbeebbobbbbbo.',
+      '...occbbobobbccobbbbbdo.',
+      '...oobbbbbbbbboobbbbddo.',
+      '.....ooooooooooobbbdddo.',
+      '.....owwwowwwobbbbdddo..',
+      '.....owwwowwwommmmmmo...',
+      '.....oooooooooooooooo...',
+      '....ssssssssssssssssss..',
     ],
   },
   // 기니피그. 꼬리 없이 몸이 길고 둥글며, 귀가 머리 옆으로 처지고 얼굴 가운데에 흰 줄, 등에 무늬(m)가 있다.

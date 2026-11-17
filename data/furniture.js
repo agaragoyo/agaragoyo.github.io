@@ -8,6 +8,10 @@
 //       'floor' 바닥에 놓는다. size: [오른쪽 아래 방향 칸 수, 왼쪽 아래 방향 칸 수], height: 화면 높이(px)
 //       'top'   바닥에 놓거나 surface 가구 위에 올린다. size, height는 floor와 같다
 // surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
+// perch:   고양이처럼 가구에 올라가는 펫(data/pets.js의 mood.perch)이 앉는 윗면의 높이(무대 px). 바닥 가구에만 두고, 없으면 올라가지 않는다.
+//          가구 그림에서 잰 값이라 그림을 바꾸면 다시 잰다(침대는 이불 위, 1인 소파는 방석 위다). 한 번에 뛰어오를 수 있게 75px 이하로 둔다
+// perchAt: 앉는 자리 [가로 칸, 세로 칸]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)이고 펫의 발끝이 놓인다.
+//          없으면 윗면이 평평한 가구라 칸마다 가운데에 앉고, 책상 위 물건이 놓인 칸은 뺀다(src/rules.js의 perchesOf)
 // light:   true 이면 밤에 둘레를 밝힌다. 누르면 밤과 낮이 바뀐다
 // gimmick: 눌렀을 때 하는 일. 'night' 밤/낮 바꾸기, 'scene:<id>' 그 공간으로 가기, 'app:<id>' 앱 열기.
 //          바탕화면에서 가구를 두 번 누르면 아바타가 옆으로 가서 쓴다. 없으면 아바타가 say의 혼잣말을 한다
@@ -17,13 +21,13 @@
 //          줄을 꺼내는 곳은 src/furniture-line.js의 furnitureLine(def). 옷장, 디카, 다이어리, 냉장고, 화분, 포스터는 인터랙션이 생기기 전까지 쓰는 임시 줄이다
 export const FURNITURE = [
   // 내 방: 바닥
-  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, color: '#ede8da', say: '숙제는 내일 해야지.' },
-  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
-  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, color: '#c4b094', say: '눕자마자 잠들겠다.' },
+  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, perch: 62, color: '#ede8da', say: '숙제는 내일 해야지.' },
+  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, perch: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
+  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, perch: 30, perchAt: [1.5, 3], color: '#c4b094', say: '눕자마자 잠들겠다.' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a', say: '푹 파묻히고 싶다.' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
   { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 118, color: '#e0d9a1', say: '입을 옷이 없네.' },
-  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, color: '#cdc39e', say: '여긴 내 지정석이야.' },
+  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, perch: 30, perchAt: [1, 1], color: '#cdc39e', say: '여긴 내 지정석이야.' },
   { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0', say: '출출한데 뭐 있나.' },
   { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },
   { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66', say: '노래 듣고 싶은데.' },
