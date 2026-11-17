@@ -484,9 +484,52 @@ button { font-family: inherit; }
 }
 .room-pet-heart svg { display: block; width: calc(var(--cell) * 7); height: calc(var(--cell) * 6); shape-rendering: var(--pet-render, crispEdges); }
 @keyframes pet-heart { to { transform: translateY(calc(var(--cell) * -3)); } }
+/* 쓰다듬으면 제자리에서 두 번 폴짝 뛰는 펫(data/pets.js의 mood.pop, 기니피그). 그림 안의 칸 단위로 4칸 뛰고, 바닥 그림자(.shade)는 바닥에 남는다 */
+.room-pet.pop path:not(.shade) { animation: pet-pop 0.35s ease-out 2; }
+@keyframes pet-pop { 50% { transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) {
-  .room-pet-heart { animation: none; }
+  .room-pet-heart, .room-pet.pop path { animation: none; }
 }
+/* 펫을 오른쪽 단추로 누르면 뜨는 할 일 메뉴(src/pet.js의 openMenu). 윈도우의 바로 가기 메뉴처럼 누른 자리에 뜨고, 시작 메뉴와 같은 층(40)이라 창 위에 뜬다.
+   방 상자(.wallpaper)는 쌓임 맥락이 따로라 메뉴는 무대(.stage)에 넣는다. 맨 위의 굵은 줄(.main)은 두 번 누를 때 하는 일이고, 지금 하는 일 앞에 점을 찍는다 */
+.pet-menu {
+  position: absolute;
+  z-index: 40;
+  min-width: 170px;
+  padding: 3px;
+  border: 1px solid #aca899;
+  background: #fff;
+  box-shadow: 3px 3px 6px #0005;
+}
+.pet-menu:focus { outline: none; }
+.pet-menu-item {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 5px 20px 5px 28px;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--win-text);
+  cursor: var(--cur-hand);
+}
+.pet-menu-item.main { font-weight: 700; }
+.pet-menu-item:hover, .pet-menu-item:focus-visible { outline: none; background: #316ac5; color: #fff; }
+.pet-menu-item[aria-checked="true"]::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pet-menu-sep { margin: 3px 2px; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
+.stage[data-theme="night"] .pet-menu { border-color: var(--bev-hi); background: var(--win-paper); }
 
 .ghost { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
 .ghost .item .hit { pointer-events: none; }
