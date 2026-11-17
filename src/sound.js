@@ -63,7 +63,7 @@ const pick = fx => DIR + fx.files[Math.floor(Math.random() * fx.files.length)];
 // 누른 순간에 효과음을 미리 만들어 두면, 나중에 그 이름으로 play를 부를 때 이 Audio를 쓴다. 이름마다 하나만 두고 쓰면 비운다.
 // 사파리(WebKit)는 기본 설정에서 누른 순간이 아닌 재생을 막아서, 아바타가 걸어간 뒤처럼 기다렸다 새로 만든 Audio의 play()는 소리가 나지 않는다.
 // 누른 순간에 만든 미디어 요소에는 그 제한을 걸지 않으므로(HTMLMediaElement가 만들어질 때 사용자 입력 중인지 본다) 누를 때 만들어 둔다.
-// 크롬과 파이어폭스는 한 번 누른 페이지의 재생을 막지 않아서 이것이 없어도 소리가 난다(known-issues 100)
+// 크롬과 파이어폭스는 한 번 누른 페이지의 재생을 막지 않아서 이것이 없어도 소리가 난다(known-issues 101)
 const primed = new Map();
 export function prime(...names) {
   if (!soundOn()) return;

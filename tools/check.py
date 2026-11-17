@@ -499,7 +499,7 @@ def check_tutorial():
 
 
 # 이웃집 목록 (data/neighbors.js). 한 줄은 link(공유하기에서 만든 링크의 #s= 뒤 번호)와 room(예전 긴 링크의 글자) 가운데 하나를 쓴다.
-# link는 방이 서버에 있어서 번호의 모양만 본다. room은 링크가 풀리는지, 링크 속 주인 이름이 문패 닉네임과 같은지 본다.
+# link는 방이 서버에 있어서 번호의 모양만 본다. room은 링크가 풀리는지, 링크 속 주인 이름이 목록의 닉네임(name)과 같은지 본다.
 # link 줄에는 고정하는 집의 복사본 keep을 더할 수 있고(서버의 방 글자), keep도 room처럼 풀리는지와 주인 이름을 본다.
 # 링크(base64)는 누구나 풀어 읽을 수 있어서, 다르면 공개 레포에 다른 이름(실명일 수 있다)이 숨어 올라간다. 그래서 오류 문구에도 그 이름을 적지 않는다.
 def decode_room(code):
@@ -530,7 +530,7 @@ def check_neighbors():
             err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
         name = n.get('name', '')
         if not name.strip() or len(name) > 12:
-            err(where, 'name(문패 닉네임)은 1~12글자다')
+            err(where, 'name(닉네임)은 1~12글자다')
         if 'keep' in n and 'link' not in n:
             err(where, 'keep(고정하는 집의 복사본)은 link 줄에만 쓴다. room 줄은 링크를 보낸 때의 모습에 멈춰 있어 복사본이 필요 없다')
         if 'link' in n:
@@ -543,7 +543,7 @@ def check_neighbors():
                 if not isinstance(kept, dict) or kept.get('v') not in (3, 4):
                     err(where, 'keep 이 풀리지 않는다. 서버의 방 글자(Firestore의 homes/<link> 문서의 code 칸) 전부를 넣는다')
                 elif kept.get('o') != name:
-                    err(where, 'keep 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 글자를 받는다')
+                    err(where, 'keep 속 주인 이름이 목록의 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 글자를 받는다')
             continue
         if 'room' not in n:
             err(where, 'link(공유하기에서 만든 링크의 #s= 뒤 여덟 글자)가 없다')
@@ -555,7 +555,7 @@ def check_neighbors():
         if not isinstance(data, dict) or data.get('v') not in (3, 4) or (data.get('v') == 3 and not isinstance(data.get('s'), dict)):
             err(where, '예전 형식의 링크다. 배포 사이트의 공유하기에서 링크를 다시 복사한다')
         elif data.get('o') != name:
-            err(where, '링크 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
+            err(where, '링크 속 주인 이름이 목록의 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
     if len(items) > 6:
         warn(path, f'이웃집이 {len(items)}집이다. 로그인 화면과 이웃집 목록 창에는 앞의 여섯 집까지만 나온다(src/neighbors.js의 MAX_NEIGHBORS)')
 
@@ -1092,6 +1092,16 @@ def check_file_map():
     for m in sorted(mentioned):
         if '/' in m and not m.startswith('http') and not (ROOT / m.rstrip('/')).exists():
             err('docs/file-map.md', f'{m} 은 레포에 없다(옮겼거나 지웠다면 지도를 고친다)')
+    # 지도에 적은 함수와 상수 이름(useDoor, LINK_CODES)도 코드에 있어야 한다. 기능을 지우고 이름만 남으면 찾는 사람이 헤맨다(known-issues 100)
+    files = [*ROOT.glob('src/**/*.js'), *ROOT.glob('data/*.js'), *ROOT.glob('tools/*.py'), *ROOT.glob('tools/*.mjs'),
+             *ROOT.glob('apps/**/*.js'), *ROOT.glob('apps/**/*.html'), ROOT / 'index.html', ROOT / 'style.css']
+    words = set(re.findall(r'[A-Za-z_$][A-Za-z0-9_$]*', '\n'.join(p.read_text(encoding='utf-8', errors='ignore') for p in files)))
+    for m in sorted(mentioned):
+        if '/' in m or '.' in m:
+            continue
+        for name in re.findall(r'[A-Za-z_$][A-Za-z0-9_$]*', m):
+            if (re.search(r'[a-z][A-Z]', name) or re.fullmatch(r'[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+', name)) and name not in words:
+                err('docs/file-map.md', f'{name} 은 코드에 없다(이름을 바꿨거나 지웠다면 지도를 고친다)')
 
 
 # ---------- 자바스크립트 문법 (node 가 있을 때만) ----------

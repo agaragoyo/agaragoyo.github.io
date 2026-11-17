@@ -655,7 +655,7 @@ async function watchIdle() {
   new MutationObserver(() => {
     if (bubble.hidden) return;
     const c = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
-    const scene = 'room'; // 공간은 내 방 하나다(2026-11-17 놀이터를 뺐다)
+    const scene = 'room'; // 공간은 내 방 하나다
     const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
     const ids = items.filter(item => BY_ID[item.id] && furnitureLine(BY_ID[item.id]) === bubble.textContent && beside(items, item, c)).map(item => item.id);
     window.__said.push({ text: bubble.textContent, at: performance.now(), me: c, ids });
@@ -678,7 +678,7 @@ async function voiceSpot(text, need = '') {
   const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + 104);
   const my = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
   const { emptyCells } = await import(new URL('src/avatar.js', document.baseURI).href);
-  const scene = 'room'; // 공간은 내 방 하나다(2026-11-17 놀이터를 뺐다)
+  const scene = 'room'; // 공간은 내 방 하나다
   const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
   const dx = at.x - my.x;
   const dy = at.y - my.y;
@@ -944,7 +944,6 @@ async function walk(page, base) {
   check('다시 두 번 누르면 낮으로 돌아온다', await until(page, () => document.getElementById('stage').dataset.theme === 'day', 15000));
   await page.run(clickTwice, '#wallpaper .door-hit');
   check('현관문을 두 번 누르면 아바타가 걸어간 뒤 이웃집 목록 창이 뜬다', await until(page, () => !!document.querySelector('#windows .neighbor-app'), 15000));
-  check('바탕화면에 놀이터와 집으로 바로 가기가 없다', await page.run(() => !document.querySelector('#icons [data-app="playground"], #icons [data-app="go-home"]')));
   await closeWindows();
 
   // ---------- 기본 앱 창 ----------
@@ -1952,7 +1951,7 @@ async function walk(page, base) {
     const { NEIGHBOR_LIST } = await import(new URL('src/neighbors.js', document.baseURI).href);
     return [NEIGHBOR_LIST.length, NEIGHBOR_LIST.filter(n => n.link && !n.keep).length];
   });
-  check('link 이웃집은 서버에서 방을 받는 동안 문패 이름만 보이고 눌리지 않으며 마우스를 올리면 불러오는 중이라고 뜬다', await page.run(linkTile, LINK_NEIGHBOR.name)
+  check('link 이웃집은 서버에서 방을 받는 동안 목록의 이름만 보이고 눌리지 않으며 마우스를 올리면 불러오는 중이라고 뜬다', await page.run(linkTile, LINK_NEIGHBOR.name)
     .then(t => !!t && t.disabled && t.title === '불러오는 중'));
   check('부팅할 때 link 이웃집의 방을 서버에 한 번 묻는다', (await page.run(id => window.__cloudCalls[id], LINK_NEIGHBOR.link)) === 1);
   await probe('이웃집 방을 받는 로그인 화면');
@@ -2679,8 +2678,8 @@ async function walk(page, base) {
   await sleep(FIRST * 2 + 500);
   seen = await idle();
   check('방 꾸미기 창이 열려 있으면 최소화해도 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
-  // 갈 수 있는 가구가 하나뿐이면 한 번 말한 뒤에는 쉰다. 2026-11-17까지는 벤치 하나뿐인 놀이터에서 진짜 아바타로 보았고, 놀이터를 뺀 뒤로는
-  // 가구 하나만 주고 늘 그 옆에 서 있는 가짜 아바타로 고르는 순서(src/idle-talk.js의 createIdleTalk)만 본다
+  // 갈 수 있는 가구가 하나뿐이면 한 번 말한 뒤에는 쉰다. 가구 하나만 주고 늘 그 옆에 서 있는 가짜 아바타로
+  // 고르는 순서(src/idle-talk.js의 createIdleTalk)만 본다
   const alone = await page.run(async ms => {
     const { createIdleTalk } = await import(new URL('src/idle-talk.js', document.baseURI).href);
     const said = [];
@@ -2723,7 +2722,6 @@ async function walk(page, base) {
 
   // ---------- 이웃집 목록 창이 비었거나 서버에 닿지 못할 때 ----------
   // 보여 줄 이웃이 없으면 현관문으로 연 목록 창에 놀러 갈 이웃집이 없다고 뜬다. 이웃집 목록을 이 집 주인의 방 하나로 바꾼다(지금 집 주인의 집은 목록에서 빠진다).
-  // 2026-11-17까지는 놀이터에 이웃집 문을 달지 않는 것을 보았다
   const LONELY = { ...HOME, owner: '외톨이' };
   check('이웃집 없는 집이 검사를 통과한다', (await page.run(plantHome, LONELY)) === HOME.scenes.room.length);
   await extraNeighbor(page, LINK_NEIGHBOR, { only: true });

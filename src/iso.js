@@ -112,7 +112,6 @@ export function lightPoint(item, elev = 0) {
 
 // 공간 배경: 벽과 바닥과 현관문(door). scene: config.js의 SCENES 한 줄.
 // decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 지금은 벽지(decor.wall)만 있고, 없으면 기본 벽이다.
-// 2026-11-17까지는 바깥 공간(놀이터)의 땅, 울타리, 뒤쪽 아파트와 울타리의 문도 여기서 그렸다.
 export function sceneSVG(scene, decor = null) {
   return roomSVG(scene.door, decor?.wall);
 }

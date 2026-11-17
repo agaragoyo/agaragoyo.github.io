@@ -90,7 +90,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 방의 불이 꺼져 있는지. 밤 설정(저장된다)이나 공포 모드(저장되지 않는다)이면 꺼져 있다
   const lightsOff = () => !!settings.get('night') || horror.on();
 
-  // 밤 모드: 스탠드나 가로등으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
+  // 밤 모드: 스탠드나 탁상 조명으로 켜고 끈다. 화면 안쪽(방 그림과 OS 창) 색이 바뀐다.
   // 밤은 방의 불을 끈 상태라 바탕화면에서만 쓴다. 부팅과 로그인 화면은 늘 낮 색이다(known-issues 38).
   function syncTheme() {
     stage.dataset.theme = lightsOff() && !el.desktop.hidden ? 'night' : 'day';
@@ -375,7 +375,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   });
 
   // 바탕화면의 공간을 옮긴다(data/apps.js의 공간 바로 가기). 아바타도 같이 가서, 문이 있는 공간에서는 그 문 앞 칸에 선다(내 방은 현관문 앞).
-  // 지금은 공간이 내 방 하나라 부르는 곳이 없다. 2026-11-17까지는 현관문과 놀이터의 아파트 문이 내 방과 놀이터를 오갔다.
+  // 지금은 공간이 내 방 하나라 부르는 곳이 없다.
   // 방 꾸미기 창의 탭과는 따로 움직인다(꾸미는 화면은 꾸밀 공간을 탭으로 고른다).
   const doorstep = scene => {
     if (scene.door) return scene.door.wall === 'R' ? { x: scene.door.x, y: 1 } : { x: 1, y: scene.door.x };
@@ -399,7 +399,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.avatarSpot = scene => (!os.realHome && scene.id === os.place && walker?.spot()) || doorstep(scene) || null;
 
   // 방의 현관문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다(src/neighbors.js).
-  // 지금 바탕화면에 있는 집은 목록에 넣지 않는다. 2026-11-17까지는 현관문으로 놀이터에 나가 놀이터 앞쪽 끝의 이웃집 문에서 이 창을 열었다.
+  // 지금 바탕화면에 있는 집은 목록에 넣지 않는다.
   os.useDoor = door => {
     const list = () => openNeighbors(os);
     if (walker) walker.approachWall(door.wall, door.x, door.w, list);
@@ -434,7 +434,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (!e.target.closest('.win')) os.wm.blur();
   });
 
-  // 밤과 낮. 스탠드나 가로등을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
+  // 밤과 낮. 스탠드나 탁상 조명을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
   // 공포 모드(src/horror.js)에서는 불을 켜는 쪽으로만 간다. 낮이 되고 공포 모드가 풀린다
   os.toggleNight = () => {
     if (horror.on()) {
@@ -571,7 +571,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 그 가구의 혼잣말 한 줄(data/furniture.js의 say)을 말한다.
   // 공포 모드에서는 혼잣말이 src/horror.js의 줄로 바뀐다. 기믹은 그대로이고, 불빛 가구('night')는 불을 켜서 공포 모드를 푼다.
-  // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(2026-11-10까지 창문이 놀이터로 나가던 길. 지금은 현관문이 맡아 쓰는 가구가 없다).
+  // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(지금은 공간이 내 방 하나라 쓰는 가구가 없다).
   os.openFurniture = item => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();

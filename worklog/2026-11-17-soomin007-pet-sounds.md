@@ -14,7 +14,7 @@
 - `src/pigeon.js`: 놀라 날아갈 때(`leave(true)`)만 새소리를 낸다
 - `tools/check.py`: `check_pets`가 종류의 `sound`가 효과음 표에 있는 이름인지 본다
 - `tools/smoke.mjs`: 쓰다듬으면 그 종류의 소리를 만들어 두었다가 내는지, 소리를 끄면 만들지도 내지도 않는지, 병아리와 닭, 비둘기
-- `docs/requirements.md`(F30, F32, 소리 표와 출처, 정한 것), `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `docs/checklists.md`, `known-issues.md`(100)
+- `docs/requirements.md`(F30, F32, 소리 표와 출처, 정한 것), `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `docs/checklists.md`, `known-issues.md`(101)
 
 ## 정한 것과 이유
 - 구간은 귀로 고를 수 없어서 10ms 단위의 소리 크기, 높이가 또렷한 정도(자기상관), 0을 지나는 횟수로 소리 덩어리를 찾고 앞뒤가 조용한 자리에서 잘랐다.
@@ -29,7 +29,7 @@
 - 소리는 스타듀 밸리처럼 하트가 뜰 때 한 번만 낸다. 자라는 펫은 쓰다듬은 횟수를 센 뒤에 종류를 보므로, 열 번째에 닭이 된 병아리는 그 순간부터 닭 소리를 낸다.
   날아온 비둘기는 머무는 시간이 다 되어 떠날 때는 조용히 가고, 놀랄 때만 새소리를 낸다.
 - 아바타가 걸어간 뒤에 나는 소리라 `docs/checklists.md`의 "누른 뒤 기다렸다 부르는 소리"에 든다. 이 PC의 WebKit 27.2(Playwright)로 보려 했지만,
-  아무것도 누르지 않고 3초 뒤에 튼 소리까지 재생해서 사파리의 자동 재생 규칙을 볼 수 없었다(known-issues 100).
+  아무것도 누르지 않고 3초 뒤에 튼 소리까지 재생해서 사파리의 자동 재생 규칙을 볼 수 없었다(known-issues 101).
   WebKit은 누른 순간에 만든 미디어 요소에는 이 제한을 걸지 않으므로, 쓰다듬기를 누른 순간에 `prime`으로 소리를 만들어 두고 아바타가 다 오면 그 소리를 낸다.
   Howler.js도 HTML5 Audio를 누른 순간에 만들어 두는 같은 방법을 쓴다.
 - 소리 파일은 윈도우에 들어 있는 Media Foundation 변환기(WinRT MediaTranscoder)로 wav로 풀고, 파이썬 표준 라이브러리로 자르고 크기를 맞춘 뒤 다시 mp3로 바꿨다. 바깥 프로그램은 받지 않았다.

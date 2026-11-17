@@ -19,13 +19,13 @@
 | 가구를 가까이 보는 화면(게임기처럼 바탕을 덮고 가구를 크게 띄우기) | `src/closeup.js`의 `openCloseup`, 모양은 `style.css`의 "가구 가까이 보기" 절 |
 | 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png`. 새 가구는 `src/share.js`의 `LINK_CODES`(공유 링크의 가구 번호) 끝에 id 한 줄을 더한다. 중간에 끼우면 이미 보낸 링크의 가구가 바뀐다. 픽셀 그림의 크기와 칸은 known-issues 92 |
 | 아이콘 그림 고치기(기본 앱, 시작 메뉴, 가구 화면 앱, 추억의 플래시 게임, 시작 단추) | `src/icons.js`의 `PIXEL`. 한 글자가 한 칸이고 색은 아이콘마다 `colors`에 있다. 앱 목록에서는 `icon: 'builtin:<이름>'`으로 고른다. 칸 수가 어긋나거나 없는 이름을 쓰면 `python tools/check.py`가 알려 준다 |
-| 공간 추가(지금은 내 방 하나. 놀이터는 2026-11-17에 뺐다) | `src/config.js`의 `SCENES`. 방의 현관문 자리는 `door`. 그 공간의 가구는 가구 줄의 `scene`에 공간 id를 적는다 |
+| 공간 추가(지금은 내 방 하나) | `src/config.js`의 `SCENES`. 방의 현관문 자리는 `door`. 그 공간의 가구는 가구 줄의 `scene`에 공간 id를 적는다 |
 | 이웃집 더하기와 바꾸기(로그인 화면의 이웃집, 현관문으로 여는 이웃집 목록 창) | `data/neighbors.js`에 닉네임과 링크 번호(`link`) 한 줄. 서버에서 방을 받아 오는 일과 목록 창(`openNeighbors`)은 `src/neighbors.js` |
 | 아이디로 찾아가기(공유하기 창의 아이디 정하기와 지우기, 이웃집 목록 창 아래와 로그인 화면 오른쪽 단의 친구 아이디 칸) | 서버와 아이디 검사는 `src/cloud.js`의 "아이디" 절(`claimHandle`, `findHandle`, `dropHandle`, `HANDLE_RE`), 정하는 화면은 `src/apps/share-app.js`, 아이디로 방을 찾는 칸과 단추와 오류 글은 `src/neighbors.js`의 `handleInput`(두 칸이 같이 쓴다), 이웃집 목록 창의 칸은 `handleForm`, 로그인 화면의 칸은 `src/login.js`의 `handleTile`, 규칙은 `firestore.rules`의 `match /handles/`. 아이디의 글자나 길이를 바꾸면 `HANDLE_RE`와 규칙을 같이 고치고 콘솔에 게시한다(`check_cloud`가 둘이 같은지 본다) |
 | 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'`. 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(지금은 공간이 하나라 쓰는 앱이 없다) |
 | 최근에 놀러 간 집(로그인 화면 오른쪽 단 맨 위, 짧은 링크나 아이디로 다녀온 방) | 기억하고 고치는 일은 `src/neighbors.js`의 `recentVisits`, `rememberVisit`, `syncVisit`(저장 키는 `src/config.js`의 `STORAGE_RECENT`, 세 집 `MAX_RECENT`), 들어갈 때 적는 곳은 `src/os.js`의 `enter`, 로그인 화면의 칸은 `src/login.js`의 `recentTile`, 칸 모양은 이웃집과 같은 `gridTile`과 `style.css`의 `.friend-tile` |
 | 현관문(두 번 누르면 이웃집 목록 창)과 바탕화면의 공간 옮기기 | `src/os.js`의 `useDoor`, `goScene`, 문 그림은 `src/iso.js`의 `doorSVG` |
-| 이웃집에 손님으로 들어가기와 돌아오기 | `src/os.js`의 `useNeighbor`, `visit`, `goHome`(손님 바탕화면의 나도 만들기와 내 컴퓨터로) |
+| 이웃집에 손님으로 들어가기와 돌아오기 | `src/os.js`의 `visit`, `goHome`(손님 바탕화면의 나도 만들기와 내 컴퓨터로) |
 | 바탕화면에서 가구 두 번 누르기(아바타가 다가가 기믹) | `src/room.js`의 `renderStatic`, `src/os.js`의 `useFurniture`, `src/avatar.js`의 `approach` |
 | 기믹이 없는 가구를 두 번 눌렀을 때 아바타의 혼잣말 고치기 | `data/furniture.js`의 그 가구 줄의 `say`. 줄을 꺼내는 곳은 `src/furniture-line.js`의 `furnitureLine`, 말하게 하는 곳은 `src/os.js`의 `openFurniture`. 13자를 넘거나 이름만 되풀이하면 `python tools/check.py`가 알려 준다 |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
@@ -93,7 +93,7 @@
 | 파일 | 하는 일 | 내보내는 것 |
 | --- | --- | --- |
 | `src/main.js` | 시작점. 모니터 크기 맞추기, 소리 버튼과 그 OSD, 전원 연출(켤 때 디가우스)을 맡고 화면 안쪽은 `os.js`에 넘긴다. 맨 끝에서 첫 화면 가림막을 걷는다 | 없음 |
-| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`(아바타가 걸어간 뒤처럼 기다렸다 낼 소리는 누른 순간에 `prime`으로 만들어 둔다, known-issues 100), 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `prime`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
+| `src/sound.js` | 효과음과 배경음악. 효과음은 `play('이름')`(아바타가 걸어간 뒤처럼 기다렸다 낼 소리는 누른 순간에 `prime`으로 만들어 둔다, known-issues 101), 배경음악은 바탕화면의 공간(`setPlace`)과 열려 있는 창(`holdMusic`, 나중에 연 창이 이긴다)에 맞는 곡 하나를 튼다. 게임 창의 음악은 `data/apps.js`의 `music`. 파일 이름과 크기(vol)는 이 파일 맨 위. 이 창이 뒤로 가면(탭이 가려지거나 초점이 다른 프로그램으로 가면) 효과음과 배경음악을 음소거하고 돌아오면 되돌린다(맨 아래 `checkAway`, F27). 사이트 곡 대신 다른 사이트의 플레이어가 내는 배경음악(실험실의 친구 집 배경음악)에는 지금 들려도 되는지 알린다(`watchMusic`) | `play`, `prime`, `setPlace`, `holdMusic`, `watchMusic`, `roomMusic`, `ROOM_MUSIC`, `MUSIC_NAMES` |
 | `src/settings.js` | 이 컴퓨터의 설정(밤, 소리, 방 배경음악, 실험실, 고른 펫과 병아리를 쓰다듬은 횟수, TV가 다음에 보일 소문의 차례) 저장소. 2026-11-10에 뺀 설정은 읽을 때 버린다. 바뀌면 구독자에게 알린다. 저장하지 않고 잠시 다른 값으로 쓸 수도 있다(`hold`, `release`) | `settings` |
 | `src/labs.js` | 숨은 실험실(F24). 실험실 항목 목록, 항목이 켜졌는지 묻기(`labOn`), 켜고 끄기, 열고 닫기. 열림과 켠 항목은 `settings`의 `labsOpen`, `labs`에 둔다. 여는 암호는 `src/secrets.js`에 있다. 집 저장 형식과 링크, 서버를 바꾸는 아이디어는 넣지 않는다(`check_labs`) | `LABS`, `labOn`, `labsOpen`, `setLab`, `openLabs`, `closeLabs` |
 | `src/secrets.js` | 말풍선 암호. 내 컴퓨터의 바탕화면에서 말풍선에 말하면 숨은 기능을 여는 말과 그때 할 일의 목록(실험실 F24, 분신사바 F29, 비둘기 F32). `os.js`의 `onSay`가 말풍선의 말을 넘긴다. 손님 화면과 튜토리얼, 그 연습 방에서는 듣지 않는다. 내 집의 TV가 화면 아래 띠에 하나씩 보이는 숨은 기능의 소문 목록(`HINTS`, 실험실 암호는 넣지 않는다)도 여기 있다 | `SECRETS`, `trySecret`, `HINTS` |

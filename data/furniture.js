@@ -43,7 +43,6 @@ export const FURNITURE = [
   { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
   { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8', say: '멍하니 보게 된다.' },
   // 내 방: 벽
-  // 창문은 2026-11-10까지 두 번 누르면 놀이터로 나갔다. 그 뒤로는 방 벽의 현관문(src/config.js의 SCENES door)이 문 일을 맡는다
   { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', say: '바깥 날씨는 어떨까.' },
   { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', say: '탁 트여서 시원하다.' },
   { id: 'beads-window', scene: 'room', name: '비즈 발 창문', zone: 'wall', size: [3, 3], color: '#a7bfba', say: '바람 불면 찰랑이겠다.' },
@@ -60,5 +59,5 @@ export const BY_ID = Object.fromEntries(FURNITURE.map(f => [f.id, f]));
 // 튜토리얼(src/tutorial.js)에서 놓아 보는 기본 가구. 여기의 id만 바꾸면 안내 문구와 화살표가 따라간다.
 //   first  놓는 법을 배우는 가구. 기믹을 쓰지 않으므로 내 방 가구 아무거나 된다. 가구별 인터랙션이 정해지면 바뀔 수 있다
 //   light  가구를 쓸 수 있다는 것을 배우는 가구. gimmick: 'night'여야 한다
-// 이웃집 가기는 가구가 아니라 방 벽의 현관문으로 배운다(2026-11-10까지는 door: 'window'로 창문을 놓고 놀이터로 나갔다).
+// 이웃집 가기는 가구가 아니라 방 벽의 현관문으로 배운다.
 export const TUTORIAL_FURNITURE = { first: 'bed', light: 'lamp' };
