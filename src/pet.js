@@ -1,6 +1,7 @@
 // 내 집의 방에 사는 펫(docs/requirements.md의 F30). 고른 펫 한 마리가 살고, 고르기 전에는 기본 펫(data/pets.js의 DEFAULT_PET)이 산다.
-// 종류(강아지, 고양이, 햄스터, 코끼리, 코알라, 공룡)와 색은 시작 메뉴의 펫 바꾸기 창(src/pet-picker.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
-// 2026-11-15에 실험실의 '펫 데려오기'(pet)로 넣었고, 2026-11-17에 모든 사람에게 켰다.
+// 종류(강아지, 고양이, 기니피그, 병아리, 비둘기, 코끼리, 코알라, 공룡)와 색은 시작 메뉴의 펫 바꾸기 창(src/pet-picker.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
+// 병아리는 쓰다듬은 횟수가 GROW_PATS번이 되면 같은 색의 닭으로 자란다(patted). 횟수(petPats)와 자란 모습(pet)도 이 브라우저의 설정에만 남는다.
+// 2026-11-15에 실험실의 '펫 데려오기'(pet)로 넣었고, 2026-11-17에 모든 사람에게 켰다. 같은 날 비둘기와 병아리를 더하고 햄스터를 기니피그로 바꿨다.
 // 그림과 색은 data/pets.js에 있다.
 // 펫은 아바타처럼 바닥 한 칸에 선다. 빈 바닥 칸에 앉아 있다가 10~20초마다 길을 따라 2~4칸 떨어진 빈칸으로
 // 아바타의 절반 빠르기(한 칸 0.4초)로 걸어가 다시 앉는다. 앉아 있는 동안에는 1초마다 숨을 쉬고(머리와 몸 윗부분이 한 칸 내려온다)
@@ -27,6 +28,7 @@ const CALL_MS = 8000;           // 쓰다듬으러 오는 아바타를 기다리
 const BREATH_MS = 1000;         // 앉아 있을 때 숨을 들이쉬고 내쉬는 간격
 const BLINK_MS = 150;           // 눈을 깜박일 때 감고 있는 시간
 const BLINK_GAP = [3000, 6000]; // 눈을 깜박이는 간격(이 사이에서 무작위)
+export const GROW_PATS = 10;    // 자라는 펫(data/pets.js의 grow, 병아리)이 다음 모습이 되기까지 쓰다듬는 횟수. 발표에서 바로 보여 줄 수 있게 날짜 대신 횟수로 자란다
 const HEAD_X = 9.5;             // 왼쪽을 본 그림에서 머리 가운데의 칸 자리. 모든 종류가 같은 자리에 머리가 있다(data/pets.js)
 const HEAD_DX = PET_COLS / 2 - HEAD_X; // 머리 가운데가 그림 가운데보다 앞(보는 쪽)으로 나온 칸 수. 하트를 그 위에 띄운다
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
@@ -136,6 +138,20 @@ export function petChoice(value) {
   return { species, color, value: `${species.id}/${color.id}` };
 }
 
+// 펫 바꾸기 창의 종류 단추 하나가 맡는 종류. 자라서 된 종류(닭)는 자라기 전 종류(병아리)의 단추가 맡는다
+export const petRoot = species => PET_SPECIES.find(s => s.grow === species.id) || species;
+// 펫 바꾸기 창의 종류 단추에 나오는 종류. 자라서 된 종류는 빼고 data/pets.js의 차례대로다
+export const PET_KINDS = PET_SPECIES.filter(s => petRoot(s) === s);
+
+// 쓰다듬은 뒤에 바꿀 설정(src/settings.js의 pet과 petPats). 자라는 펫이면 쓰다듬은 횟수를 하나 더하고, GROW_PATS번이 되면
+// 같은 색 id의 자란 종류로 바꾸며 횟수를 0으로 돌린다. 자라지 않는 펫이면 null이라 설정을 건드리지 않는다
+export function patted(value, pats) {
+  const { species, color } = petChoice(value);
+  if (!species.grow) return null;
+  const n = (Number(pats) || 0) + 1;
+  return n < GROW_PATS ? { petPats: n } : { pet: `${species.grow}/${color.id}`, petPats: 0 };
+}
+
 // 펫 한 마리의 SVG. frames에 든 장마다 <g data-frame>을 하나씩 넣는다. 보이는 장은 petPuppet이 고르고, 한 장만 넣으면 그 장이 보인다
 export function petSvg(choice, frames = FRAMES) {
   const f = framesOf(choice.species);
@@ -230,6 +246,7 @@ export function petPuppet(box) {
 //   items()   그 공간의 가구 목록
 //   avatar()  내 아바타(src/avatar.js의 mountAvatar). 그 칸은 피해서 걷고, 쓰다듬을 때 부른다. 없으면 null
 //   look()    고른 펫(src/settings.js의 pet 값). 비었으면 기본 펫이다
+//   pat()     쓰다듬을 때마다 부른다. 자라는 펫의 횟수를 세고 다 자라면 펫 설정을 바꾼다(src/os.js의 petPatted). 없어도 된다
 // 돌려주는 것: attach(here), restyle(), cells(), order(at, rect, z), destroy(). cells와 order는 아바타가 부른다(host.others)
 export function mountPet(host) {
   const el = h('div', { className: 'room-pet', title: '두 번 눌러 쓰다듬기' });
@@ -382,10 +399,12 @@ export function mountPet(host) {
     walker.approachCell({ x: cell.x, y: cell.y }, love);
   }
 
-  // 쓰다듬는 아바타 쪽을 보고 1초 동안 눈을 감으며, 머리 위에 하트를 띄운다
+  // 쓰다듬는 아바타 쪽을 보고 1초 동안 눈을 감으며, 머리 위에 하트를 띄운다.
+  // 쓰다듬은 횟수는 host.pat이 센다. 이번에 다 자라면 그 안에서 restyle이 불려 그림이 바뀌므로, 하트 높이를 자란 그림에 맞추려고 먼저 부른다
   function love() {
     if (!cell || !el.isConnected) return;
     waiting = false;
+    host.pat?.();
     const s = host.avatar()?.spot();
     if (s) right = s.x - s.y > cell.x - cell.y;
     sit();

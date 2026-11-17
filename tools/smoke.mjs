@@ -2151,6 +2151,7 @@ async function walk(page, base) {
   // 고르기 전에는 내 집의 방에만 기본 펫(회색 고양이)이 빈 바닥 칸에 앉는다(src/pet.js). 시작 메뉴의 펫 바꾸기를 누르면 펫 바꾸기 창(src/pet-picker.js)이 열리고,
   // 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다. "없음"을 누르면 펫이 사라지고, 종류를 다시 누르면 돌아온다.
   // 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다. 내 아바타는 펫이 앉은 칸에 들어가지 못한다.
+  // 병아리는 쓰다듬은 횟수가 열 번이 되면 같은 색의 닭이 되고, 펫 바꾸기 창의 이름과 큰 그림, 병아리 단추도 닭으로 바뀐다.
   // 친구 집에는 펫도 펫 바꾸기도 없다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
   // 다른 절은 펫을 "없음"으로 두고 돌므로(가구가 놓인 내 집 절) 펫 설정을 비워 고르기 전 모습부터 보고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
   const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
@@ -2170,12 +2171,19 @@ async function walk(page, base) {
   check('펫 그림은 폭 34~68px이다(한 칸 2px 안팎, 24칸)', cat.width >= 34 && cat.width <= 68, `${cat.width}`);
   await page.run(clickOnce, '.start-btn');
   check('시작 메뉴의 펫 바꾸기를 누르면 펫 바꾸기 창이 열린다', (await page.run(clickText, '.start-item', '펫 바꾸기')) && await until(page, () => !!document.querySelector('.pet-app'), 3000));
-  check('펫 바꾸기 창에 종류 단추 여섯 개와 "없음", 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
+  check('펫 바꾸기 창에 종류 단추 여덟 개(닭은 병아리 단추가 맡는다)와 "없음", 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
     const rows = [...document.querySelectorAll('.pet-app .pet-row')];
-    return rows.length === 2 && rows[0].children.length === 7 && rows[1].children.length === 4
+    return rows.length === 2 && rows[0].children.length === 9 && rows[1].children.length === 4
+      && [...rows[0].children].map(b => b.textContent).join() === '강아지,고양이,기니피그,병아리,비둘기,코끼리,코알라,공룡,없음'
       && rows[0].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray' && rows[1].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray';
   }));
-  check('펫 바꾸기 창은 스크롤 없이 다 보인다', await page.run(() => { const b = document.querySelector('.pet-app'); return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth; }));
+  check('펫 바꾸기 창은 스크롤 없이 다 보이고, 종류 단추는 같은 폭으로 한 줄에 선다', await page.run(() => {
+    const b = document.querySelector('.pet-app');
+    const kinds = [...document.querySelector('.pet-app .pet-row').children];
+    return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth
+      && new Set(kinds.map(k => k.offsetTop)).size === 1 && new Set(kinds.map(k => k.offsetWidth)).size === 1
+      && kinds.every(k => k.lastChild.scrollWidth <= k.clientWidth);
+  }));
   await probe('펫 바꾸기 창');
   await page.run(() => document.querySelector('.pet-app .pet-row [data-pet="none"]').click());
   check('"없음"을 누르면 방의 펫이 바로 사라지고 큰 그림과 색 묶음이 숨으며 설정에 남는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')
@@ -2206,6 +2214,42 @@ async function walk(page, base) {
   const stay = await page.run(petScene);
   check('펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
   check('새로 고침해도 고른 펫이 그대로 나온다', (await enterMine()) && await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'dog/sky', 3000));
+  // 병아리가 닭으로 자라기(src/pet.js의 patted). 한 번 쓰다듬어 횟수가 느는 것을 보고, 아홉 번째까지는 설정으로 채운 뒤 한 번 더 쓰다듬는다.
+  // 펫 바꾸기 창을 열어 둔 채 자라게 해, 창이 바로 닭으로 바뀌는지도 본다
+  const petSaved = () => page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings')); return { pet: s.pet, pats: s.petPats }; });
+  await page.run(clickOnce, '.start-btn');
+  await page.run(clickText, '.start-item', '펫 바꾸기');
+  await until(page, () => !!document.querySelector('.pet-app'), 3000);
+  await page.run(() => document.querySelector('.pet-app [data-kind="chick"]').click());
+  check('펫 바꾸기 창에서 병아리를 고르면 방에 노랑 병아리가 나오고 쓰다듬은 횟수가 0이다', await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'chick/yellow', 3000)
+    && JSON.stringify(await petSaved()) === '{"pet":"chick/yellow","pats":0}', JSON.stringify(await petSaved()));
+  await probe('병아리를 고른 펫 바꾸기 창');
+  await page.run(clickTwice, '#wallpaper .room-pet');
+  const chick = await waitPet(s => s.heart && s.next, 8000);
+  check('병아리를 한 번 쓰다듬으면 하트가 뜨고 쓰다듬은 횟수가 1이 되며, 아직 병아리다', chick.heart && chick.look === 'chick/yellow'
+    && JSON.stringify(await petSaved()) === '{"pet":"chick/yellow","pats":1}', JSON.stringify({ chick, saved: await petSaved() }));
+  await page.run(async () => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ petPats: 9 }); });
+  await page.run(clickTwice, '#wallpaper .room-pet');
+  const hen = await waitPet(s => s.look === 'chicken/yellow' && s.heart, 8000);
+  check('열 번째로 쓰다듬으면 그 자리에서 같은 색 id의 닭(흰 닭)이 되고 하트가 뜨며, 횟수는 0으로 돌아간다', hen.look === 'chicken/yellow' && hen.heart && hen.floor
+    && JSON.stringify(await petSaved()) === '{"pet":"chicken/yellow","pats":0}', JSON.stringify({ hen, saved: await petSaved() }));
+  check('닭이 되면 내 아바타가 "벌써 닭이 됐네!"라고 말한다', await page.run(() => { const s = document.querySelector('#wallpaper .room-avatar-say'); return !!s && !s.hidden && s.textContent === '벌써 닭이 됐네!'; }));
+  check('펫 바꾸기 창을 열어 둔 채 자라면 창의 이름과 큰 그림, 색 단추가 닭으로 바뀌고 병아리 단추에 닭이 그려진 채 골라져 있다', await page.run(() => {
+    const kind = document.querySelector('.pet-app [data-kind="chick"]');
+    const tones = [...document.querySelectorAll('.pet-app .pet-row')][1].children;
+    return document.querySelector('.pet-app-head b').textContent === '흰색 닭' && document.querySelector('.pet-big').dataset.pet === 'chicken/yellow'
+      && kind.dataset.pet === 'chicken/yellow' && kind.textContent === '닭' && kind.getAttribute('aria-pressed') === 'true'
+      && [...tones].every(t => t.dataset.pet.startsWith('chicken/')) && tones[0].getAttribute('aria-pressed') === 'true';
+  }));
+  await probe('닭이 된 펫 바꾸기 창');
+  await page.run(() => document.querySelector('.pet-app [data-kind="chick"]').click());
+  check('닭일 때 병아리 단추를 다시 누르면 닭이 그대로 있다', JSON.stringify(await petSaved()) === '{"pet":"chicken/yellow","pats":0}', JSON.stringify(await petSaved()));
+  await page.run(() => document.querySelector('.pet-app [data-kind="dog"]').click());
+  await page.run(() => document.querySelector('.pet-app [data-kind="chick"]').click());
+  check('다른 종류를 골랐다가 병아리를 다시 고르면 새 병아리부터 시작하고, 병아리 단추에 다시 병아리가 그려진다', await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'chick/yellow'
+    && document.querySelector('.pet-app [data-kind="chick"]').dataset.pet === 'chick/yellow', 3000)
+    && JSON.stringify(await petSaved()) === '{"pet":"chick/yellow","pats":0}', JSON.stringify(await petSaved()));
+  await closeWindows();
   await open(`#r=${bare}`);
   await powerOn();
   await page.run(clickText, '.users .user', '손님으로 구경하기');

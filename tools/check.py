@@ -675,7 +675,10 @@ def check_wall_patterns():
 def check_pets():
     """data/pets.js 의 펫 그림이 24×20칸이고 정해진 글자만 쓰는지, 색표가 빠짐없는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
     설정에는 '<종류>/<색>'으로 남으므로 종류와 색의 id가 겹치지 않는지, 기본 펫(DEFAULT_PET)이 목록에 있는지도 본다.
-    눈 감은 그림은 하이라이트(h)가 든 눈에서 만들므로(src/pet.js의 shut) 앉은 그림에 h가 있는지도 본다."""
+    눈 감은 그림은 하이라이트(h)가 든 눈에서 만들므로(src/pet.js의 shut) 앉은 그림에 h가 있는지도 본다.
+    펫 바꾸기 창의 단추는 모두 네 글자 폭이라(src/pet-picker.js의 LABEL_W) 종류와 색의 이름이 네 글자를 넘지 않는지 본다.
+    자라는 종류(grow)는 자란 종류가 목록에 있고 더 자라지 않는지, 색 id가 같은지(자라도 고른 색이 이어진다),
+    자란 종류에 그때 아바타가 할 말(grown, 말풍선 한 줄 13자까지)이 있는지 본다."""
     where = 'data/pets.js'
     text = read(where)
     blocks = re.findall(r'^  \{\n(.*?)^  \},', text, re.S | re.M)
@@ -683,6 +686,8 @@ def check_pets():
         err(where, '펫을 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_pets 도 고친다)')
         return
     kinds = {}
+    grows = {}
+    grown = {}
     for body in blocks:
         m = re.search(r"^    id: '([^']*)',", body, re.M)
         kid = m.group(1) if m else '?'
@@ -690,19 +695,32 @@ def check_pets():
             err(where, f'{kid}: id가 겹친다')
         if not KEBAB.match(kid):
             err(where, f'{kid}: id는 영어 소문자, 숫자, 하이픈만 쓴다')
-        if not re.search(r"^    name: '[^']+',", body, re.M):
+        m = re.search(r"^    name: '([^']+)',", body, re.M)
+        if not m:
             err(where, f'{kid}: 이름(name)이 없다. 펫 고르는 창의 종류 단추에 나오는 이름이다')
+        elif len(m.group(1)) > 4:
+            err(where, f'{kid}: 이름 {m.group(1)} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다(src/pet-picker.js의 LABEL_W)')
         m = re.search(r'^    breath: (\d+),', body, re.M)
         if not m or not 1 <= int(m.group(1)) <= 18:
             err(where, f'{kid}: breath 는 숨을 들이쉴 때 빼는 줄의 번호(1~18)다')
-        colors = re.findall(r"^      \{ id: '([^']*)', name: '[^']+', b: '#[0-9a-f]{6}', d: '#[0-9a-f]{6}', w: '#[0-9a-f]{6}', "
+        m = re.search(r"^    grow: '([^']*)',", body, re.M)
+        if m:
+            grows[kid] = m.group(1)
+        m = re.search(r"^    grown: '([^']*)',", body, re.M)
+        if m:
+            grown[kid] = m.group(1)
+        colors = re.findall(r"^      \{ id: '([^']*)', name: '([^']+)', b: '#[0-9a-f]{6}', d: '#[0-9a-f]{6}', w: '#[0-9a-f]{6}', "
                             r"m: '#[0-9a-f]{6}', e: '#[0-9a-f]{6}', c: '#[0-9a-f]{6}' \},$", body, re.M)
         lines = re.findall(r"^      \{ id: ", body, re.M)
         if not colors or len(colors) != len(lines):
             err(where, f"{kid}: 색은 {{ id, name, b, d, w, m, e, c }} 한 줄씩이고 색 값은 '#rrggbb'(소문자)다")
-        if len(set(colors)) != len(colors):
+        ids = [c[0] for c in colors]
+        if len(set(ids)) != len(ids):
             err(where, f'{kid}: 색 id가 겹친다')
-        kinds[kid] = set(colors)
+        for cid, cname in colors:
+            if len(cname) > 4:
+                err(where, f'{kid}/{cid}: 색 이름 {cname} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다')
+        kinds[kid] = set(ids)
         frames = {}
         for name in ('sit', 'walk1', 'walk2'):
             m = re.search(rf'^    {name}: \[\n(.*?)^    \],', body, re.S | re.M)
@@ -723,6 +741,19 @@ def check_pets():
     m = re.search(r"^export const DEFAULT_PET = '([^'/]+)/([^']+)';", text, re.M)
     if not m or m.group(2) not in kinds.get(m.group(1), set()):
         err(where, "DEFAULT_PET 은 목록에 있는 '<종류>/<색>' 이다")
+    for kid, to in grows.items():
+        if to not in kinds:
+            err(where, f'{kid}: 자라서 될 종류 {to} 가 목록에 없다(grow)')
+            continue
+        if to in grows:
+            err(where, f'{kid}: 자라서 될 종류 {to} 가 또 자란다. 펫 바꾸기 창은 한 번 자라는 것만 다룬다(src/pet.js의 petRoot)')
+        if kinds[to] != kinds[kid]:
+            err(where, f'{kid}: 자라서 될 종류 {to} 의 색 id가 다르다. 자라도 고른 색이 이어지게 같은 색 id를 둔다')
+        if not grown.get(to) or len(grown[to]) > 13:
+            err(where, f"{to}: 다 자랐을 때 아바타가 할 말(grown: '...')이 없거나 말풍선 한 줄(13자)을 넘는다")
+    for kid in grown:
+        if kid not in grows.values():
+            err(where, f'{kid}: 자라서 되는 종류가 아닌데 grown 이 있다')
 
 
 def check_storage_keys():

@@ -9,7 +9,7 @@ import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
-import { mountPet, NO_PET } from './pet.js';
+import { mountPet, NO_PET, patted, petChoice } from './pet.js';
 import { openPetPicker } from './pet-picker.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
@@ -67,7 +67,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(src/avatar.js의 mountOwner). 그 밖에는 null
-  let pet = null; // 내 집의 방에 사는 펫(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
+  let pet = null; // 내 집의 방에 사는 펫(src/pet.js). 내 바탕화면에 있고 펫 설정이 "없음"이 아닐 때만 있다(syncPet)
   // 분신사바(F29, src/horror.js). 말풍선에 "분신사바"를 말하면(src/secrets.js) 방의 불이 꺼지고 공포 모드가 된다. 메모리에만 있고 불을 켜면 풀린다
   const horror = os.horror = createHorror({
     layer: el.wallpaper,
@@ -288,9 +288,17 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       pet?.destroy();
       pet = null;
     } else if (!pet) {
-      pet = mountPet({ layer: el.wallpaper, items: () => os.home.scenes[os.place], avatar: () => walker, look: () => settings.get('pet') });
+      pet = mountPet({ layer: el.wallpaper, items: () => os.home.scenes[os.place], avatar: () => walker, look: () => settings.get('pet'), pat: petPatted });
       pet.attach(os.place === SCENES[0].id);
     }
+  }
+  // 펫을 쓰다듬을 때마다 부른다(src/pet.js). 병아리처럼 자라는 펫이면 쓰다듬은 횟수를 설정(petPats)에 세고, 다 자라면
+  // 펫 설정을 자란 종류로 바꿔 그 자리에서 그림이 바뀌게 하고(아래 구독의 restyle) 아바타가 한마디 한다(data/pets.js의 grown)
+  function petPatted() {
+    const next = patted(settings.get('pet'), settings.get('petPats'));
+    if (!next) return;
+    settings.set(next);
+    if (next.pet) walker?.say(petChoice(next.pet).species.grown || '');
   }
   settings.subscribe(patch => {
     if (!('pet' in patch)) return;
