@@ -572,6 +572,36 @@ const PIXEL = {
       '........................',
     ],
   },
+  // 시작 메뉴의 펫 바꾸기와 펫 바꾸기 창: 기본 펫인 회색 고양이의 얼굴. 털과 귀 속 분홍은 data/pets.js의 회색 고양이 색이다
+  pet: {
+    colors: { k: '#5f6480', g: '#c5cada', d: '#a8aec3', w: '#f6f4f0', c: '#ffaec4', e: '#3c3a4c', W: '#ffffff' },
+    24: [
+      '........................',
+      '........................',
+      '........................',
+      '...kk..............kk...',
+      '...kgk............kgk...',
+      '...kcgk..........kgck...',
+      '...kccgkkkkkkkkkkgcck...',
+      '...kggggggggggggggggk...',
+      '..kgggggggdggdgggggggk..',
+      '..kggggggggddggggggggk..',
+      '..kgggWeggggggggWegggk..',
+      '..kgggeeggggggggeegggk..',
+      '..kggggggwwwwwwggggggk..',
+      '..kgggggwwwccwwwgggggk..',
+      '..kgccggwwwkkwwwggccgk..',
+      '..kgggggwwkwwkwwgggggk..',
+      '..kggggggwwwwwwggggggk..',
+      '..kggggggggggggggggggk..',
+      '...kggggggggggggggggk...',
+      '....kkddggggggggddkk....',
+      '......kkkkkkkkkkkk......',
+      '........................',
+      '........................',
+      '........................',
+    ],
+  },
   // 시작 메뉴의 로그아웃과 구경 마치기: 문과 나가는 화살표
   logout: {
     colors: { k: '#6b4226', L: '#e3ad74', D: '#c98a52', d: '#a8693a', Y: '#ffd23f', g: '#23864a', G: '#3fbf5a' },
@@ -1224,12 +1254,12 @@ export function fitPixelIcons(style, scale, dpr) {
     style.setProperty(`--pixel-${slot}`, (k ? grid * k / (scale * dpr) : slot) + 'px');
     style.setProperty(`--pixel-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
   }
-  // 실험실의 펫 데려오기(src/pet.js)의 펫과 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
+  // 내 방의 펫(src/pet.js)과 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
   // 원래 크기에 가장 가까운 정수를 고르고, 아이콘처럼 그런 정수가 없으면 원래 크기로 둔다. 펫은 이 값으로 가구와의 앞뒤를 따질 그림 크기도 잰다
   const pet = nearest(2 * scale * dpr);
   style.setProperty('--pet-cell', (pet ? pet / (scale * dpr) : 2) + 'px');
   style.setProperty('--pet-render', pet || 2 * scale * dpr >= 1 ? 'crispEdges' : 'auto');
-  // 실험실의 담긴 가구 반짝임(style.css의 .has-like::after)도 한 칸이 2px인 픽셀 그림이라 한 칸을 정수 화면 픽셀로 맞춘다.
+  // 담긴 가구 반짝임(style.css의 .has-like::after)도 한 칸이 2px인 픽셀 그림이라 한 칸을 정수 화면 픽셀로 맞춘다.
   // 눈에 띄는 것이 목적이라 가까운 정수가 아니라 조금 큰 쪽(0.25를 덜어 올림)을 고르고, 한 칸이 1픽셀보다 작아지는 배율에서도 1픽셀로 둔다.
   style.setProperty('--sparkle-cell', Math.max(1, Math.ceil(2 * scale * dpr - 0.25)) / (scale * dpr) + 'px');
 }

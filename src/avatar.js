@@ -3,8 +3,8 @@
 // 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 상자에 그려서 가구와 앞뒤 순서를 맞춘다.
 // 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
-// 실험실의 주인 아바타 남기기(host-avatar)를 켜고 친구 집을 구경하면 그 집 주인의 아바타가 방에 서 있다(mountOwner).
-// 실험실의 펫 데려오기(pet)를 켜면 내 방에 펫이 걸어 다닌다(src/pet.js). 주인 아바타와 펫은 host.others로 아바타와 칸과 앞뒤를 맞춘다.
+// 친구 집을 구경하면 그 집 주인의 아바타가 방에 서 있다(mountOwner, 2026-11-17까지 실험실 host-avatar).
+// 내 방에는 펫이 걸어 다닌다(src/pet.js). 주인 아바타와 펫은 host.others로 아바타와 칸과 앞뒤를 맞춘다.
 import { N, DRAG_THRESHOLD } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
 import { dims, isWall, supportOf, elevOf } from './rules.js';
@@ -102,7 +102,7 @@ function nearestFree(blocked, x, y) {
   return best;
 }
 
-// 빈 바닥 칸들. 바닥 가구가 차지한 칸과 taken(아바타나 실험실의 펫이 선 칸)을 뺀다. 분신사바의 빈칸 말풍선(src/horror.js)이 쓴다
+// 빈 바닥 칸들. 바닥 가구가 차지한 칸과 taken(아바타나 펫이 선 칸)을 뺀다. 분신사바의 빈칸 말풍선(src/horror.js)이 쓴다
 export function emptyCells(items, taken = []) {
   const blocked = blockedOf(items);
   for (const c of taken) blocked.add(key(c.x, c.y));
@@ -203,7 +203,7 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   sayRoot        말하기 입력 칸을 넣을 상자
 //   active()       키를 받아도 되는지(앞에 있는 창이 없을 때)
 //   onSay(text)    사용자가 말하기 칸에 쳐서 말했을 때(앞뒤 공백을 뺀 글). 가구가 시킨 혼잣말(say)에는 부르지 않는다
-//   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 실험실의 펫 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
+//   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 내 방의 펫 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
 //                  order()로 앞뒤를 알려 준다. 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 펫은 걸어 다니므로 칸은 그때그때 묻는다. 없어도 된다
 // guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
 // 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, typing, approachCell, stepsTo, behind, lookAt, halt, restack, destroy
@@ -233,7 +233,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   let drawnAt = null; // 마지막으로 앞뒤를 정한 자리 [at, rect]. 펫이 움직이면 이 자리로 앞뒤를 다시 맞춘다(restack)
   const held = []; // 누르고 있는 방향키. 나중에 누른 것이 먼저다
 
-  // 다른 그림(친구 집의 주인, 실험실의 펫)이 차지한 칸. 펫은 걸어 다니므로 attach 때 적어 두지 않고 그때그때 묻는다
+  // 다른 그림(친구 집의 주인, 내 방의 펫)이 차지한 칸. 펫은 걸어 다니므로 attach 때 적어 두지 않고 그때그때 묻는다
   const taken = (x, y) => (host.others?.() || []).some(o => o.cells().some(c => c.x === x && c.y === y));
   const free = (x, y) => inRoom(x, y) && !blocked.has(key(x, y)) && !taken(x, y);
 
@@ -322,7 +322,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     return pathTo(besideOf(item).goal)?.length ?? null;
   }
 
-  // 칸 c 바로 옆 칸까지 걸어가 c 쪽을 본 뒤 then을 부른다. 실험실의 펫을 쓰다듬으러 갈 때 쓴다(src/pet.js)
+  // 칸 c 바로 옆 칸까지 걸어가 c 쪽을 본 뒤 then을 부른다. 펫을 쓰다듬으러 갈 때 쓴다(src/pet.js)
   function approachCell(c, then) {
     const face = () => FACING[me.x < c.x ? '1,0' : me.x > c.x ? '-1,0' : me.y < c.y ? '0,1' : '0,-1'];
     go((x, y) => Math.abs(x - c.x) + Math.abs(y - c.y) === 1, face, then);
@@ -370,7 +370,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
       const n = { x: me.x + held1[0], y: me.y + held1[1] };
       if (free(n.x, n.y)) path = [n];
     }
-    // 걸어가던 길에 펫(실험실 pet)이 들어와 있으면 그 칸을 피해 같은 곳으로 길을 다시 찾는다
+    // 걸어가던 길에 펫이 들어와 있으면 그 칸을 피해 같은 곳으로 길을 다시 찾는다
     if (path.length && !free(path[0].x, path[0].y)) path = arrive ? pathTo(arrive.goal) || [] : target ? findPath(target) : [];
     if (!path.length) {
       walking = false;
@@ -566,7 +566,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
       arrive = null;
       target = null;
     },
-    // 다른 그림(실험실의 펫)이 움직였을 때 부른다. 마지막으로 그린 자리로 그 그림과의 앞뒤를 다시 맞춘다
+    // 다른 그림(펫)이 움직였을 때 부른다. 마지막으로 그린 자리로 그 그림과의 앞뒤를 다시 맞춘다
     restack() {
       if (drawnAt && el.isConnected) draw(...drawnAt);
     },
@@ -585,7 +585,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   };
 }
 
-// 친구 집의 주인 아바타가 설 칸(실험실 host-avatar). 링크에 담지 않으므로 그 방의 가구 배치만으로 늘 같은 칸을 고른다.
+// 친구 집의 주인 아바타가 설 칸. 링크에 담지 않으므로 그 방의 가구 배치만으로 늘 같은 칸을 고른다.
 // 손님이 들어와 서는 칸(처음 서는 곳과 arrivals)과 그림이 겹치는 칸, 벽에 붙은 줄(벽 가구와 문을 쓰러 가서 서는 칸),
 // 막으면 손님이 걸어갈 수 있는 칸이 줄어드는 칸은 고르지 않는다. 남은 칸은 가구 바로 옆이 아닌 칸(주인이 가구 앞을 막지 않게),
 // 처음 서는 곳과 화면의 세로줄이 다른 칸(둘이 앞뒤로 줄 선 것처럼 보이지 않게), 방 가운데에 가까운 칸 순서로 고른다. 설 칸이 없으면 null.
@@ -624,7 +624,7 @@ function ownerCell(items, arrivals) {
   return best ? { x: best.x, y: best.y } : null;
 }
 
-// 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/labs.js). 걷지 않고 한 칸(ownerCell)에 서서
+// 친구 집을 구경할 때 방에 서 있는 주인 아바타. 걷지 않고 한 칸(ownerCell)에 서서
 // 머리 위에 주인 이름표를 달고, 손님이 방에 들어오면 주인이 적어 둔 인사말을 말풍선으로 한 번 말한다.
 // 손님 아바타는 주인이 선 칸을 지나가지 못하고(mountAvatar의 host.others), 두 그림이 겹치면 앞에 선 쪽이 위에 그려진다(order).
 // 누르기는 받지 않는다. 한 자리에 계속 서 있어서, 받으면 뒤에 가려진 가구를 두 번 눌러 쓸 수 없다.

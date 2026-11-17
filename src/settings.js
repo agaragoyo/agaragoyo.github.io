@@ -9,7 +9,8 @@ import { loadJSON, saveJSON } from './util.js';
 
 // sound: 효과음과 배경음악을 틀지, musicOn: 그 가운데 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
 // labsOpen: 실험실을 열었는지, labs: 실험실에서 켠 항목의 id 목록(src/labs.js)
-// pet: 실험실 펫 데려오기에서 고른 펫('<종류>/<색>', data/pets.js). 비었으면 아직 고르지 않아 기본 펫이 나온다(src/pet-picker.js)
+// pet: 펫 바꾸기 창에서 고른 내 방의 펫('<종류>/<색>', data/pets.js). 비었으면 아직 고르지 않아 기본 펫이 나오고,
+//      'none'(src/pet.js의 NO_PET)이면 펫을 두지 않는다(src/pet-picker.js)
 const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop', labsOpen: false, labs: [], pet: '' };
 // 2026-11-10에 뺀 설정(그레인, 볼록, 시대, 마우스 앱의 커서). 예전에 저장된 값은 읽을 때 버린다.
 const DROPPED = ['grain', 'curve', 'era', 'cursor'];

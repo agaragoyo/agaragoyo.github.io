@@ -1,5 +1,6 @@
-// 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고른 펫 한 마리가 산다(docs/requirements.md의 펫 줄).
-// 종류(강아지, 고양이, 햄스터, 코끼리, 코알라, 공룡)와 색은 펫 고르는 창(src/pet-picker.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
+// 내 집의 방에 사는 펫(docs/requirements.md의 F30). 고른 펫 한 마리가 살고, 고르기 전에는 기본 펫(data/pets.js의 DEFAULT_PET)이 산다.
+// 종류(강아지, 고양이, 햄스터, 코끼리, 코알라, 공룡)와 색은 시작 메뉴의 펫 바꾸기 창(src/pet-picker.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
+// 2026-11-15에 실험실의 '펫 데려오기'(pet)로 넣었고, 2026-11-17에 모든 사람에게 켰다.
 // 그림과 색은 data/pets.js에 있다.
 // 펫은 아바타처럼 바닥 한 칸에 선다. 빈 바닥 칸에 앉아 있다가 10~20초마다 길을 따라 2~4칸 떨어진 빈칸으로
 // 아바타의 절반 빠르기(한 칸 0.4초)로 걸어가 다시 앉는다. 앉아 있는 동안에는 1초마다 숨을 쉬고(머리와 몸 윗부분이 한 칸 내려온다)
@@ -17,6 +18,7 @@ import { PET_SPECIES, DEFAULT_PET } from '../data/pets.js';
 
 export const PET_COLS = 24;     // 그림 한 장의 가로 칸 수(data/pets.js)
 export const PET_ROWS = 20;     // 세로 칸 수. 한 칸이 2px이면 48×40px로, 아바타 그림(64×104px) 폭의 75%다
+export const NO_PET = 'none';   // 펫 바꾸기 창에서 "없음"을 고르면 설정(pet)에 남는 값. 이때는 방에 펫을 두지 않는다(src/os.js의 syncPet)
 const STEP_MS = 400;            // 한 칸 걷는 시간. 아바타(200ms)의 절반 빠르기다
 const REST_MS = [10000, 20000]; // 앉아 있다가 다시 걷기까지 기다리는 시간(이 사이에서 무작위)
 const HOP = [2, 4];             // 한 번에 걷는 거리(길을 따라 센 칸 수)
@@ -151,7 +153,7 @@ function heartRise(species) {
   return top - 1 - HEART.rows.length - PET_ROWS;
 }
 
-// 펫 그림을 담은 상자(방의 .room-pet, 펫 고르는 창의 큰 그림)를 움직인다.
+// 펫 그림을 담은 상자(방의 .room-pet, 펫 바꾸기 창의 큰 그림)를 움직인다.
 //   look(choice)  종류와 색을 정하고 그림을 다시 넣는다(petChoice가 돌려준 것)
 //   pose(name)    'sit'(앉기), 'walk1', 'walk2'(걷기 두 장)
 //   shut(on)      앉아 있을 때 눈을 감는다(쓰다듬는 동안)
@@ -252,7 +254,7 @@ export function mountPet(host) {
   let heartTimer = 0;
   const twice = doubleClick();
 
-  // 고른 펫으로 그림과 하트 높이를 맞춘다. 펫 고르는 창에서 바꾸면 os.js가 다시 부른다(자리와 하던 일은 그대로다)
+  // 고른 펫으로 그림과 하트 높이를 맞춘다. 펫 바꾸기 창에서 바꾸면 os.js가 다시 부른다(자리와 하던 일은 그대로다)
   function restyle() {
     const choice = petChoice(host.look?.());
     puppet.look(choice);

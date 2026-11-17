@@ -5,7 +5,7 @@
 //   name    고를 때 보여 줄 이름
 //   sheet   그림 파일 경로(assets/avatars/<id>.png). 없으면 color 옷을 입은 임시 그림을 코드로 그린다
 //   color   임시 그림의 옷 색
-//   guestColor  친구 집에 손님으로 갔을 때 입는 임시 그림의 옷 색. 실험실의 주인 아바타 남기기(host-avatar)를 켜면
+//   guestColor  친구 집에 손님으로 갔을 때 입는 임시 그림의 옷 색. 친구 집에서는
 //               주인 아바타가 color 옷으로 방에 서 있어서, 손님은 이 색으로 주인과 구분한다(src/avatar.js의 mountOwner)
 //
 // 그림(sheet)은 동작을 한 장에 모은 스프라이트 시트다. 한 칸(프레임)은 가로 64px, 세로 104px이고,
