@@ -1,12 +1,16 @@
-// 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓고,
-// 맨 끝에 내 집이 있으면 이 컴퓨터 초기화를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
+// 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓는다.
+// 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 이 컴퓨터 초기화를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
+// 오른쪽 단(.users-friends)은 친구 집이다. 링크로 온 친구 집이나, 이웃집과 그 아래 친구 아이디 칸(handleTile)을 둔다.
+// 이웃집은 팀원의 방을 미리 넣어 둔 친구 집이라, 아이디로 찾아가는 칸을 그 아래에 두어 친구에게 가는 길을 한 단에 모았다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
 import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare, myHandle } from './cloud.js';
-import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere } from './neighbors.js';
+import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere, handleInput, brLines } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
+import { preloadFurniture } from './room.js';
+import { iconEl } from './icons.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
 
@@ -90,33 +94,34 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     os.wm.closeAll();
     os.mode = null;
     show('login');
-    const users = el.login.querySelector('.users');
-    users.replaceChildren();
+    const mine = el.login.querySelector('.users-own');
+    const friends = el.login.querySelector('.users-friends');
+    mine.replaceChildren();
+    friends.replaceChildren();
     const own = ownHome();
 
     const m = linkCode(location.hash);
     const sid = linkId(location.hash);
     if (m) {
       const friend = decodeHome(m);
-      if (friend) users.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my), '', friend.picture));
+      if (friend) friends.append(userTile(friend.owner, '손님으로 구경하기', () => enter('visit', friend, my), '', friend.picture));
       else toast('링크가 깨져서 친구 컴퓨터를 열 수 없었습니다.');
     } else if (sid) {
-      users.append(cloudTile(sid, my));
+      friends.append(cloudTile(sid, my));
     }
-    // 이웃집(data/neighbors.js)은 친구 링크로 오지 않았을 때 사용자처럼 늘어선다. 누르면 바로 손님으로 들어간다.
-    // 처음 온 사람에게는 새 사용자 만들기보다 위에 두어, 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있게 한다.
-    // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(같은 방이 두 번 뜨지 않게).
-    const linked = !!(m || sid);
-    const nearby = linked ? [] : NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean);
+    // 이웃집(data/neighbors.js)과 친구 아이디 칸은 친구 링크로 오지 않았을 때만 오른쪽 단에 늘어선다. 링크로 왔으면 그 친구 집 하나에 눈이 가게 둘 다 뺀다.
+    // 이웃집은 누르면 바로 손님으로 들어간다. 처음 온 사람도 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있다.
+    // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(같은 방이 두 번 뜨지 않게, known-issues 84).
+    if (!(m || sid)) {
+      friends.append(...NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean), handleTile(my));
+    }
     if (own) {
-      users.append(userTile(own.owner, linked ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
+      mine.append(userTile(own.owner, m || sid ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         clearHash();
         enter('edit', own, my);
-      }, '', ownPicture(own.owner)));
-      users.append(...nearby, resetButton());
+      }, '', ownPicture(own.owner)), resetButton());
     } else {
-      users.append(...nearby);
-      users.append(newUserTile((name, picture) => {
+      mine.append(newUserTile((name, picture) => {
         clearHash();
         const home = sanitizeHome({ owner: name });
         saveJSON(STORAGE_ROOM, home);
@@ -125,6 +130,43 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
         enter('edit', home, my);
       }));
     }
+  }
+
+  // 친구 아이디로 놀러 가기(F31). 오른쪽 단의 이웃집 아래에 이웃집 칸과 같은 크기로 서고, 처음 온 사람도 사용자를 만들지 않고 아이디만으로 들어간다.
+  // 아이디를 찾고 오류를 고르는 일은 이웃집 목록 창 아래의 칸과 같이 쓴다(src/neighbors.js의 handleInput). 그림은 이웃집 창의 집 아이콘이다.
+  // 오류는 새 사용자 만들기의 닉네임 칸처럼 칸을 빨갛게 두르고 노란 풍선으로 띄운다(윈도우 XP도 암호가 틀리면 칸 아래에 풍선을 띄운다).
+  // 풍선이 떠 있는 동안 칸 아래 안내는 자리만 남기고 감춘다. 단이 가운데 정렬이라 높이가 바뀌면 위의 이웃집까지 움직인다.
+  // 찾으면 짧은 링크로 온 친구 집(cloudTile)처럼 손님으로 들어간다. 그 방의 코르크 보드에 쪽지를 남기도록 방 번호를 boardId로 넘긴다.
+  // 아이디로 찾은 방은 부팅할 때 받아 두지 않았으므로 환영 화면을 지나는 동안 가구 그림을 받는다(known-issues 54).
+  function handleTile(my) {
+    const tip = h('p', { className: 'name-tip', id: 'handle-tip', role: 'alert', hidden: true });
+    const hint = h('small', {}, '아이디는 친구가 공유하기 창에서 정합니다.');
+    const { input, button, submit } = handleInput({
+      fail: lines => {
+        tip.replaceChildren(...brLines(lines));
+        tip.hidden = false;
+        hint.style.visibility = 'hidden';
+        input.setAttribute('aria-invalid', 'true');
+      },
+      clear: () => {
+        tip.hidden = true;
+        hint.style.visibility = '';
+        input.removeAttribute('aria-invalid');
+      },
+      go: (home, room) => {
+        if (!isCurrent(my)) return;
+        clearHash();
+        preloadFurniture([home]);
+        enter('visit', home, my, room);
+      },
+    });
+    input.setAttribute('aria-describedby', 'handle-tip');
+    keySound(input);
+    return h('form', { className: 'user by-handle', onsubmit: submit },
+      h('span', { className: 'avatar' }, iconEl({ icon: 'builtin:neighbor', title: '이웃집' }, 32)),
+      h('span', { className: 'user-name' }, '친구 아이디로 놀러 가기',
+        h('span', { className: 'new-row' }, input, button, tip),
+        hint));
   }
 
   // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 이 컴퓨터의 설정(밤, 소리, 배경음악)은 남긴다.
@@ -164,6 +206,12 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return box;
   }
 
+  // 로그인 화면의 칸(닉네임, 친구 아이디)에 글자를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드").
+  // 누르고 있어 되풀이되는 키와 Enter, 조합 키는 빼고, 한글 입력 중(Process)도 소리를 낸다.
+  const keySound = input => input.addEventListener('keydown', e => {
+    if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || ['Backspace', 'Delete', 'Process'].includes(e.key))) play('key');
+  });
+
   // 사용자 그림. picture(사진 값: 사진 id나 내 그림)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다
   const avatar = (name, picture = null) => (picture
     ? h('span', { className: 'avatar has-pic' }, pictureEl(picture, 48))
@@ -186,10 +234,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
       face.replaceChildren(pictureEl(v, 48));
     }, toast);
     const input = h('input', { maxLength: 12, autocomplete: 'off', placeholder: '닉네임 (최대 12글자)', 'aria-label': '닉네임' });
-    // 아이디를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드"). 누르고 있어 되풀이되는 키와 Enter, 조합 키는 빼고, 한글 입력 중(Process)도 소리를 낸다.
-    input.addEventListener('keydown', e => {
-      if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || ['Backspace', 'Delete', 'Process'].includes(e.key))) play('key');
-    });
+    keySound(input);
     // 빈 칸으로 확인을 누르면 입력칸을 빨갛게 두르고 그 아래에 풍선 안내를 띄운다. 글자를 치면 거둔다.
     const tip = h('p', { className: 'name-tip', id: 'name-tip', role: 'alert', hidden: true }, '닉네임을 입력해 주세요.');
     const showTip = on => {

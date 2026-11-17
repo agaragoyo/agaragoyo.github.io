@@ -1068,8 +1068,11 @@ body.moving-window iframe { pointer-events: none; }
   text-align: right;
 }
 .login-logo { font-size: 56px; font-weight: 700; font-style: italic; letter-spacing: 0.05em; text-shadow: 0 2px 0 #0a2f80; }
-.login-left p { margin: 12px 0 0; font-size: 18px; color: #e6e2ff; }
+.login-left > p { margin: 12px 0 0; font-size: 18px; color: #e6e2ff; } /* 안내 한 줄만. 왼쪽 단의 닉네임 풍선과 초기화 글은 제 규칙을 쓴다 */
+/* 사용자 목록은 두 단이다(src/login.js). 오른쪽 .users-friends는 친구 집(링크로 온 친구 집이나 이웃집과 친구 아이디 칸),
+   왼쪽 .users-own은 로고와 안내 아래의 나(내 사용자와 이 컴퓨터 초기화, 또는 새 사용자 만들기)이고 오른쪽 끝을 안내에 맞춘다 */
 .users { display: grid; gap: 14px; padding-left: 60px; justify-items: start; }
+.users.users-own { margin-top: 36px; padding-left: 0; justify-items: end; }
 .user {
   display: flex;
   align-items: center;
@@ -1105,6 +1108,11 @@ form.user { cursor: var(--cur-arrow); }
 .user.neighbor { gap: 12px; padding: 6px 14px 6px 10px; }
 .user.neighbor .avatar { width: 48px; height: 48px; font-size: 22px; background: linear-gradient(#b07a4a, #8a5a32); }
 .user.neighbor .user-name { gap: 2px; font-size: 20px; }
+/* 친구 아이디로 놀러 가기(src/login.js의 handleTile). 이웃집 아래에 이웃집 칸과 같은 크기로 서고, 그림 자리에는 이웃집 창의 집 아이콘(32px)을 연한 하늘색 바탕에 둔다.
+   칸 줄과 오류 풍선은 새 사용자 만들기의 닉네임 칸(.new-row, .name-tip)과 같다 */
+.user.by-handle { gap: 12px; padding: 6px 14px 6px 10px; }
+.user.by-handle .avatar { width: 48px; height: 48px; background: #dbe9ff; }
+.user.by-handle .user-name { gap: 6px; font-size: 20px; }
 /* 이웃집 목록 창(src/neighbors.js의 openNeighbors, 방의 현관문으로 연다). 줄마다 주인 사진(사진이 없으면 로그인 화면의 이웃집처럼 나무색 글자 그림), 이름, 놀러 가기 단추.
    줄 높이 60px(ROW_H)로 창 높이를 정하고, 그보다 줄이 많으면 목록만 스크롤한다. 이름은 두 줄까지 쓰고 넘치면 글자 사이에서도 바꾼다(.tight, known-issues 83) */
 .neighbor-app { display: flex; flex-direction: column; }
