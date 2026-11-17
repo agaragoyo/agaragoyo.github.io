@@ -93,7 +93,7 @@ export function openRoomApp(os, appInfo) {
         },
       };
 
-      // 공간 탭. 공간이 둘 이상일 때만 단다(2026-11-17 놀이터를 빼서 지금은 내 방 하나다).
+      // 공간 탭. 공간이 둘 이상일 때만 단다(지금은 내 방 하나다).
       // 빈 자리(.scene-tabs)는 남겨 두어 주인 이름과 오른쪽 단추 사이를 지금처럼 띄운다
       const tabs = root.querySelector('.scene-tabs');
       for (const sc of SCENES.length > 1 ? SCENES : []) {
