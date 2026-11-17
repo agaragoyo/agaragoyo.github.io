@@ -113,7 +113,7 @@ export const shownNeighbors = (owner = '') => NEIGHBOR_LIST.filter(n => neighbor
 // 창 높이는 열 때의 줄 수로 정하고(ROWS줄까지), 그보다 많으면 목록만 창 안에서 스크롤한다.
 const ROW_H = 60; // 목록 한 줄의 높이(style.css의 .neighbor-row)
 const ROWS = 6;   // 스크롤하지 않고 보이는 줄 수
-const FORM_H = 100; // 목록 아래 아이디 칸의 높이(style.css의 .handle-form, 위 여백 4와 선 위 여백 12, 칸 줄 35, 오류 두 줄 자리 48). 오류가 떠도 창이 스크롤되지 않는다
+const FORM_H = 100; // 목록 아래 아이디 칸의 높이(style.css의 .handle-form. 위 여백 4, 선 1, 선 아래 여백 12, 칸 줄 35, 안내나 오류 두 줄 자리 48). 오류가 떠도 창이 스크롤되지 않는다
 export function openNeighbors(os) {
   const owner = os.home.owner;
   const list = shownNeighbors(owner);
