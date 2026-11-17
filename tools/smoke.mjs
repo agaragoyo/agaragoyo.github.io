@@ -479,7 +479,7 @@ const myCell = () => {
   const t = (parseFloat(a.style.top) + 100 - 270) / 18 - 1;
   return { x: (s + t) / 2, y: (t - s) / 2 };
 };
-// 바탕화면 방의 주인 아바타(실험실 host-avatar)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
+// 바탕화면 방의 주인 아바타(친구 집에서 방에 서 있는 주인)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
 async function ownerScene() {
   const { AVATAR_BY_ID } = await import(new URL('data/avatars.js', document.baseURI).href);
   const { color, guestColor } = AVATAR_BY_ID.basic;
@@ -497,7 +497,7 @@ function nextToOwner() {
   return Math.abs(mx - ox) === 36 && Math.abs(my - oy) === 18;
 }
 
-// 실험실의 펫(src/pet.js)과 내 아바타가 선 칸, 펫 칸이 비어 있던 바닥인지, 하트가 보이는지, 펫 그림의 폭(무대 px),
+// 내 방의 펫(src/pet.js)과 내 아바타가 선 칸, 펫 칸이 비어 있던 바닥인지, 하트가 보이는지, 펫 그림의 폭(무대 px),
 // 고른 펫('<종류>/<색>'), 지금 보이는 그림 장(앉기, 숨쉬기, 눈 감기, 걷기).
 // 펫 상자의 자리는 발끝(칸 가운데)이고, 아바타 상자는 발끝보다 32px 왼쪽, 100px 위다. 칸 가운데는 tile(x + 0.5, y + 0.5)라 거꾸로 풀면 칸이 나온다
 async function petScene() {
@@ -730,6 +730,9 @@ async function walk(page, base) {
 
   // ---------- 가구가 놓인 내 집 ----------
   check('점검용 집의 가구가 모두 검사를 통과한다', (await page.run(plantHome, HOME)) === HOME.scenes.room.length);
+  // 내 방에는 고르기 전에도 기본 펫이 산다(F30). 펫이 무작위로 고른 빈칸에 앉으면 아바타가 걷는 길이 바뀌어 다른 절의 확인이 흔들리므로,
+  // 펫 절 전까지는 펫을 "없음"으로 둔다. 펫 절이 설정을 비워 고르기 전 모습부터 본다
+  await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings') || '{}'); localStorage.setItem('agarago.settings', JSON.stringify({ ...s, pet: 'none' })); });
   await open();
   await powerOn();
   check('로그인 화면에 내 사용자가 있다', await page.run(() => document.querySelectorAll('.users .user:not(.neighbor):not(.new)').length === 1));
@@ -1603,7 +1606,8 @@ async function walk(page, base) {
     .find(u => u.querySelector('small')?.textContent === '손님으로 구경하기')?.querySelector('.user-pic')?.dataset.pic === pic, friendPic));
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('손님으로 들어가면 친구 방이 바탕화면에 뜬다', await desktop());
-  check('실험실을 켜지 않으면 친구 집에 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
+  // 2026-11-17부터 친구 집에는 실험실을 켜지 않아도 주인 아바타가 서 있다(F8). 이 링크의 집은 인사말이 없어 말풍선은 뜨지 않는다
+  check('친구 집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await page.run(ownerScene)) === '주인 기본 옷 친구, 나 손님 옷', await page.run(ownerScene));
   await sleep(500);
   await probe('손님 바탕화면');
   check('손님에게는 방 꾸미기와 공유하기 대신 내 컴퓨터로가 보인다', await page.run(() => !document.querySelector('#icons [data-app="room"]') && !document.querySelector('#icons [data-app="share"]') && !!document.querySelector('#icons [data-app="my-computer"]')));
@@ -1953,11 +1957,9 @@ async function walk(page, base) {
   await openIcon('labs');
   check('새로 고침해도 켠 항목이 켜져 있다', await until(page, () => document.querySelector('.labs-item[data-lab="fast-saver"] input')?.checked === true, 3000));
   check('실험실 창은 스크롤 없이 실험실 닫기 단추까지 보인다', await page.run(() => { const b = document.querySelector('#windows .labs-app'); return b.scrollHeight <= b.clientHeight; }));
-  // 주인 아바타 남기기(host-avatar): 친구 집에 가면 주인 아바타가 이름표를 달고 방에 서서 인사말을 하고, 손님인 내 아바타는 손님 옷을 입는다. 내 집은 그대로다
-  await page.run(() => document.querySelector('.labs-item[data-lab="host-avatar"] input').click());
-  check('주인 아바타 남기기를 켜면 설정에 남는다', (await page.run(labsState)) === 'true/fast-saver,host-avatar', await page.run(labsState));
+  // 주인 아바타(F8, 2026-11-17까지 실험실 host-avatar): 친구 집에 가면 주인 아바타가 이름표를 달고 방에 서서 인사말을 하고, 손님인 내 아바타는 손님 옷을 입는다. 내 집은 그대로다
   await closeWindows();
-  check('주인 아바타 남기기를 켜도 내 집에는 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
+  check('내 집에는 주인 아바타가 없고 내 아바타는 기본 옷이다', (await page.run(ownerScene)) === '주인 없음, 나 기본 옷', await page.run(ownerScene));
   if (neighbors) {
     // 레포의 이웃집이 서버에서 받는 link 줄이면 받기 전에는 눌리지 않는다. 서버 대신 답하고, 받아서 눌리게 된 첫 집에 들어간다(known-issues 87)
     await open();
@@ -1965,7 +1967,7 @@ async function walk(page, base) {
     await powerOn();
     await until(page, () => !!document.querySelector('.users .user.neighbor:not([disabled])'), 3000);
     await page.run(clickOnce, '.users .user.neighbor:not([disabled])');
-    check('주인 아바타 남기기를 켜고 이웃집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await desktop()) && /^주인 기본 옷 .+, 나 손님 옷$/.test(await page.run(ownerScene)), await page.run(ownerScene));
+    check('이웃집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await desktop()) && /^주인 기본 옷 .+, 나 손님 옷$/.test(await page.run(ownerScene)), await page.run(ownerScene));
     // 주인이 선 칸의 바닥을 누르면 손님은 그 칸에 들어가지 않고 바로 옆 칸에 멈춘다(주인 칸은 지나갈 수 없다)
     await page.run(() => {
       const r = document.querySelector('#wallpaper .room-owner').getBoundingClientRect();
@@ -2040,30 +2042,21 @@ async function walk(page, base) {
     JSON.stringify(await page.run(miniGame, '짐 정리')));
   await closeWindows();
 
-  // ---------- 담긴 가구 반짝임(like-sparkle) ----------
-  // 켜면 주인이 무언가 담아 둔 가구 위에만 별이 뜨고(src/os.js의 markLiked, style.css의 .has-like::after) 끄면 바로 사라진다. 내 집, 친구 집, 이웃집에서 같고 방 꾸미기 창에는 뜨지 않는다.
-  // 실험실 절이 실험실을 닫았으므로 이 페이지에서 다시 연다(열림과 켠 항목은 설정에 남아 다음에 여는 친구 집과 이웃집에도 적용된다). 끝나면 실험실을 닫은 설정으로 돌려놓는다.
-  const labSettings = await page.run(() => localStorage.getItem('agarago.settings'));
+  // ---------- 담긴 가구 반짝임(F12, 2026-11-17까지 실험실 like-sparkle) ----------
+  // 주인이 무언가 담아 둔 가구 위에만 별이 뜬다(src/os.js의 markLiked, style.css의 .has-like::after). 내 집, 친구 집, 이웃집에서 같고 방 꾸미기 창에는 뜨지 않는다.
   const liked = () => page.run(() => [...document.querySelectorAll('#wallpaper .furn.has-like')].map(f => f.dataset.id).sort().join());
-  const sparkleBox = '.labs-item[data-lab="like-sparkle"] input';
-  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
-  check('담긴 가구 반짝임은 켜기 전에는 하나도 없다', (await liked()) === '');
-  await openIcon('labs');
-  check('실험실 창에 담긴 가구 반짝임 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, sparkleBox));
-  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
+  check('담긴 가구 반짝임: 내 집으로 돌아온다', await enterMine());
+  await sleep(600);
   // 점검용 집에서 담긴 것은 컴퓨터, 게임기, 책장, TV다. 앞의 점검이 라디오에 CD를 넣었다면 라디오도 담긴 가구다. 그래서 저장된 집에서 담긴 가구를 구해 견준다.
   // 코르크 보드(쪽지는 서버에 있어 알 수 없다)와 담는 것이 없는 가구에는 뜨지 않는다
   const mine = await page.run(savedHome);
   const want = mine.scenes.room.map(i => i.id).filter(id => Object.hasOwn(mine.likes || {}, id)).sort().join();
-  check('켜면 담아 둔 가구(컴퓨터, 게임기, 책장, TV를 포함해 저장된 집에서 담긴 가구)에만 반짝임이 뜬다',
+  check('담아 둔 가구(컴퓨터, 게임기, 책장, TV를 포함해 저장된 집에서 담긴 가구)에만 반짝임이 뜬다',
     ['bookshelf', 'computer', 'console', 'tv'].every(id => want.split(',').includes(id)) && (await liked()) === want, `${await liked()} / ${want}`);
   check('반짝임은 12~20px의 별이고 누르기를 가리지 않고 깜박인다', await page.run(() => {
     const s = getComputedStyle(document.querySelector('#wallpaper .furn.has-like'), '::after');
     return parseFloat(s.width) >= 12 && parseFloat(s.width) <= 20 && s.pointerEvents === 'none' && s.animationName === 'like-sparkle';
   }));
-  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
-  check('끄면 반짝임이 바로 사라진다', (await liked()) === '');
-  await page.run(sel => document.querySelector(sel).click(), sparkleBox);
   await openIcon('room');
   check('방 꾸미기 창에는 반짝임이 뜨지 않는다', await until(page, () => document.querySelectorAll('#windows .room-app .furn').length > 0, 3000)
     && await page.run(() => !document.querySelector('#windows .room-app .has-like')));
@@ -2095,15 +2088,15 @@ async function walk(page, base) {
   await sleep(600);
   check('이웃집의 방에는 담아 둔 가구 위에만 반짝임이 뜬다', !!keeper && keeper.split(',').length >= 1 && (await liked()) === keeper, `${await liked()} / ${keeper}`);
   await extraNeighbor(page, null);
-  await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), labSettings);
 
-  // ---------- 펫 데려오기(pet) ----------
-  // 처음 켜면 펫 고르는 창(src/pet-picker.js)이 열리고, 내 집의 방에만 펫이 빈 바닥 칸에 앉으며(src/pet.js) 끄면 바로 사라진다.
-  // 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다. 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다.
-  // 내 아바타는 펫이 앉은 칸에 들어가지 못한다. 친구 집에는 나오지 않는다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
-  // 앞 절처럼 이 페이지에서 실험실을 다시 열고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
+  // ---------- 펫(F30, 2026-11-17까지 실험실 pet) ----------
+  // 고르기 전에는 내 집의 방에만 기본 펫(회색 고양이)이 빈 바닥 칸에 앉는다(src/pet.js). 시작 메뉴의 펫 바꾸기를 누르면 펫 바꾸기 창(src/pet-picker.js)이 열리고,
+  // 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다. "없음"을 누르면 펫이 사라지고, 종류를 다시 누르면 돌아온다.
+  // 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다. 내 아바타는 펫이 앉은 칸에 들어가지 못한다.
+  // 친구 집에는 펫도 펫 바꾸기도 없다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
+  // 다른 절은 펫을 "없음"으로 두고 돌므로(가구가 놓인 내 집 절) 펫 설정을 비워 고르기 전 모습부터 보고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
   const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
-  const petBox = '.labs-item[data-lab="pet"] input';
+  await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings') || '{}'); delete s.pet; localStorage.setItem('agarago.settings', JSON.stringify(s)); });
   const hasPet = () => page.run(() => !!document.querySelector('#wallpaper .room-pet'));
   const waitPet = async (test, ms) => {
     const t0 = Date.now();
@@ -2113,28 +2106,31 @@ async function walk(page, base) {
       await sleep(100);
     }
   };
-  check('펫 데려오기: 내 집으로 돌아온다', await enterMine());
-  await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
-  check('펫 데려오기를 켜기 전에는 방에 펫이 없다', !(await hasPet()));
-  await openIcon('labs');
-  check('실험실 창에 펫 데려오기 항목이 있다', await until(page, sel => !!document.querySelector(sel), 3000, petBox));
-  check('펫 데려오기를 켜기 전에는 펫 바꾸기 단추가 보이지 않는다', await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change')?.hidden === true));
-  await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('펫 데려오기를 처음 켜면 펫 고르는 창이 열린다', await until(page, () => !!document.querySelector('.pet-app'), 3000));
-  const cat = await page.run(petScene);
-  check('켜면 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 기본 펫(회색 고양이)이 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y) && cat.look === 'cat/gray', JSON.stringify(cat));
+  check('펫: 내 집으로 돌아온다', await enterMine());
+  const cat = await waitPet(s => !!s.pet, 3000);
+  check('고르기 전에도 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 기본 펫(회색 고양이)이 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y) && cat.look === 'cat/gray', JSON.stringify(cat));
   check('펫 그림은 폭 34~68px이다(한 칸 2px 안팎, 24칸)', cat.width >= 34 && cat.width <= 68, `${cat.width}`);
-  check('펫 고르는 창에 종류 단추 여섯 개와 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
+  await page.run(clickOnce, '.start-btn');
+  check('시작 메뉴의 펫 바꾸기를 누르면 펫 바꾸기 창이 열린다', (await page.run(clickText, '.start-item', '펫 바꾸기')) && await until(page, () => !!document.querySelector('.pet-app'), 3000));
+  check('펫 바꾸기 창에 종류 단추 여섯 개와 "없음", 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
     const rows = [...document.querySelectorAll('.pet-app .pet-row')];
-    return rows.length === 2 && rows[0].children.length === 6 && rows[1].children.length === 4
+    return rows.length === 2 && rows[0].children.length === 7 && rows[1].children.length === 4
       && rows[0].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray' && rows[1].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray';
   }));
-  check('펫 고르는 창은 스크롤 없이 다 보인다', await page.run(() => { const b = document.querySelector('.pet-app'); return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth; }));
-  await probe('펫 고르는 창');
+  check('펫 바꾸기 창은 스크롤 없이 다 보인다', await page.run(() => { const b = document.querySelector('.pet-app'); return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth; }));
+  await probe('펫 바꾸기 창');
+  await page.run(() => document.querySelector('.pet-app .pet-row [data-pet="none"]').click());
+  check('"없음"을 누르면 방의 펫이 바로 사라지고 큰 그림과 색 묶음이 숨으며 설정에 남는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')
+    && document.querySelector('.pet-big').hidden && [...document.querySelectorAll('.pet-app fieldset')][1].hidden
+    && document.querySelector('.pet-app .pet-row [data-pet="none"]').getAttribute('aria-pressed') === 'true'
+    && JSON.parse(localStorage.getItem('agarago.settings')).pet === 'none'));
+  await probe('펫 없음');
   await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][0].querySelector('[data-pet^="dog/"]').click());
+  check('"없음" 뒤에 종류를 누르면 그 펫이 방에 다시 나오고 색 묶음이 돌아온다', await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet?.startsWith('dog/')
+    && ![...document.querySelectorAll('.pet-app fieldset')][1].hidden, 3000));
   await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][1].querySelector('[data-pet="dog/sky"]').click());
   const picked = await page.run(() => ({ room: document.querySelector('#wallpaper .room-pet')?.dataset.pet, big: document.querySelector('.pet-big')?.dataset.pet, saved: JSON.parse(localStorage.getItem('agarago.settings')).pet }));
-  check('펫 고르는 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
+  check('펫 바꾸기 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
   await closeWindows();
   await probe('펫이 있는 바탕화면');
   await page.run(clickTwice, '#wallpaper .room-pet');
@@ -2152,21 +2148,15 @@ async function walk(page, base) {
   const stay = await page.run(petScene);
   check('펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
   check('새로 고침해도 고른 펫이 그대로 나온다', (await enterMine()) && await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'dog/sky', 3000));
-  await openIcon('labs');
-  await until(page, sel => !!document.querySelector(sel), 3000, petBox);
-  await page.run(() => document.querySelector('.labs-item[data-lab="pet"] .labs-change').click());
-  check('켜 둔 동안 실험실 창의 펫 바꾸기 단추를 누르면 펫 고르는 창이 열리고 펫 데려오기는 켜진 채다',
-    await until(page, () => !!document.querySelector('.pet-app'), 3000) && await page.run(sel => document.querySelector(sel).checked, petBox));
-  await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('끄면 펫과 하트, 펫 고르는 창이 바로 사라진다', await page.run(() => !document.querySelector('#wallpaper .room-pet, #wallpaper .room-pet-heart, .pet-app')));
-  await page.run(sel => document.querySelector(sel).click(), petBox);
-  check('다시 켜면 펫이 다시 나오고, 이미 골랐으므로 고르는 창은 열리지 않는다', (await hasPet()) && await page.run(() => !document.querySelector('.pet-app')));
   await open(`#r=${bare}`);
   await powerOn();
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   await desktop();
   await sleep(300);
-  check('펫 데려오기를 켜 두어도 친구 집에는 펫이 없다', !(await hasPet()));
+  check('친구 집에는 펫이 없다', !(await hasPet()));
+  await page.run(clickOnce, '.start-btn');
+  check('친구 집의 시작 메뉴에는 펫 바꾸기가 없다', await page.run(() => ![...document.querySelectorAll('.start-item')].some(i => i.textContent.includes('펫 바꾸기'))));
+  await page.run(clickOnce, '.start-btn');
   await page.run(s => (s === null ? localStorage.removeItem('agarago.settings') : localStorage.setItem('agarago.settings', s)), petSettings);
 
   // ---------- 친구 집 배경음악(home-bgm) ----------

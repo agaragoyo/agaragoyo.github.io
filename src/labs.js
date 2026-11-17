@@ -18,10 +18,7 @@ import { reduceMotion } from './util.js';
 // title: 창에 나오는 이름, desc: 켜면 무엇이 달라지는지 한 줄(창이 좁으면 \n을 넣어 뜻이 끊기는 자리에서 줄을 바꾼다)
 export const LABS = [
   { id: 'fast-saver', title: '화면 보호기 빨리 보기', desc: '바탕화면을 2분 대신 20초 동안 그냥 두면\n화면 보호기가 나옵니다.' },
-  { id: 'host-avatar', title: '주인 아바타 남기기', desc: '친구 집에 가면 주인 아바타가 방에 서 있고,\n내 아바타는 빨간 옷을 입습니다.' },
-  { id: 'like-sparkle', title: '담긴 가구 반짝임', desc: '주인이 무언가 담아 둔 가구 위에\n작은 반짝임이 뜹니다.' },
-  // 처음 켤 때 펫 고르는 창이 열리고, 켜 두는 동안 이 줄에 펫 바꾸기 단추가 붙는다(src/apps/labs-app.js, src/pet-picker.js)
-  { id: 'pet', title: '펫 데려오기', desc: '내 방에 고른 펫 한 마리가 돌아다니고,\n두 번 누르면 쓰다듬을 수 있습니다.' },
+  // 주인 아바타 남기기(host-avatar), 담긴 가구 반짝임(like-sparkle), 펫 데려오기(pet)는 2026-11-17에 Admin이 정해 모든 사람에게 켰다
   { id: 'home-bgm', title: '친구 집 배경음악', desc: '친구 집에 가면 라디오의 첫 유튜브 CD가\n배경음악으로 자동 재생되어 소리가 납니다.' },
   // 움직임 줄이기를 켠 사람에게는 아바타가 혼자 걷지 않고 바로 옆 가구에만 말한다(src/idle-talk.js)
   { id: 'idle-talk', title: '심심할 때 혼잣말', desc: reduceMotion ? '바탕화면을 30초 동안 그냥 두면\n아바타가 바로 옆 가구에 혼잣말을 합니다.' : '바탕화면을 30초 동안 그냥 두면\n아바타가 가구로 가서 혼잣말을 합니다.' },

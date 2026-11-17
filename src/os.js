@@ -9,13 +9,14 @@ import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
-import { mountPet } from './pet.js';
+import { mountPet, NO_PET } from './pet.js';
+import { openPetPicker } from './pet-picker.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
 import { createIdleTalk } from './idle-talk.js';
-import { labsOpen, labOn } from './labs.js';
+import { labsOpen } from './labs.js';
 import { trySecret } from './secrets.js';
 import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
@@ -65,14 +66,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.tutorial = createTutorial(os);
   let run = 0; // 전원을 끄거나 로그아웃하면 늘려서, 진행 중이던 연출을 멈춘다
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
-  let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
+  let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(src/avatar.js의 mountOwner). 그 밖에는 null
   let pet = null; // 내 집의 방에 사는 펫(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
   // 분신사바(F29, src/horror.js). 말풍선에 "분신사바"를 말하면(src/secrets.js) 방의 불이 꺼지고 공포 모드가 된다. 메모리에만 있고 불을 켜면 풀린다
   const horror = os.horror = createHorror({
     layer: el.wallpaper,
     avatar: () => walker,
     items: () => os.home?.scenes[os.place] || [],
-    figures: () => [walker?.spot(), ...(pet?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 실험실의 펫이 선 칸을 피한다
+    figures: () => [walker?.spot(), ...(pet?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 펫이 선 칸을 피한다
     // 내 컴퓨터의 진짜 집에서만 켠다. 손님 화면, 친구 집과 이웃집, 튜토리얼과 그 연습 방에서는 켜지 않는다
     canStart: () => os.mode === 'edit' && !os.realHome && !os.tutorial.active && !el.desktop.hidden && !!walker,
     // 다른 탭에 있거나 화면 보호기, 가구 가까이 보기가 방을 가리는 동안은 이상한 일이 늘어나는 시간을 세지 않는다
@@ -215,8 +216,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     ownerAvatar?.destroy();
     pet?.destroy();
     pet = null;
-    // 실험실의 주인 아바타 남기기(host-avatar)를 켜고 친구 집을 구경하면 주인 아바타가 방에 서 있고, 손님인 내 아바타는 손님 옷 색을 입는다
-    const withOwner = os.mode === 'visit' && labOn('host-avatar');
+    // 친구 집을 구경하면 주인 아바타가 방에 서 있고, 손님인 내 아바타는 손님 옷 색을 입는다(2026-11-17까지 실험실 host-avatar)
+    const withOwner = os.mode === 'visit';
     ownerAvatar = withOwner ? mountOwner({ layer: el.wallpaper, items: () => os.home.scenes[os.place] }, os.home.owner) : null;
     walker = mountAvatar({
       layer: el.wallpaper,
@@ -276,11 +277,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
 
-  // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고른 펫이 살고(src/pet.js), 끄면 바로 사라진다.
-  // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없다.
-  // 바탕화면을 만든 뒤와 실험실 스위치를 켜고 끌 때 부른다. 펫 고르는 창(src/pet-picker.js)에서 종류나 색을 바꾸면 그 자리에서 그림만 바꾼다
+  // 내 집의 방에 사는 펫(src/pet.js). 고르기 전에는 기본 펫이 살고, 펫 바꾸기 창(src/pet-picker.js)에서 "없음"을 고르면 바로 사라진다.
+  // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없다(2026-11-17까지 실험실 pet).
+  // 바탕화면을 만든 뒤와 펫 설정이 바뀔 때 부른다. 종류나 색만 바뀌면 그 자리에서 그림만 바꾼다
   function syncPet() {
-    const want = labOn('pet') && os.mode === 'edit' && !os.realHome && !!walker;
+    const want = settings.get('pet') !== NO_PET && os.mode === 'edit' && !os.realHome && !!walker;
     if (!want) {
       pet?.destroy();
       pet = null;
@@ -290,8 +291,9 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     }
   }
   settings.subscribe(patch => {
-    if ('labs' in patch || 'labsOpen' in patch) syncPet();
-    if ('pet' in patch) pet?.restyle();
+    if (!('pet' in patch)) return;
+    syncPet();
+    pet?.restyle();
   });
 
   // 손님이 방에 들어오면(친구 집에 들어올 때와 다른 공간에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
@@ -299,13 +301,14 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     ownerAvatar?.greet(os.home.greeting, walker?.spot());
   }
 
-  // 실험실의 '담긴 가구 반짝임'(like-sparkle, src/labs.js). 주인이 무언가 담아 둔 바탕화면 가구에 has-like를 달면 style.css가 그 가구 위에 작은 별을 띄운다.
+  // 담긴 가구 반짝임(2026-11-17까지 실험실 like-sparkle). 주인이 무언가 담아 둔 바탕화면 가구에 has-like를 달면 style.css가 그 가구 위에 작은 별을 띄운다.
+  // 주인 화면과 손님 화면 모두에 띄워 주인이 손님과 같은 방을 본다.
   // 별은 가구 요소의 ::after라서, 가구 그림이 늦게 와 가구 상자를 다시 채워도(room.js의 furnitureEl) 지워지지 않는다(known-issues 22).
-  // 방을 다시 그린 뒤, 담아 둔 것이 바뀐 뒤(saveHome), 스위치를 켜고 끌 때 부른다. 방 꾸미기 창(renderItems)에는 달지 않고, 튜토리얼 연습 방에서도 뺀다.
+  // 방을 다시 그린 뒤와 담아 둔 것이 바뀐 뒤(saveHome)에 부른다. 방 꾸미기 창(renderItems)에는 달지 않고, 튜토리얼 연습 방에서도 뺀다.
   // 별마다 깜박이는 때를 0.4초씩 어긋나게 해서 한꺼번에 깜박이지 않게 한다. 담긴 것은 집 상태의 likes에서 읽기만 한다(코르크 보드의 쪽지는 서버에 있어 알 수 없다).
   function markLiked() {
     if (!os.home) return;
-    const on = labOn('like-sparkle') && !os.realHome;
+    const on = !os.realHome;
     let n = 0;
     for (const furn of el.wallpaper.querySelectorAll('.furn.static')) {
       const liked = on && Object.hasOwn(os.home.likes ?? {}, furn.dataset.id);
@@ -315,7 +318,6 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   }
   settings.subscribe(patch => {
     if (!('labs' in patch || 'labsOpen' in patch)) return;
-    markLiked();
     syncHomeMusic(os); // 친구 집에서 친구 집 배경음악(home-bgm)을 켜면 바로 틀고, 끄면 저절로 연 음악 창을 닫는다
   });
 
@@ -464,6 +466,9 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       light,
       item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
+      // 내 방에 사는 펫의 종류와 색을 바꾸거나 "없음"을 골라 펫을 두지 않는다(src/pet-picker.js). 펫이 바뀌는 곳이 방이라
+      // 다른 입구가 보이지 않으므로 이름 바꾸기처럼 시작 메뉴에 글자로 된 줄로 둔다(known-issues 80)
+      ...(editable ? [item({ title: '펫 바꾸기', icon: 'builtin:pet' }, '펫 바꾸기', () => openPetPicker(os))] : []),
       // 이름 바꾸기는 맨 위의 이름 말고도 글자로 된 줄로 둔다. 이름만 누르게 했을 때는 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80).
       // 윈도우 10의 아바타 메뉴가 로그아웃 옆에 계정 설정을 두는 것처럼 로그아웃 바로 위에 둔다
       ...(editable ? [item({ title: '이름 바꾸기', icon: 'builtin:rename' }, '이름 바꾸기', () => openNameWindow(os))] : []),

@@ -77,7 +77,7 @@ export const HEARD = '잘못 들었나?';   // near 단계의 말풍선이 사�
 export const DONT = '불 켜지 마';       // menu 단계부터 시작 메뉴를 열면 불 켜기 단추에 잠깐 보이는 글
 
 // layer: 바탕화면 방 상자(가구와 아바타가 같이 든 #wallpaper). avatar(): 지금 내 아바타. items(): 지금 공간의 가구 목록.
-// figures(): 지금 공간에서 아바타와 실험실의 펫이 선 칸들(빈칸의 말풍선은 그 칸을 피한다). canStart(): 지금 켜도 되는지.
+// figures(): 지금 공간에서 아바타와 펫이 선 칸들(빈칸의 말풍선은 그 칸을 피한다). canStart(): 지금 켜도 되는지.
 // canSee(): 지금 방이 보이는지(보이는 동안만 단계의 시간을 센다). onChange(): 켜지거나 풀린 뒤에 부른다(밤 색과 작업 표시줄 시계를 다시 맞춘다).
 // 돌려주는 것: on(), start(), end(), stop(), attach(), line(item), menu(label)
 export function createHorror({ layer, avatar, items, figures, canStart, canSee, onChange }) {
