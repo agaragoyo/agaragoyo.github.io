@@ -10,7 +10,7 @@
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기(현관문과 창문, 움직임 줄이기),
 // 내 방의 펫(펫 바꾸기 창, 쓰다듬기, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
-// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계에서 말한 암호가 숨은 기능을 열지 않는지 포함),
+// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
@@ -1775,7 +1775,7 @@ async function walk(page, base) {
     && !!document.querySelector('#start-menu .start-head .user-pic') && document.querySelector('#start-menu .start-head').textContent === '점검'));
   await page.run(clickOnce, '.start-btn');
 
-  // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 이웃집 가기, 말하기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
+  // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 말하기, 이웃집 가기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
   const tut = await page.run(tutorialFurniture);
   const step = async (word, what) => {
     check(`튜토리얼: ${what}`, await until(page, cardSays, 8000, word), `안내 카드: "${await page.run(cardSays, '')}"`);
@@ -1811,21 +1811,26 @@ async function walk(page, base) {
   await step('다시 두 번 누르면', '가구를 쓰면 밤이 되고 한 번 더 써 보라고 한다');
   check('튜토리얼: 연습 방이 밤이 된다', (await page.run(theme)) === 'night');
   await page.run(clickTwice, `#wallpaper .furn[data-id="${tut.light}"]`);
-  await step('현관문', '낮으로 돌아오면 현관문으로 이웃집 목록 창을 열어 보라고 한다');
-  await page.run(clickTwice, '#wallpaper .door-hit');
-  check('튜토리얼: 현관문으로 이웃집 목록 창을 열면 아바타를 눌러 말해 보라고 한다', await until(page, () => !!document.querySelector('#windows .neighbor-app'), 15000)
-    && await until(page, cardSays, 8000, '아바타를 누르면'), `안내 카드: "${await page.run(cardSays, '')}"`);
-  // 아바타를 누르면 테두리가 열린 말할 칸으로 옮겨 간다. 말하는 말은 실험실 암호다. 튜토리얼에서 한 말은 숨은 기능을 열지 않는다(src/secrets.js)
+  await step('아바타를 누르거나 Enter를', '낮으로 돌아오면 아바타를 누르거나 Enter를 눌러 말해 보라고 한다');
+  // 말하기 단계: 테두리가 아바타를 가리키다가 말할 칸이 열리면 그 칸으로 옮겨 간다. 아바타 누르기와 Enter 둘 다로 열어 본다(앞에 열린 창이 없어 Enter가 아바타에 간다).
+  // 말하는 말은 실험실 암호다. 튜토리얼에서 한 말은 숨은 기능을 열지 않는다(src/secrets.js)
   check('튜토리얼: 말하기 단계는 화살표와 테두리로 아바타를 가리킨다', await until(page, ringOn, 3000, '#wallpaper .room-avatar:not(.room-owner)'));
   await probe('튜토리얼 말하기 단계');
   await page.run(clickOnce, '#wallpaper .room-avatar:not(.room-owner)');
   check('튜토리얼: 아바타를 누르면 말할 칸이 열리고 테두리가 그 칸으로 옮겨 간다', await until(page, ringOn, 3000, '#desktop .say-input'));
+  await press(page, 'Escape');
+  check('튜토리얼: 말할 칸을 닫으면 테두리가 아바타로 돌아온다', await until(page, ringOn, 3000, '#wallpaper .room-avatar:not(.room-owner)'));
+  await press(page, 'Enter');
+  check('튜토리얼: 말하기 단계에서는 Enter를 눌러도 말할 칸이 열린다', await until(page, ringOn, 3000, '#desktop .say-input'));
   await page.run(() => { document.querySelector('.say-input').value = '엔믹스지우'; });
   await press(page, 'Enter');
-  check('튜토리얼: 한마디 하면 끝 카드가 뜬다', await until(page, () => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝'
-    && !document.querySelector('.coach-card').hidden, 3000), `안내 카드: "${await page.run(cardSays, '')}"`);
+  await step('현관문', '한마디 하면 현관문으로 이웃집 목록 창을 열어 보라고 한다');
   check('튜토리얼에서 말한 암호는 숨은 기능을 열지 않는다(실험실 아이콘이 생기지 않는다)', await page.run(() => !document.querySelector('#icons [data-app="labs"]')
     && !JSON.parse(localStorage.getItem('agarago.settings') || '{}').labsOpen));
+  await page.run(clickTwice, '#wallpaper .door-hit');
+  check('튜토리얼: 현관문으로 이웃집 목록 창을 열면 끝 카드가 뜬다', await until(page, () => !!document.querySelector('#windows .neighbor-app')
+    && document.querySelector('.coach-title')?.textContent === '튜토리얼 끝' && !document.querySelector('.coach-card').hidden, 15000), `안내 카드: "${await page.run(cardSays, '')}"`);
+  check('튜토리얼: 끝 카드는 말하는 법을 다시 적지 않는다', await page.run(() => !document.querySelector('.coach-text').textContent.includes('Enter')), await page.run(cardSays, ''));
   await closeWindows();
   await sleep(300);
   check('튜토리얼: 목록 창을 닫아도 끝 카드가 남는다', await page.run(() => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝' && !document.querySelector('.coach-card').hidden));

@@ -1,5 +1,5 @@
-// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 이웃집 목록 창을 열어 보고,
-// 아바타를 눌러 한마디 하면서 가구 놓기, 가구 쓰기, 이웃집 가기, 말하기를 배운다. 2026-11-10까지는 창문도 놓고 창문으로 나갔고,
+// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 아바타로 한마디 해 보고 현관문으로
+// 이웃집 목록 창을 열어 보면서 가구 놓기, 가구 쓰기, 말하기, 이웃집 가기를 배운다. 2026-11-10까지는 창문도 놓고 창문으로 나갔고,
 // 2026-11-17까지는 현관문으로 놀이터에 나갔다가 울타리의 아파트 문으로 돌아왔다. 말하기는 숨은 기능(src/secrets.js)의 입구라 2026-11-17에 더했다.
 // 화면 구석의 작은 안내 카드가 한 번에 한 가지 행동만 부탁하고 화살표가 그 자리를 가리킨다. 글을 읽고 넘기는 "다음" 단추는 없다.
 //
@@ -18,7 +18,7 @@ import { BY_ID, TUTORIAL_FURNITURE } from '../data/furniture.js';
 import { batchim, h, loadJSON, saveJSON } from './util.js';
 
 const HOME = 'room';
-const LESSONS = ['가구 놓기', '가구 쓰기', '이웃집 가기', '말하기'];
+const LESSONS = ['가구 놓기', '가구 쓰기', '말하기', '이웃집 가기'];
 const ARROW_H = 56; // 화살표가 차지하는 높이(그림 48px, 튀는 폭 8px). 대상 위쪽에 이만큼 자리가 없으면 아래에 둔다
 const CARD = { left: 860, top: 470, bottom: 628 }; // 안내 카드의 기본 자리(style.css의 .coach-card). 대상이 여기에 걸리면 카드가 왼쪽으로 비킨다
 
@@ -103,28 +103,30 @@ export function createTutorial(os) {
       done: () => !os.settings.get('night'),
       target: () => inWallpaper(`.furn[data-id="${light}"]`),
     },
+    // 말하기는 아바타 누르기와 Enter를 한 단계에서 함께 알린다. 새로 연 창은 키 입력을 가져가서 이웃집 목록 창이 열린 뒤에는
+    // Enter가 아바타에 가지 않으므로, 열린 창이 없는 스탠드 단계 다음이자 현관문 단계 앞에 둔다
+    {
+      id: 'say',
+      lesson: 2,
+      text: () => '아바타를 누르거나 Enter를 누르면\n말할 칸이 열립니다.\n하고 싶은 말을 쓰고\nEnter를 누르세요.',
+      done: () => false, // 말하면 said()가 passed에 적는다
+      target: sayTarget,
+    },
     {
       id: 'neighbor',
-      lesson: 2,
+      lesson: 3,
       use: true,
       once: true, // 목록 창을 닫아도 되돌아가지 않는다
       text: () => '방 벽의 현관문을 두 번 누르면\n이웃집 목록 창이 열립니다.',
       done: () => !!os.wm.get('neighbor'),
       target: () => inWallpaper('.door-hit'),
     },
-    {
-      id: 'say',
-      lesson: 3,
-      text: () => '아바타를 누르면\n말할 칸이 열립니다.\n하고 싶은 말을 쓰고\nEnter를 누르세요.',
-      done: () => false, // 말하면 said()가 passed에 적는다
-      target: sayTarget,
-    },
   ];
-  // 말하기 단계에서 아바타를 눌러 말해 보았으므로 끝 카드에는 바탕화면의 Enter를 지름길로만 적는다
+  // 끝 카드에는 말하는 법을 다시 적지 않는다(말하기 단계가 아바타 누르기와 Enter를 함께 알렸다)
   const END = {
     id: 'end',
     title: '튜토리얼 끝',
-    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.\nEnter를 눌러도 말할 칸이 열립니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
+    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
     target: () => null,
   };
 
