@@ -25,9 +25,9 @@
 // 움직임 줄이기를 켠 사람에게는 걸어 다니지 않고 숨도 쉬지 않으며 앉아만 있는다(눈 깜박이기와 쓰다듬기는 된다). 따라오는 펫은 걷지 않고,
 // 아바타가 멈춰 서면 그 바로 뒤 칸에 나타난다. 가구 위에서 시작하거나 가구에서 내려올 때도 뛰지 않고 자리만 바뀐다.
 // 한 칸은 2px 안팎이고, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값(--pet-cell)으로 그린다(known-issues 67).
-// 말풍선에 999999999를 말하면 날아오는 비둘기(src/pigeon.js)도 이 코드로 걷는다(비둘기의 성격 그대로 혼자 논다). 그 비둘기는 창문이나 현관문에서 날아 들어오고(flyIn)
-// 날아 나가며(flyOut), 두 번 누르면 쓰다듬는 대신 아바타가 다가온 뒤 놀라 날아간다(host.shy). 오른쪽 단추 메뉴는 없다. 내 펫과 그 비둘기는 서로의 칸과
-// 그 둘레 한 칸에 들어가지 않아(host.others) 두 그림이 겹치지 않는다. 따라오는 펫만은 비둘기 옆 칸을 지나갈 수 있다.
+// 말풍선에 999999999를 말하면 날아오는 비둘기 떼(src/pigeon.js)도 한 마리씩 이 코드로 걷는다(비둘기의 성격 그대로 혼자 놀되 내려앉은 칸 둘레에서만 걷는다, host.roam).
+// 그 비둘기들은 창문이나 현관문에서 날아 들어오고(flyIn) 날아 나가며(flyOut), 두 번 누르면 쓰다듬는 대신 아바타가 다가온 뒤 놀라 날아간다(host.shy). 오른쪽 단추 메뉴는 없다.
+// 내 펫과 비둘기, 비둘기끼리는 서로의 칸과 그 둘레 한 칸에 들어가지 않아(host.others) 그림이 겹치지 않는다. 따라오는 펫만은 비둘기 옆 칸을 지나갈 수 있다.
 import { N, PERCH } from './config.js';
 import { tile } from './iso.js';
 import { depthZ, blockedOf, overlaps } from './avatar.js';
@@ -66,6 +66,17 @@ const LEAP_MS = 380;            // 가구에 뛰어오르거나 뛰어내리는 
 const LEAP_ARC = 10;            // 뛰는 길이 높은 쪽 끝보다 더 솟는 높이(무대 px). 윗면 높이 차의 절반에 더해 곧은 줄보다 솟는다
 const LEAP_REACH = 2.1;         // 뛰는 칸(가구 옆 바닥 칸의 가운데)에서 가구 위 앉는 자리까지의 가장 먼 거리(칸). 바로 옆과 한 칸 비낀 칸까지다
 const PERCH_REACH = 8;          // 혼자 놀다 가구로 갈 때 걸어가는 가장 먼 거리(길을 따라 센 칸 수)
+// 발끝 자리 a에서 b까지(무대 px) 나는 시간(ms)
+export const flyMs = (a, b) => clamp((Math.hypot(b.x - a.x, b.y - a.y) / FLY_SPEED) * 1000, FLY_MS[0], FLY_MS[1]);
+// a에서 b까지 나는 길에서 시간의 비율 k(0~1)일 때의 발끝 자리(무대 px). 가운데가 ARC만큼 솟는 활 모양으로 난다.
+// 들어올 때(fade 'in')는 빠르게 들어와 천천히 내려앉고, 나갈 때('out')는 천천히 날아올라 빨라진다.
+// 비둘기 떼(src/pigeon.js)가 저마다 날아오를 때를 정할 때, 먼저 뜬 비둘기와 겹치는지 이것으로 미리 따져 본다
+export function flightAt(a, b, k, fade) {
+  const e = fade === 'in' ? 1 - (1 - k) * (1 - k) : k * k;
+  return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - ARC * 4 * e * (1 - e) };
+}
+// ms 동안 나는 길에서 t ms가 지났을 때 보이는 정도(0~1). 들어올 때는 처음 FADE_MS 동안 나타나고, 나갈 때는 끝 FADE_MS 동안 사라진다
+export const flightSeen = (t, ms, fade) => clamp(fade === 'in' ? t / FADE_MS : (ms - t) / FADE_MS, 0, 1);
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 // 오른쪽 단추 메뉴에서 시키는 할 일. [할 일, 메뉴 줄, 시킬 때 아바타가 하는 말]. 메뉴에는 이 차례로 나오고 지금 하는 일 앞에 점이 찍힌다.
 // 혼자 놀게 하기는 따라오기나 기다리기를 풀어 처음처럼 돌아다니게 한다
@@ -311,17 +322,18 @@ export function petPuppet(box) {
 //   avatar()  내 아바타(src/avatar.js의 mountAvatar). 그 칸은 피해서 걷고, 쓰다듬을 때와 명령할 때(말풍선) 부른다. 없으면 null
 //   look()    고른 펫(src/settings.js의 pet 값). 비었으면 기본 펫이다
 //   pat()     쓰다듬을 때마다 부른다. 자라는 펫의 횟수를 세고 다 자라면 펫 설정을 바꾼다(src/os.js의 petPatted). 없어도 된다
-//   others()  같은 방의 다른 펫 목록(내 펫과 날아온 비둘기가 서로를 넘긴다). 저마다 claims()(없으면 cells())로 차지한 칸을 알려 주고,
+//   others()  같은 방의 다른 펫 목록(내 펫과 날아온 비둘기들이 서로를 넘긴다). 저마다 claims()(없으면 cells())로 차지한 칸을 알려 주고,
 //             혼자 놀거나 기다리는 펫은 그 칸과 둘레 한 칸에, 따라오는 펫은 그 칸에 가지 않는다. 없어도 된다
 //   leader()  따라올 때 뒤를 밟을 앞선 이. spot()으로 선 칸을 알려 주면 된다. 없으면 아바타다.
 //             펫을 여러 마리 키우게 되면 둘째부터 앞의 펫(이 함수가 돌려준 것)을 넘겨 줄지어 따라오게 한다
 //   rest      앉아 있다가 다시 걷기까지 기다리는 시간의 범위 [ms, ms]. 없으면 종류의 성격(mood.rest)이다
+//   roam(x, y) 있으면 혼자 놀 때 이것이 참인 칸만 지나고 그런 칸으로만 걸어간다. 날아온 비둘기가 내려앉은 칸 둘레에 머물고 아바타 곁을 지나지 않게 한다
 //   shy()     있으면 두 번 눌렀을 때 쓰다듬는 대신, 아바타가 옆 칸까지 다가온 뒤 이것을 부른다(날아온 비둘기가 놀라 날아간다)
 //   menu      있으면 오른쪽 단추로 눌렀을 때 할 일 메뉴를 띄운다. { root, toStage }: 메뉴를 넣을 무대와 화면 좌표를 무대 좌표로 바꾸는 함수.
 //             가구와 펫이 든 상자(layer)는 쌓임 맥락이 따로라 그 안에 넣으면 창 아래에 깔리므로 무대에 넣는다
 //   title     마우스를 올리면 보이는 글. 없으면 "두 번 눌러 쓰다듬기"다
-// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), order(at, rect, z), vacate(item), flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
-// cells와 order는 아바타가 부른다(host.others). vacate는 아바타가 가구를 쓸 때 os.js가 부른다. flyIn, flyOut, say는 날아오는 비둘기(src/pigeon.js)가 쓴다.
+// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), order(at, rect, z), vacate(item), hold(on), flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
+// cells와 order는 아바타가 부른다(host.others). vacate는 아바타가 가구를 쓸 때 os.js가 부른다. hold, flyIn, flyOut, say는 날아오는 비둘기 떼(src/pigeon.js)가 쓴다.
 // 가구 위에 웅크리고 있는 동안에는 펫 상자(.room-pet)의 data-perch에 그 가구의 id가 있다(눌러 보기 점검이 읽는다)
 export function mountPet(host) {
   const el = h('div', { className: 'room-pet', title: host.title || '두 번 눌러 쓰다듬기' });
@@ -532,11 +544,11 @@ export function mountPet(host) {
     }, PECK_GAP[0] + Math.random() * (PECK_GAP[1] - PECK_GAP[0]));
   }
 
-  // 발끝 자리 a에서 b까지(무대 px) 날개를 치며 난다. 가운데가 조금 솟는 활 모양으로 날고, 천천히 떠서 빨라졌다가 천천히 닿는다.
-  // 들어올 때(fade 'in')는 처음 FADE_MS 동안 나타나고, 나갈 때('out')는 끝 FADE_MS 동안 사라진다.
+  // 발끝 자리 a에서 b까지(무대 px) 날개를 치며 난다. 길과 빠르기는 flightAt, 나타나고 사라지는 것은 flightSeen이다.
   // 가구와의 앞뒤는 나는 내내 바닥 쪽 끝 칸 at(내려앉을 칸이나 날아오른 칸)으로 정한다. 공중의 새는 그 칸 앞의 낮은 가구보다 위에 있어서,
-  // 날아가는 아래 바닥 자리로 정하면 창문 아래 침대 같은 가구 뒤로 숨어 버린다. 다 날면 then을 부른다
-  function flight(a, b, at, fade, then) {
+  // 날아가는 아래 바닥 자리로 정하면 창문 아래 침대 같은 가구 뒤로 숨어 버린다. 다 날면 then을 부른다.
+  // ms를 주면 그 시간 동안 난다. 없으면 거리로 정한다(flyMs)
+  function flight(a, b, at, fade, then, ms = flyMs(a, b)) {
     cancelAnimationFrame(raf);
     stopMode();
     puppet.live(false);
@@ -544,15 +556,12 @@ export function mountPet(host) {
     el.classList.add('flying');
     size = petCell();
     right = b.x > a.x;
-    const ms = clamp((Math.hypot(b.x - a.x, b.y - a.y) / FLY_SPEED) * 1000, FLY_MS[0], FLY_MS[1]);
     const half = (size * PET_COLS) / 2;
     const t0 = performance.now();
     const tick = now => {
       const k = Math.min(1, (now - t0) / ms); // 지난 시간으로 계산해 프레임이 적은 창에서도 제시간에 닿는다(known-issues 23)
-      const e = k * k * (3 - 2 * k);
-      const p = { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - ARC * 4 * e * (1 - e) };
-      const seen = fade === 'in' ? (now - t0) / FADE_MS : fade === 'out' ? (ms - (now - t0)) / FADE_MS : 1;
-      el.style.opacity = String(clamp(seen, 0, 1));
+      const p = flightAt(a, b, k, fade);
+      el.style.opacity = String(flightSeen(now - t0, ms, fade));
       puppet.pose(Math.floor((now - t0) / FLAP_MS) % 2 ? 'fly2' : 'fly1');
       draw(at, 1, 1, { l: p.x - half, t: p.y - size * PET_ROWS, r: p.x + half, b: p.y }, p);
       if (k < 1) {
@@ -595,7 +604,7 @@ export function mountPet(host) {
   }
 
   // 혼자 놀 때 지금 칸에서 길을 따라 mood.hop칸 떨어진 빈칸 하나를 무작위로 골라 그 칸까지의 길을 돌려준다(지금 칸은 빼고). 갈 곳이 없으면 빈 길.
-  // 겁 많은 펫(mood.edge)은 그 가운데 벽 앞이나 가구 옆 칸을 고르고, 그런 칸이 없을 때만 아무 칸으로 간다
+  // host.roam이 있으면 그것이 참인 칸만 지나고 고른다. 겁 많은 펫(mood.edge)은 그 가운데 벽 앞이나 가구 옆 칸을 고르고, 그런 칸이 없을 때만 아무 칸으로 간다
   function hop() {
     const [least, most] = mood().hop;
     const prev = new Map([[key(cell.x, cell.y), null]]);
@@ -609,7 +618,7 @@ export function mountPet(host) {
       if (dc === most) continue;
       for (const [dx, dy] of DIRS) {
         const n = { x: c.x + dx, y: c.y + dy };
-        if (!open(n.x, n.y) || prev.has(key(n.x, n.y))) continue;
+        if (!open(n.x, n.y) || (host.roam && !host.roam(n.x, n.y)) || prev.has(key(n.x, n.y))) continue;
         prev.set(key(n.x, n.y), c);
         dist.set(key(n.x, n.y), dc + 1);
         queue.push(n);
@@ -879,11 +888,12 @@ export function mountPet(host) {
   }
 
   // 한 칸 걷는다. 혼자 놀 때는 남은 길(route)을, 따라올 때는 따라오는 길(trail)을 걷는다.
-  // 길이 끝났거나 다음 칸에 그사이 가구나 아바타, 다른 펫이 들어왔으면 그 자리에 앉는다. 가구로 가던 길이 끝났으면 뛰어오른다(climb)
+  // 길이 끝났거나 다음 칸에 그사이 가구나 아바타가 들어왔으면, 혼자 놀 때는 다음 칸이 그사이 다른 펫의 칸이나 그 둘레 한 칸이 되었어도 그 자리에 앉는다.
+  // 길을 고른 뒤에 다른 펫(날아온 비둘기 떼)이 걸어와 옆에 붙는 일이 있어서 걸음마다 다시 본다. 가구로 가던 길이 끝났으면 뛰어오른다(climb)
   function step() {
     const follow = mode === 'follow';
     const to = follow ? nextTrail() : route.shift();
-    if (!to || (!follow && (!stand(to.x, to.y) || avatarAt(to.x, to.y)))) {
+    if (!to || (!follow && !open(to.x, to.y))) {
       if (!to && !follow && aim) climb();
       else settle();
       return;
@@ -1255,7 +1265,10 @@ export function mountPet(host) {
       el.style.zIndex = mine;
       return z;
     },
-    // 창문이나 현관문(gate, src/pigeon.js)에서 날아 들어와 gate.near에서 가장 가까운 빈칸에 내려앉은 뒤 then을 부른다.
+    // on이 참이면 그 자리에 멈춰 서고(할 일을 기다리기로 바꾼다. 걷던 중이면 들어가던 칸까지 마저 걷는다), 거짓이면 다시 혼자 논다.
+    // 비둘기 떼(src/pigeon.js)가 다 내려앉을 때까지 앉아 있고, 놀라서 날아오르기 전에 멈칫할 때 쓴다
+    hold: (on = true) => assign(on ? 'stay' : 'free'),
+    // 창문이나 현관문(gate, src/pigeon.js)에서 날아 들어와 gate.near에서 가장 가까운 빈칸에 내려앉은 뒤 then을 부른다. gate.ms가 있으면 그 시간 동안 난다.
     // gate.at은 날기 시작하는 발끝 자리(무대 px)다. 내려앉을 칸은 날아오는 동안에도 차지한다(cells).
     // 내려앉을 칸이 없으면 들어오지 않고 false를 돌려준다. 움직임 줄이기를 켠 사람에게는 날지 않고 그 칸에 바로 나타난다
     flyIn(gate, then) {
@@ -1271,21 +1284,23 @@ export function mountPet(host) {
         then?.();
       };
       if (reduceMotion) down();
-      else flight(gate.at, tile(cell.x + 0.5, cell.y + 0.5), cell, 'in', down);
+      else flight(gate.at, tile(cell.x + 0.5, cell.y + 0.5), cell, 'in', down, gate.ms);
       return true;
     },
-    // 지금 자리에서 창문이나 현관문(gate)까지 날아가 사라진 뒤 then을 부른다. 날아오르면 칸을 비운다.
+    // 지금 자리에서 창문이나 현관문(gate)까지 날아가 사라진 뒤 then을 부른다. 날아오르면 칸을 비운다. gate.ms가 있으면 그 시간 동안 난다.
+    // 날아오른 비둘기는 앉아 있는 비둘기보다 위에 그린다. 가구와의 앞뒤(z-index)가 같으면 상자 안에서 뒤에 든 그림이 위에 오므로 맨 뒤로 옮긴다.
     // 방에 없거나 움직임 줄이기를 켠 사람에게는 날지 않고 바로 사라진다
     flyOut(gate, then) {
       const at = cell && pos && el.isConnected ? { ...pos } : null;
       halt();
       cell = null;
+      if (at) host.layer.append(el);
       const gone = () => {
         detach();
         then?.();
       };
       if (!at || reduceMotion) gone();
-      else flight(tile(at.x + 0.5, at.y + 0.5), gate.at, at, 'out', gone);
+      else flight(tile(at.x + 0.5, at.y + 0.5), gate.at, at, 'out', gone, gate.ms);
     },
     // 머리 위 말풍선에 text를 ms 동안 띄운다(날아온 비둘기의 "구구"). 방에 없으면 띄우지 않는다
     say(text, ms) {

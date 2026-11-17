@@ -8,7 +8,7 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
-// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기(현관문과 창문, 움직임 줄이기),
+// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
 // 내 방의 펫(펫 바꾸기 창, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
 // 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
@@ -636,25 +636,54 @@ function floorTap(x, y) {
   floor.dispatchEvent(new PointerEvent('pointerup', p));
 }
 
-// 말풍선 암호로 날아온 비둘기(src/pigeon.js). 비둘기 수, 선 칸(petScene처럼 발끝을 거꾸로 푼 칸), 그 칸이 비어 있던 바닥인지, 나는 중인지,
-// 머리 위의 말풍선 글(떠 있을 때만), 지금 보이는 그림 장. 펫을 "없음"으로 두고 부른다(펫이 비둘기면 둘이 섞인다)
+// 말풍선 암호로 날아온 비둘기 떼(src/pigeon.js). 비둘기 수, 비둘기마다 선 칸(petScene처럼 발끝을 거꾸로 푼 칸), 모든 칸이 비어 있던 바닥인지,
+// 가장 가까운 두 비둘기 사이(가로와 세로 가운데 먼 쪽의 칸 수, 2 이상이면 서로 둘레 한 칸을 비웠다), 나는 비둘기 수, 떠 있는 말풍선의 글,
+// 첫 비둘기의 지금 보이는 그림 장. 펫을 "없음"으로 두고 부른다(펫이 비둘기면 둘이 섞인다)
 async function pigeonScene() {
   const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
   const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
   const birds = [...document.querySelectorAll('#wallpaper .room-pet[data-pet^="pigeon/"]')];
-  const p = birds[0];
-  const say = document.querySelector('#wallpaper .room-pet-say');
-  const cell = p && cellOf(parseFloat(p.style.left), parseFloat(p.style.top));
   const items = JSON.parse(localStorage.getItem('agarago.home.v3'))?.scenes.room || [];
+  const blocked = blockedOf(items);
+  const cells = birds.map(b => cellOf(parseFloat(b.style.left), parseFloat(b.style.top)));
+  const floor = c => Number.isInteger(c.x) && Number.isInteger(c.y) && c.x > 0 && c.y > 0 && c.x < 12 && c.y < 12 && !blocked.has(`${c.x},${c.y}`);
+  let apart = 99;
+  for (let i = 0; i < cells.length; i++) for (let j = i + 1; j < cells.length; j++) apart = Math.min(apart, Math.max(Math.abs(cells[i].x - cells[j].x), Math.abs(cells[i].y - cells[j].y)));
+  const p = birds[0];
   return {
     count: birds.length,
-    look: p?.dataset.pet,
-    cell,
-    floor: !!cell && Number.isInteger(cell.x) && Number.isInteger(cell.y) && cell.x > 0 && cell.y > 0 && cell.x < 12 && cell.y < 12 && !blockedOf(items).has(`${cell.x},${cell.y}`),
-    flying: !!p?.classList.contains('flying'),
-    coo: say && !say.hidden && say.isConnected ? say.textContent : null,
+    look: [...new Set(birds.map(x => x.dataset.pet))].join(),
+    cells,
+    floor: cells.length > 0 && cells.every(floor),
+    apart,
+    flying: birds.filter(x => x.classList.contains('flying')).length,
+    says: [...document.querySelectorAll('#wallpaper .room-pet-say')].filter(x => !x.hidden && x.isConnected).map(x => x.textContent),
     frame: p ? [...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame : null,
   };
+}
+// 비둘기 떼를 지켜본다(page.run으로 건다). 떠 있는 "구구" 말풍선의 가장 많은 수와 말풍선을 띄운 비둘기 수(window.__coo),
+// 내려앉은 뒤 날아오른 때(window.__takeoff, 비둘기마다 처음 .flying이 붙은 때와 그 칸)를 적는다. 비둘기가 나타나기 전에 건다
+function watchFlock() {
+  const layer = document.getElementById('wallpaper');
+  const cellOf = el => { const s = (parseFloat(el.style.left) - 640) / 36, t = (parseFloat(el.style.top) - 270) / 18 - 1; return { x: Math.round((s + t) / 2), y: Math.round((t - s) / 2) }; };
+  const seen = new Set();
+  const landed = new Set();
+  window.__coo = { max: 0, birds: 0 };
+  window.__takeoff = [];
+  clearInterval(window.__flockTimer);
+  window.__flockTimer = setInterval(() => {
+    const shown = [...layer.querySelectorAll('.room-pet-say')].filter(x => !x.hidden && x.isConnected);
+    for (const x of shown) seen.add(x);
+    window.__coo = { max: Math.max(window.__coo.max, shown.length), birds: seen.size };
+    for (const b of layer.querySelectorAll('.room-pet[data-pet^="pigeon/"]')) {
+      const flying = b.classList.contains('flying');
+      if (!flying) landed.add(b);
+      else if (landed.has(b) && !b.__off) {
+        b.__off = true;
+        window.__takeoff.push({ t: Math.round(performance.now()), ...cellOf(b) });
+      }
+    }
+  }, 20);
 }
 
 // 실험실의 심심할 때 혼잣말(src/idle-talk.js)을 지켜본다. 내 아바타의 말풍선에 말이 뜰 때마다 그 말, 뜬 때, 아바타가 선 칸과
@@ -1363,45 +1392,106 @@ async function walk(page, base) {
   await page.run(clickOnce, '.users .user:not(.neighbor)');
   check('새로 고침하면 공포 모드가 풀려 있다', (await desktop()) && (await page.run(horrorState)).startsWith('day/') && !(await page.run(() => !!document.querySelector('#wallpaper .horror-dark'))), await page.run(horrorState));
 
-  // ---------- 비둘기(F32) ----------
-  // 말풍선에 999999999를 말하면 비둘기가 창문으로, 창문이 없으면 현관문으로 날아 들어와 빈 바닥 칸에 내려앉아 "구구" 하고 조금 뒤 날아 나간다(src/pigeon.js).
-  // 나타나는 때와 머무는 시간(src/config.js의 PIGEON)은 페이지 안에서 줄인다(새로 고침하면 원래대로 돌아온다). 점검용 집에는 창문이 없어 현관문 앞(3, 10)에 내려앉고,
-  // 왼쪽 벽에 창문을 단 집에서는 그 창문 앞(3, 3)에 내려앉는다. 두 번 누르면 아바타가 다가가고 비둘기는 머무는 시간을 다 채우지 않고 날아 나간다.
-  // 움직임 줄이기를 켠 사람에게는 날지 않고 내려앉을 칸에 바로 나타났다가 그 자리에서 사라진다. 친구 집에서 말하면 오지 않는다(친구 집 절)
-  const pigeonTime = stay => page.run(async ms => Object.assign((await import(new URL('src/config.js', document.baseURI).href)).PIGEON, { come: 100, stay: [ms, ms] }), stay);
+  // ---------- 비둘기 떼(F32) ----------
+  // 말풍선에 999999999를 말하면 비둘기가 아홉 마리까지 창문으로, 창문이 없으면 현관문으로 줄줄이 날아 들어와 빈 바닥 칸에 서로 한 칸씩 띄워 내려앉고,
+  // 두세 마리가 차례로 "구구" 한다(src/pigeon.js). 나타나는 때와 머무는 시간, 걷기까지 쉬는 시간(src/config.js의 PIGEON)은 페이지 안에서 바꾼다
+  // (새로 고침하면 원래대로 돌아온다). 걷지 않게 해 두어야 선 칸이 정수로 읽힌다. 점검용 집에는 창문이 없어 현관문 앞(3, 10) 둘레에,
+  // 왼쪽 벽에 창문을 단 집에서는 그 창문 앞(3, 3) 둘레에 내려앉는다. 머무는 시간이 지나거나, 아바타가 어느 비둘기의 둘레 여덟 칸에 들어오거나,
+  // 비둘기 하나를 두 번 누르면 떼 전체가 조금씩 어긋나게 날아 나간다. 움직임 줄이기를 켠 사람에게는 날지 않고 내려앉을 칸에 바로 나타났다가
+  // 그 자리에서 사라진다. 친구 집에서 말하면 오지 않는다(친구 집 절). 9마리가 함께 날 때 서로 겹치거나 가구 뒤로 숨지 않는지는 프레임을 받아 따로 봤다(일지)
+  const pigeonTime = stay => page.run(async ms => Object.assign((await import(new URL('src/config.js', document.baseURI).href)).PIGEON, { come: 100, stay: [ms, ms], rest: [60000, 60000], coo: 800 }), stay);
   const COO = await page.run(async () => (await import(new URL('src/pigeon.js', document.baseURI).href)).COO);
-  const closeTo = (c, x, y) => !!c && Math.abs(c.x - x) + Math.abs(c.y - y) <= 2;
-  const landedPigeon = async () => {
+  const MAX = await page.run(async () => (await import(new URL('src/config.js', document.baseURI).href)).PIGEON.max);
+  // 떼가 칸 a 쪽에 앉았는지(칸 b보다 a에 평균으로 가까운지). 현관문 앞은 (3, 10), 왼쪽 벽 창문 앞은 (3, 3)이다
+  const nearer = (cells, a, b) => { const d = p => cells.reduce((n, c) => n + Math.abs(c.x - p.x) + Math.abs(c.y - p.y), 0); return d(a) < d(b); };
+  // 비둘기의 말풍선이 ms 동안 하나도 뜨지 않을 때까지 기다린다. "구구"를 차례로 하는 사이에는 0.3초씩 비어 있다
+  const cooQuiet = async ms => {
     const t0 = Date.now();
+    let since = Date.now();
+    for (;;) {
+      if (await page.run(() => !!document.querySelector('#wallpaper .room-pet-say:not([hidden])'))) since = Date.now();
+      if (Date.now() - since >= ms) return true;
+      if (Date.now() - t0 > 10000) return false;
+      await sleep(100);
+    }
+  };
+  // 떼가 다 내려앉을 때까지 기다린다(나는 비둘기가 없고 수가 1.7초 동안 그대로일 때). 공중에서 겹치지 않게 다음 비둘기가 1.5초까지 늦게 올 수 있다(src/pigeon.js의 WAIT_MAX)
+  const landedFlock = async () => {
+    const t0 = Date.now();
+    let last = null;
+    let since = Date.now();
     for (;;) {
       const s = await page.run(pigeonScene);
-      if ((s.count && !s.flying && s.coo) || Date.now() - t0 > 5000) return s;
+      const key = `${s.count}/${s.flying}`;
+      if (key !== last) { last = key; since = Date.now(); }
+      if ((s.count && !s.flying && Date.now() - since > 1700) || Date.now() - t0 > 12000) return s;
       await sleep(100);
     }
   };
   const pigeonGone = ms => until(page, () => !document.querySelector('#wallpaper .room-pet[data-pet^="pigeon/"]'), ms);
-  await page.run(catchAudio); // 놀라 날아갈 때만 새소리를 내는지 본다
-  await pigeonTime(4000);
+  await page.run(catchAudio); // 놀라 날아갈 때만 새소리를 한 번 내는지 본다
+  await pigeonTime(60000);
+  await page.run(watchFlock);
   await sayWord('999999999');
   check('말풍선에 999999999를 말하면 회색 비둘기가 날개를 치며 날아 들어온다', await until(page, () => {
     const p = document.querySelector('#wallpaper .room-pet.flying[data-pet="pigeon/gray"]');
     return !!p && /^fly[12]$/.test([...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame || '');
   }, 3000));
-  const byDoor = await landedPigeon();
-  check(`창문이 없는 집에서는 현관문 앞의 빈 바닥 칸에 내려앉아 "${COO}" 한다`, byDoor.count === 1 && byDoor.floor && closeTo(byDoor.cell, 3, 10) && byDoor.coo === COO, JSON.stringify(byDoor));
-  await probe('비둘기가 내려앉은 바탕화면');
-  check('비둘기의 말풍선이 사라진다', await until(page, () => !document.querySelector('#wallpaper .room-pet-say:not([hidden])'), 4000));
+  const byDoor = await landedFlock();
+  check(`창문이 없는 집에서는 비둘기가 여러 마리(${MAX}마리까지) 현관문 앞의 빈 바닥 칸에 내려앉는다`, byDoor.count >= 2 && byDoor.count <= MAX && byDoor.look === 'pigeon/gray'
+    && byDoor.floor && nearer(byDoor.cells, { x: 3, y: 10 }, { x: 3, y: 3 }), JSON.stringify(byDoor));
+  check('내려앉은 비둘기는 어느 둘도 붙어 앉지 않는다(서로 둘레 한 칸을 비운다)', byDoor.apart >= 2, JSON.stringify(byDoor));
+  await probe('비둘기 떼가 내려앉은 바탕화면');
+  check('"구구" 말풍선은 두세 마리가 하나씩 차례로 띄운다', await until(page, () => window.__coo.birds >= 2, 6000) && await cooQuiet(1000)
+    && await page.run(() => window.__coo.max === 1 && window.__coo.birds <= 3), JSON.stringify(await page.run(() => window.__coo)));
   await sayWord('999999999');
   const cooAgain = await page.run(pigeonScene);
-  check('비둘기가 와 있을 때 또 말하면 한 마리 그대로 한 번 더 운다', cooAgain.count === 1 && cooAgain.coo === COO, JSON.stringify(cooAgain));
-  check('머무는 시간이 지나면 날아 나가 방에서 사라진다', await pigeonGone(6000));
+  check('비둘기 떼가 와 있을 때 또 말하면 수는 그대로이고 한 마리가 한 번 더 운다', cooAgain.count === byDoor.count && cooAgain.says.length === 1 && cooAgain.says[0] === COO, JSON.stringify(cooAgain));
+  // 아바타를 어느 비둘기의 둘레 칸으로 걷게 한다. 그 칸에 들어서면 떼 전체가 날아 나가야 한다. 가구에 막혀 걸어갈 수 없는 칸은 고르지 않는다
+  const beside = await page.run(async () => {
+    const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
+    const cellOf = el => { const s = (parseFloat(el.style.left) - 640) / 36, t = (parseFloat(el.style.top) - 270) / 18 - 1; return { x: Math.round((s + t) / 2), y: Math.round((t - s) / 2) }; };
+    const birds = [...document.querySelectorAll('#wallpaper .room-pet[data-pet^="pigeon/"]')].map(cellOf);
+    const blocked = blockedOf(JSON.parse(localStorage.getItem('agarago.home.v3')).scenes.room);
+    const walker = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
+    const me = cellOf({ style: { left: `${parseFloat(walker.style.left) + 32}px`, top: `${parseFloat(walker.style.top) + 100}px` } }); // 아바타 그림의 발끝(가로 가운데, 위에서 100px)
+    const free = (x, y) => x >= 0 && y >= 0 && x < 12 && y < 12 && !blocked.has(`${x},${y}`) && !birds.some(o => o.x === x && o.y === y);
+    const steps = new Map([[`${me.x},${me.y}`, 0]]); // 아바타가 걸어갈 수 있는 칸까지의 걸음 수
+    const queue = [me];
+    for (let i = 0; i < queue.length; i++) {
+      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+        const c = { x: queue[i].x + dx, y: queue[i].y + dy };
+        if (!free(c.x, c.y) || steps.has(`${c.x},${c.y}`)) continue;
+        steps.set(`${c.x},${c.y}`, steps.get(`${queue[i].x},${queue[i].y}`) + 1);
+        queue.push(c);
+      }
+    }
+    let best = null;
+    for (const [k, d] of steps) {
+      const [x, y] = k.split(',').map(Number);
+      if (d > 0 && birds.some(b => Math.max(Math.abs(b.x - x), Math.abs(b.y - y)) === 1) && (!best || d < best.d)) best = { x, y, d };
+    }
+    return best;
+  });
+  await page.run(watchFlock);
+  await page.run(floorTap, beside.x, beside.y);
+  check('아바타가 어느 비둘기의 바로 옆 칸까지 걸어가면 떼 전체가 머무는 시간(60초)을 채우지 않고 날아 나간다', await pigeonGone(8000), JSON.stringify(beside));
+  const offs = await page.run(() => window.__takeoff);
+  const spread = offs.length ? offs[offs.length - 1].t - offs[0].t : 0;
+  check('떼는 한꺼번에 뜨지 않고 조금씩 어긋나게 날아오른다', offs.length === byDoor.count && spread >= 200 && spread <= 3000, JSON.stringify(offs));
+  const walkedUp = await page.run(takePetSounds);
+  check('아바타가 다가가 놀라 날아갈 때는 떼 전체가 새소리를 한 번만 낸다', walkedUp.played === 'pet-bird', JSON.stringify(walkedUp));
+  await pigeonTime(4000);
+  await sayWord('999999999');
+  const toStay = await landedFlock();
+  check('머무는 시간이 지나면 떼 전체가 날아 나가 방에서 사라진다', toStay.count >= 2 && await pigeonGone(9000), JSON.stringify(toStay));
   const quietLeave = await page.run(takePetSounds);
   check('머무는 시간이 다 되어 날아 나갈 때는 새소리를 내지 않는다', quietLeave.played === '' && quietLeave.made === '', JSON.stringify(quietLeave));
-  await pigeonTime(20000);
+  await pigeonTime(60000);
   await sayWord('999999999');
-  const toChase = await landedPigeon();
+  const toChase = await landedFlock();
   await page.run(clickTwice, '#wallpaper .room-pet[data-pet^="pigeon/"]');
-  check('비둘기를 두 번 누르면 아바타가 다가가고, 비둘기는 머무는 시간(20초)을 채우지 않고 날아 나간다', toChase.count === 1 && await pigeonGone(9000), JSON.stringify(toChase));
+  check('비둘기 하나를 두 번 누르면 아바타가 다가가고, 떼 전체가 머무는 시간을 채우지 않고 날아 나간다', toChase.count >= 2 && await pigeonGone(9000), JSON.stringify(toChase));
   const startled = await page.run(takePetSounds);
   check('놀라 날아갈 때는 두 번 누른 순간에 만들어 둔 새소리(pet-bird.mp3)를 한 번 낸다', startled.played === 'pet-bird' && startled.made === 'pet-bird', JSON.stringify(startled));
   // 창문을 단 집과 움직임 줄이기. 왼쪽 벽 침대 위에 창문을 걸고 새로 연다. 끝나면 점검용 집과 움직임 설정을 돌려놓고 다시 연다
@@ -1416,7 +1506,7 @@ async function walk(page, base) {
   await powerOn();
   await page.run(clickOnce, '.users .user:not(.neighbor)');
   await desktop();
-  await pigeonTime(1500);
+  await pigeonTime(3000);
   await page.run(() => {
     const layer = document.getElementById('wallpaper');
     window.__pigeonFlew = false;
@@ -1424,10 +1514,12 @@ async function walk(page, base) {
       .observe(layer, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   });
   await sayWord('999999999');
-  const byWindow = await landedPigeon();
-  check(`창문이 있는 집에서는 창문 앞의 빈 바닥 칸에 내려앉아 "${COO}" 한다`, byWindow.count === 1 && byWindow.floor && closeTo(byWindow.cell, 3, 3) && byWindow.coo === COO, JSON.stringify(byWindow));
+  const byWindow = await landedFlock();
+  check('창문이 있는 집에서는 비둘기 떼가 창문 앞의 빈 바닥 칸에 서로 띄워 내려앉는다', byWindow.count >= 2 && byWindow.floor && byWindow.apart >= 2
+    && nearer(byWindow.cells, { x: 3, y: 3 }, { x: 3, y: 10 }), JSON.stringify(byWindow));
   check('움직임 줄이기를 켠 사람에게는 비둘기가 날지 않고 내려앉을 칸에 바로 나타났다가 그 자리에서 사라진다',
-    (await pigeonGone(5000)) && !(await page.run(() => window.__pigeonFlew)));
+    (await pigeonGone(8000)) && !(await page.run(() => window.__pigeonFlew)));
+  await page.run(() => clearInterval(window.__flockTimer));
   await page.run(home => localStorage.setItem('agarago.home.v3', home), pigeonHome);
   await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
   await open();

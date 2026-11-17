@@ -23,7 +23,7 @@ export const SECRETS = [
   // 분신사바(F29, src/horror.js). 방의 불이 꺼지고 공포 모드가 된다. 불을 켜면 풀린다.
   // "분신사바 분신사바 오딧세이 꾸다사이"처럼 주문을 끝까지 외어도 된다
   { word: '분신사바', loose: true, run: os => os.horror.start() },
-  // 비둘기(F32, src/pigeon.js). 9는 "구"라서 9를 아홉 번 부르면 "구구" 우는 비둘기가 창문이나 현관문으로 날아와 조금 있다 간다
+  // 비둘기(F32, src/pigeon.js). 9는 "구"라서 9를 아홉 번 부르면 "구구" 우는 비둘기 떼가 창문이나 현관문으로 날아와 조금 있다 간다
   { word: '999999999', run: os => os.callPigeon() },
 ];
 

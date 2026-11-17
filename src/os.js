@@ -10,7 +10,7 @@ import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet, NO_PET, patted, petChoice } from './pet.js';
-import { visitPigeon } from './pigeon.js';
+import { visitFlock } from './pigeon.js';
 import { openPetPicker } from './pet-picker.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
@@ -69,7 +69,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(src/avatar.js의 mountOwner). 그 밖에는 null
   let pet = null; // 내 집의 방에 사는 펫(src/pet.js). 내 바탕화면에 있고 펫 설정이 "없음"이 아닐 때만 있다(syncPet)
-  let pigeon = null; // 말풍선에 999999999를 말하면 날아오는 비둘기(src/pigeon.js, F32). 다녀가는 동안만 있다(callPigeon)
+  let flock = null; // 말풍선에 999999999를 말하면 날아오는 비둘기 떼(src/pigeon.js, F32). 다녀가는 동안만 있다(callPigeon)
   // 말풍선 암호로 여는 숨은 기능(분신사바, 비둘기)이 켜지는 곳. 내 컴퓨터의 진짜 집 바탕화면에서만 켠다.
   // 손님 화면, 친구 집과 이웃집, 튜토리얼과 그 연습 방에서는 켜지 않는다
   const ownRoom = () => os.mode === 'edit' && !os.realHome && !os.tutorial.active && !el.desktop.hidden && !!walker;
@@ -78,7 +78,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     layer: el.wallpaper,
     avatar: () => walker,
     items: () => os.home?.scenes[os.place] || [],
-    figures: () => [walker?.spot(), ...(pet?.claims() || []), ...(pigeon?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 펫(따라오는 중이어도), 비둘기가 선 칸을 피한다
+    figures: () => [walker?.spot(), ...(pet?.claims() || []), ...(flock?.claims() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 펫(따라오는 중이어도), 비둘기들이 선 칸을 피한다
     canStart: ownRoom,
     // 다른 탭에 있거나 화면 보호기, 가구 가까이 보기가 방을 가리는 동안은 이상한 일이 늘어나는 시간을 세지 않는다
     canSee: () => !el.desktop.hidden && document.visibilityState === 'visible' && !os.closeup && !os.saver?.showing(),
@@ -109,8 +109,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       ownerAvatar = null;
       pet?.destroy();
       pet = null;
-      pigeon?.destroy();
-      pigeon = null;
+      flock?.destroy();
+      flock = null;
       os.tutorial.hide();
       setPlace(null); // 배경음악은 바탕화면에서만 튼다
       horror.stop(); // 바탕화면을 떠나면 공포 모드도 풀린다
@@ -226,8 +226,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     ownerAvatar?.destroy();
     pet?.destroy();
     pet = null;
-    pigeon?.destroy();
-    pigeon = null;
+    flock?.destroy();
+    flock = null;
     // 친구 집을 구경하면 주인 아바타가 방에 서 있고, 손님인 내 아바타는 손님 옷 색을 입는다(2026-11-17까지 실험실 host-avatar)
     const withOwner = os.mode === 'visit';
     ownerAvatar = withOwner ? mountOwner({ layer: el.wallpaper, items: () => os.home.scenes[os.place] }, os.home.owner) : null;
@@ -248,7 +248,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         os.tutorial.said();
         trySecret(os, text);
       },
-      others: () => [ownerAvatar, pet, pigeon].filter(Boolean),
+      others: () => [ownerAvatar, pet, ...(flock?.birds() || [])].filter(Boolean),
     }, 'basic', { guest: withOwner });
     renderWallpaper();
     syncPet();
@@ -290,7 +290,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
     pet?.attach(scene.id === SCENES[0].id); // 펫은 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
-    pigeon?.attach(scene.id === SCENES[0].id); // 날아온 비둘기는 펫 둘레를 피해 앉도록 펫 다음에 세운다
+    flock?.attach(scene.id === SCENES[0].id); // 날아온 비둘기들은 펫 둘레를 피해 앉도록 펫 다음에 세운다
     markLiked();
     horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
@@ -308,7 +308,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         layer: el.wallpaper,
         items: () => os.home.scenes[os.place],
         avatar: () => walker,
-        others: () => [pigeon].filter(Boolean), // 날아온 비둘기와 붙어 앉지 않는다
+        others: () => flock?.birds() || [], // 날아온 비둘기들과 붙어 앉지 않는다
         look: () => settings.get('pet'),
         pat: petPatted,
         menu: { root: stage, toStage }, // 오른쪽 단추로 누르면 따라오기, 기다리기, 쓰다듬기 메뉴를 시작 메뉴처럼 무대에 띄운다
@@ -317,22 +317,22 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     }
   }
 
-  // 말풍선에 999999999를 말하면(src/secrets.js) 비둘기가 창문이나 현관문으로 날아와 조금 있다 간다(src/pigeon.js, F32).
-  // 분신사바와 같은 곳(ownRoom)의 내 방에서만 오고, 한 번에 한 마리다. 이미 와 있으면 한 번 더 "구구" 한다
+  // 말풍선에 999999999를 말하면(src/secrets.js) 비둘기 떼가 창문이나 현관문으로 날아와 조금 있다 간다(src/pigeon.js, F32).
+  // 분신사바와 같은 곳(ownRoom)의 내 방에서만 오고, 한 번에 한 떼다. 이미 와 있으면 한 마리가 한 번 더 "구구" 한다
   os.callPigeon = () => {
-    if (pigeon) return pigeon.coo();
+    if (flock) return flock.coo();
     if (!ownRoom() || os.place !== SCENES[0].id) return;
-    const visitor = visitPigeon({
+    const visitor = visitFlock({
       layer: el.wallpaper,
       items: () => os.home.scenes[os.place],
       avatar: () => walker,
-      others: () => [pet].filter(Boolean),
+      pet: () => pet,
       door: SCENES[0].door,
       gone: () => {
-        if (pigeon === visitor) pigeon = null;
+        if (flock === visitor) flock = null;
       },
     });
-    pigeon = visitor;
+    flock = visitor;
   };
 
   // 펫을 쓰다듬을 때마다 부른다(src/pet.js). 병아리처럼 자라는 펫이면 쓰다듬은 횟수를 설정(petPats)에 세고, 다 자라면
