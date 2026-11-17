@@ -771,14 +771,15 @@ body.moving-window iframe { pointer-events: none; }
 .labs-foot .btn { flex: none; }
 /* 펫 바꾸기 창(src/pet-picker.js). 위에는 고른 펫을 방의 나무 바닥 색 위에 2배로 그려 숨 쉬고 깜박이는 모습을 보이고,
    아래에는 종류와 색 단추를 실험실 창과 같은 묶음(.labs-group)으로 둔다. 단추마다 그 펫을 실제 크기로 그려 누르기 전에 결과가 보이고,
-   고른 단추에는 사진 바꾸기 창처럼 파란 테두리를 두른다. 남는 높이는 닫기 단추 위로 보내 단추를 창 아래에 붙인다 */
+   고른 단추에는 사진 바꾸기 창처럼 파란 테두리를 두른다. 남는 높이는 닫기 단추 위로 보내 단추를 창 아래에 붙인다.
+   단추는 모두 같은 폭(--pet-pick, 그림과 네 글자 이름 가운데 넓은 쪽)이라 종류 줄이 창 폭 안에서 한 줄로 선다(src/pet-picker.js) */
 .pet-app { display: flex; flex-direction: column; gap: 8px; }
 .pet-app-head { display: flex; align-items: center; gap: 12px; font-size: 18px; }
 .pet-app-head b { font-weight: normal; }
 .pet-big { padding: 6px 12px 0; border-radius: 4px; background: var(--floor-a, #c69a6b); }
 .pet-big svg { display: block; width: calc(var(--pet-cell, 2px) * 48); height: calc(var(--pet-cell, 2px) * 40); shape-rendering: var(--pet-render, crispEdges); }
 .pet-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.pet-choice { display: grid; justify-items: center; gap: 2px; padding: 2px; border: 2px solid transparent; border-radius: 4px; background: none; font-size: 13px; color: inherit; cursor: var(--cur-hand); }
+.pet-choice { display: grid; justify-items: center; gap: 2px; width: var(--pet-pick, auto); padding: 2px; border: 2px solid transparent; border-radius: 4px; background: none; font-size: 13px; white-space: nowrap; color: inherit; cursor: var(--cur-hand); }
 .pet-choice svg { display: block; width: calc(var(--pet-cell, 2px) * 24); height: calc(var(--pet-cell, 2px) * 20); shape-rendering: var(--pet-render, crispEdges); }
 .pet-choice:hover { border-color: #316ac580; }
 .pet-choice[aria-pressed="true"] { border-color: #316ac5; }
