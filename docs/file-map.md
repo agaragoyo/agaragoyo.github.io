@@ -14,11 +14,12 @@
 | 새 미니게임이나 앱 만들기 | `apps/_template/`를 복사하고 `data/apps.js`에 한 줄 (`apps/README.md`) |
 | 창 안에서 돌지 않는 바깥 게임을 새 탭으로 열기 | `data/apps.js`에 `href: 'https://...'` (`src/apps/link-app.js`가 새 탭에서 열린다고 알리고 연다) |
 | 가구를 두 번 눌렀을 때 앱 열기 | `data/apps.js`에 `folder: 'furniture'`, `data/furniture.js`의 그 가구에 `gimmick: 'app:<id>'` |
-| 주인이 가구에 담아 두는 것(웹 게임 링크, 책, CD, 작품)의 칸과 검사 | `src/likes.js`. 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome` |
+| OS가 직접 그리는 기본 앱 만들기 | `src/apps/<이름>-app.js`에 `open<이름>App(os, app)`, `src/apps/index.js`에 등록, `data/apps.js`에 `builtin: '<이름>'`. 요소는 `src/util.js`의 `h()`로 만들고, 창은 `os.wm.open({ key, app, title, width, height, build })`로 연다. `build`가 돌려준 함수는 창을 닫을 때 불린다 |
+| 주인이 가구에 담아 두는 것(웹 게임 링크, 책, CD, 작품)의 칸과 검사 | `src/likes.js`의 `SANITIZE`에 가구 id로 한 칸(검사와 글자 수 제한). 공유 링크에 담는 곳은 `src/share.js`의 `encodeHome`. 화면은 위의 "OS가 직접 그리는 기본 앱"으로 만들고 `folder: 'furniture'`. 손님 화면에도 뜨므로 글은 `h()`의 자식으로, 주소는 `safeLink`를 거쳐 넣는다(`src/apps/computer-app.js`가 예) |
 | 가구를 가까이 보는 화면(게임기처럼 바탕을 덮고 가구를 크게 띄우기) | `src/closeup.js`의 `openCloseup`, 모양은 `style.css`의 "가구 가까이 보기" 절 |
-| 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png` |
+| 가구 추가, 크기나 색 바꾸기 | `data/furniture.js`. 그림은 `assets/furniture/<id>.png`. 새 가구는 `src/share.js`의 `LINK_CODES`(공유 링크의 가구 번호) 끝에 id 한 줄을 더한다. 중간에 끼우면 이미 보낸 링크의 가구가 바뀐다. 픽셀 그림의 크기와 칸은 known-issues 92 |
 | 아이콘 그림 고치기(기본 앱, 시작 메뉴, 가구 화면 앱, 추억의 플래시 게임, 시작 단추) | `src/icons.js`의 `PIXEL`. 한 글자가 한 칸이고 색은 아이콘마다 `colors`에 있다. 앱 목록에서는 `icon: 'builtin:<이름>'`으로 고른다. 칸 수가 어긋나거나 없는 이름을 쓰면 `python tools/check.py`가 알려 준다 |
-| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate`, 앞쪽 끝의 이웃집 문 자리는 `neighborGate`, 방에서 놀이터로 나가는 현관문 자리는 `door` |
+| 공간(방, 놀이터) 추가 | `src/config.js`의 `SCENES`. 바깥 공간에서 내 방으로 돌아오는 울타리 문 자리는 `gate`, 앞쪽 끝의 이웃집 문 자리는 `neighborGate`, 방에서 놀이터로 나가는 현관문 자리는 `door`. 그 공간의 가구는 가구 줄의 `scene`에 공간 id를 적는다 |
 | 이웃집 더하기와 바꾸기(로그인 화면의 이웃집, 놀이터의 이웃집 목록 창) | `data/neighbors.js`에 닉네임과 링크 번호(`link`) 한 줄. 서버에서 방을 받아 오는 일, 이웃집 문을 달지 정하기(`neighborGate`), 목록 창(`openNeighbors`)은 `src/neighbors.js` |
 | 놀이터 문이 가구에 가리지 않게 하기(앞쪽 끝의 문을 가구 위층에 그리기, 문 안쪽 칸 비우기, 뒤쪽 울타리 문을 가리는 가구 비치기) | 문 목록은 `src/iso.js`의 `fenceGates`, 앞쪽 끝(`wall: 'F'`)의 문 그림은 `src/iso.js`의 `sceneFrontSVG`(층은 `style.css`의 `.room-fg`, `.wallpaper .room-fg`), 문 안쪽 칸 규칙은 `src/rules.js`의 `blocksGate`, 가리는지 재기는 `src/iso.js`의 `coversGate`, 클래스 달기는 `src/room.js`의 `markCover`, 비치는 정도는 `style.css`의 `.covers-gate` |
 | 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'` (놀이터가 예). 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(놀이터에서는 `집으로`가 보인다) |
@@ -52,9 +53,9 @@
 | 느린 연결에서 모듈을 한꺼번에 받기(모듈 미리 받기) | `index.html`의 `<template id="modulepreload">`와 그 아래 스크립트(크롬 계열만), 줄을 채우는 것은 `tools/stamp.py` |
 | 글꼴(첫 화면의 작은 글꼴 AgaUI와 갈무리 전체) | `style.css`의 "글꼴" 절. 작은 글꼴 파일은 `assets/fonts/`, 만드는 도구는 `tools/ui_font.py`, 작은 글꼴을 미리 받는 줄은 `index.html`. 갈무리 전체는 작은 글꼴에 없는 글자가 나올 때 브라우저가 `style.css`의 `@font-face` 주소에서 받는다 |
 | 커서 그림 | `src/cursors.js` |
-| 새 설정 값 | `src/settings.js`의 `DEFAULTS` |
-| 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 여는 암호는 `src/secrets.js` |
-| 말풍선 암호로 여는 숨은 기능 더하기(실험실, 분신사바) | `src/secrets.js`의 `SECRETS`에 말과 할 일 한 줄. 말풍선의 말을 넘기는 곳은 `src/os.js`의 `onSay`, 요구 사항의 기능 표에 새 번호로 암호까지 적는다 |
+| 새 설정 값 | `src/settings.js`의 `DEFAULTS`에 기본값, 쓰는 쪽은 `settings.get`과 `settings.subscribe` |
+| 덜 된 아이디어를 숨은 실험실의 스위치 뒤에 두기 | `src/labs.js`의 `LABS`에 한 줄, 기능 쪽은 `labOn('<id>')`, `docs/requirements.md`의 "아직 정하지 않은 것"에 `<id>`가 든 한 줄. 창은 `src/apps/labs-app.js`, 여는 암호는 `src/secrets.js`. 화면과 동작만 바꾸는 것만 넣고 집 저장 형식(`sanitizeHome`), 공유 링크(`src/share.js`), 서버 규칙(`firestore.rules`)을 바꾸는 것은 넣지 않는다(`check_labs`가 본다). 켜 봐야 좋은지 아는 것만 넣고, 누구나 켜 둘 고침은 스위치 없이 기본으로 넣는다(known-issues 76) |
+| 말풍선 암호로 여는 숨은 기능 더하기(실험실, 분신사바) | `src/secrets.js`의 `SECRETS`에 말과 할 일 한 줄. 말풍선의 말을 넘기는 곳은 `src/os.js`의 `onSay`, 요구 사항의 기능 표에 새 번호로 암호까지 적는다. 할 일이 크면 파일을 따로 둔다(`src/horror.js`가 예) |
 | 분신사바의 공포 모드(어둠과 깜박임, 04:44 시계, 기우는 벽 가구, 혼잣말, 시간이 갈수록 늘어나는 이상한 일, 불 켜서 풀기) | 켜고 풀기, 혼잣말 줄(`LINES`), 늘어나는 단계(`STEPS`)는 `src/horror.js`, 단계의 때는 `src/config.js`의 `HORROR`, 어둠과 깜박임과 기울기와 빈칸의 말풍선은 `style.css`의 "분신사바" 절, 밤 색과 시계와 불빛 가구와 시작 메뉴를 잇는 곳은 `src/os.js`의 `syncTheme`, `tick`, `toggleNight`, `openFurniture`, `openStartMenu` |
 | 주인이 담아 둔 가구 위에 반짝임 띄우기(실험실의 `like-sparkle`) | 가구에 `has-like` 클래스를 다는 곳은 `src/os.js`의 `markLiked`, 별 그림과 깜박임은 `style.css`의 `.has-like::after`, 별 한 칸을 정수 화면 픽셀로 맞추는 곳은 `src/icons.js`의 `fitPixelIcons`(`--sparkle-cell`) |
 | 바탕화면을 그냥 두면 아바타가 가구로 가서 혼잣말하기(실험실의 `idle-talk`) | 기다리기와 가구 고르기는 `src/idle-talk.js`, 시간은 `src/config.js`의 `IDLE_TALK`, 쉬는 때(`canRun`)는 `src/os.js`, 가구의 혼잣말 한 줄은 `src/furniture-line.js`, 가구 옆까지의 걸음 수와 가던 길 버리기는 `src/avatar.js`의 `stepsTo`와 `halt` |
@@ -63,10 +64,11 @@
 | 저장 키 이름 | `src/config.js`의 `STORAGE_*` |
 | 코르크 보드 방명록(손님이 붙이는 쪽지) | 화면은 `src/apps/corkboard-app.js`, 서버는 `src/cloud.js`의 "쪽지" 절, 규칙은 `firestore.rules`의 `match /notes/`, 새 쪽지 알림은 `src/os.js`의 `checkNotes` |
 | 공유 링크 형식 | 링크(`#s=` 뒤 방 번호)와 서버는 `src/cloud.js`, 서버의 보안 규칙은 `firestore.rules`. 서버에 두는 방 글자는 `src/share.js`의 `encodeHome`, `decodeHome`, 가구 번호 `LINK_CODES`(예전 긴 링크 `#r=`도 같은 글자라 그대로 열린다) |
+| 서버(Firebase)에 둘 것 더하기(짧은 링크의 방, 쪽지) | `src/cloud.js`에 함수, 문서 모양과 누가 읽고 쓰는지는 `firestore.rules`. 서버에서 읽은 값도 링크처럼 `decodeHome` 검사를 거친다. 규칙은 저절로 올라가지 않아 PR을 합친 뒤 Admin이 Firebase 콘솔에 게시한다(known-issues 59) |
 | 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE`. 그림 속 아바타는 `src/avatar.js`의 `avatarStill`, 서는 칸은 `src/os.js`의 `avatarSpot` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
-| 예전에 겪은 함정 | `known-issues.md` |
+| 예전에 겪은 함정 | `known-issues.md`. 통째로 읽지 않고 제목의 영역 태그(맨 위 표)로 거른다. 없어진 기능의 함정은 `docs/known-issues-archive.md` |
 
 ## 맨 위
 
@@ -75,9 +77,9 @@
 | `index.html` | 사이트의 유일한 HTML. 첫 화면 가림막, 모니터, 화면 층(무대, 깜빡임, 구석 그늘, 모니터 OSD), 부팅, 로그인, 바탕화면, 작업 표시줄의 뼈대가 들어 있다. 맨 위 import map, 미리 받을 모듈 줄, `?v=` 지문은 배포할 때 `tools/stamp.py`가 채우므로 손으로 고치지 않는다. 모듈 미리 받기 template과 스크립트는 스타일시트보다 앞에 둔다 |
 | `style.css` | 모든 모양. 아래 "style.css 안의 순서"에 절 목록이 있다 |
 | `README.md` | 레포 첫 화면. 내 컴퓨터에서 여는 법, 작업을 올리는 세 가지 방법, 새 기능을 붙이는 곳, 지켜야 할 것 |
-| `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙 |
+| `AGENTS.md` | AI 코딩 도구가 작업 전에 읽는 규칙. 거의 모든 작업에 드는 것만 두고, 한 영역에만 드는 것은 이 지도와 도구 머리 주석, `known-issues.md`에 둔다 |
 | `CLAUDE.md` | Claude Code용. `AGENTS.md`를 불러오고 Claude 전용 몇 줄만 더한다 |
-| `known-issues.md` | 되풀이된 함정 목록(증상, 원인, 규칙). 코드를 고치기 전에 읽는다 |
+| `known-issues.md` | 되풀이된 함정 목록(증상, 원인, 규칙). 코드를 고치기 전에 제목 줄을 영역 태그로 걸러 관련 항목만 읽는다. 쓰는 형식과 태그 표는 맨 위에 있다 |
 | `firestore.rules` | 짧은 링크의 방과 코르크 보드의 쪽지를 두는 서버(Firebase의 Firestore) 보안 규칙. 서버에 저절로 올라가지 않아서, 고치면 Firebase 콘솔의 Firestore > 규칙에 붙여 게시한다(known-issues 59) |
 | `.gitignore` | 레포에 올리지 않는 파일(개인 기획 문서, Claude 개인 설정) |
 | `.gitattributes` | 줄바꿈을 LF로 통일한다(맥과 윈도우가 섞인 팀) |
@@ -195,7 +197,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `tools/serve.py` | 개발 서버. `python tools/serve.py` 후 http://localhost:8123. 캐시를 막아 고친 파일이 바로 보인다. 연결이 한꺼번에 몰려도 거부하지 않게 대기열을 늘려 두었고, localhost가 늦지 않게 IPv6와 IPv4를 함께 받으며 연결을 이어 쓴다(known-issues 56) |
-| `tools/check.py` | 자동 점검. 목록과 파일 경로(이웃집 줄의 방 글자 `room`, `keep` 포함), 서버의 방을 지우는 `unshare()`를 부르는 파일이 `pinnedHere`도 보는지, 가구 그림 이름, 기믹이 없는 가구의 혼잣말(`say`)이 있는지와 말풍선 한 줄(13자)에 드는지, 가구 그림이 칸에 맞는지(경고. PNG를 직접 풀어 바닥 튀어나옴, 칸 채움, 벽 가구 정면을 잰다), 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 라디오 CD 색의 개수, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소 |
+| `tools/check.py` | 자동 점검. 목록과 파일 경로(이웃집 줄의 방 글자 `room`, `keep` 포함), 서버의 방을 지우는 `unshare()`를 부르는 파일이 `pinnedHere`도 보는지, 가구 그림 이름, 기믹이 없는 가구의 혼잣말(`say`)이 있는지와 말풍선 한 줄(13자)에 드는지, 가구 그림이 칸에 맞는지(경고. PNG를 직접 풀어 바닥 튀어나옴, 칸 채움, 벽 가구 정면을 잰다), 저장 키, npm 파일, 비밀 값, 방 그림의 바탕 색, 라디오 CD 색의 개수, 자바스크립트 문법, 이 파일 지도, 배포할 때 `tools/stamp.py`가 채울 자리, 작은 글꼴에 없는 사이트 글자(경고)와 글꼴 미리 받기 주소, `known-issues.md` 제목의 영역 태그와 번호, 새 항목의 길이 |
 | `tools/stamp.py` | 배포할 때 `index.html`에 파일 내용 지문(`?v=`)을 붙이고, `src/main.js`에서 import로 닿는 모듈을 미리 받을 줄(modulepreload)을 채운다. GitHub Actions가 돌리므로 사람은 돌리지 않는다 |
 | `tools/ui_font.py` | 갈무리11에서 사이트가 화면에 쓰는 글자와 한글 완성형 2,350자만 남긴 작은 글꼴 AgaUI를 만든다. 사이트에 새 글자를 넣어 `tools/check.py`가 경고할 때만 돌린다(fonttools와 brotli 필요, 완성형 안의 한글은 경고하지 않는다). 글자 모으는 부분은 check.py도 쓴다 |
 | `tools/smoke.mjs` | 눌러 보기 점검(스모크 테스트). `node tools/smoke.mjs`로 돌린다(1분쯤, Node 22 이상과 크롬이나 엣지 필요). 화면 없는 크롬으로 전원, 새 사용자(사진 고르기와 그림 파일 찾아보기)와 튜토리얼 건너뛰기, 점검용 집의 바탕화면(아이콘과 창 제목 줄과 가구의 두 번 누르기(기믹이 없는 가구의 혼잣말이 말풍선 한 줄로 뜨는지 포함), 아바타의 키, 현관문과 놀이터 문), 기본 앱 창(공유하기의 링크 만들기와 지우기 포함)과 미니게임 창, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 창이 뒤로 갈 때 소리 끄기(새 탭으로 가리기, 바꿔 끼운 `document.hasFocus`, 게임 창 안을 진짜로 누르기), 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크), 이웃집(link 이웃집의 받는 동안 자리, 받은 뒤의 서버 주인 이름, 놀이터의 이웃집 문 하나와 목록 창의 받는 중인 줄과 놀러 가기, 서버에 방이 없을 때), 놀이터의 문(방 꾸미기에서 문 안쪽 칸에 놓지 못하는 것, 아파트 문을 가리는 가구가 비치는 것, 앞쪽 끝의 이웃집 문이 바로 뒤의 가로등보다 위에 그려지고 아바타가 그 안쪽 칸까지 걷는 것, 보여 줄 이웃이 없으면 이웃집 문이 없는 것), 깨진 링크와 HTML이 든 링크, 짧은 링크(`#s=`)의 방, 실험실(암호와 켜기, "담긴 가구 반짝임"이 내 집과 친구 집과 이웃집에서 담아 둔 가구에만 뜨는지), 이 컴퓨터 초기화의 지우기를 차례로 눌러 본다. 칸마다 한도까지 가장 나쁜 글로 채운 집(`LONG`)의 주인 화면과 손님 화면, 긴 이름의 이웃집이 든 놀이터 목록 창도 연다. 화면마다 hidden인데 보이는 요소와 창 안에서 가로로 넘친 상자, 상자 밖으로 나가거나 말없이 잘린 글(말줄임표로 끝났는데 title이 없는 글 포함)도 센다. 서버와 다른 사이트에는 요청을 보내지 않고(서버의 방과 링크 만들기, 유튜브 oEmbed는 페이지 안의 `fetch`를 바꿔 껴서 대신 답하고, Firebase 주소와 유튜브 플레이어는 받지 않게 막는다. link 이웃집은 `data/neighbors.js`를 가로채 한 줄을 더해 본다. 라디오의 유튜브 재생목록 CD에 뜨는 이전 곡, 다음 곡 단추와 곡 이름, 곡 목록 창은 유튜브 API(`window.YT`)를 가짜(`fakePlayer`)로 바꿔 끼우고 곡 이름을 가짜 oEmbed(`fakeYouTube`)로 받아 켜지고 쉬는 때, 보내는 명령, 이름이 바뀌는 때, 목록 창의 줄을 본다), 그림의 모양과 소리 자체는 보지 않는다(소리는 배경음악이 꺼지고 켜지는지만 본다) |
@@ -212,6 +214,7 @@
 | `docs/requirements.md` | 요구 사항. 기능 목록과 상태, 가구와 인터랙션, 소리, 아직 정하지 않은 것과 정한 것 |
 | `docs/tasks.md` | 할 일 목록. 담당(역할 이름)과 상태 |
 | `docs/checklists.md` | PR을 올리기 전, 합치기 전, 발표 전에 사람이 확인할 것 |
+| `docs/known-issues-archive.md` | 없어진 기능(볼록 화면, 1998과 2010, 시대 덮어쓰기)에서 생긴 함정. 번호는 `known-issues.md`와 이어진다 |
 | `docs/file-map.md` | 이 문서 |
 
 ## worklog/: 작업 일지

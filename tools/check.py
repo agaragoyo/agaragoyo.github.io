@@ -946,6 +946,44 @@ def check_sounds():
             err(f"data/apps.js '{a['id']}'", f"music '{a['music']}' 은 src/sound.js 의 MUSIC 에 없다(게임 안에 음악이 있으면 'own')")
 
 
+# ---------- known-issues ----------
+# 함정 목록은 통째로 읽지 않고 제목의 영역 태그로 거른다(known-issues 93). 태그가 빠지거나 번호가 겹치면 거르는 길이 끊긴다.
+KI_NEW_FROM = 93    # 이 번호부터 새 항목의 길이를 본다. 앞 항목은 그대로 둔다
+KI_MAX_CHARS = 800
+
+
+def check_known_issues():
+    """known-issues.md 항목 제목에 맨 위 표의 영역 태그가 붙었는지, 번호가 docs/known-issues-archive.md와 겹치지 않는지,
+    새 항목이 800자를 넘지 않는지 본다."""
+    where = 'known-issues.md'
+    text = read(where)
+    tags = set(re.findall(r'^\| (\[[^\]|]+\]) \|', text, re.M))
+    if not tags:
+        err(where, '맨 위 태그 표(| [태그] | 다루는 것 |)를 읽지 못했다(표 모양이 바뀌었으면 tools/check.py 의 check_known_issues 도 고친다)')
+        return
+    seen = {}
+    archive = 'docs/known-issues-archive.md'
+    if (ROOT / archive).exists():
+        for n in re.findall(r'^## (\d+)\. ', read(archive), re.M):
+            if n in seen:
+                err(archive, f'{n}번이 두 번 나온다')
+            seen[n] = archive
+    for item in re.split(r'(?m)^(?=## \d+\. )', text)[1:]:
+        m = re.match(r'## (\d+)\. ((?:\[[^\]]+\])*)', item)
+        n, head = m.group(1), re.findall(r'\[[^\]]+\]', m.group(2))
+        if n in seen:
+            err(where, f'{n}번이 {seen[n]}에도 있다. origin/main 을 받아 비어 있는 다음 번호를 붙인다')
+        seen[n] = where
+        if not head:
+            err(where, f'{n}번 제목에 영역 태그가 없다. 맨 위 표에서 하나나 둘을 골라 "## {n}. [태그] 제목"으로 쓴다')
+        for t in head:
+            if t not in tags:
+                err(where, f'{n}번의 태그 {t} 는 맨 위 표에 없다')
+        size = len(item.strip())
+        if int(n) >= KI_NEW_FROM and size > KI_MAX_CHARS:
+            err(where, f'{n}번이 {size}자다. 증상, 원인, 규칙을 한두 문장씩 {KI_MAX_CHARS}자 이내로 줄이고 경위는 일지에 둔다')
+
+
 # ---------- 파일 지도 ----------
 # docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
 def check_file_map():
@@ -1012,6 +1050,7 @@ def main():
     check_wall_patterns()
     check_pets()
     check_feature_numbers()
+    check_known_issues()
     check_storage_keys()
     check_imports()
     check_stamp()
