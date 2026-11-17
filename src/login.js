@@ -1,24 +1,25 @@
 // 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓는다.
 // 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 이 컴퓨터 초기화를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
-// 오른쪽 단(.users-friends)은 친구 집이다. 링크로 온 친구 집이나, 이웃집과 그 아래 친구 아이디 칸(handleTile)을 둔다.
+// 오른쪽 단(.users-friends)은 친구 집이다. 링크로 온 친구 집이나, 최근에 놀러 간 집과 이웃집의 사진 칸 격자와 그 아래 친구 아이디 칸(handleTile)을 둔다.
 // 이웃집은 팀원의 방을 미리 넣어 둔 친구 집이라, 아이디로 찾아가는 칸을 그 아래에 두어 친구에게 가는 길을 한 단에 모았다.
+// 격자는 넷플릭스의 프로필 고르기, 윈도우 XP의 사용자 계정 창처럼 사진 아래에 이름 한 줄만 쓴다. 칸마다 같은 설명을 되풀이하지 않고 무리마다 제목을 한 번 둔다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
 import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare, myHandle } from './cloud.js';
-import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere, handleInput, brLines } from './neighbors.js';
+import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere, handleInput, brLines, recentVisits, syncVisit } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { preloadFurniture } from './room.js';
 import { iconEl } from './icons.js';
-import { h, wait, loadJSON, saveJSON } from './util.js';
+import { h, wait, loadJSON, saveJSON, fitText } from './util.js';
 import { play } from './sound.js';
 
 // os: 창 닫기(os.wm), 모드 비우기(os.mode), 새 사용자의 튜토리얼 켜기(os.tutorial)에 쓴다. el: 화면 요소들(여기서는 el.login만 쓴다)
 // show(...names): 보일 화면 고르기. enter(mode, home, my, boardId): 고른 집으로 들어가기. toast(msg, ms): 알림. clearHash(): 주소의 방 링크 지우기
 // nextRun(): 새 실행 번호 받기(전원을 끄거나 로그아웃하면 번호가 바뀐다). isCurrent(my): my가 아직 지금 실행인지
 // 돌려주는 것: 부팅할 때 미리 받기(loginHomes, cloudHome), 내 집(ownHome), 로그인 화면(showLogin), 시작 메뉴의 사용자 그림(avatar)
-// 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집과 이웃집에는 링크에 담긴 주인 사진이 보인다.
+// 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집, 최근에 놀러 간 집, 이웃집에는 링크에 담긴 주인 사진이 보인다.
 // 사진을 넣기 전에 만든 링크와, 그림 파일로 만든 사진(내 그림)을 쓰는 주인의 긴 링크는 사진이 없으므로 이름의 첫 글자가 보인다.
 export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, isCurrent }) {
   // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
@@ -71,21 +72,86 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
   // 이 컴퓨터는 올린 방의 번호를 하나만 기억하므로 어느 사용자가 올렸든 그 방 하나가 걸린다. 이 컴퓨터 초기화처럼 올린 기록이 없어지면 걸리지 않는다.
   const uploadedHere = n => !!n.link && n.link === sharedId();
 
-  // 이웃집의 자리. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 목록의 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
+  // 오른쪽 단 격자의 사진 칸(최근에 놀러 간 집, 이웃집). 사진 아래에 이름 한 줄만 쓰고, 누르면 바로 그 집에 손님으로 들어간다.
+  // 이름은 넘치면 말줄임표로 끝내고 전체 이름을 title로 단다(fitName, known-issues 83). 이름 글자는 이름 상자의 첫 글자 마디다(tools/smoke.mjs가 그렇게 읽는다).
+  // onPick이 없으면 받는 중인 칸이다. 사진 자리에 '…'를 두고 누를 수 없으며, 마우스를 올리면 "불러오는 중"이 뜬다.
+  function gridTile(kind, name, picture, onPick = null) {
+    return h('button', { type: 'button', className: `user friend-tile ${kind}`, disabled: !onPick, title: onPick ? null : '불러오는 중', onclick: onPick },
+      onPick ? avatar(name, picture, 'tile') : h('span', { className: 'avatar' }, '…'),
+      h('span', { className: 'user-name' }, name));
+  }
+  const fitName = tile => {
+    const name = tile.querySelector('.user-name');
+    if (name) fitText(name);
+  };
+  // 서버에 방이 없는 칸을 뺀다. 그 무리에 칸이 하나도 남지 않으면 무리의 제목도 거둔다
+  function dropTile(tile) {
+    const col = tile.parentElement;
+    tile.remove();
+    for (const head of col?.querySelectorAll('.friend-head') || []) {
+      if (!head.nextElementSibling?.matches('.friend-tile')) head.remove();
+    }
+  }
+
+  // 이웃집의 칸. link 이웃집(src/neighbors.js)은 서버에서 받는 동안 목록의 이름만 보이고 누를 수 없게 둔다(cloudTile과 같은 방식).
   // 받으면 서버의 방 주인 이름으로 보인다(주인이 이름 바꾸기로 닉네임을 바꾸면 따라 바뀐다).
   // 서버에 방이 없거나 받지 못하면 그 이웃집을 뺀다. 사용자가 부른 집이 아니라서 따로 알리지 않는다. 서버에 방이 없다고 이미 알면 null이다.
   function neighborTile(n, my) {
-    const ready = home => userTile(home.owner, '이웃집 구경하기', () => enter('visit', neighborNow(n) || home, my, neighborBoard(n)), 'neighbor', home.picture);
+    const ready = home => gridTile('neighbor', home.owner, home.picture, () => enter('visit', neighborNow(n) || home, my, neighborBoard(n)));
     const now = neighborNow(n);
     if (now !== undefined) return now && ready(now);
-    const tile = h('button', { type: 'button', className: 'user neighbor', disabled: true },
-      h('span', { className: 'avatar' }, '…'),
-      h('span', { className: 'user-name' }, n.name, h('small', {}, '불러오는 중')));
+    const tile = gridTile('neighbor', n.name, null);
     neighborHome(n).then(home => {
       if (!isCurrent(my) || !tile.isConnected) return;
-      if (home) tile.replaceWith(ready(home));
-      else tile.remove();
+      if (!home) return dropTile(tile);
+      const done = ready(home);
+      tile.replaceWith(done);
+      fitName(done);
     });
+    return tile;
+  }
+
+  // 최근에 놀러 간 집의 칸(src/neighbors.js의 recentVisits). 기억한 이름과 사진으로 바로 그리고, 서버에서 방을 받으면 지금 주인 이름과 사진으로 바꿔 기억도 고친다.
+  // 받는 일은 짧은 링크로 온 친구 집과 같이 쓴다(cloudHome, 페이지를 연 뒤 방마다 한 번).
+  // 누르면 받은 방에 손님으로 들어간다. 아이디로 찾은 방(handleTile)처럼 환영 화면을 지나는 동안 가구 그림을 받고, 코르크 보드에 쪽지를 남기도록 방 번호를 넘긴다.
+  // 받기 전에 눌렀으면 받을 때까지 눌리지 않게 두었다가 들어간다. 서버에 방이 없으면 칸을 빼고 기억에서도 지우며, 누른 뒤였다면 알린다.
+  // 서버에 닿지 못하면 기억한 모습 그대로 두고, 누르면 다시 받는다.
+  function recentTile(v, my) {
+    let wanted = false; // 받기 전에 눌렀다
+    let asking = null;  // 받는 중인 일
+    const tile = gridTile('recent', v.name, v.picture, () => {
+      wanted = true;
+      tile.disabled = true;
+      ask();
+    });
+    const ask = () => {
+      asking ||= cloudHome(v.room).then(home => {
+        asking = null;
+        syncVisit(v.room, home);
+        if (!isCurrent(my) || !tile.isConnected) return;
+        const go = wanted;
+        wanted = false;
+        tile.disabled = false;
+        if (home === null) {
+          dropTile(tile);
+          if (go) toast('친구 방을 찾을 수 없습니다. 친구에게 링크를 다시 받아 주세요.', 7000);
+          return;
+        }
+        if (home) {
+          tile.replaceChildren(avatar(home.owner, home.picture, 'tile'), h('span', { className: 'user-name' }, home.owner));
+          fitName(tile);
+        }
+        if (!go) return;
+        if (!home) {
+          toast('친구 방을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.', 7000);
+          return;
+        }
+        clearHash();
+        preloadFurniture([home]);
+        enter('visit', home, my, v.room);
+      });
+    };
+    ask();
     return tile;
   }
 
@@ -109,11 +175,19 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     } else if (sid) {
       friends.append(cloudTile(sid, my));
     }
-    // 이웃집(data/neighbors.js)과 친구 아이디 칸은 친구 링크로 오지 않았을 때만 오른쪽 단에 늘어선다. 링크로 왔으면 그 친구 집 하나에 눈이 가게 둘 다 뺀다.
+    // 최근에 놀러 간 집, 이웃집(data/neighbors.js), 친구 아이디 칸은 친구 링크로 오지 않았을 때만 오른쪽 단에 늘어선다. 링크로 왔으면 그 친구 집 하나에 눈이 가게 모두 뺀다.
+    // 최근에 놀러 간 집과 이웃집은 3열 사진 칸 격자(.friend-grid)로 서고, 무리마다 위에 제목을 한 번 둔다. 칸이 없는 무리는 제목도 두지 않는다.
     // 이웃집은 누르면 바로 손님으로 들어간다. 처음 온 사람도 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있다.
     // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(같은 방이 두 번 뜨지 않게, known-issues 84).
-    if (!(m || sid)) {
-      friends.append(...NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean), handleTile(my));
+    const listing = !(m || sid);
+    friends.classList.toggle('friend-grid', listing);
+    if (listing) {
+      const group = (title, tiles) => (tiles.length ? [h('h2', { className: 'friend-head' }, title), ...tiles] : []);
+      friends.append(
+        ...group('최근에 놀러 간 집', recentVisits().map(v => recentTile(v, my))),
+        ...group('이웃집', NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean)),
+        handleTile(my));
+      for (const tile of friends.querySelectorAll('.friend-tile')) fitName(tile);
     }
     if (own) {
       mine.append(userTile(own.owner, m || sid ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
@@ -132,7 +206,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     }
   }
 
-  // 친구 아이디로 놀러 가기(F31). 오른쪽 단의 이웃집 아래에 이웃집 칸과 같은 크기로 서고, 처음 온 사람도 사용자를 만들지 않고 아이디만으로 들어간다.
+  // 친구 아이디로 놀러 가기(F31). 오른쪽 단의 이웃집 격자 아래에 단의 폭으로 서고, 처음 온 사람도 사용자를 만들지 않고 아이디만으로 들어간다.
   // 아이디를 찾고 오류를 고르는 일은 이웃집 목록 창 아래의 칸과 같이 쓴다(src/neighbors.js의 handleInput). 그림은 이웃집 창의 집 아이콘이다.
   // 오류는 새 사용자 만들기의 닉네임 칸처럼 칸을 빨갛게 두르고 노란 풍선으로 띄운다(윈도우 XP도 암호가 틀리면 칸 아래에 풍선을 띄운다).
   // 풍선이 떠 있는 동안 칸 아래 안내는 자리만 남기고 감춘다. 단이 가운데 정렬이라 높이가 바뀌면 위의 이웃집까지 움직인다.
@@ -212,9 +286,10 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || ['Backspace', 'Delete', 'Process'].includes(e.key))) play('key');
   });
 
-  // 사용자 그림. picture(사진 값: 사진 id나 내 그림)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다
-  const avatar = (name, picture = null) => (picture
-    ? h('span', { className: 'avatar has-pic' }, pictureEl(picture, 48))
+  // 사용자 그림. picture(사진 값: 사진 id나 내 그림)가 있으면 사진을, 없으면 이름의 첫 글자를 보인다.
+  // slot: 사진 자리(src/user-pictures.js). 내 사용자와 시작 메뉴는 48, 친구 집 격자의 칸은 tile이다
+  const avatar = (name, picture = null, slot = 48) => (picture
+    ? h('span', { className: 'avatar has-pic' }, pictureEl(picture, slot))
     : h('span', { className: 'avatar' }, [...name][0] || '?'));
 
   function userTile(name, sub, onPick, kind = '', picture = null) {
