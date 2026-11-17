@@ -388,6 +388,27 @@ button { font-family: inherit; }
   border-top-color: #2b2b33;
   transform: translateX(-50%);
 }
+/* 말하기 표시(src/avatar.js의 cue). 아직 말해 보지 않은 사람의 아바타 머리 위에 16×16칸 말풍선 그림(src/icons.js의 say)을 띄운다.
+   자리(left, top)는 그림의 아래 가운데이고 머리 꼭대기보다 8px 위다. 그림 한 칸은 아이콘의 16px 자리처럼 화면 픽셀 정수 개로 맞춘다(--pixel-16, known-issues 67).
+   가구(z-index 100부터)에 가리지 않게 말풍선(10000) 바로 아래 층에 두고, 누르면 말할 칸이 열린다.
+   1초마다 2칸 떠올랐다 내려오며(끊어 뛴다), 움직임 줄이기를 켠 사람에게는 가만히 있다.
+   display를 주지 않아 hidden이 그대로 듣는다(안의 .app-icon은 display를 준다, known-issues 10) */
+.say-cue {
+  position: absolute;
+  z-index: 9999;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  cursor: var(--cur-hand);
+}
+.say-cue > .app-icon { position: absolute; inset: 0; animation: say-cue 1s steps(1) infinite; }
+@keyframes say-cue { 50% { transform: translateY(calc(var(--pixel-16, 16px) / -8)); } }
+/* 튜토리얼 카드가 떠 있는 동안에는 숨긴다. 카드는 한 번에 한 가지만 부탁하고, 말하기 단계에서는 화살표와 테두리가 아바타를 가리킨다(src/tutorial.js) */
+.stage.coaching .say-cue { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .say-cue > .app-icon { animation: none; }
+}
 /* 말하기 입력 칸: 바탕화면 아래쪽 가운데, 작업 표시줄 바로 위. 창(z-index 20)보다 위에 띄운다 */
 .say-input {
   position: absolute;
@@ -1149,11 +1170,19 @@ form.user { cursor: var(--cur-arrow); }
 }
 .user-name { display: grid; gap: 4px; font-size: 24px; }
 .user-name small { font-size: 15px; color: #e6e2ff; }
-/* 이웃집(data/neighbors.js): 내 사용자보다 작게, 현관문과 같은 나무색 그림으로 늘어선다(여섯 집까지 들어간다, src/neighbors.js의 MAX_NEIGHBORS) */
-.user.neighbor { gap: 12px; padding: 6px 14px 6px 10px; }
-.user.neighbor .avatar { width: 48px; height: 48px; font-size: 22px; background: linear-gradient(#b07a4a, #8a5a32); }
-.user.neighbor .user-name { gap: 2px; font-size: 20px; }
-/* 친구 아이디로 놀러 가기(src/login.js의 handleTile). 이웃집 아래에 이웃집 칸과 같은 크기로 서고, 그림 자리에는 이웃집 창의 집 아이콘(32px)을 연한 하늘색 바탕에 둔다.
+/* 최근에 놀러 간 집과 이웃집(src/login.js의 gridTile)은 오른쪽 단에 사진 칸 격자로 선다(넷플릭스 프로필 고르기, 윈도우 XP 사용자 계정 창).
+   칸 폭 120px의 3열이라 최근에 놀러 간 집 세 집(src/neighbors.js의 MAX_RECENT)이 한 줄, 이웃집 여섯 집(MAX_NEIGHBORS)이 두 줄이다.
+   칸마다 사진(자리 tile) 아래에 이름 한 줄만 쓰고, 넘치면 말줄임표로 끝낸다(전체 이름은 title, known-issues 83). 사진이 없는 옛 링크의 글자 그림은 현관문과 같은 나무색이다.
+   사진 상자는 무대 배율마다 고른 칸 사진 크기(--user-pic-tile, 48px의 0.7~1.4배)에 테두리를 더한 크기다(known-issues 97).
+   예전 이웃집 칸은 상자를 48px로 묶어서 그보다 크게 그려진 사진의 가운데만 보였다. 글자 그림과 받는 중인 칸도 같은 크기라 한 줄의 이름 높이가 맞는다.
+   무리마다 위에 제목(.friend-head)을 한 번 두고, 친구 아이디 칸은 격자 아래에 단의 폭으로 선다. 친구 링크로 왔을 때는 격자를 쓰지 않는다 */
+.users-friends.friend-grid { grid-template-columns: repeat(3, 120px); gap: 6px 8px; }
+.friend-head { grid-column: 1 / -1; justify-self: stretch; margin: 6px 0 0; padding: 0 0 4px 6px; border-bottom: 1px solid #ffffff55; font-size: 15px; font-weight: normal; color: #e6e2ff; }
+.user.friend-tile { flex-direction: column; gap: 4px; width: 120px; padding: 8px 4px 6px; }
+.user.friend-tile .avatar { width: calc(var(--user-pic-tile, 48px) + 6px); height: calc(var(--user-pic-tile, 48px) + 6px); font-size: 22px; background: linear-gradient(#b07a4a, #8a5a32); }
+.user.friend-tile .user-name { display: block; max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; text-align: center; }
+.friend-grid .user.by-handle { grid-column: 1 / -1; margin-top: 10px; }
+/* 친구 아이디로 놀러 가기(src/login.js의 handleTile). 이웃집 격자 아래에 서고, 그림 자리에는 이웃집 창의 집 아이콘(32px)을 연한 하늘색 바탕에 둔다.
    칸 줄과 오류 풍선은 새 사용자 만들기의 닉네임 칸(.new-row, .name-tip)과 같다 */
 .user.by-handle { gap: 12px; padding: 6px 14px 6px 10px; }
 .user.by-handle .avatar { width: 48px; height: 48px; background: #dbe9ff; }
@@ -1220,6 +1249,7 @@ form.user { cursor: var(--cur-arrow); }
 .user-pic svg { display: block; width: var(--pic-size); height: var(--pic-size); shape-rendering: var(--pic-render); }
 .user-pic[data-slot="48"] { --pic-size: var(--user-pic-48, 48px); --pic-render: var(--user-pic-48-render, crispEdges); }
 .user-pic[data-slot="36"] { --pic-size: var(--user-pic-36, 36px); --pic-render: var(--user-pic-36-render, crispEdges); }
+.user-pic[data-slot="tile"] { --pic-size: var(--user-pic-tile, 48px); --pic-render: var(--user-pic-tile-render, crispEdges); } /* 로그인 화면 친구 집 격자의 칸 사진 */
 .avatar.has-pic { width: auto; height: auto; overflow: hidden; border-radius: 4px; background: none; }
 /* 사진을 고르는 줄. 고른 사진에 테두리를 두른다(로그인 화면의 파란 바탕에서는 흰색, 창 안에서는 고른 아이콘과 같은 파란색) */
 .pic-picker { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -1232,6 +1262,10 @@ form.user { cursor: var(--cur-arrow); }
 .pic-picker-box { display: grid; gap: 4px; justify-items: start; }
 .pic-browse { padding: 2px 4px; border: 0; background: none; font-size: 15px; text-decoration: underline; color: inherit; cursor: var(--cur-hand); }
 .pic-browse:disabled { text-decoration: none; opacity: 0.7; cursor: default; }
+/* 로그인 화면 왼쪽 단의 새 사용자 만들기는 사진을 4열 2줄로 놓고 닉네임 줄을 260px로 좁혀, 폭 540px가 약 370px로 줄어든다.
+   한 줄에 사진 여덟 장을 놓으면 큰 사진이 무대 왼쪽 끝에 붙어 오른쪽 단의 격자(376px)와 무게가 어긋났다. 사진 바꾸기 창과 친구 아이디 칸은 그대로 둔다 */
+.users-own .pic-picker { display: grid; grid-template-columns: repeat(4, auto); justify-content: start; }
+.users-own .new-row { width: 260px; }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }

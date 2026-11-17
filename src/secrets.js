@@ -1,5 +1,5 @@
 // 숨은 암호. 내 컴퓨터의 바탕화면에서 Enter를 눌러 말풍선에 암호를 말하면 숨은 기능이 열린다.
-// 말풍선에 쓴 말(앞뒤 공백을 뺀 글)은 src/os.js의 onSay가 trySecret으로 넘긴다. 손님 화면, 친구 집과 이웃집에서는 아무 일도 없다.
+// 말풍선에 쓴 말(앞뒤 공백을 뺀 글)은 src/os.js의 onSay가 trySecret으로 넘긴다. 손님 화면, 친구 집과 이웃집, 튜토리얼에서는 아무 일도 없다.
 //
 // 암호를 더하는 법
 //   1. 아래 SECRETS에 한 줄을 더한다. word는 말풍선에 쓸 말이고, run(os)은 그 말을 했을 때 할 일이다.
@@ -38,8 +38,10 @@ export const HINTS = [
 
 const said = (text, secret) => (secret.loose ? text.replace(/\s/g, '').startsWith(secret.word) : text === secret.word);
 
-// 말풍선에 쓴 말이 암호이면 그 일을 한다. 내 컴퓨터(os.mode가 'edit')에서만 듣는다
+// 말풍선에 쓴 말이 암호이면 그 일을 한다. 내 컴퓨터(os.mode가 'edit')에서만 듣는다.
+// 튜토리얼과 그 연습 방에서도 듣지 않는다. 튜토리얼의 말하기 단계에서 한 말이 실험실을 열거나 하지 않게 한다
+// (분신사바와 비둘기는 os.js의 ownRoom이 한 번 더 막는다)
 export function trySecret(os, text) {
-  if (os.mode !== 'edit') return;
+  if (os.mode !== 'edit' || os.tutorial.active || os.realHome) return;
   SECRETS.find(secret => said(text, secret))?.run(os);
 }

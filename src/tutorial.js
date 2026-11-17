@@ -1,12 +1,12 @@
-// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 이웃집 목록 창을 열어 보면서
-// 가구 놓기, 가구 쓰기, 이웃집 가기를 배운다. 2026-11-10까지는 창문도 놓고 창문으로 나갔고,
-// 2026-11-17까지는 현관문으로 놀이터에 나갔다가 울타리의 아파트 문으로 돌아왔다.
+// 튜토리얼(docs/requirements.md의 F17). 처음 온 사람이 기본 가구 두 개를 직접 놓고 써 본 뒤 현관문으로 이웃집 목록 창을 열어 보고,
+// 아바타를 눌러 한마디 하면서 가구 놓기, 가구 쓰기, 이웃집 가기, 말하기를 배운다. 2026-11-10까지는 창문도 놓고 창문으로 나갔고,
+// 2026-11-17까지는 현관문으로 놀이터에 나갔다가 울타리의 아파트 문으로 돌아왔다. 말하기는 숨은 기능(src/secrets.js)의 입구라 2026-11-17에 더했다.
 // 화면 구석의 작은 안내 카드가 한 번에 한 가지 행동만 부탁하고 화살표가 그 자리를 가리킨다. 글을 읽고 넘기는 "다음" 단추는 없다.
 //
 // 지금이 몇 단계인지는 저장하지 않고, 매 화면 지금 상태(방의 가구, 열린 창, 밤낮)를 읽어 아직 하지 않은 첫 단계를 고른다.
 // 그래서 순서를 바꿔 해도, 놓은 가구를 치워도, 새로 고침을 해도 맞는 단계로 돌아온다. 가구와 창이 바뀌는 길이 여럿이라
 // 길마다 알림을 심는 대신 이렇게 읽는다. 읽기만 하고 달라진 것이 없으면 다시 그리지 않는다.
-// 스탠드를 썼는지처럼 상태로 남지 않는 일만 passed에 적어 저장한다.
+// 스탠드를 썼는지, 말했는지처럼 상태로 남지 않는 일만 passed에 적어 저장한다.
 //
 // 시작 메뉴의 다시 보기는 저장된 방을 두고 빈 연습 방에서 첫 단계부터 진행한다. 지금 상태를 읽는 방식이라 가구가 이미 있는 방에서는 놓는 단계가 저절로 지나가기 때문이다.
 // 연습 방은 os.startPractice가 만들고, os.realHome이 있는 동안이 연습 중이다. 연습 중에는 진행 상태도 저장하지 않아서,
@@ -18,7 +18,7 @@ import { BY_ID, TUTORIAL_FURNITURE } from '../data/furniture.js';
 import { batchim, h, loadJSON, saveJSON } from './util.js';
 
 const HOME = 'room';
-const LESSONS = ['가구 놓기', '가구 쓰기', '이웃집 가기'];
+const LESSONS = ['가구 놓기', '가구 쓰기', '이웃집 가기', '말하기'];
 const ARROW_H = 56; // 화살표가 차지하는 높이(그림 48px, 튀는 폭 8px). 대상 위쪽에 이만큼 자리가 없으면 아래에 둔다
 const CARD = { left: 860, top: 470, bottom: 628 }; // 안내 카드의 기본 자리(style.css의 .coach-card). 대상이 여기에 걸리면 카드가 왼쪽으로 비킨다
 
@@ -41,6 +41,8 @@ export function createTutorial(os) {
     return w && !w.minimized ? w : null;
   };
   const inWallpaper = selector => os.stage.querySelector(`#wallpaper ${selector}`);
+  // 말하기 단계가 가리킬 곳: 말할 칸이 열려 있으면 그 칸, 아니면 내 아바타(친구 집의 주인 아바타는 튜토리얼에 나오지 않지만 빼 둔다)
+  const sayTarget = () => os.stage.querySelector('#desktop .say-input:not([hidden])') || inWallpaper('.room-avatar:not(.room-owner)');
   const shelfCard = id => roomWin()?.el.querySelector(`.card .furn[data-id="${id}"]`)?.closest('.card');
   // 사용자가 선반을 넘겨서 가구 카드가 밖으로 나갔으면, 그 카드 쪽으로 넘기는 단추를 대신 가리킨다.
   function cardOrArrow(card) {
@@ -110,11 +112,19 @@ export function createTutorial(os) {
       done: () => !!os.wm.get('neighbor'),
       target: () => inWallpaper('.door-hit'),
     },
+    {
+      id: 'say',
+      lesson: 3,
+      text: () => '아바타를 누르면\n말할 칸이 열립니다.\n하고 싶은 말을 쓰고\nEnter를 누르세요.',
+      done: () => false, // 말하면 said()가 passed에 적는다
+      target: sayTarget,
+    },
   ];
+  // 말하기 단계에서 아바타를 눌러 말해 보았으므로 끝 카드에는 바탕화면의 Enter를 지름길로만 적는다
   const END = {
     id: 'end',
     title: '튜토리얼 끝',
-    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.\nEnter를 누르면 말합니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
+    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.\nEnter를 눌러도 말할 칸이 열립니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
     target: () => null,
   };
 
@@ -161,6 +171,9 @@ export function createTutorial(os) {
     card.hidden = false;
     // 가구를 쓰고 나면 아바타가 그 옆에 서 있어서, 다시 쓰라고 할 때 가구 대신 아바타(말하기)가 눌리지 않게 한다.
     os.stage.classList.toggle('coach-use', !!view.use);
+    // 카드가 떠 있는 동안에는 아바타 머리 위의 말하기 표시(src/avatar.js의 cue)를 숨긴다. 카드는 한 번에 한 가지만 부탁하고,
+    // 말하기는 마지막 단계에서 화살표와 테두리로 아바타를 직접 가리킨다
+    os.stage.classList.add('coaching');
     card.animate([{ background: '#fff' }, { background: '#ffffe1' }], 300);
     if (view.card) centerCard(view.card());
   }
@@ -216,7 +229,7 @@ export function createTutorial(os) {
   function stop() {
     cancelAnimationFrame(raf);
     ring.hidden = arrow.hidden = true;
-    os.stage.classList.remove('coach-use');
+    os.stage.classList.remove('coach-use', 'coaching');
     shown = null;
   }
 
@@ -302,6 +315,11 @@ export function createTutorial(os) {
     // 바탕화면에서 가구를 쓴 뒤 부른다.
     used(id) {
       if (state.active && os.mode === 'edit' && id === light) pass('night');
+    },
+    // 바탕화면에서 아바타 말풍선에 말한 뒤 부른다(os.js의 onSay. 빈 말은 넘기지 않는다).
+    // 말하기 단계보다 먼저 말했거나 이웃집에 놀러 가서 말했어도 적어 두어, 그 단계에 이르면 건너뛴다(스탠드를 먼저 쓴 것과 같다)
+    said() {
+      if (state.active) pass('say');
     },
   };
 }

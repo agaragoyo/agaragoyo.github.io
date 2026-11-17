@@ -23,7 +23,7 @@ import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
-import { openNeighbors, prefetchNeighbors } from './neighbors.js';
+import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { openNameWindow } from './user-name.js';
@@ -168,6 +168,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (!reduceMotion) await wait(700);
     el.login.classList.remove('entering');
     if (my !== run) return;
+    // 짧은 링크나 아이디로 들어간 서버의 방은 로그인 화면의 "최근에 놀러 간 집"으로 기억한다. 이웃집과 내가 올린 방은 거기서 거른다(src/neighbors.js)
+    if (mode === 'visit' && boardId) rememberVisit(home, boardId);
     showDesktop();
     if (mode === 'edit') checkNotes(my);
   }
@@ -239,8 +241,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       input: el.desktop,
       sayRoot: el.desktop,
       active: () => !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup, // 가구를 가까이 보는 동안의 방향키는 그 화면 것이다(책장 넘기기)
-      // 내 컴퓨터에서 암호를 말하면 숨은 기능이 열린다(src/secrets.js. 실험실 아이콘은 아래 설정 구독이 그린다)
-      onSay: text => trySecret(os, text),
+      // 튜토리얼의 말하기 단계를 넘기고, 내 컴퓨터에서 암호를 말하면 숨은 기능이 열린다(src/secrets.js. 실험실 아이콘은 아래 설정 구독이 그린다).
+      // 튜토리얼에서 한 말은 암호로 듣지 않는다(trySecret이 튜토리얼을 거른다)
+      onSay: text => {
+        if (!text) return;
+        os.tutorial.said();
+        trySecret(os, text);
+      },
       others: () => [ownerAvatar, pet, pigeon].filter(Boolean),
     }, 'basic', { guest: withOwner });
     renderWallpaper();
