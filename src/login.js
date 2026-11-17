@@ -4,7 +4,7 @@
 import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
-import { fetchHome, sharedId, unshare } from './cloud.js';
+import { fetchHome, sharedId, unshare, myHandle } from './cloud.js';
 import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { h, wait, loadJSON, saveJSON } from './util.js';
@@ -153,7 +153,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     };
     const ask = () => box.replaceChildren(
       h('p', {}, sharedId()
-        ? '이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지를 지웁니다. 되돌릴 수 없습니다.'
+        ? `이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지${myHandle() ? ', 아이디' : ''}를 지웁니다. 되돌릴 수 없습니다.`
         : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
       h('div', { className: 'reset-row' },
         h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),

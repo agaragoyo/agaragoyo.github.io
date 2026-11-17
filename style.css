@@ -654,6 +654,8 @@ button { font-family: inherit; }
 .share-row { display: flex; gap: 8px; }
 /* 공유하기의 그림 내려받기: 링크 줄과 떨어뜨리고, 공간이 늘어 단추가 많아지면 줄을 바꾼다 */
 .win-body .share-save-tip { margin-top: 14px; }
+/* 공유하기의 아이디 칸 아래 오류(src/apps/share-app.js의 handleFail). 칸에 붙여 어느 칸의 오류인지 보이게 한다 */
+.win-body .share-error { margin: 6px 0 0; }
 .share-save { flex-wrap: wrap; }
 .link-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .link-row a.btn { display: inline-block; text-decoration: none; }
@@ -1117,6 +1119,10 @@ form.user { cursor: var(--cur-arrow); }
 .neighbor-empty { padding: 14px 4px; }
 .neighbor-app p.meta { margin-top: 10px; }
 .neighbor-app .link-row { margin-top: auto; padding-top: 12px; }
+/* 목록 아래의 아이디 칸(src/neighbors.js의 handleForm). 목록과 선 하나로 나누고, 안내나 오류 두 줄의 자리를 늘 잡아 둔다(창 높이의 FORM_H) */
+.handle-form { flex: none; margin-top: 4px; padding-top: 12px; border-top: 1px solid #8a5a3233; }
+.handle-msg { min-height: 42px; margin-top: 6px; }
+.neighbor-app .handle-msg p { margin: 0; line-height: 21px; }
 .new-row { position: relative; display: flex; gap: 8px; width: 330px; }
 .new-row input { font-size: 16px; color: var(--ink); }
 /* 빈 닉네임으로 확인을 누르면 입력칸을 빨갛게 두르고, 그 아래에 튜토리얼 안내와 같은 노란 풍선으로 할 일을 알린다 */

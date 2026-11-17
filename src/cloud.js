@@ -3,9 +3,10 @@
 //   읽기: 로그인 없이 GET 한 번. 짧은 링크로 온 손님은 이것만 한다.
 //   쓰기: 익명 로그인(가입 없이 브라우저마다 하나 생기는 사용자)의 토큰으로 한다. 서버의 규칙이 방을 처음 올린 사용자만 고치고 지우게 한다.
 // 같은 서버에 코르크 보드 방명록의 쪽지도 둔다(아래 "쪽지"). 쪽지는 짧은 링크를 만든 방에만 붙는다.
+// 링크를 만든 사람이 원하면 방에 아이디를 달아, 친구가 이웃집 목록 창에서 아이디를 쳐서 찾아오게 한다(아래 "아이디").
 // 규칙은 레포 맨 위의 firestore.rules에 있고, Firebase 콘솔에 게시한 규칙과 같아야 한다(known-issues 59).
 // API_KEY는 Firebase 웹 설정의 값이라 원래 웹페이지에 공개된다. 데이터는 규칙이 지킨다(AGENTS.md의 "공개 레포").
-// 이 컴퓨터에 남기는 것: { uid, refresh: 익명 로그인, id: 올린 방의 번호, sent: 마지막으로 올린 방 글자,
+// 이 컴퓨터에 남기는 것: { uid, refresh: 익명 로그인, id: 올린 방의 번호, sent: 마지막으로 올린 방 글자, handle: 그 방에 단 아이디,
 //   nick: 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임, seen: 주인이 마지막으로 본 쪽지의 시각(밀리초) }
 import { STORAGE_CLOUD } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
@@ -16,6 +17,10 @@ const PATH = `projects/${PROJECT}/databases/(default)/documents`; // 문서 이�
 const DOCS = `https://firestore.googleapis.com/v1/${PATH}`;
 const HOMES = 'homes';
 const NOTES = 'notes'; // 방 문서 아래의 쪽지(homes/{방 번호}/notes/{쪽지 번호})
+const HANDLES = 'handles'; // 아이디(handles/{아이디}, 그 아이디의 방 번호를 담는다)
+// 아이디의 글자와 길이. firestore.rules의 handle.matches와 같아야 한다(tools/check.py가 본다).
+// 영문은 소문자로만 두어 대문자와 소문자를 가리지 않고(normalHandle이 바꾼다), 한글은 완성된 글자만 받는다
+export const HANDLE_RE = /^[a-z0-9가-힣]{2,12}$/;
 export const MAX_CODE = 30000; // 방 글자 수 한도. firestore.rules의 code.size() 한도와 같아야 한다(tools/check.py가 본다)
 // 쪽지 한도. name, text, colors는 firestore.rules의 validNote와 같아야 한다(tools/check.py가 본다)
 export const NOTE = {
@@ -31,7 +36,8 @@ const TIMEOUT = 10000;
 const SYNC_DELAY = 3000; // 방을 고친 뒤 이만큼 더 고치지 않으면 서버의 방도 고친다
 
 // 서버에 닿지 못했거나 서버가 거절한 일. reason은 화면에 낼 말을 고르는 데 쓴다.
-//   offline: 연결이 안 되거나 답이 늦음, missing: 그런 문서가 없음, denied: 규칙이 막음, busy: 하루 무료 한도를 다 씀, server: 서버 오류
+//   offline: 연결이 안 되거나 답이 늦음, missing: 그런 문서가 없음, denied: 규칙이 막음, busy: 하루 무료 한도를 다 씀, server: 서버 오류,
+//   taken: 다른 사람이 먼저 정한 아이디(claimHandle)
 export class CloudError extends Error {
   constructor(reason, detail) {
     super(`${reason}: ${detail}`);
@@ -74,8 +80,8 @@ async function signIn() {
       return { token: r.id_token, uid: r.user_id, until: Date.now() + (Number(r.expires_in) - 60) * 1000 };
     } catch (err) {
       if (err.reason !== 'denied') throw err;
-      // 익명 계정이 지워졌다. 새 계정은 예전 방을 고칠 수 없으므로 방 번호도 잊는다(다음에 공유하면 새 번호가 생긴다).
-      remember({ uid: null, refresh: null, id: null, sent: null });
+      // 익명 계정이 지워졌다. 새 계정은 예전 방과 아이디를 고칠 수 없으므로 방 번호와 아이디도 잊는다(다음에 공유하면 새 번호가 생긴다).
+      remember({ uid: null, refresh: null, id: null, sent: null, handle: null });
     }
   }
   const r = await request(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
@@ -158,7 +164,8 @@ async function upload(code) {
     });
   } catch (err) {
     // 올려 둔 방을 이 사용자가 고칠 수 없다(다른 익명 계정이 올렸거나 지워짐). 번호를 잊어 다음에 새로 만들게 한다.
-    if (err.reason === 'denied' && old) remember({ id: null, sent: null });
+    // 그 방에 단 아이디도 이 사용자의 것이 아니므로 잊는다.
+    if (err.reason === 'denied' && old) remember({ id: null, sent: null, handle: null });
     throw err;
   }
   remember({ id, sent: code });
@@ -168,14 +175,17 @@ async function upload(code) {
 // 공유하기 창의 "링크 만들기". 방을 올리고 번호를 돌려준다.
 export const share = code => queue(() => upload(code));
 
-// 서버의 방과 그 방에 붙은 쪽지를 지우고 번호를 잊는다. 이미 보낸 짧은 링크는 더는 열리지 않는다.
+// 서버의 방과 그 방에 붙은 쪽지, 방에 단 아이디를 지우고 번호를 잊는다. 이미 보낸 짧은 링크는 더는 열리지 않는다.
+// 아이디를 먼저 지운다. 방만 지우면 아이디가 없는 방을 가리킨 채 남아 다른 사람이 그 아이디를 정하지 못한다.
 // 이웃집에 고정한 방(data/neighbors.js의 keep)은 지우지 않는다. 부르는 쪽(로그인 화면의 이 컴퓨터 초기화, 공유하기의 링크 지우기)이
 // 먼저 src/neighbors.js의 pinnedHere()를 보고 막는다(이 파일이 neighbors.js를 부르면 서로 부르게 되어 여기서는 보지 않는다). tools/check.py가 부르는 파일에 pinnedHere가 있는지 본다.
 export function unshare() {
   return queue(async () => {
-    const { id } = state();
+    const { id, handle } = state();
     if (!id) return;
     const me = await auth();
+    if (handle) await deleteHandle(handle, me);
+    remember({ handle: null });
     try {
       await clearNotes(id, me);
       await request(`${DOCS}/${HOMES}/${id}?key=${API_KEY}`, { method: 'DELETE', headers: { Authorization: `Bearer ${me.token}` } });
@@ -185,6 +195,101 @@ export function unshare() {
     remember({ id: null, sent: null });
   });
 }
+
+// ---------- 아이디 ----------
+// 링크를 만든 사람이 원하면 방에 아이디를 단다(공유하기 창). 친구는 이웃집 목록 창에서 아이디를 쳐서 그 방에 손님으로 들어간다(src/neighbors.js).
+// 화면에 보이는 닉네임은 겹쳐도 되지만 아이디는 먼저 정한 한 사람만 쓴다(인스타그램의 사용자 이름, 2023년 디스코드의 사용자명).
+// 아이디를 정한 사람만 찾을 수 있고, 아이디를 정확히 쳐야만 열린다. 서버의 규칙이 아이디 목록 읽기를 막는다(firestore.rules).
+// 문서는 handles/{아이디}에 { uid: 정한 사람, room: 방 번호 }로 둔다. 방 하나에 아이디는 하나만 단다(새로 정하면 예전 것을 지운다).
+
+// 사람이 친 아이디를 문서 번호의 꼴로 바꾼다. 전각 글자와 영문 대문자를 바꾸고, 띄어쓰기와 맨 앞의 @를 뺀다.
+// 바꾼 글자가 HANDLE_RE에 맞지 않으면 그런 아이디는 없다(쓰는 쪽이 검사한다)
+export const normalHandle = text => String(text ?? '').normalize('NFKC').replace(/\s+/g, '').replace(/^@/, '').toLowerCase();
+
+// 닉네임에서 아이디로 쓸 수 있는 글자만 남긴 것. 공유하기 창의 아이디 칸에 미리 넣는다. 두 글자가 되지 않으면 빈 글자다.
+// 남긴 글자는 모두 UTF-16 한 단위라서 slice로 잘라도 글자가 반으로 갈리지 않는다(known-issues 62)
+export function handleFrom(name) {
+  const handle = normalHandle(name).replace(/[^a-z0-9가-힣]/g, '').slice(0, 12);
+  return HANDLE_RE.test(handle) ? handle : '';
+}
+
+// 이 컴퓨터의 방에 단 아이디. 링크가 없거나 아이디를 정하지 않았으면 null
+export const myHandle = () => (state().id && typeof state().handle === 'string' ? state().handle : null);
+
+const ROOM_RE = /^[0-9A-Za-z]{8}$/;
+const handleUrl = handle => `${DOCS}/${HANDLES}/${encodeURIComponent(handle)}?key=${API_KEY}`;
+
+// 서버의 아이디 문서 { uid, room }. 그런 아이디가 없으면 null. 받은 값은 누구든 쓸 수 있는 값이라 모양을 본다
+async function readHandle(handle) {
+  try {
+    const doc = await request(handleUrl(handle));
+    const f = doc?.fields || {};
+    return { uid: f.uid?.stringValue || '', room: f.room?.stringValue || '' };
+  } catch (err) {
+    if (err.reason === 'missing') return null;
+    throw err;
+  }
+}
+
+// 아이디로 찾아갈 방 번호. 그런 아이디가 없거나 꼴이 틀리면 null이고, 서버에 닿지 못하면 CloudError를 던진다.
+// 방 글자는 부르는 쪽이 fetchHome으로 받아 decodeHome으로 검사한다
+export async function findHandle(handle) {
+  if (!HANDLE_RE.test(handle)) return null;
+  const doc = await readHandle(handle);
+  return doc && ROOM_RE.test(doc.room) ? doc.room : null;
+}
+
+async function deleteHandle(handle, me) {
+  try {
+    await request(handleUrl(handle), { method: 'DELETE', headers: { Authorization: `Bearer ${me.token}` } });
+  } catch (err) {
+    if (err.reason !== 'denied') throw err; // denied: 이미 없거나 이 사용자의 아이디가 아니다. 어느 쪽이든 잊기만 한다
+  }
+}
+
+// 공유하기 창의 "아이디 정하기". 올려 둔 방(sharedId)에 아이디를 달고 그 아이디를 돌려준다.
+// 다른 사람이 먼저 정한 아이디면 CloudError('taken')을 던진다. 묻고 쓰는 사이에 남이 정했어도 규칙이 덮어쓰기를 막아서 같은 오류가 된다.
+// 이미 아이디를 정했으면 새 아이디를 단 뒤 예전 아이디를 지운다. 예전 것을 먼저 지우면 새 아이디를 못 정했을 때 둘 다 잃는다.
+export const claimHandle = handle => queue(async () => {
+  const room = state().id;
+  if (!room || !HANDLE_RE.test(handle)) throw new CloudError('denied', '올린 방이 없거나 아이디의 꼴이 틀렸다');
+  const old = myHandle();
+  if (old === handle) return handle;
+  const me = await auth();
+  const doc = await readHandle(handle);
+  if (doc && doc.uid !== me.uid) throw new CloudError('taken', handle);
+  if (doc && doc.room !== room) await deleteHandle(handle, me); // 내가 예전 방에 달아 둔 아이디. 규칙이 고치기를 막아서 지우고 다시 만든다
+  if (!doc || doc.room !== room) {
+    try {
+      await request(`${DOCS}:commit?key=${API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${me.token}` },
+        body: JSON.stringify({
+          writes: [{
+            update: { name: `${PATH}/${HANDLES}/${handle}`, fields: { uid: { stringValue: me.uid }, room: { stringValue: room } } },
+            currentDocument: { exists: false },
+          }],
+        }),
+      });
+    } catch (err) {
+      const now = err.reason === 'denied' ? await readHandle(handle).catch(() => null) : null;
+      if (now && now.uid !== me.uid) throw new CloudError('taken', handle);
+      throw err;
+    }
+  }
+  remember({ handle });
+  if (old) await deleteHandle(old, me).catch(err => console.warn('예전 아이디를 지우지 못했다', err));
+  return handle;
+});
+
+// 공유하기 창의 "아이디 지우기". 서버의 아이디 문서를 지우고 잊는다. 지운 아이디는 다른 사람이 정할 수 있다.
+export const dropHandle = () => queue(async () => {
+  const handle = myHandle();
+  if (!handle) return;
+  const me = await auth();
+  await deleteHandle(handle, me);
+  remember({ handle: null });
+});
 
 // ---------- 쪽지(코르크 보드 방명록) ----------
 // 쪽지는 방 문서 아래 homes/{방 번호}/notes/{쪽지 번호}에 둔다. 서버에 방이 있어야 붙일 수 있어서, 짧은 링크를 만든 방에만 붙는다.

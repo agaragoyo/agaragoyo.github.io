@@ -3,11 +3,12 @@
 // 링크는 주인이 "링크 만들기"를 누를 때 처음 만든다(방이 서버에 저장된다는 것을 누르기 전에 보여 준다, known-issues 32).
 // 그 뒤에는 방을 고칠 때마다 서버의 방도 따라 고치므로(os.saveHome) 같은 링크가 늘 지금 방을 보여 준다.
 // 방을 통째로 주소에 담던 긴 링크(#r=)는 2026-11-14에 이 창에서 뺐다. 이미 보낸 긴 링크는 로그인 화면이 그대로 연다(src/share.js).
+// 링크를 만든 뒤에는 방에 아이디를 달 수 있다. 친구는 이웃집 목록 창에서 아이디를 쳐서 링크 없이 찾아온다(src/cloud.js의 "아이디", src/neighbors.js).
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
 import { withPicture } from '../user-pictures.js';
-import { sharedId, share, unshare, syncNow } from '../cloud.js';
+import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE } from '../cloud.js';
 import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
@@ -36,7 +37,7 @@ export function openShareApp(os, app) {
     app,
     title: '공유하기',
     width: 540,
-    height: 410, // 링크 줄이 있을 때 맨 아래 단추 밑에 30px쯤 남는다
+    height: 530, // 링크와 아이디 줄이 있을 때 맨 아래 단추 밑에 30px쯤 남고, 아이디 칸 아래에 오류가 한 줄 떠도 스크롤되지 않는다(known-issues 73)
 
     build(body, w) {
       const intro = h('p', {});
@@ -114,8 +115,85 @@ export function openShareApp(os, app) {
         w.refreshLink();
       };
       const askRemove = () => {
-        cloudTip.replaceChildren('서버에서 방과 쪽지를 지웁니다. ', nw('이 링크는 더는 열리지 않습니다.'));
+        cloudTip.replaceChildren(myHandle() ? '서버에서 방과 쪽지, 아이디를 지웁니다. ' : '서버에서 방과 쪽지를 지웁니다. ', nw('이 링크는 더는 열리지 않습니다.'));
         cloudRow.replaceChildren(button('지우기', remove), button('그대로 두기', () => w.refreshLink()));
+      };
+
+      // 아이디(src/cloud.js의 "아이디"). 링크가 있을 때만 보인다. 정하기 전에는 닉네임에서 쓸 수 있는 글자를 칸에 미리 넣어 두어,
+      // 대부분은 이름 그대로 아이디가 된다. 정한 뒤에는 칸을 읽기 전용으로 두고 지우기 단추를 둔다.
+      // 칸의 꼴과 이미 쓰는 아이디는 칸 바로 아래에 알리고, 서버에 닿지 못한 것은 링크 만들기처럼 알림으로 띄운다.
+      const handleTip = h('p', { className: 'share-save-tip' });
+      const handleInput = h('input', { type: 'text', maxLength: 24, placeholder: '한글, 영문, 숫자 2~12자', 'aria-label': '내 아이디', autocomplete: 'off' });
+      handleInput.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다(known-issues 50)
+      const handleError = h('p', { className: 'like-error share-error', role: 'alert', hidden: true });
+      const handleFail = text => {
+        handleError.textContent = text;
+        handleError.hidden = false;
+        handleInput.focus();
+      };
+      handleInput.addEventListener('input', () => { handleError.hidden = true; });
+      const claim = async e => {
+        e.preventDefault();
+        const b = handleRow.querySelector('button[type="submit"]');
+        if (handleInput.readOnly || !b || b.disabled) return;
+        const handle = normalHandle(handleInput.value);
+        if (!handle) return handleFail('아이디를 입력해 주세요.');
+        if (!HANDLE_RE.test(handle)) return handleFail('아이디는 한글, 영문, 숫자 2~12자입니다. 다시 입력해 주세요.');
+        b.style.minWidth = `${b.offsetWidth}px`;
+        b.disabled = true;
+        b.textContent = '정하는 중';
+        try {
+          await claimHandle(handle);
+          os.toast('아이디를 정했습니다.');
+        } catch (err) {
+          if (err.reason === 'taken') {
+            w.refreshLink();
+            return handleFail('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
+          }
+          console.warn(err);
+          os.toast('아이디를 정하지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+        }
+        w.refreshLink();
+      };
+      const handleRow = h('form', { className: 'share-row', onsubmit: claim });
+      // 아이디 지우기도 링크 지우기처럼 되돌리기 어려운 일이라 한 번 더 묻는다. 지운 아이디는 다른 사람이 가져갈 수 있다(known-issues 32)
+      const drop = async e => {
+        e.currentTarget.disabled = true;
+        try {
+          await dropHandle();
+          os.toast('아이디를 지웠습니다.');
+        } catch (err) {
+          console.warn(err);
+          os.toast('아이디를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+        }
+        w.refreshLink();
+      };
+      const askDrop = () => {
+        handleTip.replaceChildren('지운 아이디는 다른 사람이 정할 수 있습니다.');
+        handleRow.replaceChildren(button('지우기', drop), button('그대로 두기', () => w.refreshLink()));
+      };
+      const handleSlot = h('div', {});
+      let shownHandle = null; // 아이디 칸을 마지막으로 그린 때의 아이디(정하기 전이면 ''). 정하기 전 그대로면 사용자가 친 글자를 남긴다
+      const refreshHandle = id => {
+        if (!id) {
+          shownHandle = null;
+          handleSlot.replaceChildren();
+          return;
+        }
+        const handle = myHandle() || '';
+        handleInput.readOnly = !!handle;
+        if (handle) {
+          handleTip.replaceChildren('친구는 방의 현관문을 두 번 눌러 ', nw('이 아이디로 찾아옵니다.'));
+          handleInput.value = handle;
+          handleRow.replaceChildren(handleInput, button('아이디 지우기', askDrop));
+        } else {
+          handleTip.replaceChildren('아이디를 정하면 링크 없이도 친구가 ', nw('찾아올 수 있습니다.'));
+          if (shownHandle !== '') handleInput.value = handleFrom(home().owner);
+          handleRow.replaceChildren(handleInput, h('button', { type: 'submit', className: 'btn' }, '아이디 정하기'));
+        }
+        if (shownHandle !== handle) handleError.hidden = true;
+        shownHandle = handle;
+        handleSlot.replaceChildren(handleTip, handleRow, handleError);
       };
 
       // 링크 줄과 안내를 지금 상태로 맞춘다. 창을 다시 부를 때, 링크를 만들거나 지운 뒤, 복사할 때 부른다(다른 탭에서 만들거나 지웠을 수 있다).
@@ -136,6 +214,7 @@ export function openShareApp(os, app) {
           cloudTip.replaceChildren('링크를 만들면 방이 Firebase(구글) 서버에 저장됩니다.');
           cloudRow.replaceChildren(button('링크 만들기', create));
         }
+        refreshHandle(id);
       };
 
       // 공간마다 그림이 한 장씩이다. 그림은 누르는 순간의 방으로 만든다(창을 열어 둔 사이에 방을 고쳐도 최신이다).
@@ -167,12 +246,13 @@ export function openShareApp(os, app) {
         return b;
       };
 
-      // 링크를 설명한 바로 아래에 링크 줄과 만들기(지우기) 단추를 두고, 인사말과 그림 내려받기는 그 아래에 둔다
+      // 링크를 설명한 바로 아래에 링크 줄과 만들기(지우기) 단추, 아이디를 두고, 인사말과 그림 내려받기는 그 아래에 둔다
       body.append(
         intro,
         linkSlot,
         cloudTip,
         cloudRow,
+        handleSlot,
         h('p', { className: 'share-save-tip' }, '바탕화면을 2분 동안 그냥 두면 화면 보호기에 인사말이 흘러갑니다. 링크를 받은 친구의 화면에도 나옵니다.'),
         h('div', { className: 'share-row' }, greet, button('미리 보기', () => os.saver.show(true))),
         h('p', { className: 'share-save-tip' }, '그림 한 장으로 보내려면 PNG 파일로 내려받으세요.'),

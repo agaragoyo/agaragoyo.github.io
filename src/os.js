@@ -189,9 +189,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else showLogin();
   };
 
-  // 이웃집에 손님으로 들어간다(src/neighbors.js의 openNeighbors). 방의 현관문으로 여는 이웃집 목록 창에서 온다. boardId는 enter와 같다.
+  // 이웃집에 손님으로 들어간다(src/neighbors.js의 openNeighbors). 방의 현관문으로 여는 이웃집 목록 창에서 이웃을 고르거나 아이디로 찾아온다. boardId는 enter와 같다.
+  // 아이디로 찾은 방은 부팅할 때 받아 두지 않았으므로 환영 화면을 지나는 동안 가구 그림을 받는다(known-issues 54). 이미 받은 그림은 다시 받지 않는다
   os.visit = (home, boardId = null) => {
     clearHash();
+    preloadFurniture([home]);
     switchTo('visit', home, boardId);
   };
 

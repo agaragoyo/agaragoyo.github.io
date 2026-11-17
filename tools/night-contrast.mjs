@@ -152,6 +152,16 @@ async function openNeighborList() {
   return true;
 }
 
+// 이웃집 목록 창 아래의 아이디 칸(src/neighbors.js의 handleForm)을 빈 채로 보내 오류 줄(.like-error)을 띄운다.
+// 오류 글자는 평소에 숨어 있어서 이렇게 띄워야 낮과 밤의 대비를 잰다. 빈 칸은 서버에 묻지 않는다
+function showHandleError() {
+  const form = document.querySelector('#windows .neighbor-app .handle-form');
+  if (!form) return false;
+  form.querySelector('input').value = '';
+  form.requestSubmit();
+  return !form.querySelector('.like-error').hidden;
+}
+
 // 시작 메뉴의 펫 바꾸기를 눌러 펫 바꾸기 창(src/pet-picker.js)을 연다. 고른 펫을 먼저 넣어 두어 창의 큰 그림과 색 묶음이 보이게 한다
 // ("없음"이면 둘이 숨는다). 2026-11-17까지는 실험실 창의 펫 바꾸기 단추로 열었다
 async function openPetPicker() {
@@ -357,6 +367,7 @@ async function main() {
   if (!(await page.run(openNeighborList))) throw new Stop('방의 현관문(.door-hit)이 없다. 바뀌었으면 tools/night-contrast.mjs의 openNeighborList도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 4, '이웃집 목록 창이 열리지 않았다', 10000);
   await sleep(1500); // 서버에서 이웃집을 받는 중이던 줄이 바뀔 틈
+  if (!(await page.run(showHandleError))) throw new Stop('이웃집 목록 창에 아이디 칸(.handle-form)이 없거나 빈 칸을 보내도 오류가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showHandleError도 고친다.');
 
   const results = [];
   for (const era of ERAS) {

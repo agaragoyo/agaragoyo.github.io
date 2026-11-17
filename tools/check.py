@@ -830,6 +830,16 @@ def check_cloud():
     col = re.search(r"const HOMES = '(\w+)'", js)
     if not col or f'match /{col.group(1)}/' not in rules:
         err('firestore.rules', 'src/cloud.js의 컬렉션 이름(HOMES)에 맞는 match 줄이 없다')
+    # 아이디: 컬렉션 이름과 HANDLE_RE의 글자와 길이가 규칙(handle.matches)과 같은지 본다. 다르면 화면이 받는 아이디를 서버가 거절한다
+    handles = re.search(r"const HANDLES = '(\w+)'", js)
+    if not handles or f'match /{handles.group(1)}/' not in rules:
+        err('firestore.rules', 'src/cloud.js의 아이디 컬렉션 이름(HANDLES)에 맞는 match 줄이 없다')
+    pat_js = re.search(r'export const HANDLE_RE = /\^(.+?)\$/;', js)
+    pat_rules = re.search(r"handle\.matches\('(.+?)'\)", rules)
+    if not pat_js or not pat_rules:
+        err('src/cloud.js', '아이디의 글자와 길이(HANDLE_RE와 firestore.rules의 handle.matches)를 찾지 못했다. 모양을 바꿨다면 tools/check.py의 check_cloud도 고친다')
+    elif pat_js.group(1) != pat_rules.group(1):
+        err('src/cloud.js', f'HANDLE_RE({pat_js.group(1)})가 firestore.rules의 아이디 규칙({pat_rules.group(1)})과 다르다. 규칙을 고쳤다면 콘솔에도 게시한다')
     # 코르크 보드 쪽지: NOTE의 닉네임, 글 글자 수와 색 수가 규칙(validNote)과 같고, 한 번에 받는 쪽지 수가 규칙의 읽기 한도 안인지 본다
     notes = re.search(r"const NOTES = '(\w+)'", js)
     if not notes or f'match /{notes.group(1)}/' not in rules:
