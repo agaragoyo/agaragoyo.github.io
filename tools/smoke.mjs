@@ -779,8 +779,9 @@ async function walk(page, base) {
   await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings') || '{}'); localStorage.setItem('agarago.settings', JSON.stringify({ ...s, pet: 'none' })); });
   await open();
   await powerOn();
-  check('로그인 화면에 내 사용자가 있다', await page.run(() => document.querySelectorAll('.users .user:not(.neighbor):not(.new)').length === 1));
-  check('로그인 화면의 내 사용자에 고른 사진이 보인다', (await page.run(shownPic, '.users .user:not(.neighbor):not(.new)')) === firstPic);
+  check('로그인 화면 왼쪽 단에 내 사용자가 있다', await page.run(() => document.querySelectorAll('.users-own .user:not(.new)').length === 1));
+  check('로그인 화면의 내 사용자에 고른 사진이 보인다', (await page.run(shownPic, '.users-own .user:not(.new)')) === firstPic);
+  check('내 집이 있어도 로그인 화면 오른쪽 단 끝에 친구 아이디 칸이 있다', await page.run(() => !!document.querySelector('.users-friends')?.lastElementChild?.matches('.user.by-handle')));
   await page.run(clickOnce, '.reset-link');
   await probe('초기화 확인');
   await page.run(clickText, '.reset-row .btn', '그대로 두기');
@@ -1761,7 +1762,8 @@ async function walk(page, base) {
   await powerOn();
   check('친구 링크로 오면 친구 집과 내 컴퓨터가 나오고 이웃집은 나오지 않는다', await page.run(() => {
     const names = [...document.querySelectorAll('.users .user small')].map(s => s.textContent);
-    return names.includes('손님으로 구경하기') && names.includes('내 컴퓨터로 가기') && !document.querySelector('.users .user.neighbor');
+    return names.includes('손님으로 구경하기') && names.includes('내 컴퓨터로 가기') && !document.querySelector('.users .user.neighbor')
+      && !document.querySelector('.users .user.by-handle'); // 친구 아이디 칸도 이웃집처럼 뺀다
   }));
   check('로그인 화면의 친구 집에 링크에 담긴 주인 사진이 보인다', await page.run(pic => [...document.querySelectorAll('.users .user')]
     .find(u => u.querySelector('small')?.textContent === '손님으로 구경하기')?.querySelector('.user-pic')?.dataset.pic === pic, friendPic));
@@ -1908,7 +1910,7 @@ async function walk(page, base) {
     return page.run(() => {
       const names = sel => [...document.querySelectorAll(sel)].map(t => t.querySelector('.user-name').firstChild.textContent);
       return {
-        mine: names('.users .user:not(.neighbor):not(.new)'),
+        mine: names('.users-own .user:not(.new)'),
         near: names('.users .user.neighbor'),
         reset: !!document.querySelector('.reset-link'),
         note: document.querySelector('.reset-box p')?.textContent || '',
@@ -2056,7 +2058,7 @@ async function walk(page, base) {
   await page.run(fakeCloud, 'hold', { [SHORT.slice(3)]: shortCode });
   await powerOn();
   check('짧은 링크로 오면 방을 받는 동안 친구 방 자리가 눌리지 않는다', await page.run(() => {
-    const t = document.querySelector('.users .user');
+    const t = document.querySelector('.users-friends .user');
     return !!t && t.disabled && t.textContent.includes('불러오는 중');
   }));
   await probe('짧은 링크의 방을 받는 로그인 화면');
@@ -2595,6 +2597,53 @@ async function walk(page, base) {
   check('아이디로 온 집의 코르크 보드는 그 방의 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === ID_ROOM);
   await press(page, 'Escape');
 
+  // ---------- 로그인 화면의 친구 아이디 칸 ----------
+  // 로그인 화면 오른쪽 단(친구 집)의 이웃집 아래에도 같은 칸이 있어서(src/login.js의 handleTile) 처음 온 사람도 사용자를 만들지 않고 아이디로 손님이 된다.
+  // 아이디를 찾는 일과 오류 글은 이웃집 목록 창의 칸과 같이 쓰므로(src/neighbors.js의 handleInput) 오류는 빈 칸과 없는 아이디만 보고, 노란 풍선으로 뜨는지 본다.
+  // 레포의 이웃집도 모두 받게 해서 오른쪽 단이 가장 길 때 풍선까지 로그인 화면 가운데 띠 안에 드는지 잰다
+  await page.run(() => localStorage.removeItem('agarago.home.v3'));
+  await open();
+  await page.run(fakeCloud, 'serve', { ...neighborRooms, ...idRooms }, [], ID_HANDLES);
+  await powerOn();
+  await until(page, () => !document.querySelector('.users .user.neighbor[disabled]'), 3000);
+  check('처음 온 사람의 로그인 화면은 왼쪽 단에 새 사용자 만들기, 오른쪽 단에 이웃집과 그 아래 친구 아이디 칸이 있다', await page.run(n => !!document.querySelector('.users-own .user.new input[aria-label="닉네임"]')
+    && document.querySelectorAll('.users-friends .user.neighbor').length === n
+    && !!document.querySelector('.users-friends')?.lastElementChild?.matches('.user.by-handle')
+    && !!document.querySelector('.user.by-handle input[aria-label="친구 아이디"]'), listedLinks.length));
+  // 로그인 화면의 친구 아이디 칸에 v를 치고 놀러 가기를 누른 뒤 찾기가 끝나기를 기다려 풍선의 글을 돌려준다. 풍선이 없으면 빈 글자다
+  const loginSays = async v => {
+    await page.run(t => {
+      const f = document.querySelector('.users-friends .user.by-handle');
+      const i = f.querySelector('input[aria-label="친구 아이디"]');
+      i.value = t;
+      i.dispatchEvent(new Event('input'));
+      f.requestSubmit();
+    }, v);
+    await until(page, () => { const b = document.querySelector('.user.by-handle .btn'); return !b || !b.disabled; }, 5000);
+    return page.run(() => { const t = document.querySelector('.user.by-handle .name-tip'); return t && !t.hidden ? t.textContent : ''; });
+  };
+  check('로그인 화면에서 빈 칸으로 놀러 가기를 누르면 칸을 빨갛게 두르고 풍선으로 아이디를 입력해 달라고 한다', (await loginSays('')) === '친구 아이디를 입력해 주세요.'
+    && await page.run(() => document.querySelector('.user.by-handle input').getAttribute('aria-invalid') === 'true'));
+  check('로그인 화면에서 없는 아이디를 치면 없는 아이디라고 알린다', (await loginSays('없는아이디')) === '없는 아이디입니다.아이디를 다시 확인해 주세요.');
+  check('이웃집이 다 선 오른쪽 단과 두 줄 풍선이 로그인 화면 가운데 띠 안에 든다', await page.run(() => {
+    const mid = document.querySelector('.login-mid').getBoundingClientRect();
+    const col = document.querySelector('.users-friends').getBoundingClientRect();
+    const tip = document.querySelector('.user.by-handle .name-tip').getBoundingClientRect();
+    return col.top >= mid.top && col.bottom <= mid.bottom && tip.bottom <= mid.bottom;
+  }));
+  await probe('친구 아이디 오류가 뜬 로그인 화면');
+  await page.run(() => { const i = document.querySelector('.user.by-handle input'); i.value = '친'; i.dispatchEvent(new Event('input')); });
+  check('로그인 화면의 친구 아이디 칸에 다시 치기 시작하면 풍선과 빨간 테두리가 걷힌다', await page.run(() => document.querySelector('.user.by-handle .name-tip').hidden
+    && !document.querySelector('.user.by-handle input').hasAttribute('aria-invalid')));
+  await loginSays(' @친 구 ');
+  check('처음 온 사람도 로그인 화면에서 아이디로 그 방에 손님으로 들어간다', await until(page, (n, owner) => document.getElementById('stage').dataset.mode === 'visit'
+    && !document.getElementById('desktop').hidden && document.querySelectorAll('#wallpaper .furn').length === n
+    && document.querySelector('#wallpaper .room-owner-name')?.textContent === owner, 8000, HOME.scenes.room.length, ID_FRIEND));
+  check('로그인 화면에서 아이디로 온 손님 바탕화면에는 나도 만들기가 있다', await page.run(() => !!document.querySelector('#icons .desk-icon[data-app="make-mine"]')));
+  await use('corkboard', () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), '로그인 화면에서 아이디로 온 손님에게도 쪽지 남기기 단추가 보인다');
+  check('로그인 화면에서 아이디로 온 집의 코르크 보드는 그 방의 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === ID_ROOM);
+  await press(page, 'Escape');
+
   // ---------- 긴 글(known-issues 83) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
@@ -2718,7 +2767,7 @@ async function walk(page, base) {
   await page.run(clickOnce, '.reset-link');
   await page.run(clickText, '.reset-row .btn', '지우기');
   check('초기화에서 지우기를 누르면 내 사용자 대신 새 사용자 만들기가 나온다', await until(page, () => !!document.querySelector('.user.new input')
-    && !document.querySelector('.users .user:not(.neighbor):not(.new)'), 5000));
+    && !document.querySelector('.users-own .user:not(.new)'), 5000));
   const left = await page.run(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
   check('지우기는 집과 앱 기록만 지우고 설정과 다른 사이트의 키는 남긴다', Object.keys(left).every(k => k === 'agarago.settings' || !k.startsWith('agarago.'))
     && !(appKey in left) && left['other-site.smoke'] === '1' && left['agarago.settings'] === settings, Object.keys(left).join(', '));
