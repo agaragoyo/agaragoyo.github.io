@@ -11,12 +11,14 @@
 // 그런 방을 올린 브라우저에서는 서버의 방을 지우는 길(이 컴퓨터 초기화, 공유하기의 링크 지우기)을 막는다(pinnedHere).
 // 목록 창 아래에는 아이디 칸이 있다. 친구가 공유하기 창에서 정한 아이디를 치면 목록에 없는 친구의 방에도 링크 없이 놀러 간다(handleForm).
 // 로그인 화면의 이웃집 아래에도 같은 칸이 있어서(src/login.js의 handleTile) 아이디를 찾는 일은 둘이 같이 쓴다(handleInput).
+// 링크나 아이디로 다녀온 친구의 방은 이 브라우저가 기억해 로그인 화면의 이웃집 위에 "최근에 놀러 간 집"으로 보인다(recentVisits).
 import { NEIGHBORS } from '../data/neighbors.js';
-import { decodeHome, linkId } from './share.js';
+import { STORAGE_RECENT } from './config.js';
+import { decodeHome, linkId, sanitizeHome } from './share.js';
 import { fetchHome, sharedId, findHandle, normalHandle, HANDLE_RE } from './cloud.js';
 import { line } from './likes.js';
 import { pictureEl } from './user-pictures.js';
-import { h, fitText } from './util.js';
+import { h, fitText, loadJSON, saveJSON } from './util.js';
 import { play } from './sound.js';
 
 // 로그인 화면에 이웃집이 이만큼까지 들어간다(style.css의 .user.neighbor). 이웃집 목록 창도 같은 집을 보이도록 목록 자체를 여기서 자른다.
@@ -104,6 +106,45 @@ export function prefetchNeighbors(got) {
 // 견주는 이름은 지금 보일 이름(shownName)이라, 이웃집 주인이 이름을 바꿔도 자기 집 목록 창에 자기 집이 나오지 않는다(known-issues 78).
 // 서버에 방이 없다고 확인된 link 이웃집도 뺀다. 받는 중이거나 받지 못한 집은 넣어 두고, 목록 창을 열 때 다시 받는다.
 export const shownNeighbors = (owner = '') => NEIGHBOR_LIST.filter(n => neighborNow(n) !== null && shownName(n) !== owner);
+
+// 최근에 놀러 간 집. 짧은 링크(#s=)나 아이디로 손님이 되어 들어간 서버의 방을 이 브라우저에만 기억해 로그인 화면 오른쪽 단 맨 위에 보인다(src/login.js의 recentTile).
+// 단추로 고르게 하지 않고 들어갈 때마다 저절로 남긴다(인터넷 익스플로러의 열어 본 페이지 목록). 동물의 숲의 꿈 번지는 다녀온 섬을 기억하지 않아 번지를 다시 쳐야 했다.
+// 최근 것부터 MAX_RECENT집(로그인 화면 격자의 한 줄)까지 두고, 다시 가면 맨 앞으로 옮긴다. 방 번호와 그때 본 주인 이름과 사진만 적고, 방은 로그인 화면이 서버에서 다시 받는다.
+// 이웃집 목록의 link와 같은 방과 이 컴퓨터가 올린 방(sharedId)은 이웃집이나 내 사용자로 이미 떠 있어서 적지 않는다(known-issues 84).
+// 이 컴퓨터 초기화가 agarago.로 시작하는 키를 지우므로 함께 지워진다(src/login.js의 resetButton).
+export const MAX_RECENT = 3;
+const shownElsewhere = room => room === sharedId() || NEIGHBOR_LIST.some(n => n.link === room);
+
+// 기억한 집들. 최근 것부터 [{ room: 방 번호, name: 주인 이름, picture: 주인 사진 값이나 null }].
+// 저장소의 값은 손으로 고쳐졌을 수 있어서 이름과 사진은 집 상태 검사(sanitizeHome)를 거친다. 그사이 이웃집이 된 방은 뺀다
+export function recentVisits() {
+  const got = loadJSON(STORAGE_RECENT);
+  const seen = new Set();
+  return (Array.isArray(got) ? got : []).flatMap(v => {
+    const room = asLink(v?.room);
+    const home = sanitizeHome({ owner: v?.name, picture: v?.picture });
+    if (!room || !home?.owner || seen.has(room) || shownElsewhere(room)) return [];
+    seen.add(room);
+    return [{ room, name: home.owner, picture: home.picture || null }];
+  }).slice(0, MAX_RECENT);
+}
+
+const visitOf = (room, home) => ({ room, name: home.owner, picture: home.picture || null });
+
+// 손님으로 들어간 서버의 방을 맨 앞에 적는다(src/os.js의 enter). room: 그 방 번호(boardId). 이웃집과 내가 올린 방은 적지 않는다
+export function rememberVisit(home, room) {
+  if (!asLink(room) || shownElsewhere(room)) return;
+  saveJSON(STORAGE_RECENT, [visitOf(room, home), ...recentVisits().filter(v => v.room !== room)].slice(0, MAX_RECENT));
+}
+
+// 로그인 화면이 서버에서 받은 그 방의 지금 모습(src/login.js의 cloudHome이 준 값)을 기억에 옮긴다.
+// 집이면 이름과 사진만 고치고 차례는 그대로 둔다. null(서버에 방이 없음)이면 지운다. undefined(서버에 닿지 못함)면 그대로 둔다
+export function syncVisit(room, home) {
+  if (home === undefined) return;
+  const list = recentVisits();
+  if (!list.some(v => v.room === room)) return;
+  saveJSON(STORAGE_RECENT, home ? list.map(v => (v.room === room ? visitOf(room, home) : v)) : list.filter(v => v.room !== room));
+}
 
 // 방의 현관문을 두 번 눌렀을 때 뜨는 목록 창. 아바타가 문 앞까지 걸어간 뒤에 뜬다(src/os.js의 useDoor).
 // 갈 곳을 한 창에서 고르게 한다(동물의 숲 비행장 카운터, 해비호텔 내비게이터). 줄마다 주인 사진과 이름, "놀러 가기" 단추를 두고,

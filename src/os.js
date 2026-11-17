@@ -23,7 +23,7 @@ import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
 import { createTutorial } from './tutorial.js';
-import { openNeighbors, prefetchNeighbors } from './neighbors.js';
+import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { openNameWindow } from './user-name.js';
@@ -168,6 +168,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (!reduceMotion) await wait(700);
     el.login.classList.remove('entering');
     if (my !== run) return;
+    // 짧은 링크나 아이디로 들어간 서버의 방은 로그인 화면의 "최근에 놀러 간 집"으로 기억한다. 이웃집과 내가 올린 방은 거기서 거른다(src/neighbors.js)
+    if (mode === 'visit' && boardId) rememberVisit(home, boardId);
     showDesktop();
     if (mode === 'edit') checkNotes(my);
   }

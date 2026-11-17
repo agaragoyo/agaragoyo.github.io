@@ -20,18 +20,21 @@ const isPicture = v => typeof v === 'string' && (Object.hasOwn(BY_ID, v) || !!re
 // 큰 사진은 고르는 줄보다 한 칸이 화면 픽셀 하나라도 굵은 크기에서 고르고, 그러느라 원래 크기의 1.8배까지 커질 수 있다.
 // 1366×768 노트북(무대 배율 0.61)에서 둘을 따로 고르면 둘 다 한 칸이 1픽셀이라, 새 사용자 만들기의 큰 사진이 고르는 줄의 사진과 같은 크기로 보였다.
 // 맞는 크기가 없으면 원래 크기로 두고, 한 칸이 1픽셀보다 작을 때만 부드럽게 줄인다.
+// tile은 로그인 화면 친구 집 격자의 사진이다(원래 크기 48). 고르는 줄과 나란히 서지 않아 굵게 고를 까닭이 없으므로 36처럼 0.7~1.4배 안에서 고른다.
+// 큰 사진(48)의 크기를 쓰면 무대 배율 0.56에서 86px까지 커져, 세 줄 격자와 친구 아이디 칸의 풍선이 로그인 화면 가운데 띠를 넘었다.
 // main.js의 fit()이 무대 배율이 바뀔 때마다 부른다. style: CSS 변수를 넣을 곳, scale: 무대 배율, dpr: 화면 픽셀 비율
 export function fitUserPictures(style, scale, dpr) {
   let finer = 0; // 고르는 줄의 한 칸이 차지하는 화면 픽셀
-  for (const [slot, most] of [[36, 1.4], [48, 1.8]]) {
-    const raw = slot / GRID * scale * dpr; // 원래 크기로 그리면 한 칸이 차지하는 화면 픽셀
+  // 자리 이름, 원래 크기, 원래 크기의 몇 배까지 키울지, 고르는 줄보다 굵게 고를지
+  for (const [slot, size, most, coarser] of [[36, 36, 1.4, false], [48, 48, 1.8, true], ['tile', 48, 1.4, false]]) {
+    const raw = size / GRID * scale * dpr; // 원래 크기로 그리면 한 칸이 차지하는 화면 픽셀
     const fits = [...new Set([Math.floor(raw), Math.ceil(raw), Math.ceil(raw) + 1])]
       .filter(n => n >= 1 && n / raw >= 0.7 && n / raw <= most)
       .sort((a, b) => Math.abs(Math.log(a / raw)) - Math.abs(Math.log(b / raw)));
-    const k = fits.find(n => n > finer) ?? fits.find(n => n / raw <= 1.4);
-    style.setProperty(`--user-pic-${slot}`, (k ? GRID * k / (scale * dpr) : slot) + 'px');
+    const k = fits.find(n => n > (coarser ? finer : 0)) ?? fits.find(n => n / raw <= 1.4);
+    style.setProperty(`--user-pic-${slot}`, (k ? GRID * k / (scale * dpr) : size) + 'px');
     style.setProperty(`--user-pic-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
-    finer = k || 0;
+    if (slot === 36) finer = k || 0;
   }
 }
 
