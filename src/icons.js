@@ -1,5 +1,5 @@
 // 아이콘 그림. icon: 'builtin:<이름>'은 아래 PIXEL의 픽셀 그림이고, 나머지는 앱 목록의 그림 경로를 쓴다.
-// 기본 앱, 가구 화면 앱, 추억의 플래시 게임(data/apps.js)과 시작 메뉴 아래쪽 항목(os.js), 튜토리얼과 이웃집 창이 PIXEL을 쓴다.
+// 기본 앱, 가구 화면 앱, 추억의 플래시 게임(data/apps.js)과 시작 메뉴 아래쪽 항목(os.js), 튜토리얼과 이웃집 창, 아바타 머리 위의 말하기 표시가 PIXEL을 쓴다.
 //
 // 픽셀 그림은 한 글자가 한 칸이고 '.'은 빈칸이다. 글자의 색은 아이콘마다 colors에 있다.
 // 바탕화면과 게임 폴더(48px), 시작 메뉴(24px)에는 24×24칸 그림을 2배와 1배로 쓰고,
@@ -795,6 +795,29 @@ const PIXEL = {
       '..kkkkkkkkkkkk..',
       '................',
       '................',
+    ],
+  },
+  // 말하기 표시(src/avatar.js의 cue): 아직 말해 보지 않은 사람의 아바타 머리 위에 뜨는 말풍선. 방의 말풍선(style.css의 .room-avatar-say)처럼
+  // 흰 바탕에 짙은 테두리이고, 점 세 개는 2×2칸에 사이가 2칸이다. 꼬리 끝이 그림의 맨 아랫줄이라 그림 아래 끝을 머리 위 8px에 맞추면 된다
+  say: {
+    colors: { k: '#2b2b33', w: '#ffffff' },
+    16: [
+      '................',
+      '................',
+      '..kkkkkkkkkkkk..',
+      '.kwwwwwwwwwwwwk.',
+      'kwwwwwwwwwwwwwwk',
+      'kwwwwwwwwwwwwwwk',
+      'kwwwwwwwwwwwwwwk',
+      'kwwkkwwkkwwkkwwk',
+      'kwwkkwwkkwwkkwwk',
+      'kwwwwwwwwwwwwwwk',
+      'kwwwwwwwwwwwwwwk',
+      'kwwwwwwwwwwwwwwk',
+      '.kwwwwwwwwwwwwk.',
+      '..kkkkwwwwkkkk..',
+      '......kwwk......',
+      '.......kk.......',
     ],
   },
   // 추억의 플래시 게임은 원작 그림을 옮기지 않고 장르나 소재를 그렸다. 슈의 라면가게: 양은 냄비 라면과 젓가락

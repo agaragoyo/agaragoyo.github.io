@@ -60,5 +60,8 @@ export const STORAGE_ROOM = 'agarago.home.v3';
 export const STORAGE_ROOM_OLD = 'agarago.room.v2'; // 공간이 하나뿐이던 때의 저장본 (내 방으로 옮겨 온다)
 export const STORAGE_SETTINGS = 'agarago.settings';
 export const STORAGE_TUTORIAL = 'agarago.tutorial'; // 튜토리얼 진행 상태(src/tutorial.js)
+// 이 브라우저에서 아바타 말풍선에 한 번이라도 말했는지(src/avatar.js). 말하기 전까지 아바타 머리 위에 말하기 표시를 띄운다.
+// 설정과 달리 이 컴퓨터 초기화가 지워서, 초기화한 뒤 새로 온 사람에게 다시 뜬다
+export const STORAGE_SAID = 'agarago.said';
 export const STORAGE_CLOUD = 'agarago.cloud'; // 서버에 올린 방의 번호와 익명 로그인(src/cloud.js)
 export const STORAGE_PICTURE = 'agarago.picture'; // 내 사용자 사진의 id(data/user-pictures.js, src/user-pictures.js)

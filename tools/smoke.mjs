@@ -9,7 +9,8 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기(현관문과 창문, 움직임 줄이기),
-// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
+// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계에서 말한 암호가 숨은 기능을 열지 않는지 포함),
+// 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
 // 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
@@ -494,6 +495,28 @@ const savedHome = () => JSON.parse(localStorage.getItem('agarago.home.v3'));
 const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
+// 내 아바타 머리 위의 말하기 표시(src/avatar.js의 cue). 보이지 않으면 '없음', 보이면 가운데가 아바타 가운데이고
+// 아래 끝이 머리 꼭대기(그림 상자 위 끝에서 9px)보다 8px 위일 때 '머리 위'(무대 px, 1px까지 봐 준다). want를 주면 그 상태인지만 돌려준다
+function sayCue(want = '') {
+  const cue = document.querySelector('#wallpaper .say-cue');
+  const a = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
+  let state = '없음';
+  if (cue && a && !cue.hidden && getComputedStyle(cue).visibility !== 'hidden') {
+    const dx = parseFloat(cue.style.left) - (parseFloat(a.style.left) + a.offsetWidth / 2);
+    const dy = parseFloat(cue.style.top) - (parseFloat(a.style.top) + 9 - 8);
+    state = Math.abs(dx) <= 1 && Math.abs(dy) <= 1 ? '머리 위' : `어긋남(${dx}, ${dy})`;
+  }
+  return want ? state === want : state;
+}
+// 튜토리얼의 테두리가 sel 요소를 두르고 있는지(테두리 상자와 그 요소의 상자가 1px 안에서 같은지)
+function ringOn(sel) {
+  const ring = document.querySelector('.coach-ring');
+  const el = document.querySelector(sel);
+  if (!ring || ring.hidden || !el) return false;
+  const a = ring.getBoundingClientRect();
+  const b = el.getBoundingClientRect();
+  return b.width > 0 && ['left', 'top', 'width', 'height'].every(k => Math.abs(a[k] - b[k]) <= 1);
+}
 // 내 아바타가 선 칸. 아바타 상자는 발끝(칸 가운데 tile(x + 0.5, y + 0.5))보다 32px 왼쪽, 100px 위다(petScene의 cellOf와 같은 풀이)
 const myCell = () => {
   const a = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
@@ -769,8 +792,10 @@ async function walk(page, base) {
   check('새 사용자를 만들면 고른 사진이 저장된다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === firstPic);
   check('새 사용자에게 튜토리얼 안내 카드가 뜬다', await until(page, () => { const c = document.querySelector('.coach-card'); return !!c && !c.hidden; }, 3000));
   await probe('튜토리얼 첫 단계');
+  check('튜토리얼 카드가 떠 있는 동안에는 아바타 머리 위의 말하기 표시가 숨는다', await page.run(sayCue, '없음'), await page.run(sayCue));
   await page.run(() => document.querySelector('.coach-btn').click());
   check('건너뛰기를 누르면 안내 카드가 사라진다', await page.run(() => document.querySelector('.coach-card').hidden));
+  check('튜토리얼을 건너뛰면 아직 말해 보지 않은 아바타의 머리 위에 말하기 표시가 뜬다', await until(page, sayCue, 2000, '머리 위'), await page.run(sayCue));
 
   // ---------- 가구가 놓인 내 집 ----------
   check('점검용 집의 가구가 모두 검사를 통과한다', (await page.run(plantHome, HOME)) === HOME.scenes.room.length);
@@ -789,6 +814,7 @@ async function walk(page, base) {
   check('내 사용자를 누르면 바탕화면이 뜬다', await desktop());
   await sleep(600);
   check('바탕화면의 방에 가구가 모두 그려진다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === HOME.scenes.room.length);
+  check('말해 보기 전에는 다시 들어와도 아바타 머리 위에 말하기 표시가 뜬다(가운데, 머리 꼭대기에서 8px 위)', await page.run(sayCue, '머리 위'), await page.run(sayCue));
   await probe('바탕화면');
   // 화면보다 크게 깔린 층(디가우스)이 있어도 화면은 스크롤되지 않는다. 스크롤되면 초점이나 scrollIntoView에 화면 전체가 밀린다(known-issues 66).
   // 바탕화면도 같다. 가구 가까이 보기와 게임기의 큰 화면이 움직이는 동안 바탕화면보다 커진다
@@ -834,6 +860,8 @@ async function walk(page, base) {
   check('말하기 칸에서 친 글자는 아바타를 움직이지 않는다', (await page.run(avatarSpot)) === spot0 && (await page.run(() => document.querySelector('.say-input').value)) === 'd');
   await press(page, 'Enter');
   check('Enter를 누르면 말풍선이 뜬다', await until(page, () => { const b = document.querySelector('.room-avatar-say'); return !!b && !b.hidden && b.textContent === 'd'; }, 2000));
+  check('처음 말하면 말하기 표시가 사라지고 이 브라우저에 말한 기록이 남는다', (await page.run(sayCue)) === '없음'
+    && (await page.run(() => localStorage.getItem('agarago.said'))) === 'true', await page.run(sayCue));
   let walked = false;
   for (const code of ['KeyD', 'KeyS', 'KeyA', 'KeyW']) {
     await press(page, code);
@@ -1701,7 +1729,7 @@ async function walk(page, base) {
     && !!document.querySelector('#start-menu .start-head .user-pic') && document.querySelector('#start-menu .start-head').textContent === '점검'));
   await page.run(clickOnce, '.start-btn');
 
-  // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 이웃집 가기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
+  // 연습 방에서 튜토리얼을 첫 단계부터 끝까지 해 본다(가구 놓기, 가구 쓰기, 이웃집 가기, 말하기). 놓는 가구는 data/furniture.js의 TUTORIAL_FURNITURE를 따른다
   const tut = await page.run(tutorialFurniture);
   const step = async (word, what) => {
     check(`튜토리얼: ${what}`, await until(page, cardSays, 8000, word), `안내 카드: "${await page.run(cardSays, '')}"`);
@@ -1739,8 +1767,19 @@ async function walk(page, base) {
   await page.run(clickTwice, `#wallpaper .furn[data-id="${tut.light}"]`);
   await step('현관문', '낮으로 돌아오면 현관문으로 이웃집 목록 창을 열어 보라고 한다');
   await page.run(clickTwice, '#wallpaper .door-hit');
-  check('튜토리얼: 현관문으로 이웃집 목록 창을 열면 끝 카드가 뜬다', await until(page, () => !!document.querySelector('#windows .neighbor-app')
-    && document.querySelector('.coach-title')?.textContent === '튜토리얼 끝' && !document.querySelector('.coach-card').hidden, 15000));
+  check('튜토리얼: 현관문으로 이웃집 목록 창을 열면 아바타를 눌러 말해 보라고 한다', await until(page, () => !!document.querySelector('#windows .neighbor-app'), 15000)
+    && await until(page, cardSays, 8000, '아바타를 누르면'), `안내 카드: "${await page.run(cardSays, '')}"`);
+  // 아바타를 누르면 테두리가 열린 말할 칸으로 옮겨 간다. 말하는 말은 실험실 암호다. 튜토리얼에서 한 말은 숨은 기능을 열지 않는다(src/secrets.js)
+  check('튜토리얼: 말하기 단계는 화살표와 테두리로 아바타를 가리킨다', await until(page, ringOn, 3000, '#wallpaper .room-avatar:not(.room-owner)'));
+  await probe('튜토리얼 말하기 단계');
+  await page.run(clickOnce, '#wallpaper .room-avatar:not(.room-owner)');
+  check('튜토리얼: 아바타를 누르면 말할 칸이 열리고 테두리가 그 칸으로 옮겨 간다', await until(page, ringOn, 3000, '#desktop .say-input'));
+  await page.run(() => { document.querySelector('.say-input').value = '엔믹스지우'; });
+  await press(page, 'Enter');
+  check('튜토리얼: 한마디 하면 끝 카드가 뜬다', await until(page, () => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝'
+    && !document.querySelector('.coach-card').hidden, 3000), `안내 카드: "${await page.run(cardSays, '')}"`);
+  check('튜토리얼에서 말한 암호는 숨은 기능을 열지 않는다(실험실 아이콘이 생기지 않는다)', await page.run(() => !document.querySelector('#icons [data-app="labs"]')
+    && !JSON.parse(localStorage.getItem('agarago.settings') || '{}').labsOpen));
   await closeWindows();
   await sleep(300);
   check('튜토리얼: 목록 창을 닫아도 끝 카드가 남는다', await page.run(() => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝' && !document.querySelector('.coach-card').hidden));
@@ -1749,6 +1788,7 @@ async function walk(page, base) {
   await page.run(() => document.querySelector('.coach-btn').click());
   await sleep(500);
   check('연습을 끝내면 저장된 방이 돌아온다', (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === HOME.scenes.room.length);
+  check('한 번 말한 뒤로는 바탕화면을 새로 만들어도 말하기 표시가 뜨지 않는다', await page.run(sayCue, '없음'), await page.run(sayCue));
   check('연습 방에서 놓은 가구와 바꾼 밤낮은 저장되지 않는다', JSON.stringify(await page.run(savedHome)) === beforePractice && (await page.run(theme)) === 'day'
     && !(await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || '{}').night)));
 
@@ -1767,8 +1807,11 @@ async function walk(page, base) {
   }));
   check('로그인 화면의 친구 집에 링크에 담긴 주인 사진이 보인다', await page.run(pic => [...document.querySelectorAll('.users .user')]
     .find(u => u.querySelector('small')?.textContent === '손님으로 구경하기')?.querySelector('.user-pic')?.dataset.pic === pic, friendPic));
+  // 말해 본 적 없는 브라우저로 놀러 온 손님에게도 말하기 표시가 뜨는지 보려고 말한 기록을 지운다(아래 분신사바에서 다시 말한다)
+  await page.run(() => localStorage.removeItem('agarago.said'));
   await page.run(clickText, '.users .user', '손님으로 구경하기');
   check('손님으로 들어가면 친구 방이 바탕화면에 뜬다', await desktop());
+  check('말해 본 적 없는 손님의 아바타 머리 위에도 말하기 표시가 뜬다', await until(page, sayCue, 2000, '머리 위'), await page.run(sayCue));
   // 2026-11-17부터 친구 집에는 실험실을 켜지 않아도 주인 아바타가 서 있다(F8). 이 링크의 집은 인사말이 없어 말풍선은 뜨지 않는다
   check('친구 집에 들어가면 주인 아바타가 이름표를 달고 서 있고 내 아바타는 손님 옷이다', (await page.run(ownerScene)) === '주인 기본 옷 친구, 나 손님 옷', await page.run(ownerScene));
   await sleep(500);
@@ -1787,6 +1830,8 @@ async function walk(page, base) {
   await sayWord('분신사바');
   await sleep(1500); // 내 집이었다면 불이 꺼졌을 시간(0.9초)을 넘겨 본다
   check('손님이 분신사바를 말해도 친구 집의 불은 꺼지지 않는다', await page.run(() => document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark')));
+  check('손님도 말할 수 있고, 한 번 말하면 말하기 표시가 사라진다', await page.run(() => document.querySelector('#wallpaper .room-avatar:not(.room-owner) + .room-avatar-say')?.textContent === '분신사바'
+    && localStorage.getItem('agarago.said') === 'true') && await page.run(sayCue, '없음'), await page.run(sayCue));
   await sayWord('999999999');
   await sleep(1500); // 내 집이었다면 비둘기가 나타났을 시간(0.5초)을 넘겨 본다
   check('손님이 999999999를 말해도 친구 집에는 비둘기가 오지 않는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')));

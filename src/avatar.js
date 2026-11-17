@@ -2,16 +2,18 @@
 // 바탕화면은 지내는 화면, 방 꾸미기는 꾸미는 화면이라 아바타는 바탕화면에만 있다(꾸밀 때 가구 놓기를 가리지 않게).
 // 아바타는 1×1칸짜리 움직이는 가구처럼 다룬다. 칸 좌표에 서 있고, 가구와 같은 상자에 그려서 가구와 앞뒤 순서를 맞춘다.
 // 바닥을 누르면 길을 찾아 걸어가고, 바탕화면이 앞에 있을 때 방향키(WASD)로 한 칸씩 걷고, Enter나 아바타를 누르면 말풍선을 띄운다.
+// 이 브라우저에서 아직 말해 보지 않았으면 머리 위에 작은 말풍선 그림(말하기 표시)을 띄워 누를 수 있다는 것을 알린다.
 // 그림 규격(한 칸 64×104px, 가로 3칸 × 세로 2줄)은 data/avatars.js에 적혀 있다.
 // 친구 집을 구경하면 그 집 주인의 아바타가 방에 서 있다(mountOwner, 2026-11-17까지 실험실 host-avatar).
 // 내 방에는 펫이 걸어 다닌다(src/pet.js). 주인 아바타와 펫은 host.others로 아바타와 칸과 앞뒤를 맞춘다.
-import { N, DRAG_THRESHOLD } from './config.js';
+import { N, DRAG_THRESHOLD, STORAGE_SAID } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
 import { dims, isWall, supportOf, elevOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATAR_BY_ID } from '../data/avatars.js';
 import { BY_ID } from '../data/furniture.js';
-import { h, isField } from './util.js';
+import { h, isField, loadJSON, saveJSON } from './util.js';
+import { iconEl } from './icons.js';
 import { play } from './sound.js';
 
 const FW = 64;        // 그림 한 칸 가로 (px)
@@ -23,6 +25,8 @@ const SPAWN = { x: N - 4, y: N - 4 }; // 처음 서는 곳(이 칸이 막혀 있
 const TAG_H = 18;     // 주인 아바타의 이름표 높이(style.css의 .room-owner-name). 말풍선은 이름표 위에 띄운다
 const TAG_DROP = 8;   // 이름표 아래 끝이 그림 상자 위 끝보다 내려오는 만큼. 머리는 상자 위에서 12px 아래부터 그려진다
 const GREET_MS = 600; // 손님이 방에 들어온 뒤 주인 아바타가 인사말을 하기까지 기다리는 시간
+const HEAD_TOP = 9;   // 그림 상자 위 끝에서 머리 꼭대기까지(임시 그림의 앞모습 머리카락 윤곽선. 뒷모습은 11px)
+const CUE_GAP = 8;    // 말하기 표시(16×16px 말풍선 그림)의 아래 끝과 머리 꼭대기 사이
 
 // 걷는 방향(칸 좌표의 변화)마다 쓸 그림 줄과 좌우 뒤집기. 화면에서 x는 오른쪽 아래, y는 왼쪽 아래로 늘어난다.
 const FACING = {
@@ -116,6 +120,12 @@ export function emptyCells(items, taken = []) {
 export function sayPoint(pos) {
   const c = tile(pos.x + 0.5, pos.y + 0.5);
   return { left: `${Math.round(c.x)}px`, top: `${Math.round(c.y - FOOT - 4)}px` };
+}
+
+// 칸 pos에 선 아바타의 말하기 표시 자리(무대 px의 left, top. 표시는 이 점 위에 아래 가운데를 대고 뜬다). 머리 꼭대기에서 CUE_GAP 위다
+function cuePoint(pos) {
+  const c = tile(pos.x + 0.5, pos.y + 0.5);
+  return { left: `${Math.round(c.x)}px`, top: `${Math.round(c.y - FOOT) + HEAD_TOP - CUE_GAP}px` };
 }
 
 // 칸 cell에 선 아바타 그림이 화면에서 차지하는 네모(무대 px). placeAt이 그리는 자리와 같다.
@@ -216,6 +226,11 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     placeholder: '할 말을 쓰고 Enter (Esc는 취소)', 'aria-label': '말풍선에 쓸 말',
   });
   host.sayRoot.append(input);
+  // 말하기 표시: 이 브라우저에서 아직 한 번도 말하지 않았으면 머리 위에 작은 말풍선 그림을 띄운다(내 집과 손님 화면 모두).
+  // 누르면 아바타를 누른 것처럼 말할 칸이 열리고, 처음 말하면 저장해 두어 다시는 띄우지 않는다(STORAGE_SAID).
+  // 말풍선이나 말할 칸이 떠 있는 동안은 숨기고, 튜토리얼 카드가 떠 있는 동안은 style.css가 숨긴다(.stage.coaching)
+  let said = !!loadJSON(STORAGE_SAID);
+  const cue = h('div', { className: 'say-cue', title: '눌러서 말하기', hidden: true }, iconEl({ title: '말하기', icon: 'builtin:say' }, 16));
 
   const me = { x: SPAWN.x, y: SPAWN.y }; // 서 있는 칸(걷는 중에는 들어가는 칸)
   let pos = { ...me };                   // 그리는 자리. 걷는 동안은 두 칸 사이의 소수
@@ -349,6 +364,13 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
       el.style.zIndex = z;
     }
     if (!bubble.hidden) Object.assign(bubble.style, sayPoint(pos));
+    syncCue();
+  }
+
+  function syncCue() {
+    const show = !said && bubble.hidden && input.hidden && el.isConnected;
+    if (show) Object.assign(cue.style, cuePoint(pos));
+    if (cue.hidden === show) cue.hidden = !show;
   }
 
   const active = () => host.active();
@@ -421,18 +443,23 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     bubble.hidden = false;
     draw(null);
     clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => { bubble.hidden = true; }, SAY_MS + t.length * 60);
+    sayTimer = setTimeout(() => {
+      bubble.hidden = true;
+      syncCue();
+    }, SAY_MS + t.length * 60);
   }
 
   function openSay() {
     input.hidden = false;
     input.value = '';
     input.focus();
+    syncCue();
   }
 
   function closeSay() {
     input.hidden = true;
     input.blur();
+    syncCue();
   }
 
   // ---------- 입력 ----------
@@ -489,16 +516,25 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     // 한글을 쓰는 중에 Enter를 누르면 keydown이 두 번 온다(조합 중 한 번, 끝난 뒤 한 번). 조합 중인 것은 건너뛴다.
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
-      say(input.value);
-      host.onSay?.(input.value.trim());
+      const text = input.value.trim();
+      if (text && !said) {
+        said = true;
+        saveJSON(STORAGE_SAID, true);
+      }
+      say(text);
+      host.onSay?.(text);
       closeSay();
     } else if (e.key === 'Escape') {
       closeSay();
     }
   });
-  input.addEventListener('blur', () => { input.hidden = true; });
+  input.addEventListener('blur', () => {
+    input.hidden = true;
+    syncCue();
+  });
 
   el.addEventListener('click', openSay); // 아바타를 누르면 말하기
+  cue.addEventListener('click', openSay);
 
   host.input.addEventListener('pointerdown', onFloorDown);
   host.input.addEventListener('pointerup', onFloorUp);
@@ -524,7 +560,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
         placed = true;
       }
       pos = { ...me };
-      host.layer.append(el, bubble);
+      host.layer.append(el, bubble, cue);
       draw(me);
     },
     // 다른 공간으로 옮겨 갈 때, 방을 다시 그리기 전에 부른다. 다음 attach에서 spot 칸(막혀 있으면 가장 가까운 빈칸)에 앞을 보고 선다.
@@ -580,6 +616,7 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
       window.removeEventListener('blur', onBlur);
       el.remove();
       bubble.remove();
+      cue.remove();
       input.remove();
     },
   };

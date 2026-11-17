@@ -239,8 +239,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       input: el.desktop,
       sayRoot: el.desktop,
       active: () => !el.desktop.hidden && !os.wm.focusedWin() && !os.closeup, // 가구를 가까이 보는 동안의 방향키는 그 화면 것이다(책장 넘기기)
-      // 내 컴퓨터에서 암호를 말하면 숨은 기능이 열린다(src/secrets.js. 실험실 아이콘은 아래 설정 구독이 그린다)
-      onSay: text => trySecret(os, text),
+      // 튜토리얼의 말하기 단계를 넘기고, 내 컴퓨터에서 암호를 말하면 숨은 기능이 열린다(src/secrets.js. 실험실 아이콘은 아래 설정 구독이 그린다).
+      // 튜토리얼에서 한 말은 암호로 듣지 않는다(trySecret이 튜토리얼을 거른다)
+      onSay: text => {
+        if (!text) return;
+        os.tutorial.said();
+        trySecret(os, text);
+      },
       others: () => [ownerAvatar, pet, pigeon].filter(Boolean),
     }, 'basic', { guest: withOwner });
     renderWallpaper();
