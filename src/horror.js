@@ -65,14 +65,6 @@ export const LINES = {
   poster: '포스터가 달라졌어?',
   'wall-clock': '계속 4시 44분이야.',
   corkboard: '쪽지가 하나 늘었어.',
-  // 놀이터
-  sandbox: '모래에 발자국이 있어.',
-  slide: '꼭대기에 뭐가 있어?',
-  swing: '그네가 혼자 흔들려.',
-  seesaw: '건너편이 내려가 있어.',
-  bench: '옆자리가 서늘해.',
-  tree: '가지가 손 같아.',
-  streetlight: '가로등이 깜박거려.',
 };
 export const START = '누가 불 껐어?';  // 불이 꺼지고 한 박자 뒤
 export const END = '휴, 살았다.';      // 불을 켜서 풀었을 때

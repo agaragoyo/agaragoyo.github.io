@@ -14,7 +14,7 @@ const EFFECTS = {
   mouse: { files: ['mouse.mp3'], vol: 0.35 },                          // 화면 안을 누를 때
   step: { files: ['step-1.mp3', 'step-2.mp3', 'step-3.mp3'], vol: 0.4 }, // 아바타가 걸을 때 두 칸마다
   light: { files: ['light.mp3'], vol: 0.6 },                           // 불 끄고 켜기
-  enter: { files: ['enter.mp3'], vol: 0.5 },                           // 방과 놀이터 사이를 오갈 때(문 닫히는 소리)
+  enter: { files: ['enter.mp3'], vol: 0.5 },                           // 이웃집에 놀러 갈 때와 공간을 옮길 때(문 닫히는 소리)
   furniture: { files: ['furniture-1.mp3', 'furniture-2.mp3', 'furniture-3.mp3'], vol: 0.45 }, // 가구를 놓을 때
 };
 
@@ -25,12 +25,11 @@ export const ROOM_MUSIC = [
   { id: 'calm', name: '차분한 곡', file: 'bgm-calm.mp3' },
   { id: 'country', name: '컨트리', file: 'bgm-country.mp3' },
 ];
-const LOUD_VOL = 0.28; // 내 방 네 곡과 미니게임 두 곡은 방 꾸미기, 놀이터 곡보다 약 10dB 크게 만들어져 있다
-// 공간과 창에 붙는 음악. 이름은 공간 id(놀이터)와 data/apps.js의 music 값으로 쓴다.
+const LOUD_VOL = 0.28; // 내 방 네 곡과 미니게임 두 곡은 방 꾸미기 곡보다 약 10dB 크게 만들어져 있다
+// 공간과 창에 붙는 음악. 이름은 공간 id와 data/apps.js의 music 값으로 쓴다(내 방 음악은 ROOM_MUSIC에서 고른다).
 // data/apps.js에서 music: 'own'인 게임은 게임 안에 음악이 있어서, 그 창이 열려 있는 동안 사이트 음악을 멈춘다.
 const MUSIC = {
   office: { file: 'bgm-office.mp3', vol: 0.8 },          // 방 꾸미기 창(내 집을 꾸밀 때)
-  playground: { file: 'bgm-playground.mp3', vol: 0.65 }, // 바탕화면이 놀이터일 때
   'tidy-up': { file: 'bgm-tidy-up.mp3', vol: LOUD_VOL },   // 짐 정리 창
   'file-ten': { file: 'bgm-file-ten.mp3', vol: LOUD_VOL }, // 파일 정리 10 창
 };
@@ -64,7 +63,7 @@ export function roomMusic() {
   return ROOM_MUSIC.find(m => m.id === settings.get('music')) || ROOM_MUSIC[0];
 }
 
-// 바탕화면의 공간('room', 'playground'). 바탕화면을 떠나면(로그인, 부팅, 전원 끄기) null.
+// 바탕화면의 공간(지금은 'room'뿐). 바탕화면을 떠나면(로그인, 부팅, 전원 끄기) null.
 export function setPlace(id) {
   place = id;
   update();

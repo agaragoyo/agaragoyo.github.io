@@ -63,7 +63,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
   }
 
   // 이웃집이 이 브라우저에서 올린 방인가. 이 컴퓨터가 올린 짧은 링크 번호(src/cloud.js의 sharedId)와 이웃집의 link가 같으면 그렇다.
-  // 이름으로 견주지 않는다. 손님이 이웃과 같은 닉네임을 골랐을 때 그 이웃집이 사라지기 때문이다. 놀이터의 이웃집 목록 창만 그 놀이터 주인의 이름으로 거른다(src/neighbors.js의 shownNeighbors).
+  // 이름으로 견주지 않는다. 손님이 이웃과 같은 닉네임을 골랐을 때 그 이웃집이 사라지기 때문이다. 이웃집 목록 창만 지금 집 주인의 이름으로 거른다(src/neighbors.js의 shownNeighbors).
   // 이 컴퓨터는 올린 방의 번호를 하나만 기억하므로 어느 사용자가 올렸든 그 방 하나가 걸린다. 이 컴퓨터 초기화처럼 올린 기록이 없어지면 걸리지 않는다.
   const uploadedHere = n => !!n.link && n.link === sharedId();
 

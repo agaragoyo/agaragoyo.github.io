@@ -45,21 +45,6 @@ export function coversDoor(scene, item) {
   return item.x < d.x + d.w && d.x < item.x + w && item.y < d.h;
 }
 
-// 바닥 가구 item이 놀이터 문 바로 안쪽 칸(문 폭 × 1줄)을 막는지. gates: 그 공간에 단 문들({ wall, x, w }, src/iso.js의 fenceGates).
-// 문 안쪽 칸은 오른쪽 뒤 울타리(wall 'R')의 문이면 y = 0 줄, 앞쪽 끝('F')의 문이면 y = N - 1 줄의 x ~ x + w - 1이고,
-// 왼쪽 뒤 울타리('L')의 문이면 x = 0 줄의 y = x ~ x + w - 1이다.
-// 아바타가 문을 쓰러 걸어가 서는 칸이라(src/avatar.js의 besideWall) 비워 두고, 키 큰 가구가 뒤쪽 울타리 문을 덮을 일도 줄인다.
-// coversDoor처럼 방 꾸미기에서 새로 놓을 때만 막고 저장본이나 링크를 불러올 때는 막지 않는다. 이 규칙이 생기기 전에 그 칸에 놓은 가구가 사라지지 않게 하려는 것이다.
-// 그런 가구가 뒤쪽 울타리 문을 가리면 반쯤 비치게 그린다(src/iso.js의 coversGate). 앞쪽 끝의 문은 가구 위에 그려 가리지 않는다.
-export function blocksGate(gates, item) {
-  if (isWall(item)) return false;
-  const [w, d] = dims(item);
-  const across = (from, len, g) => from < g.x + g.w && g.x < from + len;
-  return gates.some(g => (g.wall === 'R' ? item.y === 0 && across(item.x, w, g)
-    : g.wall === 'F' ? item.y + d === N && across(item.x, w, g)
-    : item.x === 0 && across(item.y, d, g)));
-}
-
 // others: 이미 놓여 있는 가구들. item 을 그 사이에 놓을 수 있는지.
 export function canPlace(others, item) {
   const def = BY_ID[item.id];

@@ -289,8 +289,20 @@ for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc
 // 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.
 // 라디오 CD 두 장(이름과 색이 없는 것, 있는 것)과 유튜브 영상, 재생목록 주소를 담은 TV 작품 두 편이다(재생목록 주소는 ~h로 담겨 있다)
 const OLD_LINK = 'BArsmJsg66eB7YGsBuyViOuFlQIAAHsiUiI6W3sidSI6In5zYWxidW0vNVY4bjZmcXlBUHh2RlRpYlBoUVZjcCJ9LHsidSI6In5ha3IvcGxheWxpc3QveC9wbC51LWFiY2RlZmdoIiwibSI6Iuy2nOq3vOq4uCIsImMiOjJ9XSwiVCI6W3sidCI6IuyYgeyDgSIsImwiOiJ-eWRRdzR3OVdnWGNRIiwiYyI6MH0seyJ0Ijoi66qp66GdIiwibCI6In5od3d3LnlvdXR1YmUuY29tL3BsYXlsaXN0P2xpc3Q9UExCQjIzMTIxMUE0RjYyMTQzIiwiYyI6MH1dfQ';
-const OLD_HOME = '{"v":3,"owner":"옛 링크","scenes":{"room":[],"playground":[]},"likes":{"radio":[{"url":"https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp"},{"url":"https://music.apple.com/kr/playlist/x/pl.u-abcdefgh","name":"출근길","color":2}],"tv":[{"title":"영상","link":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","color":0},{"title":"목록","link":"https://www.youtube.com/playlist?list=PLBB231211A4F62143","color":0}]},"greeting":"안녕"}';
+const OLD_HOME = '{"v":3,"owner":"옛 링크","scenes":{"room":[]},"likes":{"radio":[{"url":"https://open.spotify.com/album/5V8n6fqyAPxvFTibPhQVcp"},{"url":"https://music.apple.com/kr/playlist/x/pl.u-abcdefgh","name":"출근길","color":2}],"tv":[{"title":"영상","link":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","color":0},{"title":"목록","link":"https://www.youtube.com/playlist?list=PLBB231211A4F62143","color":0}]},"greeting":"안녕"}';
 if (JSON.stringify(decodeHome(OLD_LINK)) !== OLD_HOME) fail('옛 링크가 다른 집으로 열린다', decodeHome(OLD_LINK));
+// 놀이터를 빼기 전(2026-11-17)의 링크: 공간이 둘(내 방, 놀이터)이고 놀이터에 가구가 있어도 내 방만 그대로 열린다.
+// 짧은 형식(4)을 손으로 만든다. [4] [주인 이름] [인사말] [공간 수 2], 내 방에 침대 하나, 놀이터에 벤치와 나무(LINK_CODES의 옛 번호)
+{
+  const utf8 = t => [...Buffer.from(t)];
+  const owner = utf8('놀이터 주인');
+  const code = id => LINK_CODES.indexOf(id);
+  const bytes = [4, owner.length, ...owner, 0, 2, 1, code('bed'), 2 * 16 + 3, 2, code('bench'), 5 * 16 + 11, code('tree') | 0x80, 9 * 16 + 9];
+  const home = decodeHome(Buffer.from(bytes).toString('base64url'));
+  const want = JSON.stringify({ room: [{ id: 'bed', x: 2, y: 3 }] });
+  if (code('bench') < 0 || code('tree') < 0) fail('LINK_CODES에서 놀이터 가구의 옛 번호가 빠졌다(자리를 지켜야 옛 링크의 뒤 가구 번호가 맞는다)', LINK_CODES);
+  else if (JSON.stringify(home?.scenes) !== want || home?.owner !== '놀이터 주인') fail('놀이터 가구가 든 옛 링크가 내 방만으로 열리지 않는다', home);
+}
 
 console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자`);
 for (const e of examples) console.log(`실패 ${e}`);

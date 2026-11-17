@@ -3,13 +3,13 @@
 // 그래서 화면과 같은 함수가 정한 자리(placementOf)와 앞뒤 순서(zOf), 그림 고르는 규칙(imageFor)으로 캔버스에 다시 그린다.
 //   바탕과 그림이 없는 가구의 임시 모양(SVG): 화면에서 보이는 색을 요소마다 읽어 적은 뒤 그림 한 장으로 바꿔 그린다
 //   가구 그림(PNG): .furn img 처럼 상자 아래 가운데에 맞춰 줄이고, 돌린 그림이 없으면 좌우로 뒤집는다
-//   글자(임시 모양의 이름, 놀이터 문 팻말): SVG 그림 안에서는 웹폰트를 쓸 수 없어서 캔버스에 따로 쓴다
+//   글자(임시 모양의 이름): SVG 그림 안에서는 웹폰트를 쓸 수 없어서 캔버스에 따로 쓴다
 // 크기는 화면의 방(1280×720)의 2배인 2560×1440px이고 낮 모습이다.
 // 아바타도 화면과 같은 그림과 자리, 가구와의 앞뒤 순서로 넣는다(src/avatar.js의 avatarStill).
 import { ROOM_W, ROOM_H } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { elevOf } from './rules.js';
-import { boxSize, placementOf, placeholderSVG, sceneSVG, sceneFrontSVG } from './iso.js';
+import { boxSize, placementOf, placeholderSVG, sceneSVG } from './iso.js';
 import { imageFor, zOf } from './room.js';
 import { avatarStill } from './avatar.js';
 
@@ -17,12 +17,11 @@ export const IMAGE_SCALE = 2;
 export const IMAGE_W = ROOM_W * IMAGE_SCALE;
 export const IMAGE_H = ROOM_H * IMAGE_SCALE;
 
-// 그림 밖 바탕 색. style.css의 .room 배경(안: radial-gradient(ellipse at 50% 45%, A, B 75%), 바깥: linear-gradient(A, B 60%))과
-// 같은 값이다. 바탕화면 놀이터의 하늘(.desktop[data-kind="outdoor"])도 같은 색이다.
+// 그림 밖 바탕 색. style.css의 .room 배경(radial-gradient(ellipse at 50% 45%, A, B 75%))과 같은 값이다.
 // CSS 그라디언트는 값을 읽어 올 방법이 없어 여기에 따로 적었으므로 한쪽을 고치면 다른 쪽도 고친다(tools/check.py가 본다).
+// 2026-11-17까지는 놀이터의 하늘색(outdoor)도 있었다.
 const BACKDROP = {
   indoor: ['#cfe6ea', '#8fb8c4'],
-  outdoor: ['#9fd0ee', '#d9eef2'],
 };
 
 // SVG 그림에 옮겨 적을 화면 속성. 새 SVG 모양에 점선이나 그림자 같은 다른 속성을 쓰면 여기에 더한다.
@@ -35,15 +34,6 @@ const PAD = 4; // 임시 모양의 테두리가 상자 밖으로 조금 나가�
 
 function paintBackdrop(g, kind) {
   const [a, b] = BACKDROP[kind] || BACKDROP.indoor;
-  if (kind === 'outdoor') {
-    const grad = g.createLinearGradient(0, 0, 0, ROOM_H);
-    grad.addColorStop(0, a);
-    grad.addColorStop(0.6, b);
-    grad.addColorStop(1, b);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, ROOM_W, ROOM_H);
-    return;
-  }
   // CSS의 ellipse farthest-corner: 가운데에서 먼 쪽 변까지의 거리 비율은 그대로 두고, 가장 먼 모서리를 지나도록 √2배 키운 타원이다.
   const cx = ROOM_W * 0.5;
   const cy = ROOM_H * 0.45;
@@ -195,11 +185,9 @@ function drawAvatar(g, a, img) {
 }
 
 // 한 공간의 그림을 캔버스로 만든다. items: 그 공간의 가구 목록, scene: config.js의 SCENES 한 줄
-// owner: 집 주인 이름. 화면과 같이 이 집 말고 보여 줄 이웃이 없으면 놀이터에 이웃집 문을 그리지 않는다.
-// 울타리 문을 가리는 가구를 반쯤 비치게 하는 것(src/room.js의 markCover)은 문을 찾는 화면에만 두고 그림에는 넣지 않는다.
 // avatar: 아바타가 설 칸과 방향(os.avatarSpot). 비우면 처음 서는 곳에 서고, false면 아바타를 그리지 않는다.
 // decor: 집의 방 꾸밈(벽지). 화면과 같은 벽지로 그린다
-export async function renderRoomImage(items, scene, owner = '', avatar = null, decor = null) {
+export async function renderRoomImage(items, scene, avatar = null, decor = null) {
   const canvas = document.createElement('canvas');
   canvas.width = IMAGE_W;
   canvas.height = IMAGE_H;
@@ -221,16 +209,13 @@ export async function renderRoomImage(items, scene, owner = '', avatar = null, d
     return cache.get(key);
   };
   // 아바타 그림을 불러오지 못하면 아바타만 빼고 방은 그린다.
-  // 놀이터 앞쪽 끝의 문(sceneFrontSVG)은 화면처럼 가구와 아바타를 다 그린 뒤 그 위에 그린다
-  const front = sceneFrontSVG(scene, owner);
-  const [back, fore, ...sprites] = await Promise.all([
-    bakeSVG(sceneSVG(scene, owner, decor)),
-    front ? bakeSVG(front) : null,
+  const [back, ...sprites] = await Promise.all([
+    bakeSVG(sceneSVG(scene, decor)),
     ...order.map(o => (o.still ? loadImage(o.still.src).catch(() => null) : sprite(o.item))),
   ]);
 
   // 글자는 쓰기 전에 글꼴이 불려 와 있어야 한다(처음 쓰는 글자의 글꼴 조각이 늦게 오면 다른 글꼴로 써진다)
-  const texts = [back, fore, ...sprites].flatMap(s => s?.texts || []);
+  const texts = [back, ...sprites].flatMap(s => s?.texts || []);
   await Promise.all(texts.map(t => document.fonts.load(t.font, t.text).catch(() => {})));
 
   paintBackdrop(g, scene.kind);
@@ -248,9 +233,5 @@ export async function renderRoomImage(items, scene, owner = '', avatar = null, d
     drawSprite(g, sprites[k]);
     g.restore();
   });
-  if (fore) {
-    g.drawImage(fore.img, 0, 0, ROOM_W, ROOM_H);
-    drawTexts(g, fore.texts);
-  }
   return canvas;
 }

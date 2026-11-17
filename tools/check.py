@@ -490,12 +490,12 @@ def check_tutorial():
             err(where, f"{role} 의 가구 '{f['id']}' 은 내 방(scene: 'room') 가구여야 한다")
         elif gimmick and f.get('gimmick') != gimmick:
             err(where, f"{role} 의 가구 '{f['id']}' 은 gimmick: '{gimmick}' 이어야 한다")
-    for name, path in (('scene-tab', 'src/apps/room-app.js'), ('win-close', 'src/win.js'), ('gate-hit', 'src/iso.js'), ('door-hit', 'src/iso.js')):
+    for name, path in (('win-close', 'src/win.js'), ('door-hit', 'src/iso.js')):
         if name not in read(path):
             err('src/tutorial.js', f"화면에서 찾는 이름 '{name}' 이 {path} 에 없다(이름을 바꿨다면 튜토리얼도 고친다)")
-    # 놀이터로 나가는 단계는 방의 현관문(src/config.js의 SCENES door)을 가리킨다
+    # 이웃집 가기 단계는 방의 현관문(src/config.js의 SCENES door)을 가리킨다
     if not re.search(r"id:\s*'room'[^\n]*door:\s*\{", read('src/config.js')):
-        err('src/tutorial.js', "내 방(SCENES 의 'room')에 현관문(door)이 없어 놀이터로 나가는 단계에서 막힌다")
+        err('src/tutorial.js', "내 방(SCENES 의 'room')에 현관문(door)이 없어 이웃집 가기 단계에서 막힌다")
 
 
 # 이웃집 목록 (data/neighbors.js). 한 줄은 link(공유하기에서 만든 링크의 #s= 뒤 번호)와 room(예전 긴 링크의 글자) 가운데 하나를 쓴다.
@@ -557,7 +557,7 @@ def check_neighbors():
         elif data.get('o') != name:
             err(where, '링크 속 주인 이름이 문패 닉네임(name)과 다르다. 그 닉네임으로 사용자를 만든 방의 링크를 받는다')
     if len(items) > 6:
-        warn(path, f'이웃집이 {len(items)}집이다. 로그인 화면과 놀이터에는 앞의 여섯 집까지만 나온다(src/neighbors.js의 MAX_NEIGHBORS)')
+        warn(path, f'이웃집이 {len(items)}집이다. 로그인 화면과 이웃집 목록 창에는 앞의 여섯 집까지만 나온다(src/neighbors.js의 MAX_NEIGHBORS)')
 
 
 # 서버의 방을 지우는 unshare()를 부르는 파일은 pinnedHere()도 불러, 이웃집에 고정한 방(data/neighbors.js의 keep)을 지우지 않게 한다.
@@ -898,15 +898,14 @@ def check_labs():
 def check_room_image():
     js = read('src/room-image.js')
     css = read('style.css').lower()
-    m = re.search(r"indoor:\s*\['(#\w+)',\s*'(#\w+)'\],\s*outdoor:\s*\['(#\w+)',\s*'(#\w+)'\]", js)
+    m = re.search(r"indoor:\s*\['(#\w+)',\s*'(#\w+)'\]", js)
     if not m:
-        err('src/room-image.js', 'BACKDROP(indoor, outdoor 색)을 찾지 못했다. 이 모양을 바꿨다면 tools/check.py의 check_room_image도 고친다')
+        err('src/room-image.js', 'BACKDROP(indoor 색)을 찾지 못했다. 이 모양을 바꿨다면 tools/check.py의 check_room_image도 고친다')
         return
-    a, b, c, d = (x.lower() for x in m.groups())
-    # 바탕화면 놀이터의 하늘(.desktop[data-kind="outdoor"])도 같은 색이다. 방 상자가 40px 아래에서 시작해 색이 바뀌는 자리를 그만큼 내렸다
-    for want in (f'radial-gradient(ellipse at 50% 45%, {a}, {b} 75%)', f'linear-gradient({c}, {d} 60%)', f'linear-gradient({c} 40px, {d} 472px)'):
-        if want not in css:
-            err('style.css', f'방 바탕(.room과 바탕화면 놀이터의 .desktop)이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
+    a, b = (x.lower() for x in m.groups())
+    want = f'radial-gradient(ellipse at 50% 45%, {a}, {b} 75%)'
+    if want not in css:
+        err('style.css', f'방 바탕(.room)이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
 
 
 # ---------- 라디오 CD 색 ----------

@@ -10,7 +10,7 @@
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
 // 창 여섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
-// 펫 고르는 창(실험실 창의 펫 바꾸기 단추로 연다), 놀이터의 이웃집 목록 창(놀이터 앞쪽 끝의 이웃집 문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
+// 펫 고르는 창(실험실 창의 펫 바꾸기 단추로 연다), 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
@@ -142,16 +142,11 @@ function openUserWindow(sel) {
   return true;
 }
 
-// 바탕화면의 놀이터 아이콘으로 놀이터에 나가 앞쪽 끝의 이웃집 문을 두 번 눌러 이웃집 목록 창(src/neighbors.js의 openNeighbors)을 연다.
+// 방의 현관문을 두 번 눌러 이웃집 목록 창(src/neighbors.js의 openNeighbors)을 연다.
 // 창은 아바타가 문 앞까지 걸어간 뒤(2초쯤) 뜬다. 줄은 실제 서버에서 받은 이웃집이고, 받지 못하면 복사본으로 고정한 집만 선다.
 // 문은 SVG 도형이라 click()이 없어서 클릭 이벤트를 직접 보낸다
 async function openNeighborList() {
-  const icon = document.querySelector('.desk-icon[data-app="playground"]');
-  if (!icon) return false;
-  icon.click();
-  icon.click();
-  await new Promise(r => setTimeout(r, 300));
-  const door = document.querySelector('#wallpaper .neighbor-hit');
+  const door = document.querySelector('#wallpaper .door-hit');
   if (!door) return false;
   for (let i = 0; i < 2; i++) door.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   return true;
@@ -255,7 +250,7 @@ async function dayAndNight(selectors) {
     for (let t; (t = walker.nextNode());) {
       const el = t.parentElement;
       if (!el || seen.has(el) || !t.textContent.trim()) continue;
-      // 방 그림(SVG) 안의 글자(놀이터 문패, 그림이 없는 가구의 이름)는 재지 않는다. 뒤에 깔린 도형이 조상이 아니라서 바탕색을 알 수 없다
+      // 방 그림(SVG) 안의 글자(그림이 없는 가구의 이름)는 재지 않는다. 뒤에 깔린 도형이 조상이 아니라서 바탕색을 알 수 없다
       if (el instanceof SVGElement) continue;
       if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
       const range = document.createRange();
@@ -358,7 +353,7 @@ async function main() {
   await until(page, s => s.windows >= OPEN.length + 2, '이름 바꾸기 창이 열리지 않았다', 5000);
   if (!(await page.run(openPetPicker))) throw new Stop('실험실 창에 펫 바꾸기 단추(.labs-change)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openPetPicker도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 3, '펫 고르는 창이 열리지 않았다', 5000);
-  if (!(await page.run(openNeighborList))) throw new Stop('놀이터 아이콘이나 놀이터의 이웃집 문(.neighbor-hit)이 없다. 바뀌었으면 tools/night-contrast.mjs의 openNeighborList도 고친다.');
+  if (!(await page.run(openNeighborList))) throw new Stop('방의 현관문(.door-hit)이 없다. 바뀌었으면 tools/night-contrast.mjs의 openNeighborList도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 4, '이웃집 목록 창이 열리지 않았다', 10000);
   await sleep(1500); // 서버에서 이웃집을 받는 중이던 줄이 바뀔 틈
 

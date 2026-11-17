@@ -5,8 +5,8 @@
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 99가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
-// 튜토리얼 카드, 놀이터, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 98가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
+// 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
 // 모양을 일부러 바꾼 것이라면 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 보는 데 쓴다.
@@ -239,9 +239,6 @@ async function main() {
   await page.run(() => document.querySelector('.coach-btn').click());
   await sleep(500);
   await page.run(() => { const d = document.querySelector('#wallpaper .door-hit'); const c = () => d.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); });
-  for (let i = 0; i < 80; i++) { if (await page.run(() => !!document.querySelector('#wallpaper .gate-hit'))) break; await sleep(150); }
-  await check('놀이터');
-  await page.run(() => { const d = document.querySelector('#wallpaper .neighbor-hit'); if (!d) return; const c = () => d.dispatchEvent(new MouseEvent('click', { bubbles: true })); c(); c(); });
   for (let i = 0; i < 80; i++) { if (await page.run(() => [...document.querySelectorAll('#windows .btn')].some(b => b.textContent === '놀러 가기'))) break; await sleep(150); }
   await check('이웃집 놀러 가기 창');
   await clickText('#windows .btn', '놀러 가기');

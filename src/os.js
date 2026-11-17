@@ -10,7 +10,6 @@ import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet } from './pet.js';
-import { createSnow } from './snow.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
@@ -68,7 +67,6 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   let walker = null; // 바탕화면 방을 걷는 내 아바타(src/avatar.js). 바탕화면에 있는 동안만 있다(avatar는 로그인 사용자 그림 함수 이름)
   let ownerAvatar = null; // 친구 집을 구경할 때 방에 서 있는 주인 아바타(실험실 host-avatar, src/avatar.js의 mountOwner). 그 밖에는 null
   let pet = null; // 내 집의 방에 사는 펫(실험실 pet, src/pet.js). 실험실에서 켜고 내 바탕화면에 있을 때만 있다(syncPet)
-  const snow = createSnow(el.wallpaper); // 바깥 공간에 내리는 눈(실험실 snow, src/snow.js). 실험실에서 켜고 바탕화면이 놀이터일 때만 내린다(syncSnow)
   // 분신사바(F29, src/horror.js). 말풍선에 "분신사바"를 말하면(src/secrets.js) 방의 불이 꺼지고 공포 모드가 된다. 메모리에만 있고 불을 켜면 풀린다
   const horror = os.horror = createHorror({
     layer: el.wallpaper,
@@ -108,7 +106,6 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       pet = null;
       os.tutorial.hide();
       setPlace(null); // 배경음악은 바탕화면에서만 튼다
-      syncSnow();
       horror.stop(); // 바탕화면을 떠나면 공포 모드도 풀린다
     }
   }
@@ -121,7 +118,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
     const sid = linkId(location.hash);
     if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
-    prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 놀이터의 이웃집 목록 창이 받은 값을 같이 쓴다)
+    prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 이웃집 목록 창이 받은 값을 같이 쓴다)
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
@@ -191,7 +188,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     else showLogin();
   };
 
-  // 이웃집에 손님으로 들어간다(src/neighbors.js의 openNeighbors). 놀이터의 이웃집 목록 창에서 온다. boardId는 enter와 같다.
+  // 이웃집에 손님으로 들어간다(src/neighbors.js의 openNeighbors). 방의 현관문으로 여는 이웃집 목록 창에서 온다. boardId는 enter와 같다.
   os.visit = (home, boardId = null) => {
     clearHash();
     switchTo('visit', home, boardId);
@@ -253,7 +250,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기, 내 컴퓨터로)은 그때만 보인다.
   // ownHome이 적힌 앱은 이 컴퓨터에 내 집이 있는 손님(true)이나 없는 손님(false)에게만 보인다.
-  // 공간 바로 가기는 지금 있는 공간의 것을 숨긴다(놀이터에서는 놀이터 대신 집으로가 보인다).
+  // 공간 바로 가기(data/apps.js의 scene)는 지금 있는 공간의 것을 숨긴다.
   // 실험실 앱(labs: true)은 실험실을 연 브라우저에서만 보인다(src/labs.js).
   os.canSee = app => (os.mode === 'visit'
     ? !app.editOnly && (app.ownHome === undefined || app.ownHome === os.hasOwnHome)
@@ -271,18 +268,16 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 바탕화면 배경: 지금 공간(처음에는 내 방)의 그림과 그곳을 걷는 아바타. 그림을 다시 그리면 상자가 비워지므로 아바타를 다시 넣는다.
   function renderWallpaper() {
     const scene = SCENES.find(s => s.id === os.place);
-    el.desktop.dataset.kind = scene.kind; // 바깥 공간(놀이터)이면 바탕화면 뒤를 하늘색으로 칠한다(style.css의 .desktop[data-kind="outdoor"])
-    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, gate: os.useGate, door: os.useDoor, neighbor: os.useNeighbor }, os.home.owner, os.home.decor);
+    renderStatic(el.wallpaper, os.home.scenes[scene.id], scene, { use: os.useFurniture, door: os.useDoor }, os.home.decor);
     ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
     pet?.attach(scene.id === SCENES[0].id); // 펫은 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
     markLiked();
-    syncSnow(); // 방 상자를 비웠으므로 눈 캔버스도 다시 붙인다
     horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
 
   // 실험실의 '펫 데려오기'(pet, src/labs.js). 켜면 내 집의 방에 고른 펫이 살고(src/pet.js), 끄면 바로 사라진다.
-  // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없고, 놀이터에 나가 있는 동안에는 방에 남아 있다(attach가 숨긴다).
+  // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없다.
   // 바탕화면을 만든 뒤와 실험실 스위치를 켜고 끌 때 부른다. 펫 고르는 창(src/pet-picker.js)에서 종류나 색을 바꾸면 그 자리에서 그림만 바꾼다
   function syncPet() {
     const want = labOn('pet') && os.mode === 'edit' && !os.realHome && !!walker;
@@ -299,16 +294,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if ('pet' in patch) pet?.restyle();
   });
 
-  // 실험실의 '놀이터에 눈'(snow, src/labs.js). 켜 두면 바탕화면이 바깥 공간(놀이터)일 때 눈이 내리고(src/snow.js), 끄면 바로 그친다.
-  // 내 집, 친구 집, 이웃집, 튜토리얼 연습 방의 놀이터가 모두 같다. 방(실내)과 방 꾸미기 창, 내려받는 방 그림에는 내리지 않는다.
-  // 공간을 옮기거나 방을 다시 그린 뒤(renderWallpaper), 바탕화면을 떠날 때(show), 실험실 스위치를 켜고 끌 때 부른다
-  function syncSnow() {
-    const outdoor = SCENES.find(s => s.id === os.place)?.kind === 'outdoor';
-    snow.set(labOn('snow') && outdoor && !el.desktop.hidden);
-  }
-  settings.subscribe(patch => { if ('labs' in patch || 'labsOpen' in patch) syncSnow(); });
-
-  // 손님이 방에 들어오면(친구 집에 들어올 때와 놀이터에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
+  // 손님이 방에 들어오면(친구 집에 들어올 때와 다른 공간에서 돌아올 때) 주인 아바타가 인사말을 한 번 말한다. 인사말이 비었으면 말하지 않는다
   function greetGuest() {
     ownerAvatar?.greet(os.home.greeting, walker?.spot());
   }
@@ -333,20 +319,19 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     syncHomeMusic(os); // 친구 집에서 친구 집 배경음악(home-bgm)을 켜면 바로 틀고, 끄면 저절로 연 음악 창을 닫는다
   });
 
-  // 바탕화면의 공간을 옮긴다(현관문, 놀이터 아이콘, 놀이터 문). 아바타도 같이 가서, 문이 있는 공간에서는 그 문으로 막 들어온 칸
-  // (문 바로 앞 칸에 서면 키 큰 아바타가 팻말을 가려서 한 칸 더 안쪽)에 선다. 놀이터는 아파트 문 앞, 내 방은 현관문 앞이다.
+  // 바탕화면의 공간을 옮긴다(data/apps.js의 공간 바로 가기). 아바타도 같이 가서, 문이 있는 공간에서는 그 문 앞 칸에 선다(내 방은 현관문 앞).
+  // 지금은 공간이 내 방 하나라 부르는 곳이 없다. 2026-11-17까지는 현관문과 놀이터의 아파트 문이 내 방과 놀이터를 오갔다.
   // 방 꾸미기 창의 탭과는 따로 움직인다(꾸미는 화면은 꾸밀 공간을 탭으로 고른다).
   const doorstep = scene => {
-    if (scene.gate) return { x: scene.gate.x, y: 1 };
     if (scene.door) return scene.door.wall === 'R' ? { x: scene.door.x, y: 1 } : { x: 1, y: scene.door.x };
     return undefined;
   };
   os.goScene = id => {
     const scene = SCENES.find(s => s.id === id);
     if (!scene || id === os.place) return;
-    os.closeup?.close(true); // 시작 메뉴의 놀이터처럼 가구를 가까이 보는 동안에도 공간을 옮길 수 있다
+    os.closeup?.close(true); // 가구를 가까이 보는 동안에도 공간을 옮길 수 있다
     os.place = id;
-    play('enter'); // 방과 놀이터를 오갈 때 같은 소리를 낸다
+    play('enter'); // 공간을 옮길 때 문 닫히는 소리를 낸다
     setPlace(id);
     walker?.moveTo(doorstep(scene));
     renderWallpaper();
@@ -358,25 +343,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 튜토리얼 연습 방을 걷는 동안에는 그림에 담는 집(저장된 집)과 가구가 달라서 들어갈 때 서는 칸을 쓴다.
   os.avatarSpot = scene => (!os.realHome && scene.id === os.place && walker?.spot()) || doorstep(scene) || null;
 
-  // 놀이터 문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 내 방으로 돌아간다.
-  os.useGate = gate => {
-    const home = () => os.goScene(SCENES[0].id);
-    if (walker) walker.approachWall('R', gate.x, gate.w, home);
-    else home();
-  };
-
-  // 방의 현관문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 바깥 공간(놀이터)으로 나간다.
+  // 방의 현관문을 두 번 눌렀을 때. 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다(src/neighbors.js).
+  // 지금 바탕화면에 있는 집은 목록에 넣지 않는다. 2026-11-17까지는 현관문으로 놀이터에 나가 놀이터 앞쪽 끝의 이웃집 문에서 이 창을 열었다.
   os.useDoor = door => {
-    const out = () => os.goScene(door.to);
-    if (walker) walker.approachWall(door.wall, door.x, door.w, out);
-    else out();
-  };
-
-  // 놀이터 앞쪽 끝의 이웃집 문을 두 번 눌렀을 때(src/neighbors.js). 아바타가 문 앞까지 걸어간 뒤 이웃집 목록 창을 띄우고, 그 창에서 갈 집을 고른다.
-  // 지금 이 컴퓨터의 집은 목록에 넣지 않는다(아파트 문이 그 집으로 가는 문이다). gate: 문 자리({ wall, x, w }, src/neighbors.js의 neighborGate)
-  os.useNeighbor = gate => {
     const list = () => openNeighbors(os);
-    if (walker) walker.approachWall(gate.wall, gate.x, gate.w, list);
+    if (walker) walker.approachWall(door.wall, door.x, door.w, list);
     else list();
   };
   let walkTipShown = false; // 걷는 법 안내는 페이지를 열고 처음 바탕화면에 왔을 때 한 번만
@@ -518,7 +489,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.openApp = id => {
     const app = APP_BY_ID[id];
     if (!app || !os.canSee(app)) return;
-    if (app.scene) return os.goScene(app.scene); // 공간 바로 가기(놀이터 아이콘)는 창 대신 바탕화면을 그 공간으로 옮긴다
+    if (app.scene) return os.goScene(app.scene); // 공간 바로 가기는 창 대신 바탕화면을 그 공간으로 옮긴다
     if (app.builtin) return BUILTIN_APPS[app.builtin]?.(os, app);
     if (app.src) return openFrameApp(os, app);
     if (app.href) return openLinkApp(os, app);
@@ -585,7 +556,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     text: () => os.home?.greeting || `${os.home?.owner || ''}의 컴퓨터`,
   });
 
-  // 실험실의 '심심할 때 혼잣말'(idle-talk, src/idle-talk.js). 내 방, 놀이터, 친구 집에서 내 아바타가 한다.
+  // 실험실의 '심심할 때 혼잣말'(idle-talk, src/idle-talk.js). 내 방과 친구 집에서 내 아바타가 한다.
   // 바탕화면을 그냥 둘 때만 하고, 최소화하지 않은 창이 하나라도 있거나 방 꾸미기 창이 열려 있으면(최소화해도) 쉰다.
   // 가구 가까이 보기, 튜토리얼과 연습 방, 화면 보호기, 말풍선에 쓰는 중에도 쉰다
   createIdleTalk({
