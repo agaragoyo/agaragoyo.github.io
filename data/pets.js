@@ -11,6 +11,7 @@
 //
 // 칸
 //   sit은 앉은 그림, walk1과 walk2는 걷는 그림 두 장이다(반 칸마다 바꾼다). walk1이 없으면 앉은 그림을 쓴다.
+//   fly1과 fly2는 나는 그림 두 장(날개를 든 장과 내린 장)이다. 말풍선 암호로 날아오는 비둘기(src/pigeon.js)가 쓰고, 지금은 비둘기에만 있다.
 //   숨 쉬는 그림과 눈 감은 그림은 src/pet.js가 앉은 그림에서 만든다. breath는 숨을 들이쉴 때 빼는 줄의 번호(0부터)이고, 그 위가 한 칸 내려온다.
 //   눈 감은 그림은 하이라이트(h)가 든 눈을 위 칸의 색으로 덮고 맨 아래 줄만 남겨 만든다. 그래서 눈에는 h를 꼭 넣는다.
 //   colors는 색 네 가지다. b 바탕, d 그림자, w 배, m 무늬, e 눈, c 볼이고, 겉선(o)은 적지 않는다. 겉선은 바탕의 명도를 35 낮추고
@@ -495,6 +496,51 @@ export const PET_SPECIES = [
       '.....ooooooooooooooo....',
       '........occoocco........',
       '....sssssssssssssss.....',
+    ],
+    // 나는 그림. 접은 날개 대신 등에서 날개 하나를 들어 올리거나(fly1) 아래로 내리고(fly2), 발은 접어 그리지 않는다
+    fly1: [
+      '..................ooo...',
+      '................oowwdoo.',
+      '...............owwowwddo',
+      '......ooooooo..owowwwddo',
+      '....oobbbbbbbooowowwddo.',
+      '...obbbbbbbbbbbowwwwddo.',
+      '..obbbbbbbbbbbbbowwwddo.',
+      '..obbhebbbbbhebbowwddo..',
+      '..obbeebbwbbeebbowddo...',
+      '..obbeebooobeebbodoo....',
+      '..obccbbbobbbccbboo.....',
+      '..ommmmmmmmmmmmmoboooo..',
+      '..ommbbbbbbbbbmmobbbddoo',
+      '...ombbbbbbbbbmobbbbddoo',
+      '...obbbbbbbbbbbbbbbddoo.',
+      '...odbbbbbbbbbbbbbbdddoo',
+      '....oddbbbbbbbbbbbddoo..',
+      '.....ooooooooooooooo....',
+      '........................',
+      '........................',
+    ],
+    fly2: [
+      '........................',
+      '........................',
+      '........................',
+      '......ooooooo...........',
+      '....oobbbbbbboo.........',
+      '...obbbbbbbbbbbo........',
+      '..obbbbbbbbbbbbbo.......',
+      '..obbhebbbbbhebbo.......',
+      '..obbeebbwbbeebbooo.....',
+      '..obbeebooobeebbobbo....',
+      '..obccbbbobbbccbobbbooo.',
+      '..ommmmmmmmmmmmmoowwwbdo',
+      '..ommbbbbbbbbbmmowowwwdo',
+      '...ombbbbbbbbbmowowwwddo',
+      '...obbbbbbbbbbbbowwwwddo',
+      '...odbbbbbbbbbbbbowwwddo',
+      '....oddbbbbbbbbbbbowwddo',
+      '.....oooooooooooooowwdo.',
+      '..................owdo..',
+      '...................oo...',
     ],
   },
   // 코끼리. 큰 귀가 머리 뒤로 나오고 코가 왼쪽으로 말린다. 무늬(m) 색은 귀 안쪽이다

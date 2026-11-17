@@ -722,13 +722,15 @@ def check_pets():
                 err(where, f'{kid}/{cid}: 색 이름 {cname} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다')
         kinds[kid] = set(ids)
         frames = {}
-        for name in ('sit', 'walk1', 'walk2'):
+        for name in ('sit', 'walk1', 'walk2', 'fly1', 'fly2'):
             m = re.search(rf'^    {name}: \[\n(.*?)^    \],', body, re.S | re.M)
             if m:
                 frames[name] = re.findall(r"'([^']*)'", m.group(1))
         for need in ('sit', 'walk2'):
             if need not in frames:
                 err(where, f'{kid}: {need} 그림이 없다(walk1 은 없으면 앉은 그림을 쓴다)')
+        if ('fly1' in frames) != ('fly2' in frames):
+            err(where, f'{kid}: 나는 그림은 fly1 과 fly2 두 장을 함께 둔다(날개를 든 장과 내린 장을 번갈아 보인다)')
         for name, rows in frames.items():
             if len(rows) != 20 or any(len(r) != 24 for r in rows):
                 bad = [i for i, r in enumerate(rows) if len(r) != 24]

@@ -8,7 +8,8 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
-// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 가구 가까이 보기, 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
+// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기(현관문과 창문, 움직임 줄이기),
+// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기, 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
 // 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
@@ -538,6 +539,27 @@ async function petScene() {
     heart: !!heart && !heart.hidden,
     width: p ? parseFloat(getComputedStyle(p.querySelector('svg')).width) : 0,
     look: p?.dataset.pet,
+    frame: p ? [...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame : null,
+  };
+}
+
+// 말풍선 암호로 날아온 비둘기(src/pigeon.js). 비둘기 수, 선 칸(petScene처럼 발끝을 거꾸로 푼 칸), 그 칸이 비어 있던 바닥인지, 나는 중인지,
+// 머리 위의 말풍선 글(떠 있을 때만), 지금 보이는 그림 장. 펫을 "없음"으로 두고 부른다(펫이 비둘기면 둘이 섞인다)
+async function pigeonScene() {
+  const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
+  const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
+  const birds = [...document.querySelectorAll('#wallpaper .room-pet[data-pet^="pigeon/"]')];
+  const p = birds[0];
+  const say = document.querySelector('#wallpaper .room-pet-say');
+  const cell = p && cellOf(parseFloat(p.style.left), parseFloat(p.style.top));
+  const items = JSON.parse(localStorage.getItem('agarago.home.v3'))?.scenes.room || [];
+  return {
+    count: birds.length,
+    look: p?.dataset.pet,
+    cell,
+    floor: !!cell && Number.isInteger(cell.x) && Number.isInteger(cell.y) && cell.x > 0 && cell.y > 0 && cell.x < 12 && cell.y < 12 && !blockedOf(items).has(`${cell.x},${cell.y}`),
+    flying: !!p?.classList.contains('flying'),
+    coo: say && !say.hidden && say.isConnected ? say.textContent : null,
     frame: p ? [...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame : null,
   };
 }
@@ -1224,6 +1246,73 @@ async function walk(page, base) {
   await page.run(clickOnce, '.users .user:not(.neighbor)');
   check('새로 고침하면 공포 모드가 풀려 있다', (await desktop()) && (await page.run(horrorState)).startsWith('day/') && !(await page.run(() => !!document.querySelector('#wallpaper .horror-dark'))), await page.run(horrorState));
 
+  // ---------- 비둘기(F32) ----------
+  // 말풍선에 999999999를 말하면 비둘기가 창문으로, 창문이 없으면 현관문으로 날아 들어와 빈 바닥 칸에 내려앉아 "구구" 하고 조금 뒤 날아 나간다(src/pigeon.js).
+  // 나타나는 때와 머무는 시간(src/config.js의 PIGEON)은 페이지 안에서 줄인다(새로 고침하면 원래대로 돌아온다). 점검용 집에는 창문이 없어 현관문 앞(3, 10)에 내려앉고,
+  // 왼쪽 벽에 창문을 단 집에서는 그 창문 앞(3, 3)에 내려앉는다. 두 번 누르면 아바타가 다가가고 비둘기는 머무는 시간을 다 채우지 않고 날아 나간다.
+  // 움직임 줄이기를 켠 사람에게는 날지 않고 내려앉을 칸에 바로 나타났다가 그 자리에서 사라진다. 친구 집에서 말하면 오지 않는다(친구 집 절)
+  const pigeonTime = stay => page.run(async ms => Object.assign((await import(new URL('src/config.js', document.baseURI).href)).PIGEON, { come: 100, stay: [ms, ms] }), stay);
+  const COO = await page.run(async () => (await import(new URL('src/pigeon.js', document.baseURI).href)).COO);
+  const closeTo = (c, x, y) => !!c && Math.abs(c.x - x) + Math.abs(c.y - y) <= 2;
+  const landedPigeon = async () => {
+    const t0 = Date.now();
+    for (;;) {
+      const s = await page.run(pigeonScene);
+      if ((s.count && !s.flying && s.coo) || Date.now() - t0 > 5000) return s;
+      await sleep(100);
+    }
+  };
+  const pigeonGone = ms => until(page, () => !document.querySelector('#wallpaper .room-pet[data-pet^="pigeon/"]'), ms);
+  await pigeonTime(4000);
+  await sayWord('999999999');
+  check('말풍선에 999999999를 말하면 회색 비둘기가 날개를 치며 날아 들어온다', await until(page, () => {
+    const p = document.querySelector('#wallpaper .room-pet.flying[data-pet="pigeon/gray"]');
+    return !!p && /^fly[12]$/.test([...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame || '');
+  }, 3000));
+  const byDoor = await landedPigeon();
+  check(`창문이 없는 집에서는 현관문 앞의 빈 바닥 칸에 내려앉아 "${COO}" 한다`, byDoor.count === 1 && byDoor.floor && closeTo(byDoor.cell, 3, 10) && byDoor.coo === COO, JSON.stringify(byDoor));
+  await probe('비둘기가 내려앉은 바탕화면');
+  check('비둘기의 말풍선이 사라진다', await until(page, () => !document.querySelector('#wallpaper .room-pet-say:not([hidden])'), 4000));
+  await sayWord('999999999');
+  const cooAgain = await page.run(pigeonScene);
+  check('비둘기가 와 있을 때 또 말하면 한 마리 그대로 한 번 더 운다', cooAgain.count === 1 && cooAgain.coo === COO, JSON.stringify(cooAgain));
+  check('머무는 시간이 지나면 날아 나가 방에서 사라진다', await pigeonGone(6000));
+  await pigeonTime(20000);
+  await sayWord('999999999');
+  const toChase = await landedPigeon();
+  await page.run(clickTwice, '#wallpaper .room-pet[data-pet^="pigeon/"]');
+  check('비둘기를 두 번 누르면 아바타가 다가가고, 비둘기는 머무는 시간(20초)을 채우지 않고 날아 나간다', toChase.count === 1 && await pigeonGone(9000), JSON.stringify(toChase));
+  // 창문을 단 집과 움직임 줄이기. 왼쪽 벽 침대 위에 창문을 걸고 새로 연다. 끝나면 점검용 집과 움직임 설정을 돌려놓고 다시 연다
+  const pigeonHome = await page.run(() => localStorage.getItem('agarago.home.v3'));
+  await page.run(() => {
+    const home = JSON.parse(localStorage.getItem('agarago.home.v3'));
+    home.scenes.room.push({ id: 'window', wall: 'L', x: 2, y: 2 });
+    localStorage.setItem('agarago.home.v3', JSON.stringify(home));
+  });
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await open();
+  await powerOn();
+  await page.run(clickOnce, '.users .user:not(.neighbor)');
+  await desktop();
+  await pigeonTime(1500);
+  await page.run(() => {
+    const layer = document.getElementById('wallpaper');
+    window.__pigeonFlew = false;
+    new MutationObserver(() => { if (layer.querySelector('.room-pet.flying')) window.__pigeonFlew = true; })
+      .observe(layer, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  });
+  await sayWord('999999999');
+  const byWindow = await landedPigeon();
+  check(`창문이 있는 집에서는 창문 앞의 빈 바닥 칸에 내려앉아 "${COO}" 한다`, byWindow.count === 1 && byWindow.floor && closeTo(byWindow.cell, 3, 3) && byWindow.coo === COO, JSON.stringify(byWindow));
+  check('움직임 줄이기를 켠 사람에게는 비둘기가 날지 않고 내려앉을 칸에 바로 나타났다가 그 자리에서 사라진다',
+    (await pigeonGone(5000)) && !(await page.run(() => window.__pigeonFlew)));
+  await page.run(home => localStorage.setItem('agarago.home.v3', home), pigeonHome);
+  await page.send('Emulation.setEmulatedMedia', { media: '', features: [] });
+  await open();
+  await powerOn();
+  await page.run(clickOnce, '.users .user:not(.neighbor)');
+  await desktop();
+
   // ---------- 가구 가까이 보기 ----------
   const closed = () => !document.querySelector('.closeup');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '책장이 열린다');
@@ -1249,6 +1338,16 @@ async function walk(page, base) {
   check('한 번 더 누르면 책장이 닫힌다', await page.run(closed));
 
   await use('tv', () => !!document.querySelector('.closeup .tv-row'), 'TV가 열린다');
+  // 내 집의 TV는 화면 아래 띠에 숨은 기능의 소문(src/secrets.js의 HINTS) 한 줄을 띄우고, 다음에 켤 때 보일 차례를 설정(tvHint)에 남긴다
+  const tvHint = () => page.run(async () => {
+    const { HINTS } = await import(new URL('src/secrets.js', document.baseURI).href);
+    const strip = document.querySelector('.closeup .tv-hint');
+    const text = strip?.querySelector('span')?.textContent;
+    return { label: strip?.querySelector('b')?.textContent, at: HINTS.indexOf(text), next: JSON.parse(localStorage.getItem('agarago.settings')).tvHint, n: HINTS.length,
+      line: !!strip && strip.getBoundingClientRect().bottom <= document.querySelector('.closeup .tv-screen').getBoundingClientRect().bottom + 0.5 };
+  });
+  const hint1 = await tvHint();
+  check('내 집의 TV를 켜면 화면 맨 아래 띠에 소문 한 줄이 뜨고 다음 차례가 저장된다', hint1.label === '소문' && hint1.at >= 0 && hint1.line && hint1.next === (hint1.at + 1) % hint1.n, JSON.stringify(hint1));
   await page.run(clickText, '.closeup .tv-tools .btn', '작품 넣기');
   await sleep(200);
   await probe('TV 작품 찾기');
@@ -1258,6 +1357,11 @@ async function walk(page, base) {
   await page.run(() => document.activeElement?.blur());
   await press(page, 'Escape');
   check('TV가 Esc로 꺼진다', await page.run(closed));
+  await use('tv', () => !!document.querySelector('.closeup .tv-hint'), 'TV가 다시 켜진다');
+  const hint2 = await tvHint();
+  check('TV를 다시 켜면 다음 소문이 뜬다', hint2.at === hint1.next && hint2.next === (hint2.at + 1) % hint2.n, JSON.stringify(hint2));
+  await press(page, 'Escape');
+  await until(page, closed, 3000);
 
   await use('console', () => !!document.querySelector('.closeup .console-grid'), '게임기가 열린다');
   check('주인이 고른 추천 게임이 맨 앞에 선다', await page.run(() => document.querySelector('.closeup .console-game')?.dataset.app === 'file-ten' && !!document.querySelector('.closeup .console-game .console-pick')));
@@ -1681,6 +1785,9 @@ async function walk(page, base) {
   await sayWord('분신사바');
   await sleep(1500); // 내 집이었다면 불이 꺼졌을 시간(0.9초)을 넘겨 본다
   check('손님이 분신사바를 말해도 친구 집의 불은 꺼지지 않는다', await page.run(() => document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark')));
+  await sayWord('999999999');
+  await sleep(1500); // 내 집이었다면 비둘기가 나타났을 시간(0.5초)을 넘겨 본다
+  check('손님이 999999999를 말해도 친구 집에는 비둘기가 오지 않는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')));
   await openIcon('my-computer');
   check('내 컴퓨터로를 두 번 누르면 내 바탕화면으로 돌아온다', await until(page, () => document.getElementById('stage').dataset.mode === 'edit' && !document.getElementById('desktop').hidden && !!document.querySelector('#icons [data-app="room"]'), 5000));
   check('돌아오면 주소의 친구 링크가 지워진다', await page.run(() => location.hash === ''));
@@ -2566,6 +2673,7 @@ async function walk(page, base) {
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님에게도 긴 글의 책장이 열린다');
   await shut();
   await use('tv', () => !!document.querySelector('.closeup .tv-pick'), '손님에게도 긴 글의 TV가 켜진다');
+  check('손님의 TV에는 소문 띠가 없다', await page.run(() => !document.querySelector('.closeup .tv-hint')));
   await shut();
   await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '손님에게도 긴 이름의 CD가 펼쳐진다');
   await shut();

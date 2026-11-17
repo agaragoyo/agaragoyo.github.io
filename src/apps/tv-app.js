@@ -3,11 +3,14 @@
 // 주인은 작품을 6편까지 넣는다. 넣을 때는 이름으로 찾는 단계를 거치고, 찾기는 API 키가 필요 없는 위키데이터를 쓴다(2026-11-10 정함).
 // 찾은 작품을 고르면 이름, 연도, 감독, 위키백과 링크가 채워지고, 포스터는 주인이 그림 주소를 붙여 넣는다. 포스터가 없으면 책 표지처럼 제목 카드를 건다.
 // 넣은 작품은 likes.tv에 저장되고 공유 링크에도 담긴다(src/likes.js). 손님에게는 넣기, 고치기, 빼기 단추가 없다.
+// 내 컴퓨터의 진짜 집에서 켜면 작품 화면 맨 아래 띠에 숨은 기능의 소문 한 줄(src/secrets.js의 HINTS)이 뜨고, 켤 때마다 다음 소문으로 넘어간다.
+// 숨은 기능은 내 컴퓨터에서만 켜지므로 손님의 TV와 튜토리얼 연습 방의 TV에는 소문이 없다.
 import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { BOOK_COLORS } from './bookshelf-app.js';
 import { fitHost } from './link-app.js';
 import { LIMIT, safeLink, safeImage, setLike, isOwner, nextColor } from '../likes.js';
+import { HINTS } from '../secrets.js';
 
 // ---------- 위키데이터(키 없이 다른 사이트에서 부를 수 있다, origin=*) ----------
 const WD = 'https://www.wikidata.org/w/api.php';
@@ -118,10 +121,19 @@ function poster(w) {
   return card;
 }
 
+// 이번에 켠 TV의 소문. 설정(tvHint)에 적힌 차례의 소문을 돌려주고 차례를 하나 넘긴다. 소문이 없는 곳이면 빈 글
+function nextHint(os) {
+  if (!isOwner(os) || os.realHome || !HINTS.length) return '';
+  const i = Math.abs(Math.trunc(Number(os.settings.get('tvHint')) || 0)) % HINTS.length;
+  os.settings.set({ tvHint: (i + 1) % HINTS.length });
+  return HINTS[i];
+}
+
 export function openTvApp(os, app) {
   const owner = isOwner(os);
   const works = () => os.home.likes.tv || [];
   if (!owner && !works().length) return os.say('넣어 둔 작품이 없네.');
+  let hint = null; // 이번에 켠 TV의 소문. 작품 화면(show)을 처음 보일 때 고르고, 끌 때까지 같은 소문이다
 
   return openCloseup(os, {
     key: app.id,
@@ -175,10 +187,13 @@ export function openTvApp(os, app) {
           w.link ? h('p', { className: 'tv-link' },
             h('a', { className: 'btn', href: w.link, target: '_blank', rel: 'noopener noreferrer' }, '새 탭에서 보기'),
             h('span', { className: 'link-host' }, `열리는 곳: ${new URL(w.link).host}`)) : null) : null;
-        screen.replaceChildren(
+        hint ??= nextHint(os);
+        screen.replaceChildren(...[
           h('div', { className: 'tv-head' }, h('b', {}, `${os.home.owner}의 추천 작품`), list.length > 1 ? h('span', {}, '휠이나 방향키로 넘겨 보세요.') : null),
           list.length ? row : h('p', { className: 'tv-none' }, '아직 넣은 작품이 없습니다.'),
-          detail);
+          detail,
+          hint ? h('p', { className: 'tv-hint' }, h('b', {}, '소문'), h('span', {}, hint)) : null,
+        ].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣으므로 뺀다(known-issues 50)
         // 화면에 붙은 뒤에야 줄 수를 잴 수 있다. 열리는 곳은 옛날 컴퓨터처럼 한 줄에서 말줄임표로 끝난다
         row.querySelectorAll('.tv-poster-label b').forEach(b => fitText(b, b.closest('.tv-pick')));
         fitHost(screen);

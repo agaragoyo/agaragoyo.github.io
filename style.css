@@ -465,6 +465,8 @@ button { font-family: inherit; }
 .room-pet.flip svg { transform: scaleX(-1); }
 .room-pet path { pointer-events: auto; cursor: var(--cur-hand); }
 .room-pet path.shade { pointer-events: none; }
+/* 말풍선 암호로 날아온 비둘기(src/pigeon.js)가 창문이나 현관문을 드나들며 나는 동안은 누르기를 받지 않는다(src/pet.js의 flight) */
+.room-pet.flying path { pointer-events: none; }
 @media (hover: hover) {
   .room-pet:has(path:hover) svg { filter: brightness(1.08) drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
 }
@@ -2231,6 +2233,11 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .tv-link { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c9c9c9; }
 .tv-link a.btn { display: inline-block; flex: none; text-decoration: none; }
 .tv-none { margin: auto; font-size: 16px; color: #c9c9c9; }
+/* TV의 소문(src/secrets.js의 HINTS). 내 컴퓨터의 진짜 집에서 TV를 켜면 화면 맨 아래에 옛 뉴스 자막처럼 띠가 깔리고 한 줄이 뜬다.
+   위의 작품 설명(.tv-detail)이 남은 높이를 나눠 쓰므로 띠는 줄어들지 않는다. 글이 길면 두 줄로 꺾는다 */
+.tv-hint { display: flex; flex: none; align-items: baseline; gap: 10px; margin: 0; padding: 8px 20px 10px; border-top: 2px solid #3d5a80; background: #1c2635; font-size: 15px; line-height: 1.4; }
+.tv-hint b { flex: none; padding: 0 7px; border-radius: 3px; background: #f2c94c; color: #2a2100; font-size: 13px; }
+.tv-hint span { word-break: keep-all; overflow-wrap: anywhere; }
 /* 넣는 칸(종이 카드)을 화면 가운데에 띄운다 */
 .tv-card { width: 724px; max-height: 436px; margin: auto; overflow-y: auto; padding: 16px 20px; } /* TV 화면(760px)을 거의 다 쓴다 */
 .tv-card.like-form { gap: 6px; }
