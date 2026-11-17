@@ -35,6 +35,26 @@ export function elevOf(items, item) {
   return s ? BY_ID[s.id].height : 0;
 }
 
+// 바닥 가구 item 위에 펫(고양이)이 올라가 앉을 수 있는 자리들(data/furniture.js의 perch, perchAt). 자리마다 { x, y, h }이고,
+// x와 y는 발끝이 놓이는 방의 칸 좌표(소수), h는 윗면 높이(무대 px)다. 앉는 자리를 적지 않은 가구는 칸마다 가운데에 앉고,
+// 그 칸에 올라앉은 물건(supportOf가 이 가구를 돌려주는 'top' 가구)이 있으면 뺀다. 돌려 놓은 가구(r: 1)는 그림이 좌우로 뒤집혀
+// 가로와 세로가 바뀌므로 적어 둔 자리도 바꾼다. 펫(src/pet.js)이 쓴다
+export function perchesOf(items, item) {
+  const def = BY_ID[item.id];
+  if (!def.perch || isWall(item)) return [];
+  const [w, d] = dims(item);
+  const spots = [];
+  if (def.perchAt) spots.push(item.r ? [def.perchAt[1], def.perchAt[0]] : def.perchAt);
+  else for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < d; dy++) spots.push([dx + 0.5, dy + 0.5]);
+  const held = items.filter(t => supportOf(items, t) === item);
+  return spots
+    .map(([dx, dy]) => ({ x: item.x + dx, y: item.y + dy, h: def.perch }))
+    .filter(s => !held.some(t => {
+      const [tw, td] = dims(t);
+      return s.x >= t.x && s.x < t.x + tw && s.y >= t.y && s.y < t.y + td;
+    }));
+}
+
 // 벽 가구 item이 그 공간의 현관문(config.js의 SCENES door) 자리를 가리는지. scene: SCENES 한 줄.
 // 방 꾸미기에서 새로 걸 때만 막고(room.js의 beginDrag), 저장본이나 링크를 불러올 때는 막지 않는다(canPlace에 넣지 않는 까닭이다. src/share.js의 sanitizeHome이 canPlace로 거른다).
 // 현관문이 생기기 전에 그 자리에 걸어 둔 창문이 불러올 때 조용히 사라지지 않게 하려는 것이다. 옮기면 다시는 그 자리에 걸지 못한다.

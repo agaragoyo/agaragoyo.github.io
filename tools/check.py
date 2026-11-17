@@ -175,6 +175,9 @@ def check_pixel_icons():
                 err(p.relative_to(ROOT).as_posix(), f'아이콘 builtin:{icon} 이 src/icons.js 의 PIXEL 에 없다')
 
 
+PERCH_MAX = 75  # 펫이 올라가는 윗면의 가장 높은 값(무대 px). data/furniture.js 머리 주석의 perch와 같다
+
+
 def check_furniture(app_ids):
     items = entries(read('data/furniture.js'))
     known_scenes = scenes()
@@ -192,6 +195,19 @@ def check_furniture(app_ids):
             err(where, "zone 은 'wall', 'floor', 'top' 중 하나다")
         if f.get('zone') != 'wall' and 'height' not in f:
             err(where, '바닥 가구는 height 가 있어야 한다')
+        # 펫이 올라가 앉는 윗면(src/rules.js의 perchesOf). 고양이가 한 번에 뛰어오르는 높이까지만 두고, 앉는 자리는 가구의 칸 안이다
+        if 'perch' in f:
+            if f.get('zone') != 'floor':
+                err(where, 'perch(펫이 올라가 앉는 윗면 높이)는 바닥 가구에만 둔다')
+            elif not f['perch'].isdigit() or not 1 <= int(f['perch']) <= min(PERCH_MAX, int(f.get('height', '0'))):
+                err(where, f'perch 는 1 이상이고 가구 높이(height)와 {PERCH_MAX} 이하인 정수다(무대 px, 고양이가 한 번에 뛰어오르는 높이)')
+        if 'perchAt' in f:
+            at = re.fullmatch(r'\[(\d+(?:\.\d+)?), (\d+(?:\.\d+)?)\]', f['perchAt'])
+            size = re.fullmatch(r'\[(\d+), (\d+)\]', f.get('size', ''))
+            if 'perch' not in f:
+                err(where, 'perchAt(앉는 자리)은 perch(윗면 높이)와 함께 둔다')
+            elif not at or not size or not (0 < float(at.group(1)) < int(size.group(1)) and 0 < float(at.group(2)) < int(size.group(2))):
+                err(where, 'perchAt 은 [가로 칸, 세로 칸]이고 가구의 칸 안이다(0보다 크고 size보다 작은 수)')
         g = f.get('gimmick')
         if g:
             if g.startswith('app:') and g[4:] not in app_ids:
@@ -727,7 +743,7 @@ def check_pets():
                 err(where, f'{kid}/{cid}: 색 이름 {cname} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다')
         kinds[kid] = set(ids)
         frames = {}
-        for name in ('sit', 'walk1', 'walk2', 'fly1', 'fly2'):
+        for name in ('sit', 'walk1', 'walk2', 'fly1', 'fly2', 'loaf'):
             m = re.search(rf'^    {name}: \[\n(.*?)^    \],', body, re.S | re.M)
             if m:
                 frames[name] = re.findall(r"'([^']*)'", m.group(1))
@@ -743,8 +759,9 @@ def check_pets():
             extra = set(''.join(rows)) - set('obdwmehcs.')
             if extra:
                 err(where, f"{kid} {name}: 쓰지 않는 글자 {''.join(sorted(extra))} 가 있다(o b d w m e h c s . 만 쓴다)")
-        if 'sit' in frames and 'h' not in ''.join(frames['sit']):
-            err(where, f'{kid}: 앉은 그림의 눈에 하이라이트(h)가 없어 눈 감은 그림을 만들 수 없다')
+        for name in ('sit', 'loaf'):
+            if name in frames and 'h' not in ''.join(frames[name]):
+                err(where, f'{kid}: {name} 그림의 눈에 하이라이트(h)가 없어 눈 감은 그림을 만들 수 없다')
     m = re.search(r"^export const DEFAULT_PET = '([^'/]+)/([^']+)';", text, re.M)
     if not m or m.group(2) not in kinds.get(m.group(1), set()):
         err(where, "DEFAULT_PET 은 목록에 있는 '<종류>/<색>' 이다")
@@ -801,6 +818,8 @@ def check_pet_moods(where, text, blocks):
                 err(where, f'{kid}: 성격 {k} 의 범위는 [작은 수, 큰 수] 차례로 쓴다')
             elif k == 'hop' and not 1 <= v[0] <= v[1] <= 6:
                 err(where, f'{kid}: 걷는 칸 수(hop)는 1칸 이상 6칸 이하다')
+        if mood.get('perch') is True and not re.search(r'^    loaf: \[', body, re.M):
+            err(where, f'{kid}: 가구에 올라가는 펫(perch)은 가구 위에서 쓰는 웅크린 그림(loaf)이 있어야 한다')
 
 
 def check_storage_keys():
