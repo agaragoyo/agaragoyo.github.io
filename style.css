@@ -388,6 +388,27 @@ button { font-family: inherit; }
   border-top-color: #2b2b33;
   transform: translateX(-50%);
 }
+/* 말하기 표시(src/avatar.js의 cue). 아직 말해 보지 않은 사람의 아바타 머리 위에 16×16칸 말풍선 그림(src/icons.js의 say)을 띄운다.
+   자리(left, top)는 그림의 아래 가운데이고 머리 꼭대기보다 8px 위다. 그림 한 칸은 아이콘의 16px 자리처럼 화면 픽셀 정수 개로 맞춘다(--pixel-16, known-issues 67).
+   가구(z-index 100부터)에 가리지 않게 말풍선(10000) 바로 아래 층에 두고, 누르면 말할 칸이 열린다.
+   1초마다 2칸 떠올랐다 내려오며(끊어 뛴다), 움직임 줄이기를 켠 사람에게는 가만히 있다.
+   display를 주지 않아 hidden이 그대로 듣는다(안의 .app-icon은 display를 준다, known-issues 10) */
+.say-cue {
+  position: absolute;
+  z-index: 9999;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  cursor: var(--cur-hand);
+}
+.say-cue > .app-icon { position: absolute; inset: 0; animation: say-cue 1s steps(1) infinite; }
+@keyframes say-cue { 50% { transform: translateY(calc(var(--pixel-16, 16px) / -8)); } }
+/* 튜토리얼 카드가 떠 있는 동안에는 숨긴다. 카드는 한 번에 한 가지만 부탁하고, 말하기 단계에서는 화살표와 테두리가 아바타를 가리킨다(src/tutorial.js) */
+.stage.coaching .say-cue { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .say-cue > .app-icon { animation: none; }
+}
 /* 말하기 입력 칸: 바탕화면 아래쪽 가운데, 작업 표시줄 바로 위. 창(z-index 20)보다 위에 띄운다 */
 .say-input {
   position: absolute;
