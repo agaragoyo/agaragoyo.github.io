@@ -9,6 +9,7 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
+// 사용자를 만들기 전에 로그인 화면에서 친구 아이디 칸의 오류 풍선을 띄워 밤 설정을 끄고 켜며 한 번 잰다(밤은 바탕화면에만 든다, known-issues 38).
 // 창 여섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
 // 펫 바꾸기 창(시작 메뉴의 펫 바꾸기로 연다), 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
@@ -142,6 +143,15 @@ function openUserWindow(sel) {
   return true;
 }
 
+// 로그인 화면 오른쪽 단의 친구 아이디 칸(src/login.js의 handleTile)을 빈 채로 보내 노란 풍선(.name-tip)을 띄운다. 빈 칸은 서버에 묻지 않는다
+function showLoginHandleError() {
+  const form = document.querySelector('.users-friends .user.by-handle');
+  if (!form) return false;
+  form.querySelector('input[aria-label="친구 아이디"]').value = '';
+  form.requestSubmit();
+  return !form.querySelector('.name-tip').hidden;
+}
+
 // 방의 현관문을 두 번 눌러 이웃집 목록 창(src/neighbors.js의 openNeighbors)을 연다.
 // 창은 아바타가 문 앞까지 걸어간 뒤(2초쯤) 뜬다. 줄은 실제 서버에서 받은 이웃집이고, 받지 못하면 복사본으로 고정한 집만 선다.
 // 문은 SVG 도형이라 click()이 없어서 클릭 이벤트를 직접 보낸다
@@ -225,6 +235,7 @@ async function dayAndNight(selectors) {
     if (el.closest('#taskbar')) return '작업 표시줄';
     if (el.closest('.coach-card')) return '튜토리얼 카드';
     if (el.closest('#desktop')) return '바탕화면';
+    if (el.closest('#login')) return '로그인 화면';
     if (el.closest('#stage')) return '화면';
     return '모니터 바깥';
   };
@@ -348,6 +359,12 @@ async function main() {
     }
   };
   await powerOn();
+  // 로그인 화면. 밤 설정은 바탕화면에만 들어서 로그인 화면은 밤에도 낮 모습이어야 한다(known-issues 38). 친구 아이디 칸의 오류 풍선까지 띄워
+  // 밤 설정을 끄고 켜며 같은 방법으로 잰다. 화면의 테마 이름은 보지 않고 글자 대비만 본다(로그인 화면에서는 테마가 바뀌지 않는 것이 맞다)
+  if (!(await page.run(showLoginHandleError))) throw new Stop('로그인 화면에 친구 아이디 칸(.user.by-handle)이 없거나 빈 칸을 보내도 풍선이 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showLoginHandleError도 고친다.');
+  const login = await page.run(dayAndNight, EXCEPTIONS.filter(e => e.era === ERAS[0]).map(e => e.selector));
+  if (login.night.length < 10) throw new Stop(`로그인 화면에서 글자를 ${login.night.length}개밖에 찾지 못했다.`);
+  await page.run(setDay);
   if (!(await page.run(newUser, '밤점검'))) throw new Stop('로그인 화면에 새 사용자 만들기 칸이 없다(저장된 집이 있는 사용자 폴더로 열렸다).');
   await until(page, s => s.desktop, '새 사용자를 만들어도 바탕화면이 뜨지 않았다');
 
@@ -369,7 +386,7 @@ async function main() {
   await sleep(1500); // 서버에서 이웃집을 받는 중이던 줄이 바뀔 틈
   if (!(await page.run(showHandleError))) throw new Stop('이웃집 목록 창에 아이디 칸(.handle-form)이 없거나 빈 칸을 보내도 오류가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showHandleError도 고친다.');
 
-  const results = [];
+  const results = [{ ...judge(ERAS[0], login), label: `${ERAS[0]} 로그인 화면` }];
   for (const era of ERAS) {
     await page.run(setDay);
     await sleep(600); // 낮으로 돌린 뒤 아이콘과 창을 다시 그리는 것이 끝나기를 기다린다

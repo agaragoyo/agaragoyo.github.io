@@ -10,6 +10,7 @@
 // 고정한 이웃집(link 줄에 복사본 keep이 있는 줄)은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌을 때 복사본으로 대신 열어서 사라지지 않는다.
 // 그런 방을 올린 브라우저에서는 서버의 방을 지우는 길(이 컴퓨터 초기화, 공유하기의 링크 지우기)을 막는다(pinnedHere).
 // 목록 창 아래에는 아이디 칸이 있다. 친구가 공유하기 창에서 정한 아이디를 치면 목록에 없는 친구의 방에도 링크 없이 놀러 간다(handleForm).
+// 로그인 화면의 이웃집 아래에도 같은 칸이 있어서(src/login.js의 handleTile) 아이디를 찾는 일은 둘이 같이 쓴다(handleInput).
 import { NEIGHBORS } from '../data/neighbors.js';
 import { decodeHome, linkId } from './share.js';
 import { fetchHome, sharedId, findHandle, normalHandle, HANDLE_RE } from './cloud.js';
@@ -180,38 +181,33 @@ export function openNeighbors(os) {
   });
 }
 
-// 목록 창 아래의 아이디 칸. 친구가 공유하기 창에서 정한 아이디(src/cloud.js의 "아이디")를 치고 놀러 가기를 누르면 그 방에 손님으로 들어간다.
-// 짧은 링크로 온 손님처럼 그 방의 코르크 보드에 쪽지를 남긴다(boardId가 방 번호). 대문자, 띄어쓰기, 맨 앞의 @는 normalHandle이 맞춰 준다.
-// 오류는 목록이 빈 때처럼 일어난 일과 할 일을 한 줄씩 쓰고(창 폭 360px), 친 글자는 그대로 두어 고쳐 치게 한다.
+// 친구 아이디 칸과 놀러 가기 단추, 아이디로 방 찾기. 이웃집 목록 창 아래(handleForm)와 로그인 화면의 친구 집 단(src/login.js의 handleTile)이 같이 쓰고,
+// 오류를 보이는 모양과 찾은 뒤 들어가는 길만 쓰는 쪽이 정한다. 친구가 공유하기 창에서 정한 아이디(src/cloud.js의 "아이디")를 치면 그 방을 찾는다.
+// 대문자, 띄어쓰기, 맨 앞의 @는 normalHandle이 맞춰 준다. 찾는 동안은 단추를 "찾는 중"으로 막는다.
 // 아이디가 있는데 방이 없거나 깨졌으면 없는 아이디와 같이 알린다. 손님에게는 어느 쪽이든 그 아이디로 갈 곳이 없다.
-// 오류 자리는 늘 두 줄을 잡아 두어(FORM_H) 오류가 떠도 창이 스크롤되지 않는다(known-issues 73).
-function handleForm(os, win) {
+// fail(줄들): 오류. 일어난 일과 할 일을 한 줄씩 넘기고, 친 글자는 그대로 두어 고쳐 치게 한다. clear(): 다시 치기 시작했을 때 오류 거두기.
+// go(집, 방 번호): 찾은 방으로 들어가기. 짧은 링크로 온 손님처럼 그 방의 코르크 보드에 쪽지를 남기도록 방 번호를 boardId로 넘긴다.
+// 기다리는 사이에 칸이 화면에서 빠졌으면(창을 닫았거나 로그인 화면을 다시 그렸다) 들어가지 않는다.
+export function handleInput({ fail, clear, go }) {
   const input = h('input', { type: 'text', maxLength: 24, placeholder: '친구 아이디', 'aria-label': '친구 아이디', autocomplete: 'off' });
   input.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다(known-issues 50)
-  const go = h('button', { type: 'submit', className: 'btn' }, '놀러 가기');
-  const hint = h('p', { className: 'meta' }, '아이디는 친구가 공유하기 창에서 정합니다.');
-  const error = h('p', { className: 'like-error', role: 'alert', hidden: true });
-  const fail = (...lines) => {
-    error.replaceChildren(...lines.flatMap((t, i) => (i ? [h('br'), t] : [t])));
-    error.hidden = false;
-    hint.hidden = true;
+  const button = h('button', { type: 'submit', className: 'btn' }, '놀러 가기');
+  input.addEventListener('input', clear);
+  const stop = (...lines) => {
+    fail(lines);
     input.focus();
   };
-  input.addEventListener('input', () => {
-    error.hidden = true;
-    hint.hidden = false;
-  });
   const busy = on => {
-    go.style.minWidth = on ? `${go.offsetWidth}px` : '';
-    go.disabled = on;
-    go.textContent = on ? '찾는 중' : '놀러 가기';
+    button.style.minWidth = on ? `${button.offsetWidth}px` : '';
+    button.disabled = on;
+    button.textContent = on ? '찾는 중' : '놀러 가기';
   };
   const submit = async e => {
     e.preventDefault();
-    if (go.disabled) return;
+    if (button.disabled) return;
     const handle = normalHandle(input.value);
-    if (!handle) return fail('친구 아이디를 입력해 주세요.');
-    if (!HANDLE_RE.test(handle)) return fail('아이디는 한글, 영문, 숫자 2~12자입니다.', '아이디를 다시 확인해 주세요.');
+    if (!handle) return stop('친구 아이디를 입력해 주세요.');
+    if (!HANDLE_RE.test(handle)) return stop('아이디는 한글, 영문, 숫자 2~12자입니다.', '아이디를 다시 확인해 주세요.');
     busy(true);
     let room = null;
     let home = null;
@@ -222,18 +218,44 @@ function handleForm(os, win) {
     } catch (err) {
       console.warn('아이디의 방을 받지 못했다', handle, err);
       busy(false);
-      return fail('아이디를 찾지 못했습니다.', '잠시 후 다시 시도해 주세요.');
+      return stop('아이디를 찾지 못했습니다.', '잠시 후 다시 시도해 주세요.');
     }
     busy(false);
-    if (!input.isConnected) return; // 기다리는 사이에 창을 닫았다
-    if (room && room === sharedId()) return fail('내 방의 아이디입니다.', '친구의 아이디를 입력해 주세요.');
-    if (!home) return fail('없는 아이디입니다.', '아이디를 다시 확인해 주세요.');
-    win.close();
-    play('enter');
-    os.visit(home, room);
+    if (!input.isConnected) return;
+    if (room && room === sharedId()) return stop('내 방의 아이디입니다.', '친구의 아이디를 입력해 주세요.');
+    if (!home) return stop('없는 아이디입니다.', '아이디를 다시 확인해 주세요.');
+    go(home, room);
   };
+  return { input, button, submit };
+}
+
+// 줄들을 <br>로 이은 것. 오류의 두 문장을 한 줄씩 보인다
+export const brLines = lines => lines.flatMap((t, i) => (i ? [h('br'), t] : [t]));
+
+// 목록 창 아래의 아이디 칸. 놀러 가기를 누르면 창을 닫고 문 소리를 내며 그 방에 손님으로 들어간다.
+// 오류는 목록이 빈 때처럼 일어난 일과 할 일을 칸 아래 안내 자리에 한 줄씩 쓴다(창 폭 360px).
+// 오류 자리는 늘 두 줄을 잡아 두어(FORM_H) 오류가 떠도 창이 스크롤되지 않는다(known-issues 73).
+function handleForm(os, win) {
+  const hint = h('p', { className: 'meta' }, '아이디는 친구가 공유하기 창에서 정합니다.');
+  const error = h('p', { className: 'like-error', role: 'alert', hidden: true });
+  const { input, button, submit } = handleInput({
+    fail: lines => {
+      error.replaceChildren(...brLines(lines));
+      error.hidden = false;
+      hint.hidden = true;
+    },
+    clear: () => {
+      error.hidden = true;
+      hint.hidden = false;
+    },
+    go: (home, room) => {
+      win.close();
+      play('enter');
+      os.visit(home, room);
+    },
+  });
   return h('form', { className: 'handle-form', onsubmit: submit },
-    h('div', { className: 'share-row' }, input, go),
+    h('div', { className: 'share-row' }, input, button),
     h('div', { className: 'handle-msg' }, hint, error));
 }
 
