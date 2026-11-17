@@ -756,6 +756,46 @@ def check_pets():
     for kid in grown:
         if kid not in grows.values():
             err(where, f'{kid}: 자라서 되는 종류가 아닌데 grown 이 있다')
+    check_pet_moods(where, text, blocks)
+
+
+def check_pet_moods(where, text, blocks):
+    """data/pets.js 의 성격(mood)이 기본값(DEFAULT_MOOD)에 있는 이름만 쓰고 값의 모양이 같은지 본다.
+    src/pet.js는 기본값 위에 종류의 값을 덮어 읽으므로, 이름을 잘못 쓰면(obay) 아무 오류 없이 기본값대로 움직인다.
+    켜고 끄는 값은 true나 false, 범위는 [작은 수, 큰 수]이고, 걷는 칸 수(hop)는 1칸 이상 6칸 이하다."""
+    entry = re.compile(r'(\w+): (true|false|\[(\d+), (\d+)\])')
+
+    def parse(body):
+        found = entry.findall(body)
+        if ', '.join(f'{k}: {v}' for k, v, _, _ in found) != body:
+            return None
+        return {k: (v in ('true', 'false')) if not a else (int(a), int(b)) for k, v, a, b in found}
+
+    m = re.search(r'^export const DEFAULT_MOOD = \{ (.*) \};$', text, re.M)
+    base = parse(m.group(1)) if m else None
+    if not base:
+        err(where, 'DEFAULT_MOOD 를 읽지 못했다. { 이름: true, 이름: [수, 수] } 한 줄로 쓴다(tools/check.py 의 check_pet_moods)')
+        return
+    for body in blocks:
+        kid = (re.search(r"^    id: '([^']*)',", body, re.M) or [None, '?'])[1]
+        m = re.search(r'^    mood: \{ (.*) \},$', body, re.M)
+        if not m:
+            if re.search(r'^    mood:', body, re.M):
+                err(where, f'{kid}: mood 는 {{ 이름: 값, ... }} 한 줄로 쓴다')
+            continue
+        mood = parse(m.group(1))
+        if mood is None:
+            err(where, f'{kid}: mood 를 읽지 못했다. 값은 true, false, [수, 수] 가운데 하나다')
+            continue
+        for k, v in mood.items():
+            if k not in base:
+                err(where, f'{kid}: 성격 {k} 는 DEFAULT_MOOD 에 없는 이름이다({", ".join(base)} 가운데 하나를 쓴다)')
+            elif isinstance(v, tuple) != isinstance(base[k], tuple):
+                err(where, f'{kid}: 성격 {k} 의 모양이 기본값과 다르다(기본값은 {"[수, 수]" if isinstance(base[k], tuple) else "true나 false"})')
+            elif isinstance(v, tuple) and v[0] > v[1]:
+                err(where, f'{kid}: 성격 {k} 의 범위는 [작은 수, 큰 수] 차례로 쓴다')
+            elif k == 'hop' and not 1 <= v[0] <= v[1] <= 6:
+                err(where, f'{kid}: 걷는 칸 수(hop)는 1칸 이상 6칸 이하다')
 
 
 def check_storage_keys():

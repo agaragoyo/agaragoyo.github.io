@@ -78,7 +78,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     layer: el.wallpaper,
     avatar: () => walker,
     items: () => os.home?.scenes[os.place] || [],
-    figures: () => [walker?.spot(), ...(pet?.cells() || []), ...(pigeon?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 펫, 비둘기가 선 칸을 피한다
+    figures: () => [walker?.spot(), ...(pet?.claims() || []), ...(pigeon?.cells() || [])].filter(Boolean), // 빈칸의 말풍선은 아바타와 펫(따라오는 중이어도), 비둘기가 선 칸을 피한다
     canStart: ownRoom,
     // 다른 탭에 있거나 화면 보호기, 가구 가까이 보기가 방을 가리는 동안은 이상한 일이 늘어나는 시간을 세지 않는다
     canSee: () => !el.desktop.hidden && document.visibilityState === 'visible' && !os.closeup && !os.saver?.showing(),
@@ -311,6 +311,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         others: () => [pigeon].filter(Boolean), // 날아온 비둘기와 붙어 앉지 않는다
         look: () => settings.get('pet'),
         pat: petPatted,
+        menu: { root: stage, toStage }, // 오른쪽 단추로 누르면 따라오기, 기다리기, 쓰다듬기 메뉴를 시작 메뉴처럼 무대에 띄운다
       });
       pet.attach(os.place === SCENES[0].id);
     }

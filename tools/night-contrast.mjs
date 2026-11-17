@@ -15,6 +15,7 @@
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
+// 마지막으로 방의 펫을 오른쪽 단추로 눌러 뜨는 할 일 메뉴도 잰다(openPetMenu).
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
@@ -133,6 +134,15 @@ function openStartMenu() {
   return !menu.hidden;
 }
 
+// 방의 펫(src/pet.js)을 오른쪽 단추로 눌러 할 일 메뉴를 연다. 지금 보이는 그림 장의 칠한 칸에 contextmenu를 보낸다
+function openPetMenu() {
+  const path = [...document.querySelectorAll('#wallpaper .room-pet g[data-frame] path:not(.shade)')].find(p => p.parentElement.style.display !== 'none');
+  if (!path) return false;
+  const r = path.closest('svg').getBoundingClientRect();
+  path.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+  return !!document.querySelector('.pet-menu');
+}
+
 // 시작 메뉴를 열어 맨 위의 내 사진(sel이 .start-pic)이나 내 이름(.start-name)을 누른다.
 // 사진 바꾸기 창(src/user-pictures.js)이나 이름 바꾸기 창(src/user-name.js)이 열리고 시작 메뉴는 닫힌다
 function openUserWindow(sel) {
@@ -232,6 +242,7 @@ async function dayAndNight(selectors) {
     if (win) return `${win.querySelector('.win-title')?.textContent.trim() || '이름 없는'} 창`;
     if (el.closest('.closeup')) return '가구 가까이 보기';
     if (el.closest('#start-menu')) return '시작 메뉴';
+    if (el.closest('.pet-menu')) return '펫 메뉴';
     if (el.closest('#taskbar')) return '작업 표시줄';
     if (el.closest('.coach-card')) return '튜토리얼 카드';
     if (el.closest('#desktop')) return '바탕화면';
@@ -435,6 +446,11 @@ async function main() {
       await page.run(setDay);
       await sleep(150);
     }
+    // 방의 펫을 오른쪽 단추로 누르면 뜨는 할 일 메뉴(src/pet.js의 openMenu). 시작 메뉴처럼 무대에 뜨고 밤에는 창 바탕색을 쓴다.
+    // 밤으로 바꿔도 방을 다시 그리지 않아서 메뉴가 열린 채로 낮과 밤을 잰다
+    if (!(await page.run(openPetMenu))) throw new Stop('방의 펫을 오른쪽 단추로 눌러도 메뉴(.pet-menu)가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 openPetMenu도 고친다.');
+    await measure('펫 메뉴');
+    await page.run(() => document.querySelector('.pet-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   }
 
   console.log(`밤 모드 글자 대비 점검: 낮에는 ${LIMIT}:1 이상인데 밤에 그 아래로 떨어지는 글자를 센다`);

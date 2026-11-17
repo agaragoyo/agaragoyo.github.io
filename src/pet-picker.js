@@ -13,9 +13,10 @@ import { PET_COLS, PET_ROWS, NO_PET, PET_KINDS, petCell, petChoice, petPuppet, p
 // 큰 쪽에 안쪽 여백과 테두리 8px을 더한 값이다. 이름은 13px 글씨로 네 글자(기니피그)까지라 LABEL_W를 52px로 잡는다
 // (data/pets.js의 이름 길이는 tools/check.py가 본다). 펫 한 칸이 2.2px보다 작은 배율에서는 그림보다 이름이 넓다.
 // 종류 단추는 한 줄이라 창 폭은 종류 수로 정한다. 단추 사이 4px에 묶음(fieldset)의 안쪽 여백과 테두리 22px, 창 안쪽 여백 32px을 더한다.
-// 높이에는 큰 그림(2배)과 단추 두 줄의 그림 높이에 글자와 여백 OTHER_H를 더한다. 내용이 창보다 크면 닫기 단추가 스크롤 아래로 밀린다(known-issues 73)
+// 높이에는 큰 그림(2배)과 단추 두 줄의 그림 높이에 글자와 여백 OTHER_H를 더한다(오른쪽 단추 메뉴를 알리는 한 줄 26px 포함).
+// 내용이 창보다 크면 닫기 단추가 스크롤 아래로 밀린다(known-issues 73)
 const LABEL_W = 52;
-const OTHER_H = 220;
+const OTHER_H = 246;
 
 export function openPetPicker(os) {
   const { settings } = os;
@@ -95,6 +96,8 @@ export function openPetPicker(os) {
         h('div', { className: 'pet-app-head' }, big, name),
         h('fieldset', { className: 'labs-group' }, h('legend', {}, '종류'), kinds),
         toneSet,
+        // 방의 펫에 할 일을 시키는 메뉴(src/pet.js)는 오른쪽 단추 뒤에 숨어 있어 여기서 한 줄로 알린다
+        h('p', { className: 'meta' }, '펫을 마우스 오른쪽 단추로 누르면 따라오게 할 수 있습니다.'),
         h('div', { className: 'link-row' }, h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
       );
       render();
