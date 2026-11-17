@@ -19,7 +19,6 @@ export const IMAGE_H = ROOM_H * IMAGE_SCALE;
 
 // 그림 밖 바탕 색. style.css의 .room 배경(radial-gradient(ellipse at 50% 45%, A, B 75%))과 같은 값이다.
 // CSS 그라디언트는 값을 읽어 올 방법이 없어 여기에 따로 적었으므로 한쪽을 고치면 다른 쪽도 고친다(tools/check.py가 본다).
-// 2026-11-17까지는 놀이터의 하늘색(outdoor)도 있었다.
 const BACKDROP = {
   indoor: ['#cfe6ea', '#8fb8c4'],
 };

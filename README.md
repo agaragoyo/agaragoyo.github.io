@@ -88,7 +88,7 @@ https://agaragoyo.github.io/ 에서 직접 써 보고 버그나 아이디어가 
 - 다른 사이트에 있는 남의 게임은 파일을 옮겨 오지 않고 주소로 이어 줍니다. 창 안에 띄울 수 있으면 `src`에, 창 안에서 돌지 않으면 `href`에 주소를 넣습니다. `href`는 새 탭으로 열립니다.
 - 새 가구는 `data/furniture.js`에 한 줄을 넣고 그림을 `assets/furniture/<가구 id>.png`로 올립니다.
 - 방 안을 걷는 아바타는 `src/avatar.js`가 맡습니다. 아바타 그림은 `data/avatars.js`에 한 줄을 넣고 `assets/avatars/<아바타 id>.png`로 올리며, 그림 규격은 `data/avatars.js` 맨 위에 있습니다.
-- 새 공간은 `src/config.js`의 `SCENES`에 한 줄을 넣고 가구의 `scene`에 그 id를 적습니다. 지금은 내 방 하나입니다(놀이터는 2026-11-17에 뺐습니다).
+- 새 공간은 `src/config.js`의 `SCENES`에 한 줄을 넣고 가구의 `scene`에 그 id를 적습니다. 지금은 내 방 하나입니다.
 - 모니터와 화면 모양은 `index.html`과 `style.css`가 맡습니다. `style.css`는 절마다 제목 주석이 있고, 절의 순서는 `docs/file-map.md` 맨 아래에 있습니다.
 - 부팅, 창, 방 꾸미기, 배경음악처럼 컴퓨터 자체의 동작은 `src/` 폴더에 있습니다.
 

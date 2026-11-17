@@ -1510,7 +1510,7 @@ form.user { cursor: var(--cur-arrow); }
 .wall-swatch svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
 .wall-swatch[aria-pressed="true"] { border-color: var(--win-bar-b); box-shadow: 0 0 0 2px var(--win-bar-b); }
 
-/* ---------- 밤 모드 (스탠드, 가로등으로 켜고 끈다) ---------- */
+/* ---------- 밤 모드 (스탠드, 탁상 조명으로 켜고 끈다) ---------- */
 .stage[data-theme="night"] {
   --win-face: #2f3442;
   --win-paper: #1f2330;
