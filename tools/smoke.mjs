@@ -178,12 +178,16 @@ async function linkOf(home, owner) {
 //   write(serve에 더해 익명 로그인, 방 올리기, 쪽지 찾기, 방 지우기에도 답한다. 올린 방 글자는 window.__cloudSent에 차례로 남긴다)
 // 방마다 읽은 횟수는 window.__cloudCalls[번호]에 센다. 쪽지를 찾은 방 번호는 window.__noteBoards에 차례로 남긴다. 페이지를 새로 열면 풀리므로 열 때마다 다시 낀다.
 // notes: 코르크 보드의 쪽지 찾기에 답할 쪽지들({ name, text }). 하루씩 앞서 붙인 것으로, 색은 차례로 돌린다
-function fakeCloud(how, rooms = {}, notes = []) {
+// handles: 아이디마다 { uid, room }(src/cloud.js의 "아이디"). 읽기는 serve와 hold에도 답하고, 만들기와 지우기는 write에만 답한다.
+//   이미 있는 아이디를 다시 만들면 서버처럼 거절한다. 지금 아이디들은 window.__handles, 아이디마다 읽은 횟수는 window.__handleCalls에 있다
+function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   const real = window.fetch;
   const held = [];
   window.__cloudCalls = {};
   window.__cloudSent = [];
   window.__noteBoards = [];
+  window.__handles = handles;
+  window.__handleCalls = {};
   window.__cloudAnswer = () => held.splice(0).forEach(done => done());
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
   window.fetch = async (url, opts = {}) => {
@@ -203,6 +207,12 @@ function fakeCloud(how, rooms = {}, notes = []) {
     if (u.includes(':commit')) {
       if (!write) return reply({}, 403);
       for (const w of JSON.parse(opts.body).writes) {
+        const handle = (w.update?.name?.match(/\/handles\/(.+)$/) || [])[1];
+        if (handle) {
+          if (w.currentDocument?.exists === false && handle in handles) return reply({}, 409);
+          handles[handle] = { uid: w.update.fields.uid.stringValue, room: w.update.fields.room.stringValue };
+          continue;
+        }
         const code = w.update?.fields?.code?.stringValue;
         if (code) {
           window.__cloudSent.push(code);
@@ -210,6 +220,18 @@ function fakeCloud(how, rooms = {}, notes = []) {
         }
       }
       return reply({});
+    }
+    const handle = (u.match(/\/handles\/([^?/:]+)/) || [])[1];
+    if (handle) {
+      const key = decodeURIComponent(handle);
+      if ((opts.method || 'GET') === 'DELETE') {
+        if (!write) return reply({}, 403);
+        delete handles[key];
+        return reply({});
+      }
+      window.__handleCalls[key] = (window.__handleCalls[key] || 0) + 1;
+      const doc = handles[key];
+      return doc ? reply({ fields: { uid: { stringValue: doc.uid }, room: { stringValue: doc.room } } }) : reply({}, 404);
     }
     const id = (u.match(/\/homes\/([0-9A-Za-z]+)/) || [])[1];
     if ((opts.method || 'GET') === 'DELETE') {
@@ -829,7 +851,7 @@ async function walk(page, base) {
       await page.run(clickText, '#windows .win .btn', '링크 만들기');
       check('링크를 만들지 못하면 다시 누르거나 방 그림을 PNG로 내려받으라고 알린다', await until(page, () => /만들지 못했습니다.*PNG/.test(document.getElementById('toast').textContent)
         && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기' && !b.disabled), 5000));
-      await page.run(fakeCloud, 'write');
+      await page.run(fakeCloud, 'write', {}, [], { 이웃집: { uid: 'other-uid', room: 'Othr5678' } }); // 아이디 "이웃집"은 남이 먼저 정해 두었다
       await page.run(clickText, '#windows .win .btn', '링크 만들기');
       check('링크 만들기를 누르면 링크 칸에 #s= 링크가 나온다', await until(page, () => /#s=[0-9A-Za-z]{8}$/.test(document.querySelector('#windows .win input[aria-label="공유 링크"]')?.value || ''), 5000));
       check('서버에 올린 방에 내 사진이 담긴다', await page.run(async pic => {
@@ -838,6 +860,39 @@ async function walk(page, base) {
       }, firstPic));
       check('링크를 만든 뒤에는 링크 지우기 단추가 보인다', (await page.run(winText)).includes('링크 지우기'));
       await probe('링크를 만든 공유하기 창');
+      // 아이디(src/cloud.js의 "아이디"): 링크를 만들면 아이디 칸이 생기고 닉네임이 미리 들어 있다. 꼴이 틀린 아이디와 남이 먼저 정한 아이디는 칸 아래에 알리고,
+      // 정하면 칸이 읽기 전용이 되며 서버에 이 방의 번호로 남는다. 아이디 지우기는 한 번 더 묻고, 링크를 지우면 아이디도 같이 지운다(아래 링크 지우기)
+      const idSubmit = v => { const i = document.querySelector('#windows .win input[aria-label="내 아이디"]'); if (!i) return false; i.value = v; i.dispatchEvent(new Event('input')); i.closest('form').requestSubmit(); return true; };
+      const idError = () => { const e = document.querySelector('#windows .win .share-error'); return e && !e.hidden ? e.textContent : ''; };
+      const clickExact = (sel, text) => { const el = [...document.querySelectorAll(sel)].find(b => b.textContent === text); if (!el) return false; el.click(); return true; };
+      const noScroll = () => { const b = document.querySelector('#windows .win .win-body'); return !!b && b.scrollHeight <= b.clientHeight; };
+      const handleIs = (want, server) => {
+        const i = document.querySelector('#windows .win input[aria-label="내 아이디"]');
+        const st = JSON.parse(localStorage.getItem('agarago.cloud') || '{}');
+        return !!i && i.readOnly === !!want && (st.handle ?? null) === want && JSON.stringify(window.__handles[server] || null) === JSON.stringify(want ? { uid: 'fake-uid', room: st.id } : null);
+      };
+      check('링크를 만들면 아이디 칸이 생기고 닉네임이 미리 들어 있다', (await page.run(() => document.querySelector('#windows .win input[aria-label="내 아이디"]')?.value)) === '점검');
+      await page.run(idSubmit, 'a');
+      check('꼴이 틀린 아이디는 칸 아래에 꼴을 알린다', (await page.run(idError)) === '아이디는 한글, 영문, 숫자 2~12자입니다. 다시 입력해 주세요.');
+      await page.run(idSubmit, '이웃집');
+      check('남이 먼저 정한 아이디는 이미 사용 중이라고 알리고 친 글자를 칸에 남긴다', await until(page, () => {
+        const e = document.querySelector('#windows .win .share-error');
+        return !!e && !e.hidden && e.textContent === '이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.' && document.querySelector('#windows .win input[aria-label="내 아이디"]').value === '이웃집';
+      }, 5000));
+      check('아이디 칸 아래에 오류가 떠도 공유하기 창이 스크롤되지 않는다', await page.run(noScroll));
+      await probe('아이디 오류가 뜬 공유하기 창');
+      await page.run(idSubmit, ' Smoke Test ');
+      check('아이디를 정하면 대문자와 띄어쓰기를 맞춘 아이디로 칸이 읽기 전용이 되고 서버에 이 방의 번호로 남는다', await until(page, handleIs, 5000, 'smoketest', 'smoketest')
+        && (await page.run(() => document.querySelector('#windows .win input[aria-label="내 아이디"]').value)) === 'smoketest');
+      check('아이디를 정한 공유하기 창이 스크롤되지 않는다', await page.run(noScroll));
+      await probe('아이디를 정한 공유하기 창');
+      await page.run(clickExact, '#windows .win .btn', '아이디 지우기');
+      check('아이디 지우기를 누르면 지우기 전에 지운 아이디는 남이 정할 수 있다고 알린다', (await page.run(winText)).includes('지운 아이디는 다른 사람이 정할 수 있습니다.'));
+      await page.run(clickExact, '#windows .win .btn', '지우기');
+      check('지우기를 누르면 서버와 이 컴퓨터에서 아이디가 지워지고 칸에 닉네임이 다시 들어간다', await until(page, handleIs, 5000, null, 'smoketest')
+        && (await page.run(() => document.querySelector('#windows .win input[aria-label="내 아이디"]').value)) === '점검');
+      await page.run(idSubmit, '점검');
+      check('닉네임 그대로 아이디를 정할 수 있다', await until(page, handleIs, 5000, '점검', '점검'));
       // 이름 바꾸기(F28): 링크를 만든 방은 이름을 바꾸면 3초 뒤 서버의 방도 새 이름으로 고친다(src/cloud.js의 syncLater).
       // 공유하기 창을 연 채로 바꾸면 인사말 칸에 보이는 "주인 이름의 컴퓨터"도 따라 바뀐다. 이름 바꾸기 창의 나머지는 시작 메뉴 점검에서 본다
       await page.run(clickOnce, '.start-btn');
@@ -857,11 +912,13 @@ async function walk(page, base) {
       await page.run(nameSubmit, '점검');
       await until(page, () => !document.querySelector('#windows .name-app'), 3000);
       await page.run(clickText, '#windows .win .btn', '링크 지우기');
-      check('링크 지우기를 누르면 지우기 전에 이 링크가 더는 열리지 않는다고 알린다', (await page.run(winText)).includes('이 링크는 더는 열리지 않습니다.'));
+      check('링크 지우기를 누르면 지우기 전에 아이디도 지우고 이 링크가 더는 열리지 않는다고 알린다', (await page.run(winText)).includes('서버에서 방과 쪽지, 아이디를 지웁니다. 이 링크는 더는 열리지 않습니다.'));
       await page.run(clickText, '#windows .win .btn', '지우기');
-      check('지우기를 누르면 링크 칸이 사라지고 링크 만들기로 돌아간다', await until(page, () => !document.querySelector('#windows .win input[aria-label="공유 링크"]')
+      check('지우기를 누르면 링크 칸과 아이디 칸이 사라지고 링크 만들기로 돌아간다', await until(page, () => !document.querySelector('#windows .win input[aria-label="공유 링크"]')
+        && !document.querySelector('#windows .win input[aria-label="내 아이디"]')
         && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기')
         && !JSON.parse(localStorage.getItem('agarago.cloud') || '{}').id, 5000));
+      check('링크를 지우면 서버와 이 컴퓨터에서 아이디도 지워진다', await page.run(() => !('점검' in window.__handles) && !JSON.parse(localStorage.getItem('agarago.cloud') || '{}').handle));
     }
     await closeWindows();
   }
@@ -1694,7 +1751,8 @@ async function walk(page, base) {
   await probe('이웃집 목록 창');
   const shown = (await page.run(listRows)).find(r => r.id === LINK_NEIGHBOR.id);
   check('목록 창에는 서버의 방 주인 이름과 사진이 보이고 놀러 가기 단추가 눌린다', shown?.name === SERVER_NAME && shown.pic === 'cake' && !shown.wait && !shown.off, JSON.stringify(shown));
-  check('목록 창 아래에 돌아오는 길을 알린다', (await page.run(() => document.querySelector('#windows .neighbor-app p.meta')?.textContent || '')).includes('내 컴퓨터로 아이콘'));
+  // 알림 줄은 창 본문(.neighbor-app)의 바로 아래 자식인 p.meta다. 아이디 칸 안의 안내(.handle-form p.meta)가 더 앞에 있어서 바로 아래 자식만 본다(known-issues 72와 같은 함정)
+  check('목록 창 아래에 돌아오는 길을 알린다', (await page.run(() => document.querySelector('#windows .neighbor-app > p.meta')?.textContent || '')).includes('내 컴퓨터로 아이콘'));
   check('목록 창에서 놀러 가기를 누른다', await page.run(goRow, LINK_NEIGHBOR.id));
   check('놀러 가기를 누르면 서버에서 받은 그 집에 손님으로 들어간다', await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
     && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
@@ -2373,6 +2431,62 @@ async function walk(page, base) {
     && await until(page, n => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden
       && document.querySelectorAll('#wallpaper .furn').length === n, 5000, HOME.scenes.room.length));
   await extraNeighbor(page, null);
+
+  // ---------- 아이디로 찾아가기 ----------
+  // 이웃집 목록 창 아래의 아이디 칸에 친구 아이디를 치고 놀러 가기를 누르면 그 아이디의 방에 손님으로 들어간다(src/neighbors.js의 handleForm).
+  // 서버는 fakeCloud가 대신한다(아이디 문서는 handles). 빈 칸, 꼴이 틀린 아이디, 없는 아이디, 방이 없는 아이디, 내 방의 아이디, 서버에 닿지 못할 때를 차례로 본다
+  const ID_FRIEND = '아이디친구';
+  const ID_ROOM = 'Hndl5678';
+  const ID_HANDLES = { 친구: { uid: 'friend-uid', room: ID_ROOM }, ghost: { uid: 'ghost-uid', room: 'Gone5678' }, me: { uid: 'fake-uid', room: 'Mine5678' } };
+  check('아이디 점검의 집이 검사를 통과한다', (await page.run(plantHome, HOME)) === HOME.scenes.room.length);
+  await open();
+  const idRooms = { [ID_ROOM]: await page.run(linkOf, HOME, ID_FRIEND) };
+  await page.run(fakeCloud, 'serve', idRooms, [], ID_HANDLES);
+  await powerOn();
+  check('아이디 점검: 내 사용자로 들어간다', await toMyRoom());
+  await page.run(clickTwice, '#wallpaper .door-hit');
+  check('이웃집 목록 창 아래에 친구 아이디 칸과 놀러 가기 단추가 있다', await until(page, () => !!document.querySelector('#windows .neighbor-app .handle-form input[aria-label="친구 아이디"]'), 15000));
+  // 아이디를 치고 놀러 가기를 누른 뒤 찾기가 끝나기를(단추가 다시 눌리거나 창이 닫히기를) 기다려 칸 아래의 오류를 돌려준다. 오류가 없으면 빈 글자다
+  const visitSays = async v => {
+    await page.run(t => {
+      const f = document.querySelector('#windows .neighbor-app .handle-form');
+      const i = f.querySelector('input');
+      i.value = t;
+      i.dispatchEvent(new Event('input'));
+      f.requestSubmit();
+    }, v);
+    await until(page, () => { const b = document.querySelector('#windows .neighbor-app .handle-form .btn'); return !b || !b.disabled; }, 5000);
+    return page.run(() => { const e = document.querySelector('#windows .neighbor-app .handle-form .like-error'); return e && !e.hidden ? e.textContent : ''; });
+  };
+  check('빈 칸으로 놀러 가기를 누르면 친구 아이디를 입력해 달라고 한다', (await visitSays('')) === '친구 아이디를 입력해 주세요.');
+  check('꼴이 틀린 아이디는 서버에 묻지 않고 꼴과 할 일을 한 줄씩 알린다', (await visitSays('a!')) === '아이디는 한글, 영문, 숫자 2~12자입니다.아이디를 다시 확인해 주세요.'
+    && (await page.run(() => Object.keys(window.__handleCalls).length)) === 0);
+  check('없는 아이디는 없는 아이디라고 알린다', (await visitSays('없는아이디')) === '없는 아이디입니다.아이디를 다시 확인해 주세요.');
+  check('아이디는 있는데 방이 없으면 없는 아이디와 같이 알린다', (await visitSays('ghost')) === '없는 아이디입니다.아이디를 다시 확인해 주세요.');
+  check('오류 두 줄이 떠도 이웃집 목록 창과 목록이 스크롤되지 않는다', await page.run(() => {
+    const a = document.querySelector('#windows .neighbor-app');
+    const l = a?.querySelector('.neighbor-list');
+    return !!l && a.scrollHeight <= a.clientHeight && l.scrollHeight <= l.clientHeight;
+  }));
+  await probe('아이디 오류가 뜬 이웃집 목록 창');
+  // 이 컴퓨터가 올린 방의 아이디. 올린 방 번호는 묻는 동안만 심는다(남겨 두면 방을 고칠 때 가짜 서버에 올리려다 거절당한다)
+  await page.run(id => { const s = JSON.parse(localStorage.getItem('agarago.cloud') || '{}'); localStorage.setItem('agarago.cloud', JSON.stringify({ ...s, id })); }, ID_HANDLES.me.room);
+  const ownSays = await visitSays('me');
+  await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.cloud') || '{}'); delete s.id; localStorage.setItem('agarago.cloud', JSON.stringify(s)); });
+  check('내 방의 아이디를 치면 들어가지 않고 친구의 아이디를 넣어 달라고 한다', ownSays === '내 방의 아이디입니다.친구의 아이디를 입력해 주세요.');
+  await page.run(fakeCloud, 'offline');
+  check('서버에 닿지 못하면 찾지 못했다고 알리고 잠시 후 다시 해 달라고 한다', (await visitSays('친구')) === '아이디를 찾지 못했습니다.잠시 후 다시 시도해 주세요.');
+  check('찾지 못해도 친 아이디는 칸에 남는다', (await page.run(() => document.querySelector('#windows .neighbor-app .handle-form input')?.value)) === '친구');
+  await page.run(fakeCloud, 'serve', idRooms, [], ID_HANDLES);
+  await visitSays(' @친 구 ');
+  check('띄어쓰기와 맨 앞의 @가 섞여도 그 아이디의 방에 손님으로 들어간다', await until(page, (n, owner) => document.getElementById('stage').dataset.mode === 'visit'
+    && !document.getElementById('desktop').hidden && !document.querySelector('#windows .neighbor-app')
+    && document.querySelectorAll('#wallpaper .furn').length === n && document.querySelector('#wallpaper .room-owner-name')?.textContent === owner, 8000, HOME.scenes.room.length, ID_FRIEND));
+  check('아이디의 방은 아이디를 한 번, 방을 한 번만 묻는다', (await page.run(id => JSON.stringify([window.__handleCalls['친구'], window.__cloudCalls[id]]), ID_ROOM)) === '[1,1]');
+  // 아이디로 온 손님도 짧은 링크로 온 손님처럼 그 방의 코르크 보드에 쪽지를 남긴다(boardId가 그 방의 번호)
+  await use('corkboard', () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), '아이디로 온 손님에게도 쪽지 남기기 단추가 보인다');
+  check('아이디로 온 집의 코르크 보드는 그 방의 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === ID_ROOM);
+  await press(page, 'Escape');
 
   // ---------- 긴 글(known-issues 83) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.

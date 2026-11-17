@@ -9,9 +9,10 @@
 // 이름도 같다. link 이웃집은 받은 방의 주인 이름을 써서 주인이 이름 바꾸기(F28)로 닉네임을 바꾸면 따라 바뀌고, 받기 전과 room 이웃집은 목록의 이름을 쓴다.
 // 고정한 이웃집(link 줄에 복사본 keep이 있는 줄)은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌을 때 복사본으로 대신 열어서 사라지지 않는다.
 // 그런 방을 올린 브라우저에서는 서버의 방을 지우는 길(이 컴퓨터 초기화, 공유하기의 링크 지우기)을 막는다(pinnedHere).
+// 목록 창 아래에는 아이디 칸이 있다. 친구가 공유하기 창에서 정한 아이디를 치면 목록에 없는 친구의 방에도 링크 없이 놀러 간다(handleForm).
 import { NEIGHBORS } from '../data/neighbors.js';
 import { decodeHome, linkId } from './share.js';
-import { fetchHome, sharedId } from './cloud.js';
+import { fetchHome, sharedId, findHandle, normalHandle, HANDLE_RE } from './cloud.js';
 import { line } from './likes.js';
 import { pictureEl } from './user-pictures.js';
 import { h, fitText } from './util.js';
@@ -112,6 +113,7 @@ export const shownNeighbors = (owner = '') => NEIGHBOR_LIST.filter(n => neighbor
 // 창 높이는 열 때의 줄 수로 정하고(ROWS줄까지), 그보다 많으면 목록만 창 안에서 스크롤한다.
 const ROW_H = 60; // 목록 한 줄의 높이(style.css의 .neighbor-row)
 const ROWS = 6;   // 스크롤하지 않고 보이는 줄 수
+const FORM_H = 100; // 목록 아래 아이디 칸의 높이(style.css의 .handle-form. 위 여백 4, 선 1, 선 아래 여백 12, 칸 줄 35, 안내나 오류 두 줄 자리 48). 오류가 떠도 창이 스크롤되지 않는다
 export function openNeighbors(os) {
   const owner = os.home.owner;
   const list = shownNeighbors(owner);
@@ -125,8 +127,8 @@ export function openNeighbors(os) {
     app: { title: '이웃집', icon: 'builtin:neighbor' },
     title: '이웃집 놀러 가기',
     width: 400,
-    // 창 안쪽 여백(28), 줄들, 알림 줄(위 여백 10, 한 줄 23), 닫기 단추 줄(46)
-    height: 28 + Math.max(1, Math.min(list.length, ROWS)) * ROW_H + (notes.length ? 10 + notes.length * 23 : 0) + 46,
+    // 창 안쪽 여백(28), 줄들, 아이디 칸, 알림 줄(위 여백 10, 한 줄 23), 닫기 단추 줄(46)
+    height: 28 + Math.max(1, Math.min(list.length, ROWS)) * ROW_H + FORM_H + (notes.length ? 10 + notes.length * 23 : 0) + 46,
     build(body, win) {
       body.classList.add('neighbor-app');
       const rows = h('ul', { className: 'neighbor-list' });
@@ -169,12 +171,70 @@ export function openNeighbors(os) {
       empty();
       body.append(...[
         rows,
+        handleForm(os, win),
         notes.length ? h('p', { className: 'meta' }, ...notes.flatMap((t, i) => (i ? [h('br'), t] : [t]))) : null,
         h('div', { className: 'link-row' }, h('button', { className: 'btn', type: 'button', onclick: () => win.close() }, '닫기')),
       ].filter(Boolean));
       for (const r of rows.children) fitName(r);
     },
   });
+}
+
+// 목록 창 아래의 아이디 칸. 친구가 공유하기 창에서 정한 아이디(src/cloud.js의 "아이디")를 치고 놀러 가기를 누르면 그 방에 손님으로 들어간다.
+// 짧은 링크로 온 손님처럼 그 방의 코르크 보드에 쪽지를 남긴다(boardId가 방 번호). 대문자, 띄어쓰기, 맨 앞의 @는 normalHandle이 맞춰 준다.
+// 오류는 목록이 빈 때처럼 일어난 일과 할 일을 한 줄씩 쓰고(창 폭 360px), 친 글자는 그대로 두어 고쳐 치게 한다.
+// 아이디가 있는데 방이 없거나 깨졌으면 없는 아이디와 같이 알린다. 손님에게는 어느 쪽이든 그 아이디로 갈 곳이 없다.
+// 오류 자리는 늘 두 줄을 잡아 두어(FORM_H) 오류가 떠도 창이 스크롤되지 않는다(known-issues 73).
+function handleForm(os, win) {
+  const input = h('input', { type: 'text', maxLength: 24, placeholder: '친구 아이디', 'aria-label': '친구 아이디', autocomplete: 'off' });
+  input.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다(known-issues 50)
+  const go = h('button', { type: 'submit', className: 'btn' }, '놀러 가기');
+  const hint = h('p', { className: 'meta' }, '아이디는 친구가 공유하기 창에서 정합니다.');
+  const error = h('p', { className: 'like-error', role: 'alert', hidden: true });
+  const fail = (...lines) => {
+    error.replaceChildren(...lines.flatMap((t, i) => (i ? [h('br'), t] : [t])));
+    error.hidden = false;
+    hint.hidden = true;
+    input.focus();
+  };
+  input.addEventListener('input', () => {
+    error.hidden = true;
+    hint.hidden = false;
+  });
+  const busy = on => {
+    go.style.minWidth = on ? `${go.offsetWidth}px` : '';
+    go.disabled = on;
+    go.textContent = on ? '찾는 중' : '놀러 가기';
+  };
+  const submit = async e => {
+    e.preventDefault();
+    if (go.disabled) return;
+    const handle = normalHandle(input.value);
+    if (!handle) return fail('친구 아이디를 입력해 주세요.');
+    if (!HANDLE_RE.test(handle)) return fail('아이디는 한글, 영문, 숫자 2~12자입니다.', '아이디를 다시 확인해 주세요.');
+    busy(true);
+    let room = null;
+    let home = null;
+    try {
+      room = await findHandle(handle);
+      const code = room && room !== sharedId() ? await fetchHome(room) : null;
+      home = code ? decodeHome(code) : null;
+    } catch (err) {
+      console.warn('아이디의 방을 받지 못했다', handle, err);
+      busy(false);
+      return fail('아이디를 찾지 못했습니다.', '잠시 후 다시 시도해 주세요.');
+    }
+    busy(false);
+    if (!input.isConnected) return; // 기다리는 사이에 창을 닫았다
+    if (room && room === sharedId()) return fail('내 방의 아이디입니다.', '친구의 아이디를 입력해 주세요.');
+    if (!home) return fail('없는 아이디입니다.', '아이디를 다시 확인해 주세요.');
+    win.close();
+    play('enter');
+    os.visit(home, room);
+  };
+  return h('form', { className: 'handle-form', onsubmit: submit },
+    h('div', { className: 'share-row' }, input, go),
+    h('div', { className: 'handle-msg' }, hint, error));
 }
 
 // 목록 창의 한 줄. onGo가 없으면 받는 중인 줄이다(사진 자리에 '…', 이름 아래에 "불러오는 중", 단추는 눌리지 않는다).
