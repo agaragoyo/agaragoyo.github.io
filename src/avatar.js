@@ -159,6 +159,13 @@ export function depthZ(items, a, rect = spriteRect(a)) {
   return z + 1;
 }
 
+// 칸 a로 앞뒤를 정한 그림의 네모 rect(무대 px)를 가리는 바닥 가구가 있는지. depthZ로 정한 순서보다 순서가 높은 가구가 rect와 겹치면 가린다.
+// 날아드는 비둘기 떼(src/pigeon.js)가 나는 동안 가구 뒤로 숨는 칸에는 앉지 않게 할 때 쓴다
+export function covered(items, a, rect) {
+  const z = depthZ(items, a, rect);
+  return items.some(it => !isWall(it) && zOf(items, it) > z && overlaps(rect, furnRect(items, it)));
+}
+
 // 아바타 그림 상자 하나. 그림 파일(sheet)이 없으면 임시 그림을 배경으로 깐다.
 // guest: 주인 아바타가 서 있는 친구 집의 손님이면 손님 옷 색(guestColor)의 임시 그림을 쓴다. 그림 파일은 색을 바꾸지 못해 그대로 쓴다
 function avatarEl(avatarId, guest = false) {
