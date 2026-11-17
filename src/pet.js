@@ -12,6 +12,8 @@
 // 할 일은 펫을 마우스 오른쪽 단추로 누르면 뜨는 메뉴에서 시킨다(마인크래프트의 늑대를 앉히고 일으키는 것처럼). 명령을 듣지 않는 종류(obey가 거짓, 고양이)는
 // 아바타 쪽으로 고개를 돌려 쳐다보다가 돌아서기만 한다. 앉아 있는 동안에는 1초마다 숨을 쉬고(머리와 몸 윗부분이 한 칸 내려온다) 3~6초마다 0.15초 동안 눈을 감는다.
 // 두 번 누르면(메뉴의 "쓰다듬기"와 같다) 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 1초 동안 눈을 감고 머리 위에 하트가 뜬다(기니피그는 폴짝 뛴다, pop).
+// 그때 종류마다의 소리(data/pets.js의 sound)를 한 번 낸다. 소리는 아바타가 다 걸어온 뒤에 나서 누른 순간보다 늦으므로, 사파리가 막지 않게
+// 누른 순간에 소리를 만들어 둔다(pat의 prime, known-issues 101).
 // 물과 밥은 집에 저장해야 해서 넣지 않았다. 펫은 화면에만 있고 집 저장 형식과 공유 링크에는 아무것도 담지 않는다(새로 고침하면 다른 칸에서 시작하고, 할 일도 처음으로 돌아간다).
 // 혼자 놀거나 기다리는 펫이 차지한 칸(걷는 동안은 두 칸)은 아바타가 지나가지 못하고(src/avatar.js의 host.others가 부르는 cells), 두 그림이 겹치면 앞에 선 쪽이 위에 그려진다(order).
 // 가구와의 앞뒤는 아바타와 같은 규칙(depthZ)이다. 혼자 놀 때는 벽에 붙은 줄(x나 y가 0)에 가지 않는다. 아바타가 벽 가구와 문을 쓰러 가서 서는 칸이라서다.
@@ -25,6 +27,7 @@ import { N } from './config.js';
 import { tile } from './iso.js';
 import { depthZ, blockedOf, overlaps } from './avatar.js';
 import { h, clamp, doubleClick, reduceMotion } from './util.js';
+import { play, prime } from './sound.js';
 import { PET_SPECIES, DEFAULT_PET, DEFAULT_MOOD } from '../data/pets.js';
 
 export const PET_COLS = 24;     // 그림 한 장의 가로 칸 수(data/pets.js)
@@ -694,13 +697,15 @@ export function mountPet(host) {
     walker.approachCell({ x: cell.x, y: cell.y }, then);
   }
 
-  // 쓰다듬는 아바타 쪽을 보고 1초 동안 눈을 감으며, 머리 위에 하트를 띄운다. 기니피그(mood.pop)는 제자리에서 두 번 폴짝 뛴다.
-  // 쓰다듬은 횟수는 host.pat이 센다. 이번에 다 자라면 그 안에서 restyle이 불려 그림이 바뀌므로, 하트 높이를 자란 그림에 맞추려고 먼저 부른다
+  // 쓰다듬는 아바타 쪽을 보고 1초 동안 눈을 감으며, 머리 위에 하트를 띄우고 종류마다의 소리를 낸다. 기니피그(mood.pop)는 제자리에서 두 번 폴짝 뛴다.
+  // 쓰다듬은 횟수는 host.pat이 센다. 이번에 다 자라면 그 안에서 restyle이 불려 그림이 바뀌므로, 하트 높이를 자란 그림에 맞추려고 먼저 부른다.
+  // 소리도 그 뒤에 골라서, 소리가 없는 병아리도 열 번째에 닭이 되는 순간에는 닭 소리를 낸다
   function love() {
     if (!cell || !el.isConnected) return;
     waiting = false;
     clearTimeout(callTimer);
     host.pat?.();
+    if (species.sound) play(species.sound);
     const s = host.avatar()?.spot();
     if (s) right = s.x - s.y > cell.x - cell.y;
     sit();
@@ -729,6 +734,9 @@ export function mountPet(host) {
   // 두 번 누르거나 메뉴에서 "쓰다듬기"를 고르면 쓰다듬는다. 걷던 중이면 들어가던 칸까지 마저 걷고 settle에서 부른다. 나는 동안에는 받지 않는다
   function pat() {
     if (!cell || waiting || pending || flying) return;
+    // 소리는 아바타가 다 걸어온 뒤에 내지만, 사파리가 막지 않게 누른 지금 만들어 둔다(src/sound.js의 prime).
+    // 이번에 자라면 자란 종류의 소리를 내므로 그 소리도 만든다. 날아온 비둘기는 놀라 날아갈 때 이 소리를 낸다(src/pigeon.js)
+    prime(...[species, PET_SPECIES.find(s => s.id === species.grow)].map(s => s?.sound).filter(Boolean));
     if (walking) {
       route = [];
       pending = true;

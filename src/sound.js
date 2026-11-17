@@ -16,6 +16,15 @@ const EFFECTS = {
   light: { files: ['light.mp3'], vol: 0.6 },                           // 불 끄고 켜기
   enter: { files: ['enter.mp3'], vol: 0.5 },                           // 이웃집에 놀러 갈 때와 공간을 옮길 때(문 닫히는 소리)
   furniture: { files: ['furniture-1.mp3', 'furniture-2.mp3', 'furniture-3.mp3'], vol: 0.45 }, // 가구를 놓을 때
+  // 내 방의 펫을 쓰다듬을 때(src/pet.js의 love). 종류마다 data/pets.js의 sound로 고른다. 파일은 최고점을 -3dB로 맞췄고,
+  // vol은 귀가 느끼는 크기(K 가중 400ms 창의 가장 큰 값)가 가구 놓기, 불, 문 소리의 평균(-26.7 LUFS)에 오게 정했다.
+  // pet-bird는 말풍선 암호로 날아온 비둘기가 놀라 날아갈 때도 낸다(src/pigeon.js)
+  'pet-dog': { files: ['pet-dog.mp3'], vol: 0.5 },
+  'pet-cat': { files: ['pet-cat.mp3'], vol: 0.2 },
+  'pet-guineapig': { files: ['pet-guineapig.mp3'], vol: 0.3 },
+  'pet-chicken': { files: ['pet-chicken.mp3'], vol: 0.15 },
+  'pet-elephant': { files: ['pet-elephant.mp3'], vol: 0.15 },
+  'pet-bird': { files: ['pet-bird.mp3'], vol: 0.15 },
 };
 
 // 바탕화면 내 방의 배경음악. 주인이 배경음악 앱(src/apps/music-app.js)에서 고른다.
@@ -49,10 +58,23 @@ const soundOn = () => !!settings.get('sound');
 const isAway = () => document.hidden || !document.hasFocus();
 let away = isAway();
 
+const pick = fx => DIR + fx.files[Math.floor(Math.random() * fx.files.length)];
+
+// 누른 순간에 효과음을 미리 만들어 두면, 나중에 그 이름으로 play를 부를 때 이 Audio를 쓴다. 이름마다 하나만 두고 쓰면 비운다.
+// 사파리(WebKit)는 기본 설정에서 누른 순간이 아닌 재생을 막아서, 아바타가 걸어간 뒤처럼 기다렸다 새로 만든 Audio의 play()는 소리가 나지 않는다.
+// 누른 순간에 만든 미디어 요소에는 그 제한을 걸지 않으므로(HTMLMediaElement가 만들어질 때 사용자 입력 중인지 본다) 누를 때 만들어 둔다.
+// 크롬과 파이어폭스는 한 번 누른 페이지의 재생을 막지 않아서 이것이 없어도 소리가 난다(known-issues 101)
+const primed = new Map();
+export function prime(...names) {
+  if (!soundOn()) return;
+  for (const name of names) if (EFFECTS[name]) primed.set(name, new Audio(pick(EFFECTS[name])));
+}
+
 export function play(name) {
   const fx = EFFECTS[name];
   if (!fx || !soundOn() || isAway()) return;
-  const a = new Audio(DIR + fx.files[Math.floor(Math.random() * fx.files.length)]);
+  const a = primed.get(name) || new Audio(pick(fx));
+  primed.delete(name);
   a.volume = fx.vol;
   effects.add(a);
   a.onended = a.onerror = () => effects.delete(a);
