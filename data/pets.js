@@ -24,7 +24,9 @@
 //   grow는 자라서 될 종류의 id다. 쓰다듬은 횟수가 src/pet.js의 GROW_PATS번이 되면 같은 색 id의 그 종류로 바뀌므로, 자란 종류에도
 //   같은 색 id를 둔다(이름과 색은 달라도 된다. 노랑 병아리는 흰 닭이 된다). 자란 종류의 grown은 그때 아바타가 하는 말이다.
 //   mood는 성격이다. 아래 DEFAULT_MOOD와 다른 값만 적는다.
-//   tools/check.py의 check_pets가 줄 수와 칸 수, 쓰는 글자, 색 모양, 이름 길이, 자라는 종류의 짝, 성격 값의 이름과 모양을 본다.
+//   sound는 쓰다듬을 때 한 번 내는 소리의 이름이다(src/sound.js의 EFFECTS). 없으면 소리 없이 쓰다듬는다(병아리, 코알라, 공룡은 맞는 소리 파일이 없다).
+//   자라는 종류는 다 자라는 순간(열 번째로 쓰다듬을 때)부터 자란 종류의 소리를 낸다.
+//   tools/check.py의 check_pets가 줄 수와 칸 수, 쓰는 글자, 색 모양, 이름 길이, 자라는 종류의 짝, 성격 값의 이름과 모양, 소리 이름을 본다.
 
 // 아직 고르지 않았을 때 나오는 펫. 실험실에 처음 넣은 임시 고양이와 같은 회색 고양이다
 export const DEFAULT_PET = 'cat/gray';
@@ -47,6 +49,7 @@ export const PET_SPECIES = [
     id: 'dog',
     name: '강아지',
     breath: 16,
+    sound: 'pet-dog',
     mood: { rest: [6000, 12000], hop: [2, 5] },
     colors: [
       { id: 'brown', name: '갈색', b: '#e8bf8c', d: '#d4a26e', w: '#fdf0dc', m: '#b98256', e: '#4b3426', c: '#ff9fb2' },
@@ -127,6 +130,7 @@ export const PET_SPECIES = [
     id: 'cat',
     name: '고양이',
     breath: 16,
+    sound: 'pet-cat',
     mood: { obey: false, perch: true },
     colors: [
       { id: 'gray', name: '회색', b: '#c5cada', d: '#a8aec3', w: '#f6f4f0', m: '#959cb3', e: '#3c3a4c', c: '#ffaec4' },
@@ -230,6 +234,7 @@ export const PET_SPECIES = [
     id: 'hamster',
     name: '기니피그',
     breath: 15,
+    sound: 'pet-guineapig',
     mood: { edge: true, pop: true },
     colors: [
       { id: 'golden', name: '골든', b: '#f5c98e', d: '#e5ad6e', w: '#fff6e8', m: '#e1a066', e: '#3d2b22', c: '#ff9fb4' },
@@ -391,6 +396,7 @@ export const PET_SPECIES = [
     id: 'chicken',
     name: '닭',
     breath: 14,
+    sound: 'pet-chicken',
     grown: '벌써 닭이 됐네!',
     mood: { peck: true, rest: [5000, 10000], hop: [1, 3] },
     colors: [
@@ -472,6 +478,7 @@ export const PET_SPECIES = [
     id: 'pigeon',
     name: '비둘기',
     breath: 15,
+    sound: 'pet-bird',
     mood: { edge: true },
     colors: [
       { id: 'gray', name: '회색', b: '#b4bdd0', d: '#98a2ba', w: '#dde2ec', m: '#9fd8c6', e: '#33364a', c: '#ffa3b6' },
@@ -596,6 +603,7 @@ export const PET_SPECIES = [
     id: 'elephant',
     name: '코끼리',
     breath: 16,
+    sound: 'pet-elephant',
     colors: [
       { id: 'gray', name: '회색', b: '#bcc5da', d: '#a0aac4', w: '#e1e7f2', m: '#f2bccb', e: '#353a52', c: '#ffb0c4' },
       { id: 'pink', name: '분홍', b: '#f7c6d6', d: '#e9a9bf', w: '#fde5ee', m: '#f0a3bd', e: '#4b2f3e', c: '#ff8fb0' },

@@ -694,9 +694,11 @@ def check_pets():
     눈 감은 그림은 하이라이트(h)가 든 눈에서 만들므로(src/pet.js의 shut) 앉은 그림에 h가 있는지도 본다.
     펫 바꾸기 창의 단추는 모두 네 글자 폭이라(src/pet-picker.js의 LABEL_W) 종류와 색의 이름이 네 글자를 넘지 않는지 본다.
     자라는 종류(grow)는 자란 종류가 목록에 있고 더 자라지 않는지, 색 id가 같은지(자라도 고른 색이 이어진다),
-    자란 종류에 그때 아바타가 할 말(grown, 말풍선 한 줄 13자까지)이 있는지 본다."""
+    자란 종류에 그때 아바타가 할 말(grown, 말풍선 한 줄 13자까지)이 있는지 본다.
+    쓰다듬을 때 내는 소리(sound)는 src/sound.js 의 효과음(EFFECTS) 이름인지 본다(없는 이름이면 play가 아무 소리 없이 넘어간다)."""
     where = 'data/pets.js'
     text = read(where)
+    effects = set(re.findall(r"^  '?([a-z0-9-]+)'?: \{ files:", read('src/sound.js'), re.M))
     blocks = re.findall(r'^  \{\n(.*?)^  \},', text, re.S | re.M)
     if not blocks:
         err(where, '펫을 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_pets 도 고친다)')
@@ -725,6 +727,9 @@ def check_pets():
         m = re.search(r"^    grown: '([^']*)',", body, re.M)
         if m:
             grown[kid] = m.group(1)
+        m = re.search(r"^    sound: '([^']*)',", body, re.M)
+        if m and m.group(1) not in effects:
+            err(where, f"{kid}: 쓰다듬을 때 내는 소리 '{m.group(1)}' 가 src/sound.js 의 효과음(EFFECTS)에 없다")
         colors = re.findall(r"^      \{ id: '([^']*)', name: '([^']+)', b: '#[0-9a-f]{6}', d: '#[0-9a-f]{6}', w: '#[0-9a-f]{6}', "
                             r"m: '#[0-9a-f]{6}', e: '#[0-9a-f]{6}', c: '#[0-9a-f]{6}' \},$", body, re.M)
         lines = re.findall(r"^      \{ id: ", body, re.M)

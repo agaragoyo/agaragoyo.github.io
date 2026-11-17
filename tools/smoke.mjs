@@ -9,7 +9,7 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기(현관문과 창문, 움직임 줄이기),
-// 내 방의 펫(펫 바꾸기 창, 쓰다듬기, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
+// 내 방의 펫(펫 바꾸기 창, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
 // 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
@@ -23,7 +23,7 @@
 // 그래도 새는 요청이 없게 Firebase 주소와 유튜브 플레이어, API 스크립트는 크롬이 받지 않게 막는다(main의 BLOCKED).
 // 유튜브 재생목록 CD의 이전 곡, 다음 곡 단추는 유튜브 API(window.YT)를 페이지 안의 가짜로 바꿔 끼워(fakePlayer) 단추가 언제 쉬고 켜지는지와 보내는 명령을 본다.
 // 그 밖에는 짧은 링크가 없는 집과 CD가 없는 라디오로 본다.
-// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
+// 눈으로 봐야 하는 것(그림의 모양, 색, 소리)은 보지 않는다. 소리는 배경음악이 꺼지고 켜지는지와 펫과 비둘기가 부르는 소리 파일의 이름만 본다. 밤 모드의 글자 대비는 tools/night-contrast.mjs가 잰다.
 // 새 창이나 가구 화면을 만들면 main의 해당 자리에 한 줄을 더한다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
 import fs from 'node:fs';
@@ -449,6 +449,10 @@ function catchAudio() {
   window.__audios = new Set();
   const play = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () { window.__audios.add(this); return play.call(this); };
+  // 만든 Audio도 적어 둔다(누른 순간에 미리 만드는 펫 소리, src/sound.js의 prime)
+  window.__made = [];
+  const RealAudio = window.__RealAudio || (window.__RealAudio = window.Audio);
+  window.Audio = function (src) { const a = new RealAudio(src); window.__made.push(a); return a; };
 }
 // 지금 흐르는 배경음악(되풀이해 트는 소리)이 want인가. 'on' 소리가 난다, 'muted' 곡은 흐르는데 소리만 꺼졌다, 'none' 흐르는 곡이 없다
 function musicIs(want) {
@@ -459,6 +463,19 @@ const effectCount = () => [...(window.__audios || [])].filter(a => !a.loop).leng
 async function playEffect(name) {
   (await import(new URL('src/sound.js', document.baseURI).href)).play(name);
 }
+// 펫 소리(assets/sounds/pet-*.mp3, 쓰다듬기와 놀란 비둘기)를 낸 차례대로 이름만 돌려주고, 다음 확인을 위해 기록에서 지운다.
+// made는 그동안 만든 펫 소리다. 누른 순간에 만든 소리를 낼 때 다시 쓰면(prime) 낸 소리마다 하나씩만 만든다
+function takePetSounds() {
+  const isPet = a => /\/pet-[a-z]+\.mp3$/.test(a.src);
+  const name = a => a.src.match(/\/(pet-[a-z]+)\.mp3$/)[1];
+  const pets = [...(window.__audios || [])].filter(isPet);
+  for (const a of pets) window.__audios.delete(a);
+  const made = (window.__made || []).filter(isPet);
+  window.__made = (window.__made || []).filter(a => !isPet(a));
+  return { played: pets.map(name).join(), made: made.map(name).join() };
+}
+// 지금까지 만든 펫 소리(지우지 않는다). 쓰다듬기를 누른 직후, 아바타가 오기 전에 부른다
+const petSoundsMade = () => (window.__made || []).filter(a => /\/pet-[a-z]+\.mp3$/.test(a.src)).map(a => a.src.match(/\/(pet-[a-z]+)\.mp3$/)[1]).join();
 async function setSettings(patch) {
   (await import(new URL('src/settings.js', document.baseURI).href)).settings.set(patch);
 }
@@ -1363,6 +1380,7 @@ async function walk(page, base) {
     }
   };
   const pigeonGone = ms => until(page, () => !document.querySelector('#wallpaper .room-pet[data-pet^="pigeon/"]'), ms);
+  await page.run(catchAudio); // 놀라 날아갈 때만 새소리를 내는지 본다
   await pigeonTime(4000);
   await sayWord('999999999');
   check('말풍선에 999999999를 말하면 회색 비둘기가 날개를 치며 날아 들어온다', await until(page, () => {
@@ -1377,11 +1395,15 @@ async function walk(page, base) {
   const cooAgain = await page.run(pigeonScene);
   check('비둘기가 와 있을 때 또 말하면 한 마리 그대로 한 번 더 운다', cooAgain.count === 1 && cooAgain.coo === COO, JSON.stringify(cooAgain));
   check('머무는 시간이 지나면 날아 나가 방에서 사라진다', await pigeonGone(6000));
+  const quietLeave = await page.run(takePetSounds);
+  check('머무는 시간이 다 되어 날아 나갈 때는 새소리를 내지 않는다', quietLeave.played === '' && quietLeave.made === '', JSON.stringify(quietLeave));
   await pigeonTime(20000);
   await sayWord('999999999');
   const toChase = await landedPigeon();
   await page.run(clickTwice, '#wallpaper .room-pet[data-pet^="pigeon/"]');
   check('비둘기를 두 번 누르면 아바타가 다가가고, 비둘기는 머무는 시간(20초)을 채우지 않고 날아 나간다', toChase.count === 1 && await pigeonGone(9000), JSON.stringify(toChase));
+  const startled = await page.run(takePetSounds);
+  check('놀라 날아갈 때는 두 번 누른 순간에 만들어 둔 새소리(pet-bird.mp3)를 한 번 낸다', startled.played === 'pet-bird' && startled.made === 'pet-bird', JSON.stringify(startled));
   // 창문을 단 집과 움직임 줄이기. 왼쪽 벽 침대 위에 창문을 걸고 새로 연다. 끝나면 점검용 집과 움직임 설정을 돌려놓고 다시 연다
   const pigeonHome = await page.run(() => localStorage.getItem('agarago.home.v3'));
   await page.run(() => {
@@ -2550,9 +2572,14 @@ async function walk(page, base) {
   check('펫 바꾸기 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
   await closeWindows();
   await probe('펫이 있는 바탕화면');
+  await page.run(catchAudio);
   await page.run(clickTwice, '#wallpaper .room-pet');
+  const primedDog = await page.run(petSoundsMade);
   const loved = await waitPet(s => s.heart && s.next, 8000);
   check('펫을 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다', loved.heart && loved.next && /blink/.test(loved.frame), JSON.stringify(loved));
+  const dogSound = await page.run(takePetSounds);
+  check('쓰다듬기를 누른 순간에 그 종류의 소리(강아지는 pet-dog.mp3)를 만들어 둔다(사파리가 막지 않게, src/sound.js의 prime)', primedDog === 'pet-dog', primedDog);
+  check('아바타가 와서 쓰다듬을 때 만들어 둔 그 소리를 한 번 낸다', dogSound.played === 'pet-dog' && dogSound.made === 'pet-dog', JSON.stringify(dogSound));
   // 펫이 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(펫 칸은 지나갈 수 없다)
   await page.run(() => {
     const r = document.querySelector('#wallpaper .room-pet svg').getBoundingClientRect();
@@ -2604,8 +2631,14 @@ async function walk(page, base) {
   await page.run(clickText, '.pet-menu .pet-menu-item', '혼자 놀게 하기');
   await page.run(rightClickPet);
   check('혼자 놀게 하기를 누르면 메뉴의 점이 혼자 놀게 하기로 돌아온다', (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
+  // 소리를 꺼 두고 쓰다듬는다. 새로 고친 뒤라 소리 기록을 다시 건다
+  await page.run(catchAudio);
+  await page.run(setSettings, { sound: false });
   await page.run(clickText, '.pet-menu .pet-menu-item', '쓰다듬기');
   check('메뉴의 쓰다듬기를 누르면 두 번 누른 것처럼 내 아바타가 와서 쓰다듬는다', (await waitPet(s => s.heart && s.next, 8000)).heart);
+  const mutedPat = await page.run(takePetSounds);
+  check('소리를 꺼 두면 쓰다듬어도 펫 소리를 만들거나 내지 않는다', mutedPat.played === '' && mutedPat.made === '', JSON.stringify(mutedPat));
+  await page.run(setSettings, { sound: true });
   // 병아리 절은 아바타 옆에 따라와 앉는 병아리가 벽에 붙은 줄에 서지 않게 아바타를 방 가운데로 옮겨 두고 시작한다
   await page.run(floorTap, 6, 9);
   await waitPet(s => s.me.x === 6 && s.me.y === 9 && !s.heart, 6000);
@@ -2631,11 +2664,15 @@ async function walk(page, base) {
   const chick = await waitPet(s => s.heart && s.next, 8000);
   check('병아리를 한 번 쓰다듬으면 하트가 뜨고 쓰다듬은 횟수가 1이 되며, 아직 병아리다', chick.heart && chick.look === 'chick/yellow'
     && JSON.stringify(await petSaved()) === '{"pet":"chick/yellow","pats":1}', JSON.stringify({ chick, saved: await petSaved() }));
+  const chickSound = await page.run(takePetSounds);
+  check('병아리는 쓰다듬어도 소리를 내지 않고, 누른 순간에 자랄 때 낼 닭 소리만 만들어 둔다', chickSound.played === '' && chickSound.made === 'pet-chicken', JSON.stringify(chickSound));
   await page.run(async () => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ petPats: 9 }); });
   await page.run(clickTwice, '#wallpaper .room-pet');
   const hen = await waitPet(s => s.look === 'chicken/yellow' && s.heart, 8000);
   check('열 번째로 쓰다듬으면 그 자리에서 같은 색 id의 닭(흰 닭)이 되고 하트가 뜨며, 횟수는 0으로 돌아간다', hen.look === 'chicken/yellow' && hen.heart && hen.floor
     && JSON.stringify(await petSaved()) === '{"pet":"chicken/yellow","pats":0}', JSON.stringify({ hen, saved: await petSaved() }));
+  const henSound = await page.run(takePetSounds);
+  check('열 번째로 쓰다듬어 닭이 되는 순간에는 닭 소리(pet-chicken.mp3)를 낸다', henSound.played === 'pet-chicken' && henSound.made === 'pet-chicken', JSON.stringify(henSound));
   check('닭이 되면 내 아바타가 "벌써 닭이 됐네!"라고 말한다', await page.run(() => { const s = document.querySelector('#wallpaper .room-avatar-say'); return !!s && !s.hidden && s.textContent === '벌써 닭이 됐네!'; }));
   check('펫 바꾸기 창을 열어 둔 채 자라면 창의 이름과 큰 그림, 색 단추가 닭으로 바뀌고 병아리 단추에 닭이 그려진 채 골라져 있다', await page.run(() => {
     const kind = document.querySelector('.pet-app [data-kind="chick"]');
