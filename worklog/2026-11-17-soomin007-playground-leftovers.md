@@ -25,7 +25,7 @@ PR 140으로 놀이터를 뺀 뒤에도 문서와 주석, 점검 도구에 놀�
   예전 여덟 가지는 스탠드와 가로등을 따로 센 수였다.
 
 ## 남은 일과 알아 둘 것
-- 점검: `python tools/check.py` 오류 0개(경고 2개는 전부터 있던 침대와 라디오 그림), `node tools/link-fuzz.mjs` 실패 0개, `node tools/smoke.mjs` 실패 0개.
+- 점검: `python tools/check.py` 오류 0개(경고 2개는 전부터 있던 침대와 라디오 그림), `node tools/link-fuzz.mjs` 실패 0개, `node tools/smoke.mjs` 806개 가운데 실패 0개.
   `style.css`는 주석 한 줄만 바꿔서 모양 비교(`node tools/css-diff.mjs`)는 돌리지 않았다.
 - 새 파일 지도 점검은 백틱 속 이름 가운데 낙타 표기와 밑줄로 이은 대문자 상수만 본다. 경로와 점이 든 이름은 건너뛰고, 코드 주석에만 남은 이름도 있는 것으로 센다.
   지도의 이름을 일부러 하나 되돌려 넣어 오류로 잡히는 것을 확인했다.
