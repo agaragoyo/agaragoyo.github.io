@@ -18,7 +18,7 @@
 //            'furniture' 이면 어디에도 아이콘이 없고, 가구의 gimmick: 'app:<id>' 로만 열린다
 //   group    folder: 'games' 인 앱이 게임 폴더와 게임기 화면의 어느 묶음에 나오는지(GAME_GROUPS의 group). 반드시 적는다
 //            'mini' 이 컴퓨터에 원래 있는 작은 게임(apps/ 아래), 'installed' 따로 만든 큰 게임을 창에 띄운 것(src가 https), 'flash' 새 탭으로 여는 추억의 게임과 영상(href)
-//   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, music, mine, labs). 팀원은 쓰지 않는다
+//   builtin  OS가 직접 만드는 기본 앱. src/apps/<builtin>-app.js 와 짝이다(room, folder, share, music, pet, mine, labs). 팀원은 쓰지 않는다
 //   music    창이 열려 있는 동안 틀 배경음악 이름(src/sound.js 의 MUSIC). 게임 안에 음악이 이미 있으면 'own' 으로 적어
 //            그 창이 열려 있는 동안 사이트 음악을 멈춘다(두 음악이 겹치지 않게). 없으면 바탕화면 음악이 그대로 나온다
 //   scene    공간 바로 가기. 창을 열지 않고 바탕화면을 이 공간(src/config.js 의 SCENES)으로 옮긴다. builtin, src 없이 쓴다.
@@ -30,6 +30,7 @@
 //   editOnly true 이면 친구 컴퓨터를 구경할 때는 숨긴다
 //   visitOnly true 이면 친구 컴퓨터를 구경할 때만 보인다(손님에게 자기 컴퓨터를 만드는 길이나 돌아가는 길을 보여 준다)
 //   ownHome  visitOnly 앱에 쓴다. true 이면 이 컴퓨터에 자기 집이 있는 손님에게만, false 이면 없는 손님에게만 보인다
+//   noPractice true 이면 튜토리얼 다시 보기의 연습 방에서는 숨긴다(연습 방에 없는 것을 다루는 앱, 펫)
 //   labs     true 이면 실험실을 연 브라우저에서만 보인다(말풍선에 암호를 말하면 열린다, src/labs.js)
 const SITE = 'https://soomin007.github.io';
 
@@ -59,6 +60,8 @@ export const APPS = [
   { id: 'games', title: '게임', icon: 'builtin:games', builtin: 'folder', folder: null, opens: 'games' },
   { id: 'share', title: '공유하기', icon: 'builtin:share', builtin: 'share', editOnly: true },
   { id: 'music', title: '배경음악', icon: 'builtin:music', builtin: 'music' },
+  // 내 방의 펫을 돌보는 창(src/apps/pet-app.js). 펫은 내 컴퓨터의 진짜 집에만 살아서 친구 집과 연습 방에서는 숨긴다
+  { id: 'pet', title: '펫', icon: 'builtin:pet', builtin: 'pet', editOnly: true, noPractice: true },
   { id: 'labs', title: '실험실', icon: 'builtin:labs', builtin: 'labs', labs: true },
 
   // 가구 기믹. 아이콘 없이 data/furniture.js의 gimmick: 'app:<id>'로만 열린다. 주인이 가구에 담아 둔 것을 보여 준다(src/likes.js)

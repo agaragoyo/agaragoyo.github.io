@@ -572,11 +572,14 @@ const PIXEL = {
       '........................',
     ],
   },
-  // 시작 메뉴의 펫 바꾸기와 펫 바꾸기 창: 기본 펫인 회색 고양이의 얼굴. 털과 귀 속 분홍은 data/pets.js의 회색 고양이 색이다
+  // 펫 앱(바탕화면, 시작 메뉴, 창 제목과 작업 표시줄): 기본 펫인 회색 고양이의 얼굴에 빨간 목줄과 금색 방울을 달아 집에서 기르는 펫으로 보이게 했다.
+  // 털과 귀 속 분홍은 data/pets.js의 회색 고양이 색이고, 목줄은 가죽의 빨강과 그 어두운 색, 방울은 놋쇠의 노랑과 그 어두운 색이다
   pet: {
-    colors: { k: '#5f6480', g: '#c5cada', d: '#a8aec3', w: '#f6f4f0', c: '#ffaec4', e: '#3c3a4c', W: '#ffffff' },
+    colors: {
+      k: '#5f6480', g: '#c5cada', d: '#a8aec3', w: '#f6f4f0', c: '#ffaec4', e: '#3c3a4c', W: '#ffffff',
+      p: '#9e2a3a', R: '#ef4f5c', Q: '#c93a4a', o: '#b07a12', Y: '#ffd23f', y: '#fff6b0',
+    },
     24: [
-      '........................',
       '........................',
       '........................',
       '...kk..............kk...',
@@ -595,11 +598,30 @@ const PIXEL = {
       '..kggggggwwwwwwggggggk..',
       '..kggggggggggggggggggk..',
       '...kggggggggggggggggk...',
-      '....kkddggggggggddkk....',
-      '......kkkkkkkkkkkk......',
+      '....pRRRRRRRRRRRRRRp....',
+      '.....pQQQQQooQQQQQp.....',
+      '......ppppoyYopppp......',
+      '..........oYYo..........',
+      '...........oo...........',
       '........................',
-      '........................',
-      '........................',
+    ],
+    16: [
+      '................',
+      '..kk........kk..',
+      '..kgk......kgk..',
+      '..kcgkkkkkkgck..',
+      '.kggggggggggggk.',
+      '.kggWeggggWeggk.',
+      '.kggeeggggeeggk.',
+      '.kgggwwwwwwgggk.',
+      '.kcggwwccwwggck.',
+      '.kgggwkwwkwgggk.',
+      '.kggggwwwwggggk.',
+      '..kggggggggggk..',
+      '..pRRRRRRRRRRp..',
+      '...pppoyYoppp...',
+      '......oYYo......',
+      '.......oo.......',
     ],
   },
   // 시작 메뉴의 로그아웃과 구경 마치기: 문과 나가는 화살표

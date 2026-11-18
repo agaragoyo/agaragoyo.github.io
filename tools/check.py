@@ -692,7 +692,7 @@ def check_pets():
     """data/pets.js 의 펫 그림이 24×20칸이고 정해진 글자만 쓰는지, 색표가 빠짐없는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
     설정에는 '<종류>/<색>'으로 남으므로 종류와 색의 id가 겹치지 않는지, 기본 펫(DEFAULT_PET)이 목록에 있는지도 본다.
     눈 감은 그림은 하이라이트(h)가 든 눈에서 만들므로(src/pet.js의 shut) 앉은 그림에 h가 있는지도 본다.
-    펫 바꾸기 창의 단추는 모두 네 글자 폭이라(src/pet-picker.js의 LABEL_W) 종류와 색의 이름이 네 글자를 넘지 않는지 본다.
+    펫 창의 종류와 색 단추는 모두 네 글자 폭이라(src/apps/pet-app.js의 LABEL_W) 종류와 색의 이름이 네 글자를 넘지 않는지 본다.
     자라는 종류(grow)는 자란 종류가 목록에 있고 더 자라지 않는지, 색 id가 같은지(자라도 고른 색이 이어진다),
     자란 종류에 그때 아바타가 할 말(grown, 말풍선 한 줄 13자까지)이 있는지 본다.
     쓰다듬을 때 내는 소리(sound)는 src/sound.js 의 효과음(EFFECTS) 이름인지 본다(없는 이름이면 play가 아무 소리 없이 넘어간다)."""
@@ -717,7 +717,7 @@ def check_pets():
         if not m:
             err(where, f'{kid}: 이름(name)이 없다. 펫 고르는 창의 종류 단추에 나오는 이름이다')
         elif len(m.group(1)) > 4:
-            err(where, f'{kid}: 이름 {m.group(1)} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다(src/pet-picker.js의 LABEL_W)')
+            err(where, f'{kid}: 이름 {m.group(1)} 이 네 글자를 넘는다. 펫 창의 단추 폭은 네 글자까지다(src/apps/pet-app.js의 LABEL_W)')
         m = re.search(r'^    breath: (\d+),', body, re.M)
         if not m or not 1 <= int(m.group(1)) <= 18:
             err(where, f'{kid}: breath 는 숨을 들이쉴 때 빼는 줄의 번호(1~18)다')
@@ -740,7 +740,7 @@ def check_pets():
             err(where, f'{kid}: 색 id가 겹친다')
         for cid, cname in colors:
             if len(cname) > 4:
-                err(where, f'{kid}/{cid}: 색 이름 {cname} 이 네 글자를 넘는다. 펫 바꾸기 창의 단추 폭은 네 글자까지다')
+                err(where, f'{kid}/{cid}: 색 이름 {cname} 이 네 글자를 넘는다. 펫 창의 단추 폭은 네 글자까지다')
         kinds[kid] = set(ids)
         frames = {}
         for name in ('sit', 'walk1', 'walk2', 'fly1', 'fly2', 'loaf'):
@@ -770,7 +770,7 @@ def check_pets():
             err(where, f'{kid}: 자라서 될 종류 {to} 가 목록에 없다(grow)')
             continue
         if to in grows:
-            err(where, f'{kid}: 자라서 될 종류 {to} 가 또 자란다. 펫 바꾸기 창은 한 번 자라는 것만 다룬다(src/pet.js의 petRoot)')
+            err(where, f'{kid}: 자라서 될 종류 {to} 가 또 자란다. 펫 창은 한 번 자라는 것만 다룬다(src/pet.js의 petRoot)')
         if kinds[to] != kinds[kid]:
             err(where, f'{kid}: 자라서 될 종류 {to} 의 색 id가 다르다. 자라도 고른 색이 이어지게 같은 색 id를 둔다')
         if not grown.get(to) or len(grown[to]) > 13:
