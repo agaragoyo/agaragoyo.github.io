@@ -2,7 +2,8 @@
 // 브라우저에 저장되고 공유 링크에도 담긴다(src/share.js). 주인은 내 컴퓨터에서 그 가구를 쓸 때 뜨는 화면에서 넣고 고친다.
 //
 //   computer   { url, name }    좋아하는 웹 게임 링크 하나와 게임 이름(없어도 된다)
-//   console    '<앱 id>'         미니게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 하나
+//   console    ['<앱 id>']       게임 폴더의 게임(data/apps.js의 folder: 'games') 가운데 주인이 고른 추천 게임 LIMIT.games개까지(고른 차례).
+//              2026-11-18 전에는 하나만 골라 앱 id 글 하나('<앱 id>')로 담았다. 그 저장본과 링크는 검사가 한 개짜리 목록으로 바꿔 연다
 //   bookshelf  [{ title, author, note, color }]   책 5권까지. note는 좋아하는 구절이나 고른 이유(줄바꿈 가능),
 //              color는 표지 색 번호(0부터 LIMIT.bookColors - 1, 넣을 때 무작위로 정한다)
 //   radio      [{ url, name, color }]   CD 6장까지. url은 스포티파이, 애플 뮤직의 앨범이나 플레이리스트, 유튜브의 영상이나 재생목록 링크(parseMusic이 알아보는 것만),
@@ -19,6 +20,7 @@ import { APP_BY_ID } from '../data/apps.js';
 export const LIMIT = {
   url: 300,      // 주소 하나의 글자 수
   gameName: 20,  // 컴퓨터에 넣는 게임 이름
+  games: 4,      // 게임기의 추천 게임 수. 게임기 화면의 한 줄(네 칸, style.css의 .console-tiles)에 다 들어가 손님이 스크롤하지 않고 모두 본다
   books: 5,      // 책장의 책 권수
   bookTitle: 30,
   bookAuthor: 20,
@@ -125,7 +127,9 @@ const SANITIZE = {
     return name ? { url, name } : { url };
   },
   console(raw) {
-    return typeof raw === 'string' && APP_BY_ID[raw]?.folder === 'games' ? raw : null;
+    const ids = typeof raw === 'string' ? [raw] : Array.isArray(raw) ? raw : []; // 글 하나는 2026-11-18 전의 값이다
+    const games = [...new Set(ids.filter(id => typeof id === 'string' && APP_BY_ID[id]?.folder === 'games'))].slice(0, LIMIT.games);
+    return games.length ? games : null;
   },
   bookshelf(raw) {
     if (!Array.isArray(raw)) return null;

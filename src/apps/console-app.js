@@ -3,15 +3,17 @@
 // 단추는 셋이고 하는 일을 옆에 새겨 둔다. 십자 단추는 고르기(방향키), A는 시작(Enter), B는 나가기(Backspace)다.
 // B는 게임이나 새 탭 안내에서는 게임기 첫 화면으로 돌아오고(게임 안의 그만하기 단추도 같다), 첫 화면에서는 게임기를 내려놓는다.
 // 게임기 바깥을 눌러도 게임기를 내려놓는다(src/closeup.js). 새 탭으로 여는 플래시 게임은 화면 안에서 어디로 가는지 먼저 보여 준다(known-issues 32).
-// 주인은 게임 하나를 추천 게임으로 고를 수 있다(likes.console). 추천 게임은 자기 묶음의 맨 앞에 서고 "추천" 표시를 달며, 게임기를 열면 먼저 그 칸에 초점이 간다.
+// 주인은 칸마다 붙은 별로 추천 게임을 LIMIT.games(4)개까지 고른다(likes.console, 고른 차례). 추천 게임은 맨 위의 "추천 게임" 묶음에 한 줄로 서서
+// 손님이 스크롤하지 않고 모두 보고, 게임기를 열면 첫 추천 게임에 초점이 간다. 아래 묶음에도 원래 자리에 그대로 있다(시작 메뉴의 고정 항목과 모든 프로그램처럼).
+// 주인에게는 추천 게임 묶음이 늘 네 칸이고 고르지 않은 칸은 빈 칸으로 남아, 몇 개 더 고를 수 있는지 보이고 별을 눌러도 아래 칸이 밀리지 않는다.
 // 바탕화면의 게임 폴더 아이콘은 그대로 둔다(게임기를 놓지 않은 방에서도 게임을 하게).
-import { APPS, groupGames, hostTip } from '../../data/apps.js';
+import { APPS, APP_BY_ID, groupGames, hostTip } from '../../data/apps.js';
 import { h, clamp, reduceMotion } from '../util.js';
 import { iconEl } from '../icons.js';
 import { holdMusic } from '../sound.js';
 import { openCloseup } from '../closeup.js';
 import { linkPrompt, fitHost } from './link-app.js';
-import { setLike, isOwner } from '../likes.js';
+import { setLike, isOwner, LIMIT } from '../likes.js';
 
 // 게임하는 화면 크기(무대 px). 게임은 들고 있는 게임기의 가운데 화면(940×600, 게임 고르기)에서 하지 않고,
 // 화면 쪽으로 한 번 더 당겨 바탕화면을 거의 채운 큰 화면에서 한다. 팀 게임(레포 밖)이 1040×660~1120×700이라 이 크기에서 원래 크기로 보인다.
@@ -24,12 +26,12 @@ const PULL = { duration: 300, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'forwa
 
 export function openConsoleApp(os, app) {
   const owner = isOwner(os);
-  // 게임 폴더와 같은 묶음과 순서. 주인이 고른 추천 게임은 자기 묶음의 맨 앞에 선다
-  const games = () => groupGames(APPS.filter(a => a.folder === 'games' && os.canSee(a))).map(g => {
-    const i = g.apps.findIndex(a => a.id === os.home.likes.console);
-    if (i > 0) g.apps.unshift(...g.apps.splice(i, 1));
-    return g;
-  });
+  const seen = a => a?.folder === 'games' && os.canSee(a);
+  // 맨 위의 추천 게임 묶음(고른 게임이 있을 때, 주인에게는 늘)과 그 아래 게임 폴더와 같은 묶음, 같은 순서
+  const games = picks => [
+    ...(picks.length || owner ? [{ group: 'picks', title: '추천 게임', apps: picks }] : []),
+    ...groupGames(APPS.filter(seen)),
+  ];
 
   return openCloseup(os, {
     key: app.id,
@@ -66,7 +68,7 @@ export function openConsoleApp(os, app) {
       cu.el.append(big);
 
       let tiles = [];      // 첫 화면의 게임 단추. 첫 화면이 아니면 비어 있다
-      let selected = null; // 첫 화면에서 고른 칸. null이면 첫 화면을 그릴 때 추천 게임(없으면 첫 칸)으로 정한다
+      let selected = null; // 첫 화면에서 고른 칸. null이면 첫 화면을 그릴 때 첫 칸(추천 게임이 있으면 첫 추천 게임)으로 정한다
       let release = null;  // 게임이 트는 배경음악을 놓는 함수
       let playing = false; // 큰 화면에서 게임하는 중인지
       let settle = null;   // 도는 당기기를 끝 자리로 마무리하는 함수
@@ -142,13 +144,15 @@ export function openConsoleApp(os, app) {
         focusTile(near.reduce((a, c) => (Math.abs(c.r.left - cur.left) < Math.abs(a.r.left - cur.left) ? c : a)).i);
       }
 
-      // 첫 화면: 게임 목록
-      function home() {
+      // 첫 화면: 게임 목록. keep은 별을 누른 뒤 다시 그릴 때 넘겨, 누른 게임의 칸과 스크롤 자리를 그대로 둔다
+      function home(keep = null) {
         stop();
         setPlay(false); // 큰 화면에서 돌아오면 들고 있던 게임기로 되돌린다
-        const pick = os.home.likes.console;
-        const groups = games();
-        const list = groups.flatMap(g => g.apps);
+        const ids = os.home.likes.console || [];
+        const picks = ids.map(id => APP_BY_ID[id]).filter(seen);
+        const full = ids.length >= LIMIT.games;
+        const groups = games(picks);
+        const list = groups.flatMap(g => g.apps); // 앞의 picks.length칸이 추천 게임 묶음이다
         tiles = list.map((g, i) => h('button', {
           type: 'button',
           className: g.href ? 'console-game external' : 'console-game',
@@ -156,32 +160,48 @@ export function openConsoleApp(os, app) {
           title: hostTip(g),
           onclick: () => start(g),
           onfocus: () => { selected = i; },
-        }, iconEl(g, 48), h('span', { className: 'console-game-name' }, g.title), g.id === pick ? h('span', { className: 'console-pick' }, '추천') : null));
-        // 주인은 칸마다 별을 눌러 추천 게임을 고르거나 뺀다. 별은 게임 단추 밖에 겹쳐 두어 누르면 게임이 시작되지 않는다
+        }, iconEl(g, 48), h('span', { className: 'console-game-name' }, g.title)));
+        // 주인은 칸마다 별을 눌러 추천 게임을 고르거나 뺀다. 별은 게임 단추 밖에 겹쳐 두어 누르면 게임이 시작되지 않는다.
+        // 다 고르면 고르지 않은 게임의 별은 눌리지 않고, 머리줄 안내가 몇 개까지인지 알린다
         const slots = tiles.map((tile, i) => {
           const g = list[i];
           if (!owner) return tile;
-          const on = g.id === pick;
+          const on = ids.includes(g.id);
           return h('div', { className: 'console-slot' }, tile, h('button', {
             type: 'button',
             className: on ? 'console-star on' : 'console-star',
-            title: on ? '추천 게임에서 빼기' : '추천 게임으로 고르기',
+            disabled: !on && full,
+            title: on ? '추천 게임에서 빼기' : full ? `추천 게임은 ${LIMIT.games}개까지` : '추천 게임으로 고르기',
             'aria-label': on ? `${g.title} 추천에서 빼기` : `${g.title} 추천으로 고르기`,
-            onclick: () => { setLike(os, 'console', on ? null : g.id); selected = null; home(); },
+            onclick: () => {
+              const now = os.home.likes.console || [];
+              setLike(os, 'console', on ? now.filter(id => id !== g.id) : [...now, g.id]);
+              home({ id: g.id, top: i < picks.length, at: i, scroll: grid.scrollTop });
+            },
           }, on ? '★' : '☆'));
         });
         let at = 0; // 묶음마다 slots에서 자기 몫을 잘라 낸다
         const sections = groups.map(g => {
           const mine = slots.slice(at, at += g.apps.length);
-          return h('section', { className: 'console-group' }, h('h3', { className: 'console-group-title' }, g.title), h('div', { className: 'console-tiles' }, ...mine));
+          // 주인의 추천 게임 묶음은 고르지 않은 자리를 빈 칸으로 남겨 늘 한 줄 네 칸이다
+          const empty = g.group === 'picks' && owner ? Array.from({ length: Math.max(0, LIMIT.games - ids.length) }, () => h('div', { className: 'console-empty' })) : [];
+          return h('section', { className: g.group === 'picks' ? 'console-group console-picks' : 'console-group' },
+            h('h3', { className: 'console-group-title' }, g.title),
+            h('div', { className: 'console-tiles' }, ...mine, ...empty));
         });
-        if (selected === null) selected = Math.max(0, list.findIndex(g => g.id === pick));
+        const grid = h('div', { className: 'console-grid' }, ...sections);
         screen.replaceChildren(
           h('div', { className: 'console-head' },
             h('span', {}, '게임 고르기'),
-            owner ? h('span', { className: 'console-hint' }, '별을 누르면 손님에게 보여 줄 추천 게임이 됩니다.') : null),
-          h('div', { className: 'console-grid' }, ...sections));
-        focusTile(selected);
+            owner ? h('span', { className: 'console-hint' }, full ? `추천 게임은 ${LIMIT.games}개까지 고를 수 있습니다.` : '별을 누르면 손님에게 보여 줄 추천 게임이 됩니다.') : null),
+          grid);
+        if (keep) {
+          // 추천 게임 묶음의 높이는 그대로라서 스크롤을 되돌리면 칸들이 제자리에 있다. 초점은 누른 게임의 같은 묶음 칸에 둔다(빠졌으면 같은 자리 칸)
+          grid.scrollTop = keep.scroll;
+          const k = list.findIndex((g, j) => g.id === keep.id && (j < picks.length) === keep.top);
+          selected = k >= 0 ? k : keep.at;
+        }
+        focusTile(selected ?? 0);
       }
 
       // 게임 하나를 큰 화면에서 한다(게임기 화면 쪽으로 한 번 더 당긴다)

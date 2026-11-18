@@ -1862,17 +1862,8 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   line-height: 1;
 }
 .console-game.external .app-icon.pixel::after { right: -10px; bottom: -4px; }
-.console-pick {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: #ffd76a;
-  font-size: 12px;
-  font-weight: 700;
-  color: #3b2a07;
-}
+/* 주인의 추천 게임 묶음에서 아직 고르지 않은 자리(console-app.js). 게임 칸과 같은 크기의 점선 칸이다 */
+.console-empty { border: 2px dashed #4d5d80; border-radius: 8px; }
 .console-star {
   position: absolute;
   right: 4px;
@@ -1889,6 +1880,8 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 }
 .console-star.on { color: #ffd76a; }
 .console-star:hover { color: #ffd76a; }
+/* 추천 게임을 다 고르면 고르지 않은 게임의 별은 눌리지 않는다 */
+.console-star:disabled, .console-star:disabled:hover { color: #66728c; cursor: var(--cur-arrow); }
 /* 게임 화면과 새 탭 안내 */
 .console-play { position: relative; margin: auto; overflow: hidden; }
 .console-play iframe { position: absolute; left: 0; top: 0; border: 0; background: #111; transform-origin: 0 0; }

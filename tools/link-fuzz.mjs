@@ -23,6 +23,7 @@ const { canPlace, isWall } = await load('src/rules.js');
 const { FURNITURE, BY_ID } = await load('data/furniture.js');
 const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
+const { APP_BY_ID } = await load('data/apps.js');
 const { WALL_PATTERNS } = await load('data/wall-patterns.js');
 const { USER_PICTURES } = await load('data/user-pictures.js');
 const { customValue, customBytes, customFromBytes, readCustom, MAX_BYTES } = await load('src/custom-picture.js');
@@ -64,7 +65,9 @@ function randomHome() {
   }
   const likes = {};
   if (rnd() < 0.7) likes.computer = { url: pick(['https://example.com/a?b=1', 'http://x.kr/', 'https://ko.wikipedia.org/wiki/%EC%9D%B4%EC%9B%83', 'javascript:alert(1)', 'https://user:pw@x.com/']), name: text(6) };
-  if (rnd() < 0.5) likes.console = pick(['file-ten', 'tidy-up', 'room', 'nope']);
+  // 추천 게임: 2026-11-18 전의 글 하나와 지금의 목록을 섞고, 목록에는 같은 게임, 게임이 아닌 앱, 없는 id, 글이 아닌 값을 넣으며 한도보다 길게도 만든다
+  const GAMES = ['file-ten', 'tidy-up', 'mallangi', 'number-song', 'krara-room', 'room', 'nope', '__proto__', 3, null];
+  if (rnd() < 0.5) likes.console = rnd() < 0.3 ? pick(GAMES) : Array.from({ length: int(8) }, () => pick(GAMES));
   if (rnd() < 0.7) likes.bookshelf = Array.from({ length: int(7) }, () => ({ title: text(8), author: text(5), note: text(30), color: int(10) - 1 }));
   if (rnd() < 0.5) {
     // 이름과 색은 없을 때(이름 칸이 생기기 전의 CD)와 받지 않는 값(긴 이름, 범위 밖이나 정수가 아닌 색 번호)을 섞는다
@@ -142,6 +145,9 @@ function invariants(home, where) {
   if (Array.from(home.greeting).length > 30 || !wellFormed(home.greeting)) fail(`${where}: 인사말이 길거나 반쪽 글자가 있다`, home.greeting);
   const l = home.likes;
   if (l.computer && !/^https?:\/\//.test(l.computer.url)) fail(`${where}: 컴퓨터 주소`, l.computer);
+  // 추천 게임은 게임 폴더의 게임 id를 한 번씩 담은 목록이고 비어 있지 않으며 한도 안이다(글 하나로 담던 예전 값도 목록이 된다)
+  if ('console' in l && (!Array.isArray(l.console) || !l.console.length || l.console.length > LIMIT.games
+    || new Set(l.console).size !== l.console.length || l.console.some(id => APP_BY_ID[id]?.folder !== 'games'))) fail(`${where}: 추천 게임`, l.console);
   if (l.bookshelf && (l.bookshelf.length > LIMIT.books || l.bookshelf.some(b => !b.title || !(b.color >= 0 && b.color < LIMIT.bookColors)))) fail(`${where}: 책`, l.bookshelf);
   // CD: 링크는 알아보는 것만 한 번씩, 이름은 있으면 비지 않고 길이 안이며 반쪽 글자가 없고, 색은 있으면 1부터 LIMIT.cdColors - 1까지(0번 은색은 적지 않는다)
   const badCd = c => !parseMusic(c.url)
@@ -340,6 +346,9 @@ if (JSON.stringify(decodeHome(OLD_LINK)) !== OLD_HOME) fail('옛 링크가 다�
   if (code('bench') < 0 || code('tree') < 0) fail('LINK_CODES에서 놀이터 가구의 옛 번호가 빠졌다(자리를 지켜야 옛 링크의 뒤 가구 번호가 맞는다)', LINK_CODES);
   else if (JSON.stringify(home?.scenes) !== want || home?.owner !== '놀이터 주인') fail('놀이터 가구가 든 옛 링크가 내 방만으로 열리지 않는다', home);
 }
+// 추천 게임을 하나만 고르던 때(2026-11-18 전)의 링크: 게임기에 파일 정리 10 하나를 글로 담았다({"G":"file-ten"}). 한 개짜리 목록으로 열린다
+const OLD_CONSOLE = 'BA3smJsg6rKM7J6E6riwAAEAeyJHIjoiZmlsZS10ZW4ifQ';
+if (JSON.stringify(decodeHome(OLD_CONSOLE)?.likes) !== '{"console":["file-ten"]}') fail('추천 게임이 하나뿐인 옛 링크가 한 개짜리 목록으로 열리지 않는다', decodeHome(OLD_CONSOLE));
 
 console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자`);
 for (const e of examples) console.log(`실패 ${e}`);
