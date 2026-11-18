@@ -175,8 +175,11 @@ grep -n '^## .*\[라디오\]' known-issues.md   # 한 영역의 제목
 - 증상: 몇 줄만 고쳤는데 `git diff`에 손대지 않은 줄까지 바뀐 줄로 나온다. 화면으로 보면 두 줄이 똑같다.
 - 원인: 한 파일 안에 줄바꿈 문자 CRLF와 LF가 섞여 있으면(2026-11-03 기준 `src/config.js`) 편집기나 AI 편집 도구가 저장하면서 한쪽으로 맞춘다.
   `.gitattributes`의 `eol=lf`는 이미 CRLF로 올라간 파일은 그대로 두므로 저절로 정리되지 않는다.
-- 규칙: 커밋 전에 `git diff --stat`과 `git diff --ignore-cr-at-eol --stat`의 줄 수가 같은지 본다. 다르면 줄바꿈만 바뀐 줄을 원래대로 돌린다.
-  레포 전체의 줄바꿈 정리는 다른 작업과 섞지 말고 따로 한 PR로 한다.
+- 규칙: 커밋 전에 `python tools/check.py`를 돌려 `줄 끝` 경고가 없는지 본다(`check_line_endings`, 2026-11-18). 작업 트리의 줄 끝이 index와 다른 파일(`git ls-files --eol`의 `i/crlf w/lf`)과,
+  main과 견줘 줄 끝만 바뀐 줄이 있는 파일(`git diff --stat`과 `git diff --ignore-cr-at-eol --stat`의 줄 수가 다르다)을 알려 준다. 경고가 뜬 파일은 원래 줄 끝으로 되돌린다.
+  index가 LF인 파일이 작업 트리에서만 CRLF인 경우(`i/lf w/crlf`)는 git이 커밋할 때 LF로 되돌려 올려 diff에는 안 나오지만 같이 알린다.
+  PR 점검(GitHub Actions)은 기록을 얕게 받아 main이 없어서 이 경고를 내지 못한다. 내 컴퓨터에서 돌리고, 팀원 PR은 그 브랜치를 받아 돌려 본다.
+  레포 전체의 줄바꿈 정리는 다른 작업과 섞지 말고 따로 한 PR로 한다(그 PR에서는 경고가 뜨는 것이 맞다).
   Git Bash의 `sed -i`는 CRLF 파일(`data/furniture.js`, `src/room.js`)을 LF로 바꿔 쓴다(2026-11-14, 한 줄 고쳤는데 136줄이 바뀜). CRLF 파일은 `sed -b -i`로 고친다.
   윈도우의 파이썬은 거꾸로 `write_text`가 LF 파일을 CRLF로 바꿔 쓴다(2026-11-18, 고친 파일 열 개가 통째로 바뀜). 바이트로 읽고 쓴다.
 

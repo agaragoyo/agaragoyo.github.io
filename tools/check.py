@@ -1104,6 +1104,106 @@ def check_known_issues():
             err(where, f'{n}번이 {size}자다. 증상, 원인, 규칙을 한두 문장씩 {KI_MAX_CHARS}자 이내로 줄이고 경위는 일지에 둔다')
 
 
+# ---------- 줄 끝(CRLF와 LF)만 바뀐 파일 ----------
+# .gitattributes 의 `eol=lf` 는 이미 CRLF 로 올라간 파일을 LF 로 고쳐 주지 않는다. 그래서 편집 도구나 `sed -i` 가 줄 끝을 바꿔 쓰면
+# 몇 줄만 고쳐도 diff 가 파일 전체로 잡힌다(known-issues 28). 줄 끝만 정리하는 PR 을 따로 낼 수 있으므로 오류가 아니라 경고로 알린다.
+#   작업 트리: git ls-files --eol 에서 index(i/)와 작업 트리(w/)의 줄 끝이 다른 파일. 커밋하기 전에 잡는다.
+#   커밋한 변경: HEAD 와 main 이 갈라진 곳에서 지금 index 까지의 git diff --numstat 가 --ignore-cr-at-eol 을 붙이면 줄어드는 파일.
+#     PR 검사는 기록을 얕게 받아 main 이 없을 수 있다. 갈라진 곳을 못 구하면 이 부분만 건너뛴다(그러면 내 컴퓨터에서만 돈다).
+# git 이 없거나 .git 이 없는 폴더(압축 파일로 받은 경우)에서는 둘 다 건너뛴다.
+EOL_LABEL = {'lf': 'LF', 'crlf': 'CRLF', 'mixed': 'CRLF와 LF 섞임'}
+
+
+def git(*args):
+    """ROOT 에서 git 을 돌려 표준 출력(바이트)을 돌려준다. git 이 없거나 명령이 실패하면 None."""
+    exe = shutil.which('git')
+    if not exe:
+        return None
+    try:
+        r = subprocess.run([exe, *args], cwd=ROOT, capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def eol_kind(data):
+    """바이트열의 줄 끝. git ls-files --eol 의 lf, crlf, mixed, none 과 같은 나눔이다."""
+    crlf = data.count(b'\r\n')
+    lf = data.count(b'\n') - crlf
+    return 'mixed' if crlf and lf else 'crlf' if crlf else 'lf' if lf else 'none'
+
+
+def eol_worktree_changes():
+    """작업 트리의 줄 끝이 index 와 다른 파일을 [(경로, 문장)]으로 돌려준다."""
+    out = git('ls-files', '--eol', '-z') or b''
+    found, seen = [], set()
+    for rec in out.decode('utf-8', 'replace').split('\0'):
+        m = re.match(r'i/(\S*)\s+w/(\S*)\s+attr/[^\t]*\t(.+)', rec, re.S)
+        if not m:
+            continue
+        i, w, path = m.groups()
+        if i in EOL_LABEL and w in EOL_LABEL and i != w and path not in seen:  # none(줄 끝 없음)과 -text(바이너리)는 견주지 않는다
+            seen.add(path)
+            found.append((path, f'index와 작업 트리의 줄 끝이 다르다(index {EOL_LABEL[i]}, 작업 트리 {EOL_LABEL[w]})'))
+    return found
+
+
+def eol_base():
+    """HEAD 와 main 이 갈라진 커밋. origin/main 과 main 중 HEAD 에 더 가까운 쪽으로 잰다(main 이 뒤처져 있을 수 있다). 못 구하면 None."""
+    best = None
+    for ref in ('origin/main', 'main'):
+        base = (git('merge-base', 'HEAD', ref) or b'').decode().strip()
+        count = (git('rev-list', '--count', f'{base}..HEAD') or b'').decode().strip() if base else ''
+        if count.isdigit() and (best is None or int(count) < best[0]):
+            best = (int(count), base)
+    return best[1] if best else None
+
+
+def eol_numstat(base, *opts):
+    """git diff --cached --numstat 의 {경로: (더한 줄, 지운 줄)}. 바이너리는 뺀다. 명령이 실패하면 None."""
+    out = git('diff', '--cached', '--numstat', '--no-renames', '-z', *opts, base)
+    if out is None:
+        return None
+    stat = {}
+    for rec in out.decode('utf-8', 'replace').split('\0'):
+        added, _, rest = rec.partition('\t')
+        deleted, _, path = rest.partition('\t')
+        if added.isdigit() and deleted.isdigit():
+            stat[path] = (int(added), int(deleted))
+    return stat
+
+
+def eol_committed_changes():
+    """main 과 견줘 줄 끝만 바뀐 줄이 있는 파일을 [(경로, 문장)]으로 돌려준다. 갈라진 곳을 못 구하면 빈 목록."""
+    base = eol_base()
+    if not base:
+        return []
+    plain, ignored = eol_numstat(base), eol_numstat(base, '--ignore-cr-at-eol')
+    if plain is None or ignored is None:
+        return []
+    found = []
+    for path, (added, deleted) in sorted(plain.items()):
+        kept_added, kept_deleted = ignored.get(path, (0, 0))  # 줄 끝만 바뀐 파일은 --ignore-cr-at-eol 쪽 목록에서 빠진다
+        n = max(added - kept_added, deleted - kept_deleted)
+        if n <= 0:
+            continue
+        before = eol_kind(git('cat-file', 'blob', f'{base}:{path}') or b'')
+        after = eol_kind(git('cat-file', 'blob', f':{path}') or b'')
+        note = f'(main {EOL_LABEL[before]}, 지금 {EOL_LABEL[after]})' if before != after and before in EOL_LABEL and after in EOL_LABEL else ''
+        found.append((path, f'main과 견주면 줄 끝만 바뀐 줄이 {n}개 있다{note}'))
+    return found
+
+
+def check_line_endings():
+    if not (ROOT / '.git').exists():
+        return
+    found = eol_worktree_changes() + eol_committed_changes()
+    for path, msg in found:
+        warn(path, msg)
+    if found:
+        warn('줄 끝', '원래 줄 끝으로 되돌리고, 고칠 때는 파일을 바이트로 읽고 쓴다(파이썬은 read_bytes와 write_bytes, sed는 sed -b -i). known-issues 28')
+
+
 # ---------- 파일 지도 ----------
 # docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
 def check_file_map():
@@ -1181,6 +1281,7 @@ def main():
     check_pets()
     check_feature_numbers()
     check_known_issues()
+    check_line_endings()
     check_storage_keys()
     check_imports()
     check_stamp()
