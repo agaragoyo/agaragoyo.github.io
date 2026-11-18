@@ -511,9 +511,11 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .room-pet-heart, .room-pet.pop path { animation: none; }
 }
-/* 펫을 오른쪽 단추로 누르면 뜨는 할 일 메뉴(src/pet.js의 openMenu). 윈도우의 바로 가기 메뉴처럼 누른 자리에 뜨고, 시작 메뉴와 같은 층(40)이라 창 위에 뜬다.
-   방 상자(.wallpaper)는 쌓임 맥락이 따로라 메뉴는 무대(.stage)에 넣는다. 맨 위의 굵은 줄(.main)은 두 번 누를 때 하는 일이고, 지금 하는 일 앞에 점을 찍는다 */
-.pet-menu {
+/* 오른쪽 단추 메뉴(src/context-menu.js). 바탕화면, 아이콘, 가구, 창 제목 줄, 작업 표시줄 단추, 아바타, 펫이 같이 쓴다.
+   윈도우의 바로 가기 메뉴처럼 누른 자리에 뜨고, 시작 메뉴와 같은 층(40)이라 창과 작업 표시줄 위에 뜬다.
+   방 상자(.wallpaper)와 창 층은 쌓임 맥락이 따로라 메뉴는 무대(.stage)에 넣는다. 맨 위의 굵은 줄(.main)은 두 번 누를 때 하는 일이고,
+   펫의 할 일처럼 여럿 가운데 하나를 고르는 줄은 지금 고른 것 앞에 점을 찍는다. 지금 할 수 없는 줄(:disabled)은 회색이다 */
+.ctx-menu {
   position: absolute;
   z-index: 40;
   min-width: 170px;
@@ -522,8 +524,8 @@ button { font-family: inherit; }
   background: #fff;
   box-shadow: 3px 3px 6px #0005;
 }
-.pet-menu:focus { outline: none; }
-.pet-menu-item {
+.ctx-menu:focus { outline: none; }
+.ctx-menu-item {
   position: relative;
   display: block;
   width: 100%;
@@ -536,9 +538,12 @@ button { font-family: inherit; }
   color: var(--win-text);
   cursor: var(--cur-hand);
 }
-.pet-menu-item.main { font-weight: 700; }
-.pet-menu-item:hover, .pet-menu-item:focus-visible { outline: none; background: #316ac5; color: #fff; }
-.pet-menu-item[aria-checked="true"]::before {
+.ctx-menu-item.main { font-weight: 700; }
+.ctx-menu-item:not(:disabled):hover, .ctx-menu-item:focus-visible { outline: none; background: #316ac5; color: #fff; }
+.ctx-menu-item:disabled { color: var(--ctx-off, #8c8a82); cursor: default; }
+/* 새 탭으로 열리는 앱의 열기 줄. 아이콘(.desk-icon.external)처럼 바깥 화살표를 단다(known-issues 32) */
+.ctx-menu-item.external::after { content: '↗'; margin-left: 8px; font-weight: 700; }
+.ctx-menu-item[aria-checked="true"]::before {
   content: "";
   position: absolute;
   left: 11px;
@@ -549,8 +554,8 @@ button { font-family: inherit; }
   border-radius: 50%;
   background: currentColor;
 }
-.pet-menu-sep { margin: 3px 2px; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
-.stage[data-theme="night"] .pet-menu { border-color: var(--bev-hi); background: var(--win-paper); }
+.ctx-menu-sep { margin: 3px 2px; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
+.stage[data-theme="night"] .ctx-menu { --ctx-off: #858a9c; border-color: var(--bev-hi); background: var(--win-paper); }
 
 .ghost { position: absolute; inset: 0; z-index: 1000; pointer-events: none; }
 .ghost .item .hit { pointer-events: none; }

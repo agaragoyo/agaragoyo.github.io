@@ -164,6 +164,32 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible
     win.close = () => close(win);
     win.focus = () => focus(win);
     win.setTitle = t => { name.textContent = t; taskName.textContent = t; };
+    // 제목 줄과 작업 표시줄 단추의 오른쪽 단추 메뉴(src/os.js가 src/context-menu.js로 띄운다). 윈도우 XP의 창 메뉴처럼
+    // 이전 크기로, 최소화, 최대화, 닫기 순서로 두고 지금 할 수 없는 줄은 회색으로 둔다. 닫기가 굵은 것도 윈도우와 같다.
+    // 윈도우의 이동과 크기 조정(키보드로 옮기기)은 이 창 관리자에 없어서 뺐다. Alt+F4도 브라우저 창을 닫는 키라 적지 않는다.
+    // 최소화한 창의 이전 크기로는 최소화하기 전 모습(최대화였으면 최대화)으로 다시 띄운다
+    win.menu = () => [
+      {
+        label: '이전 크기로',
+        disabled: !win.minimized && !win.maximized,
+        run: () => {
+          const back = win.minimized;
+          focus(win);
+          if (!back) setMax(win, false);
+        },
+      },
+      { label: '최소화', disabled: win.minimized, run: () => minimize(win) },
+      {
+        label: '최대화',
+        disabled: win.maximized && !win.minimized,
+        run: () => {
+          focus(win);
+          if (!win.maximized) setMax(win, true);
+        },
+      },
+      '-',
+      { label: '닫기', main: true, run: win.close },
+    ];
     wins.set(key, win);
 
     bClose.addEventListener('click', win.close);
@@ -179,7 +205,9 @@ export function createWM({ layer, tasks, toLocal, onChange = () => {}, onVisible
       // 제목 줄과 그 단추를 눌러도 앱(iframe)의 키보드 초점을 거두지 않는다. 윈도우의 제목 줄 단추처럼 창 안의 초점은 그대로 둔다.
       // 거두면 초점을 잃자마자 그리기를 멈추는 게임이 멈춘 채로 크기가 바뀌어 빈 화면이 된다(known-issues 91). 끌기도 같은 까닭으로 막는다(36)
       e.preventDefault();
-      if (e.target.closest('.win-btn')) return; // 제목 줄 단추는 끌기와 두 번 누르기에서 뺀다
+      // 제목 줄 단추는 끌기와 두 번 누르기에서 뺀다. 오른쪽 단추(창 메뉴를 띄운다)도 두 번 누르기로 세지 않는다.
+      // 세면 제목 줄을 한 번 누른 바로 뒤에 오른쪽 단추로 누를 때 창이 최대화된다
+      if (e.button !== 0 || e.target.closest('.win-btn')) return;
       if (twice(bar)) { setMax(win, !win.maximized); return; }
       if (!win.maximized) dragWindow(win, e);
     });

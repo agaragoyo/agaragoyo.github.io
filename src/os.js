@@ -7,7 +7,7 @@ import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID, hostTip } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
-import { renderStatic, preloadFurniture } from './room.js';
+import { renderStatic, preloadFurniture, staticItem } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet, NO_PET, patted, petChoice } from './pet.js';
 import { visitFlock } from './pigeon.js';
@@ -26,9 +26,10 @@ import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js'
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { openNameWindow } from './user-name.js';
-import { h, wait, reduceMotion, saveJSON, doubleClick } from './util.js';
+import { h, wait, reduceMotion, saveJSON, doubleClick, isField } from './util.js';
 import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
+import { openMenu, closeMenu } from './context-menu.js';
 
 export function createOS({ stage, toStage, requestPowerOff, settings }) {
   const $ = sel => stage.querySelector(sel); // 무대(#stage) 안에서만 찾는다. 화면(#screen)과 화면 효과(.fx)는 무대 바깥이다
@@ -100,6 +101,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     for (const k of ['boot', 'login', 'desktop', 'taskbar']) el[k].hidden = !names.includes(k);
     syncTheme();
     el.startMenu.hidden = true;
+    closeMenu(); // 떠 있던 오른쪽 단추 메뉴(src/context-menu.js)
     if (!names.includes('desktop')) {
       os.closeup?.close(true);
       walker?.destroy();
@@ -442,6 +444,66 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (!e.target.closest('.win')) os.wm.blur();
   });
 
+  // ---------- 오른쪽 단추 메뉴 ----------
+  // 화면 안에서는 브라우저의 메뉴 대신 그 자리의 메뉴(src/context-menu.js)를 띄운다. 윈도우 XP의 바로 가기 메뉴처럼 자리마다
+  // 이 사이트에 이미 있는 일 가운데 그 자리에서 할 수 있는 것만 담고, 맨 위의 굵은 줄은 그 자리를 두 번 누를 때 하는 일이다.
+  // 친구 집의 손님에게는 손님이 할 수 있는 줄만 보인다(방 꾸미기는 os.canSee가 가린다).
+  // 메뉴가 없는 자리(창 안, 작업 표시줄의 빈 곳과 시작 단추, 시작 메뉴, 로그인 화면)에서는 아무것도 띄우지 않는다. 윈도우도 대화 상자의 빈 곳처럼
+  // 할 일이 없는 자리에서는 메뉴를 띄우지 않았다.
+  // 글을 치는 칸과 링크에서는 복사, 붙여 넣기, 링크 주소 복사를 쓰도록 브라우저의 메뉴를 그대로 둔다.
+  // 펫은 자기 메뉴를 스스로 띄우고 막아 둔다(src/pet.js). 창 안의 미니게임(iframe)은 다른 문서라 여기까지 오지 않고,
+  // 모니터 테두리와 페이지 바탕은 컴퓨터 바깥이라 브라우저의 메뉴가 뜬다
+  stage.addEventListener('contextmenu', e => {
+    if (e.defaultPrevented || isField(e.target) || e.target.closest('a[href]')) return;
+    e.preventDefault();
+    const menu = menuFor(e.target);
+    if (menu) openMenu({ root: stage, toStage }, e, menu.lines, menu.label);
+  });
+  const lightLabel = () => (lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)');
+  const decorate = () => os.canSee(APP_BY_ID.room) && { label: '방 꾸미기', run: () => os.openApp('room') };
+
+  // 누른 자리의 메뉴 { label: 메뉴 이름, lines: 줄 목록 }. 메뉴가 없는 자리면 null
+  function menuFor(t) {
+    // 창 제목 줄과 작업 표시줄 단추는 그 창의 창 메뉴(src/win.js의 win.menu)
+    const bar = t.closest('.win-bar');
+    const task = t.closest('.task');
+    if (bar || task) {
+      const win = os.wm.all().find(w => w.el.contains(bar) || w.task === task);
+      return win ? { label: '창 메뉴', lines: win.menu() } : null;
+    }
+    // 아이콘(바탕화면과 게임 폴더 창)은 두 번 누를 때처럼 연다. 윈도우처럼 누른 아이콘을 고른 것으로 표시한다.
+    // 새 탭으로 열리는 앱(href)은 아이콘처럼 바깥 화살표를 달고 마우스를 올리면 열리는 곳을 보여 준다(known-issues 32)
+    const icon = t.closest('.desk-icon');
+    if (icon) {
+      const app = APP_BY_ID[icon.dataset.app];
+      if (!app) return null;
+      for (const o of (icon.closest('.folder-grid') || icon.parentElement).querySelectorAll('.desk-icon')) o.classList.toggle('selected', o === icon);
+      return { label: `${app.title} 메뉴`, lines: [{ label: '열기', main: true, external: !!app.href, tip: hostTip(app), run: () => os.openApp(app.id) }] };
+    }
+    if (!el.desktop.contains(t) || t.closest('.win, .closeup, .closeup-out')) return null;
+    // 내 아바타는 누를 때처럼 말하기. 친구 집의 주인 아바타는 누르기를 받지 않아 그 뒤의 가구나 바닥이 눌린다
+    if (t.closest('.room-avatar:not(.room-owner), .say-cue')) {
+      return walker ? { label: '아바타 메뉴', lines: [{ label: '말하기', main: true, run: () => walker.openSay() }] } : null;
+    }
+    if (t.closest('.room-pet')) return null; // 날아온 비둘기에는 메뉴가 없다. 내 펫의 메뉴는 펫이 띄운다
+    if (t.closest('.door-hit')) {
+      const door = SCENES.find(s => s.id === os.place)?.door;
+      return door ? { label: '현관문 메뉴', lines: [{ label: '이웃집 놀러 가기', main: true, run: () => os.useDoor(door) }] } : null;
+    }
+    // 방의 가구는 두 번 누를 때처럼 아바타가 가서 쓴다. 불빛 가구는 쓰면 무슨 일이 생기는지 시작 메뉴와 같은 말로 적는다
+    const furn = t.closest('.item.static');
+    const item = furn && staticItem(furn);
+    if (item) {
+      const def = BY_ID[item.id];
+      const use = { label: def.gimmick === 'night' ? lightLabel() : '사용하기', main: true, run: () => os.useFurniture(item, furn) };
+      return { label: `${def.name} 메뉴`, lines: [use, '-', decorate()] };
+    }
+    // 바탕화면의 빈 곳(방의 바닥과 벽, 방 둘레). 윈도우 XP의 바탕화면 메뉴(아이콘 정렬, 새로 고침, 붙여넣기, 새로 만들기, 속성) 가운데
+    // 이 사이트에 있는 것은 속성 창의 바탕 화면 탭과 디자인(창 색) 탭뿐이라, 방 꾸미기와 방의 불(끄면 창도 밤 색이 된다)을 둔다.
+    // 속성처럼 창을 여는 방 꾸미기를 맨 아래에 둔다
+    return { label: '바탕화면 메뉴', lines: [{ label: lightLabel(), run: os.toggleNight }, decorate()] };
+  }
+
   // 밤과 낮. 스탠드나 탁상 조명을 누르면 바뀌고, OS 전체 색이 같이 바뀐다.
   // 공포 모드(src/horror.js)에서는 불을 켜는 쪽으로만 간다. 낮이 되고 공포 모드가 풀린다
   os.toggleNight = () => {
@@ -519,7 +581,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       ? h('button', { type: 'button', className: 'start-name', title: '이름 바꾸기', onclick: () => { menu.hidden = true; openNameWindow(os); } }, os.home.owner)
       : os.mode === 'visit' ? `${os.home.owner} (손님)` : os.home.owner;
     // 밤과 소리는 누르면 바뀌는 모습을 그림으로 보여 준다(불 끄기는 달, 소리 끄기는 꺼진 스피커)
-    const light = item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightsOff() ? '불 켜기 (낮)' : '불 끄기 (밤)', os.toggleNight);
+    const light = item({ title: '밤', icon: lightsOff() ? 'builtin:day' : 'builtin:night' }, lightLabel(), os.toggleNight);
     menu.replaceChildren(
       h('div', { className: 'start-head' }, head, name),
       ...APPS.filter(a => !a.folder && os.canSee(a)).map(app => item(app, app.title, () => os.openApp(app.id))),

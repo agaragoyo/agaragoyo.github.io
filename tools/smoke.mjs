@@ -7,7 +7,7 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
-// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
+// 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 자리마다의 오른쪽 단추 메뉴(손님 화면 포함), 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
 // 내 방의 펫(펫 창의 상태와 단추, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
 // 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
@@ -610,10 +610,26 @@ function watchPoses() {
   }).observe(p, { subtree: true, attributes: true, attributeFilter: ['style'] });
 }
 
-// 펫의 오른쪽 단추 메뉴(src/pet.js의 openMenu)에 든 줄. 지금 하는 일 앞에는 *를 붙인다. 메뉴가 없으면 null
+// 펫의 오른쪽 단추 메뉴(src/pet.js의 showMenu)에 든 줄. 지금 하는 일 앞에는 *를 붙인다. 메뉴가 없으면 null
 function petMenu() {
-  const m = document.querySelector('.pet-menu');
-  return m ? [...m.querySelectorAll('.pet-menu-item')].map(b => `${b.getAttribute('aria-checked') === 'true' ? '*' : ''}${b.textContent}`).join(',') : null;
+  const m = document.querySelector('.ctx-menu');
+  return m ? [...m.querySelectorAll('.ctx-menu-item')].map(b => `${b.getAttribute('aria-checked') === 'true' ? '*' : ''}${b.textContent}`).join(',') : null;
+}
+// 떠 있는 오른쪽 단추 메뉴(src/context-menu.js)의 줄. 굵은 줄 앞에는 !, 회색 줄 앞에는 ~, 점을 찍은 줄 앞에는 *를 붙이고
+// 새 탭으로 가는 줄 끝에는 ↗를 붙여 쉼표로 잇는다. 메뉴가 없으면 null
+function ctxMenu() {
+  const m = document.querySelector('.ctx-menu');
+  return m ? [...m.querySelectorAll('.ctx-menu-item')].map(b => [b.classList.contains('main') ? '!' : '', b.disabled ? '~' : '',
+    b.getAttribute('aria-checked') === 'true' ? '*' : '', b.textContent, b.classList.contains('external') ? '↗' : ''].join('')).join(',') : null;
+}
+// sel 요소를 오른쪽 단추로 누른다(가운데에 contextmenu를 보낸다). 브라우저의 메뉴를 막았는지(defaultPrevented)를 돌려주고, 요소가 없으면 null
+function rightClick(sel) {
+  const el = document.querySelector(sel);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
 }
 // 펫을 오른쪽 단추로 누른다(지금 보이는 그림 장의 칠한 칸에 contextmenu를 보낸다). 브라우저의 메뉴를 막았는지(defaultPrevented)를 돌려준다
 function rightClickPet() {
@@ -867,6 +883,11 @@ async function tap(page, p) {
   await mouse(page, 'mousePressed', p);
   await mouse(page, 'mouseReleased', p);
 }
+// 진짜 마우스의 오른쪽 단추로 p를 누른다. 크롬이 그 자리의 요소를 골라 contextmenu를 보낸다
+async function rightTap(page, p) {
+  await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'right', buttons: 2, clickCount: 1 });
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'right', buttons: 0, clickCount: 1 });
+}
 
 // 사이트를 차례로 눌러 본다. 눌러야 할 것이 화면에 없으면 예외가 나고, main이 그 자리에서 멈춘 것을 실패로 적는다
 async function walk(page, base) {
@@ -1016,6 +1037,104 @@ async function walk(page, base) {
   check('다시 두 번 누르면 낮으로 돌아온다', await until(page, () => document.getElementById('stage').dataset.theme === 'day', 15000));
   await page.run(clickTwice, '#wallpaper .door-hit');
   check('현관문을 두 번 누르면 아바타가 걸어간 뒤 이웃집 목록 창이 뜬다', await until(page, () => !!document.querySelector('#windows .neighbor-app'), 15000));
+  await closeWindows();
+
+  // ---------- 오른쪽 단추 메뉴 ----------
+  // 자리마다 브라우저의 메뉴 대신 사이트의 메뉴(src/context-menu.js)가 뜨고, 굵은 줄을 누르면 그 자리를 두 번 누를 때와 같은 일을 한다.
+  // 메뉴가 없는 자리(창 안, 시작 단추)에서는 아무것도 뜨지 않고, 글을 치는 칸과 링크에서는 브라우저의 메뉴를 그대로 둔다
+  const menuGone = () => !document.querySelector('.ctx-menu');
+  const pick = text => page.run(clickText, '.ctx-menu .ctx-menu-item', text);
+  const menuText = async () => String(await page.run(ctxMenu));
+  const themeIs = want => document.getElementById('stage').dataset.theme === want; // 페이지 안에서 돈다. 바깥 변수 대신 인자로 받는다
+  // 바탕화면의 빈 곳(오른쪽 위 구석, 아이콘은 왼쪽에 줄을 선다)을 진짜 오른쪽 단추로 누른다
+  const corner = await page.run(() => { const r = document.getElementById('desktop').getBoundingClientRect(); return { x: r.right - 24, y: r.top + 24 }; });
+  await rightTap(page, corner);
+  check('바탕화면의 빈 곳을 오른쪽 단추로 누르면 브라우저의 메뉴 대신 불 끄기와 방 꾸미기 메뉴가 누른 자리에 뜬다',
+    (await page.run(ctxMenu)) === '불 끄기 (밤),방 꾸미기' && await page.run(p => { const r = document.querySelector('.ctx-menu').getBoundingClientRect(); return r.right <= p.x + 1 && Math.abs(r.top - p.y) < 2; }, corner), await menuText());
+  await pick('불 끄기');
+  check('바탕화면 메뉴의 불 끄기를 누르면 메뉴가 닫히고 밤이 된다', await page.run(menuGone) && await until(page, themeIs, 2000, 'night'));
+  await page.run(rightClick, '#desktop');
+  check('밤에는 바탕화면 메뉴에 불 켜기가 뜬다', (await page.run(ctxMenu)) === '불 켜기 (낮),방 꾸미기', await menuText());
+  await pick('불 켜기');
+  check('불 켜기를 누르면 낮으로 돌아온다', await until(page, themeIs, 2000, 'day'));
+  // 키: 메뉴가 떠 있는 동안 방향키는 아바타 대신 메뉴가 받고, Esc를 누르면 닫힌다. 바깥을 눌러도 닫힌다
+  await page.run(rightClick, '#desktop');
+  const spotMenu = await page.run(avatarSpot);
+  await press(page, 'ArrowDown');
+  await sleep(300);
+  check('메뉴가 떠 있는 동안 아래 방향키를 누르면 아바타는 걷지 않고 메뉴의 첫 줄로 간다',
+    (await page.run(() => document.activeElement?.textContent)) === '불 끄기 (밤)' && (await page.run(avatarSpot)) === spotMenu);
+  await press(page, 'Escape');
+  check('Esc를 누르면 메뉴가 닫힌다', await page.run(menuGone));
+  await page.run(rightClick, '#desktop');
+  await page.run(() => document.querySelector('#desktop').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
+  check('메뉴 바깥을 누르면 메뉴가 닫힌다', await page.run(menuGone));
+  // 아이콘: 굵은 열기 한 줄. 윈도우처럼 누른 아이콘을 고른다
+  check('아이콘을 오른쪽 단추로 누르면 굵은 열기가 뜨고 그 아이콘이 골라진다', (await page.run(rightClick, '#icons .desk-icon[data-app="music"]')) === true
+    && (await page.run(ctxMenu)) === '!열기' && await page.run(() => document.querySelector('#icons .desk-icon[data-app="music"]').classList.contains('selected')), await menuText());
+  await pick('열기');
+  check('아이콘 메뉴의 열기를 누르면 그 앱의 창이 열린다', await until(page, () => document.querySelectorAll('#windows .win').length === 1, 3000));
+  // 창 메뉴(제목 줄과 작업 표시줄 단추): 윈도우처럼 이전 크기로, 최소화, 최대화, 닫기. 할 수 없는 줄은 회색이고 닫기가 굵다
+  check('창 제목 줄을 오른쪽 단추로 누르면 이전 크기로가 회색이고 닫기가 굵은 창 메뉴가 뜬다', (await page.run(rightClick, '#windows .win .win-title')) === true
+    && (await page.run(ctxMenu)) === '~이전 크기로,최소화,최대화,!닫기', await menuText());
+  await pick('최대화');
+  check('창 메뉴의 최대화를 누르면 창이 최대화된다', await page.run(isMax));
+  await page.run(rightClick, '#windows .win .win-title');
+  check('최대화한 창의 메뉴에서는 최대화가 회색이다', (await page.run(ctxMenu)) === '이전 크기로,최소화,~최대화,!닫기', await menuText());
+  await pick('이전 크기로');
+  check('이전 크기로를 누르면 최대화가 풀린다', !(await page.run(isMax)));
+  check('작업 표시줄 단추를 오른쪽 단추로 눌러도 같은 창 메뉴가 뜬다', (await page.run(rightClick, '#tasks .task')) === true
+    && (await page.run(ctxMenu)) === '~이전 크기로,최소화,최대화,!닫기', await menuText());
+  await pick('최소화');
+  check('창 메뉴의 최소화를 누르면 창이 숨는다', await page.run(() => document.querySelector('#windows .win').hidden));
+  await page.run(rightClick, '#tasks .task');
+  check('최소화한 창의 메뉴에서는 최소화가 회색이다', (await page.run(ctxMenu)) === '이전 크기로,~최소화,최대화,!닫기', await menuText());
+  await pick('이전 크기로');
+  check('최소화한 창의 이전 크기로를 누르면 창이 다시 보인다', await page.run(() => !document.querySelector('#windows .win').hidden));
+  check('창 안의 빈 곳을 오른쪽 단추로 누르면 브라우저의 메뉴도 사이트의 메뉴도 뜨지 않는다', (await page.run(rightClick, '#windows .win .win-body')) === true && await page.run(menuGone));
+  check('시작 단추를 오른쪽 단추로 누르면 아무 메뉴도 뜨지 않는다', (await page.run(rightClick, '.start-btn')) === true && await page.run(menuGone));
+  // 제목 줄을 한 번 누른 바로 뒤에 진짜 오른쪽 단추로 눌러도 두 번 누르기(최대화)로 세지 않는다
+  await tap(page, await page.run(centreOf, '#windows .win .win-title'));
+  await rightTap(page, await page.run(centreOf, '#windows .win .win-title'));
+  check('창 제목 줄을 누른 바로 뒤에 오른쪽 단추로 누르면 최대화하지 않고 창 메뉴만 뜬다', !(await page.run(isMax)) && (await page.run(ctxMenu)) === '~이전 크기로,최소화,최대화,!닫기', await menuText());
+  await pick('닫기');
+  check('창 메뉴의 닫기를 누르면 창이 닫힌다', (await page.run(winCount)) === 0);
+  // 가구: 굵은 줄은 두 번 누를 때처럼 아바타가 가서 쓴다. 불빛 가구는 시작 메뉴와 같은 말로 적는다
+  check('스탠드를 오른쪽 단추로 누르면 굵은 불 끄기와 방 꾸미기가 뜬다', (await page.run(rightClick, '#wallpaper .furn[data-id="lamp"]')) === true
+    && (await page.run(ctxMenu)) === '!불 끄기 (밤),방 꾸미기', await menuText());
+  await pick('불 끄기');
+  check('가구 메뉴의 굵은 줄을 누르면 두 번 누를 때처럼 아바타가 걸어가 쓴다', await until(page, themeIs, 15000, 'night'));
+  await page.run(rightClick, '#wallpaper .furn[data-id="lamp"]');
+  check('밤에는 스탠드 메뉴에 불 켜기가 뜬다', (await page.run(ctxMenu)) === '!불 켜기 (낮),방 꾸미기', await menuText());
+  await pick('불 켜기');
+  check('스탠드 메뉴의 불 켜기를 누르면 낮으로 돌아온다', await until(page, themeIs, 15000, 'day'));
+  check('침대를 오른쪽 단추로 누르면 굵은 사용하기와 방 꾸미기가 뜬다', (await page.run(rightClick, '#wallpaper .furn[data-id="bed"]')) === true
+    && (await page.run(ctxMenu)) === '!사용하기,방 꾸미기', await menuText());
+  await pick('방 꾸미기');
+  check('가구 메뉴의 방 꾸미기를 누르면 방 꾸미기 창이 열린다', await until(page, () => !!document.querySelector('#windows .room-app'), 3000));
+  await closeWindows();
+  check('현관문을 오른쪽 단추로 누르면 굵은 이웃집 놀러 가기가 뜬다', (await page.run(rightClick, '#wallpaper .door-hit')) === true
+    && (await page.run(ctxMenu)) === '!이웃집 놀러 가기', await menuText());
+  await pick('이웃집 놀러 가기');
+  check('현관문 메뉴의 이웃집 놀러 가기를 누르면 아바타가 걸어간 뒤 이웃집 목록 창이 뜬다', await until(page, () => !!document.querySelector('#windows .neighbor-app'), 15000));
+  await closeWindows();
+  // 아바타: 누를 때처럼 말하기. 말하기 칸은 글을 치는 칸이라 브라우저의 메뉴(붙여 넣기)를 그대로 둔다
+  check('내 아바타를 오른쪽 단추로 누르면 굵은 말하기가 뜬다', (await page.run(rightClick, '#wallpaper .room-avatar:not(.room-owner)')) === true
+    && (await page.run(ctxMenu)) === '!말하기', await menuText());
+  await pick('말하기');
+  check('아바타 메뉴의 말하기를 누르면 말하기 칸이 열린다', await until(page, () => { const i = document.querySelector('.say-input'); return !!i && !i.hidden && document.activeElement === i; }, 2000));
+  check('말하기 칸(글을 치는 칸)에서는 브라우저의 메뉴가 그대로 뜬다', (await page.run(rightClick, '.say-input')) === false && await page.run(menuGone));
+  await press(page, 'Escape');
+  // 게임 폴더 창 안의 아이콘에도 메뉴가 뜬다. 새 탭으로 열리는 앱은 줄에 바깥 화살표를 달고 마우스를 올리면 열리는 곳을 보여 주며,
+  // 그 줄을 눌러도 바로 새 탭으로 가지 않고 두 번 누를 때처럼 새 탭 안내 창이 열린다. 그 창의 링크에서는 브라우저의 메뉴를 그대로 둔다
+  await page.run(rightClick, '#icons .desk-icon[data-app="games"]');
+  await pick('열기');
+  check('게임 아이콘 메뉴의 열기를 누르면 게임 폴더 창이 열린다', await until(page, () => !!document.querySelector('#windows .desk-icon[data-app="shu-ramen"]'), 3000));
+  check('새 탭으로 열리는 게임의 메뉴에는 바깥 화살표가 달리고 마우스를 올리면 열리는 곳이 보인다', (await page.run(rightClick, '#windows .desk-icon[data-app="shu-ramen"]')) === true
+    && (await page.run(ctxMenu)) === '!열기↗' && /^새 탭에서 열립니다\(.+\)$/.test(await page.run(() => document.querySelector('.ctx-menu-item').title)), await menuText());
+  await pick('열기');
+  check('그 줄을 누르면 새 탭 안내 창이 열린다', await until(page, () => !!document.querySelector('#windows a.btn[target="_blank"]'), 3000));
+  check('새 탭 안내 창의 링크에서는 브라우저의 메뉴가 그대로 뜬다', (await page.run(rightClick, '#windows a.btn[target="_blank"]')) === false && await page.run(menuGone));
   await closeWindows();
 
   // ---------- 기본 앱 창 ----------
@@ -2032,6 +2151,13 @@ async function walk(page, base) {
     && await page.run(() => !document.querySelector('#start-menu .start-pic, #start-menu .start-name')
       && ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent.includes('이름 바꾸기'))));
   await page.run(clickOnce, '.start-btn');
+  // 손님의 오른쪽 단추 메뉴에는 손님이 할 수 있는 줄만 있다. 방 꾸미기는 손님에게 없는 앱이라 빠진다
+  check('손님이 바탕화면의 빈 곳을 오른쪽 단추로 누르면 방 꾸미기 없이 불 끄기만 뜬다', (await page.run(rightClick, '#desktop')) === true
+    && (await page.run(ctxMenu)) === '불 끄기 (밤)', String(await page.run(ctxMenu)));
+  await press(page, 'Escape');
+  check('손님이 가구를 오른쪽 단추로 누르면 방 꾸미기 없이 사용하기만 뜬다', (await page.run(rightClick, '#wallpaper .furn[data-id="bookshelf"]')) === true
+    && (await page.run(ctxMenu)) === '!사용하기', String(await page.run(ctxMenu)));
+  await press(page, 'Escape');
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님도 책장을 연다');
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
   check('손님에게는 넣기, 고치기, 빼기 단추가 없다', await page.run(() => !document.querySelector('.closeup .shelf-tools, .closeup .book-spine.add')));
@@ -2549,7 +2675,7 @@ async function walk(page, base) {
   check('펫을 오른쪽 단추로 누르면 브라우저 메뉴 대신 쓰다듬기와 할 일 셋이 든 메뉴가 뜨고, 지금 하는 일(혼자 놀기)에 점이 찍혀 있다',
     (await page.run(rightClickPet)) === true && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
   check('펫 메뉴는 무대 안에 뜨고 키를 받는다', await page.run(() => {
-    const m = document.querySelector('.pet-menu');
+    const m = document.querySelector('.ctx-menu');
     const r = m.getBoundingClientRect(), s = document.getElementById('stage').getBoundingClientRect();
     return document.activeElement === m && r.left >= s.left && r.top >= s.top && r.right <= s.right && r.bottom <= s.bottom;
   }));
@@ -2560,7 +2686,7 @@ async function walk(page, base) {
   check('펫 메뉴에서 아래 방향키를 누르면 첫 줄로 가고, 내 아바타는 걷지 않는다', await page.run(() => document.activeElement?.textContent === '쓰다듬기')
     && JSON.stringify(await page.run(myCell)) === JSON.stringify(beforeKey));
   await press(page, 'Escape');
-  check('Esc를 누르면 펫 메뉴가 닫힌다', await page.run(() => !document.querySelector('.pet-menu')));
+  check('Esc를 누르면 펫 메뉴가 닫힌다', await page.run(() => !document.querySelector('.ctx-menu')));
   // 고양이는 명령을 듣지 않는다. 아바타 쪽을 쳐다보다 돌아서고(그림을 뒤집는다) 아바타가 한마디 한다
   await page.run(() => {
     const p = document.querySelector('#wallpaper .room-pet');
@@ -2569,8 +2695,8 @@ async function walk(page, base) {
     new MutationObserver(() => { if (p.classList.contains('flip') !== was) { was = !was; window.__petTurns += 1; } }).observe(p, { attributes: true, attributeFilter: ['class'] });
   });
   await page.run(rightClickPet);
-  await page.run(clickText, '.pet-menu .pet-menu-item', '따라오게 하기');
-  check('고양이에게 따라오게 하기를 누르면 메뉴가 닫히고 내 아바타가 "따라와!"라고 말한다', (await page.run(avatarSays)) === '따라와!' && await page.run(() => !document.querySelector('.pet-menu')));
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '따라오게 하기');
+  check('고양이에게 따라오게 하기를 누르면 메뉴가 닫히고 내 아바타가 "따라와!"라고 말한다', (await page.run(avatarSays)) === '따라와!' && await page.run(() => !document.querySelector('.ctx-menu')));
   check(`고양이는 쳐다보다가 돌아서고, 내 아바타가 "${IGNORED}"라고 말한다`, await until(page, t => document.querySelector('#wallpaper .room-avatar-say:not(.room-pet-say)')?.textContent === t, 3000, IGNORED)
     && (await page.run(() => window.__petTurns)) >= 1, `돌아본 횟수 ${await page.run(() => window.__petTurns)}`);
   const catAt = (await page.run(petScene)).pet;
@@ -2727,7 +2853,7 @@ async function walk(page, base) {
   check('펫 창에서 따라오게 하기를 누르면 내 아바타가 "따라와!"라고 말하고, 창의 하는 일과 눌린 단추가 따라오기로 바뀐다', toldWords === '따라와!'
     && followWin?.doing === '아바타를 따라다니고 있습니다.' && followWin.pressed === 'follow', JSON.stringify({ toldWords, followWin }));
   check('펫 창으로 시킨 일은 오른쪽 단추 메뉴의 점에도 찍힌다', (await page.run(rightClickPet)) && (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
-  await page.run(clickText, '.pet-menu .pet-menu-item', '기다리게 하기');
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '기다리게 하기');
   const stayWin = await page.run(petWindow);
   check('펫 창을 연 채 메뉴로 기다리게 하면 창의 하는 일과 눌린 단추가 기다리기로 바뀐다', stayWin?.doing === '그 자리에서 기다리고 있습니다.' && stayWin.pressed === 'stay', JSON.stringify(stayWin));
   await page.run(clickText, '.pet-app .pet-orders .btn', '혼자 놀게 하기');
@@ -2758,7 +2884,7 @@ async function walk(page, base) {
   // 1~2칸 뒤에서 따라와 바로 뒤 칸에 선다. 따라오는 펫은 아바타의 길을 막지 않아서, 아바타가 펫 칸에 들어가면 펫이 아바타가 나온 칸으로 비킨다
   const isWalk = s => /^walk/.test(s.frame);
   await page.run(rightClickPet);
-  await page.run(clickText, '.pet-menu .pet-menu-item', '따라오게 하기');
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '따라오게 하기');
   check('강아지에게 따라오게 하기를 누르면 내 아바타가 "따라와!"라고 말하고 펫이 아바타 바로 옆 칸으로 온다', (await page.run(avatarSays)) === '따라와!'
     && (await waitPet(s => s.next && !isWalk(s), 6000)).next);
   const leadFrom = await page.run(petScene);
@@ -2777,7 +2903,7 @@ async function walk(page, base) {
   // 기다리기. 그 칸에 앉아 움직이지 않고, 그 칸은 혼자 놀 때처럼 아바타가 지나가지 못한다
   await page.run(rightClickPet);
   check('따라오는 동안 메뉴에는 따라오게 하기에 점이 찍혀 있다', (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
-  await page.run(clickText, '.pet-menu .pet-menu-item', '기다리게 하기');
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '기다리게 하기');
   const stayWords = await page.run(avatarSays);
   const waitAt = (await page.run(petScene)).pet;
   await page.run(floorTap, waitAt.x > 6 ? 3 : 9, 9);
@@ -2790,13 +2916,13 @@ async function walk(page, base) {
   const blockedBy = await page.run(petScene);
   check('기다리는 펫이 앉은 칸은 아바타가 들어가지 못한다', !(blockedBy.me.x === waitAt.x && blockedBy.me.y === waitAt.y) && blockedBy.pet.x === waitAt.x, JSON.stringify(blockedBy));
   await page.run(rightClickPet);
-  await page.run(clickText, '.pet-menu .pet-menu-item', '혼자 놀게 하기');
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '혼자 놀게 하기');
   await page.run(rightClickPet);
   check('혼자 놀게 하기를 누르면 메뉴의 점이 혼자 놀게 하기로 돌아온다', (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
   // 소리를 꺼 두고 쓰다듬는다. 새로 고친 뒤라 소리 기록을 다시 건다
   await page.run(catchAudio);
   await page.run(setSettings, { sound: false });
-  await page.run(clickText, '.pet-menu .pet-menu-item', '쓰다듬기');
+  await page.run(clickText, '.ctx-menu .ctx-menu-item', '쓰다듬기');
   check('메뉴의 쓰다듬기를 누르면 두 번 누른 것처럼 내 아바타가 와서 쓰다듬는다', (await waitPet(s => s.heart && s.next, 8000)).heart);
   const mutedPat = await page.run(takePetSounds);
   check('소리를 꺼 두면 쓰다듬어도 펫 소리를 만들거나 내지 않는다', mutedPat.played === '' && mutedPat.made === '', JSON.stringify(mutedPat));
@@ -2818,8 +2944,8 @@ async function walk(page, base) {
   check('병아리는 처음부터 아바타 바로 옆으로 따라오고, 메뉴에는 따라오게 하기에 점이 찍혀 있다', (await waitPet(s => s.next && !/^walk/.test(s.frame), 6000)).next
     && (await page.run(rightClickPet)) && (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
   check('펫 창이 열려 있어도 펫 메뉴가 창 위에 보인다', await page.run(() => {
-    const r = document.querySelector('.pet-menu').getBoundingClientRect();
-    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.pet-menu') !== null;
+    const r = document.querySelector('.ctx-menu').getBoundingClientRect();
+    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.ctx-menu') !== null;
   }));
   await press(page, 'Escape');
   await page.run(clickTwice, '#wallpaper .room-pet');
