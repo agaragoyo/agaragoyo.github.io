@@ -9,9 +9,10 @@ import { loadJSON, saveJSON } from './util.js';
 
 // sound: 효과음과 배경음악을 틀지, musicOn: 그 가운데 배경음악을 틀지, music: 바탕화면 내 방의 배경음악(src/sound.js의 ROOM_MUSIC id)
 // labsOpen: 실험실을 열었는지, labs: 실험실에서 켠 항목의 id 목록(src/labs.js)
-// pet: 펫 바꾸기 창에서 고른 내 방의 펫('<종류>/<색>', data/pets.js). 비었으면 아직 고르지 않아 기본 펫이 나오고,
-//      'none'(src/pet.js의 NO_PET)이면 펫을 두지 않는다(src/pet-picker.js). 병아리가 다 자라면 닭('chicken/<색>')으로 바뀐다
-// petPats: 자라는 펫(병아리)을 쓰다듬은 횟수(src/pet.js의 patted). 다 자라거나 펫 바꾸기 창에서 다른 종류나 "없음"을 고르면 0으로 돌아간다
+// pet: 펫 창(src/apps/pet-app.js)에서 고른 내 방의 펫('<종류>/<색>', data/pets.js). 비었으면 아직 고르지 않아 기본 펫이 나오고,
+//      'none'(src/pet.js의 NO_PET)이면 펫을 두지 않는다. 병아리가 다 자라면 닭('chicken/<색>')으로 바뀐다
+// petPats: 지금 펫을 쓰다듬은 횟수(src/pet.js의 patted). 펫 창이 보이고, 병아리는 이 값이 열 번이 되면 닭이 된다(횟수는 이어서 센다).
+//      펫 창에서 다른 종류나 "없음"을 고르면 0으로 돌아간다. 2026-11-18까지는 병아리만 세고 닭이 되면 0으로 돌렸다
 // tvHint: TV가 다음에 보일 소문의 차례(src/secrets.js의 HINTS, src/apps/tv-app.js). 소문을 보일 때마다 하나씩 는다
 const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop', labsOpen: false, labs: [], pet: '', petPats: 0, tvHint: 0 };
 // 2026-11-10에 뺀 설정(그레인, 볼록, 시대, 마우스 앱의 커서). 예전에 저장된 값은 읽을 때 버린다.

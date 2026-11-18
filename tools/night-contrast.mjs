@@ -10,8 +10,8 @@
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
 // 사용자를 만들기 전에 로그인 화면에서 친구 아이디 칸의 오류 풍선을 띄워 밤 설정을 끄고 켜며 한 번 잰다(밤은 바탕화면에만 든다, known-issues 38).
-// 창 여섯 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
-// 펫 바꾸기 창(시작 메뉴의 펫 바꾸기로 연다), 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
+// 창 일곱 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창, 펫)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
+// 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
@@ -27,8 +27,9 @@ const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
 // labs(실험실)는 암호를 말해야 아이콘이 생기므로, 열기 전에 설정으로 실험실을 연다(openLabs).
-// 아이콘이 아닌 곳에서 여는 창(사진 바꾸기, 이름 바꾸기, 펫 바꾸기, 이웃집 목록)은 main에서 여는 함수(openUserWindow, openPetPicker, openNeighborList)로 차례로 연다.
-const OPEN = ['games', 'room', 'share', 'music', 'labs', 'shu-ramen'];
+// pet(펫 창)은 새 사용자라 기본 펫(회색 고양이)이 있어 큰 그림, 할 일 단추, 색 묶음이 다 보인다. 2026-11-18까지는 시작 메뉴의 펫 바꾸기 창을 따로 열었다.
+// 아이콘이 아닌 곳에서 여는 창(사진 바꾸기, 이름 바꾸기, 이웃집 목록)은 main에서 여는 함수(openUserWindow, openNeighborList)로 차례로 연다.
+const OPEN = ['games', 'room', 'share', 'music', 'labs', 'shu-ramen', 'pet'];
 // 가구를 두 번 눌러 여는 화면(가구 가까이 보기와 가구 창). 점검용 집의 가구로 연다.
 // [이름, 가구 id, 다 열렸는지 보는 선택자, 그 화면에서 차례로 눌러 더 열어 볼 단추의 글자]
 // 가구 화면을 새로 만들면 여기에 한 줄을 더하고, 그 가구가 점검용 집에 없으면 TEST_HOME에도 놓는다.
@@ -180,18 +181,6 @@ function showHandleError() {
   form.querySelector('input').value = '';
   form.requestSubmit();
   return !form.querySelector('.like-error').hidden;
-}
-
-// 시작 메뉴의 펫 바꾸기를 눌러 펫 바꾸기 창(src/pet-picker.js)을 연다. 고른 펫을 먼저 넣어 두어 창의 큰 그림과 색 묶음이 보이게 한다
-// ("없음"이면 둘이 숨는다). 2026-11-17까지는 실험실 창의 펫 바꾸기 단추로 열었다
-async function openPetPicker() {
-  const { settings } = await import(new URL('src/settings.js', document.baseURI).href);
-  settings.set({ pet: 'cat/gray' });
-  if (document.getElementById('start-menu').hidden) document.querySelector('#taskbar .start-btn').click();
-  const item = [...document.querySelectorAll('#start-menu .start-item')].find(b => b.textContent.includes('펫 바꾸기'));
-  if (!item) return false;
-  item.click();
-  return true;
 }
 
 // 낮에 한 번, 밤으로 바꿔 한 번 잰다. 두 번 모두 같은 자바스크립트 실행 안이라 그사이에 화면이 바뀌지 않는다.
@@ -390,10 +379,8 @@ async function main() {
   await until(page, s => s.windows >= OPEN.length + 1, '사진 바꾸기 창이 열리지 않았다', 5000);
   if (!(await page.run(openUserWindow, '.start-name'))) throw new Stop('시작 메뉴 맨 위에 내 이름 단추(.start-name)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 2, '이름 바꾸기 창이 열리지 않았다', 5000);
-  if (!(await page.run(openPetPicker))) throw new Stop('시작 메뉴에 펫 바꾸기 줄이 없다. 바뀌었으면 tools/night-contrast.mjs의 openPetPicker도 고친다.');
-  await until(page, s => s.windows >= OPEN.length + 3, '펫 바꾸기 창이 열리지 않았다', 5000);
   if (!(await page.run(openNeighborList))) throw new Stop('방의 현관문(.door-hit)이 없다. 바뀌었으면 tools/night-contrast.mjs의 openNeighborList도 고친다.');
-  await until(page, s => s.windows >= OPEN.length + 4, '이웃집 목록 창이 열리지 않았다', 10000);
+  await until(page, s => s.windows >= OPEN.length + 3, '이웃집 목록 창이 열리지 않았다', 10000);
   await sleep(1500); // 서버에서 이웃집을 받는 중이던 줄이 바뀔 틈
   if (!(await page.run(showHandleError))) throw new Stop('이웃집 목록 창에 아이디 칸(.handle-form)이 없거나 빈 칸을 보내도 오류가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showHandleError도 고친다.');
 
