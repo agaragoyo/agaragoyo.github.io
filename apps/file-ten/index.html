@@ -72,6 +72,12 @@
     let mode = AGA.load('mode', 'normal') === 'casual' ? 'casual' : 'normal'; // localStorage 'file-ten.mode'
     let best = AGA.load('best', 0); // 'file-ten.best': 보통 모드의 최고 기록
     let clears = AGA.load('clears', 0); // 'file-ten.clears': 캐주얼 모드에서 판을 끝까지 다 지운 횟수
+    // 친구 집에서 열면 보통 모드에서 그 집 주인의 최고 기록과 겨룬다(F34, AGA.info). 'file-ten.best'가 내 방의 링크에 담기는 기록이다.
+    // 시작 카드에 주인 기록을 더하고, 넘는 순간 판 위에 알리고, 결과 화면에 견준 한 줄을 적는다. 다 정리 횟수는 할수록 쌓이는 수라 겨루지 않는다
+    let rival = null;   // { name: 주인 닉네임(앞 6글자), best: 주인 기록, canNote }. 내 집이거나 주인 기록이 없으면 null
+    let passedAt = 0;   // 이번 판에서 주인 기록을 넘은 시각. 0이면 아직 넘지 못했다
+    const PASS_SHOW = 2000; // 넘었다는 알림이 판 위에 떠 있는 시간(ms)
+    const racing = () => !!rival && mode === 'normal';
     $('best').textContent = best;
     $('clears').textContent = clears;
 
@@ -241,6 +247,8 @@
       swapAt = 0;
       banner = null;
       flash = [];
+      passedAt = 0;
+      card.action(null);
       tutor = AGA.load('tutored', false) ? null : easiestGroup();
       $('score').textContent = 0;
       showMode();
@@ -352,6 +360,7 @@
         $('best').textContent = best;
         AGA.save('best', best);
       }
+      if (racing() && !passedAt && score > rival.best) passedAt = now;
       countRemain();
       if (tutor) endTutor(); // 묶음을 하나 지웠으니 안내는 끝. 보통 모드의 시계는 이때부터 흐른다
       afterMove(now);
@@ -389,10 +398,16 @@
       // 판 위에는 원인 한마디(title)와 숫자(sub)를, 아랫줄에는 판이 보여 주지 않는 것만 쓴다
       const title = kind === 'time' ? '시간이 다 됐어요' : kind === 'clear' ? '다 정리했어요!' : '막혔어요';
       const sub = kind === 'time' ? `파일 ${score}개 정리` : kind === 'clear' ? `다 정리 ${clears}번` : `남은 파일 ${remaining()}개`;
-      end = { at: now, kind, title, sub, groups, cells };
+      // 친구 집의 보통 모드면 주인 기록과 견준 한 줄(vs)을 판 위와 아랫줄에 더하고, 넘었으면 쪽지 단추를 띄운다(F34).
+      // 쪽지 단추가 뜬 판은 결과를 흐리지 않고 그대로 둔다(흐려져 드러난 파일을 단추가 가리지 않게)
+      const vs = kind === 'time' && racing() ? rivalLine() : '';
+      const note = !!vs && rival.canNote && score > rival.best;
+      end = { at: now, kind, title, sub, groups, cells, vs, note };
       if (kind === 'time') {
         AGA.setTitle(`파일 정리 10 (최고 ${best}개)`);
-        say(groups.length ? `놓친 묶음 ${groups.length}개` : '놓친 묶음 없음', '판을 누르면 다시 시작');
+        const missed = groups.length ? `놓친 묶음 ${groups.length}개` : '놓친 묶음 없음';
+        say(vs ? `${missed}, ${vs}` : missed, '판을 누르면 다시 시작');
+        if (note) card.action('코르크 보드에 쪽지 남기기', { at: 0.78, onClick: () => AGA.leaveNote(`파일 정리 10에서 ${score}개`) });
       } else if (kind === 'clear') {
         AGA.setTitle(`파일 정리 10 (다 정리 ${clears}번)`);
         say('', '판을 누르면 다시 시작');
@@ -495,22 +510,27 @@
     }
 
     // 판 가운데에 잠깐 띄우는 알림
-    function drawBanner(text, alpha) {
+    // y: 알림 상자의 가운데 높이. 판을 깔 때의 알림은 판 가운데, 주인 기록을 넘었다는 알림은 하던 판을 덜 가리게 맨 윗줄에 띄운다
+    function drawBanner(text, alpha, y = H / 2) {
       ctx.globalAlpha = alpha;
       ctx.font = '18px Galmuri11, sans-serif';
       const w = ctx.measureText(text).width + 48;
       const h = 48;
       ctx.fillStyle = '#1f4d4aee';
-      ctx.fillRect((W - w) / 2, (H - h) / 2, w, h);
+      ctx.fillRect((W - w) / 2, y - h / 2, w, h);
       ctx.strokeStyle = '#f6cf6a';
       ctx.lineWidth = 2;
-      ctx.strokeRect((W - w) / 2, (H - h) / 2, w, h);
+      ctx.strokeRect((W - w) / 2, y - h / 2, w, h);
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, W / 2, H / 2);
+      ctx.fillText(text, W / 2, y);
       ctx.globalAlpha = 1;
     }
+
+    // 결과 화면에 적는 주인 기록과 견준 한 줄
+    const rivalLine = () => (score > rival.best ? `${rival.name}의 기록 ${rival.best}개를 넘었어요`
+      : score === rival.best ? `${rival.name}의 기록 ${rival.best}개와 같아요` : `${rival.name}의 기록까지 ${rival.best - score}개`);
 
     const clamp01 = k => Math.max(0, Math.min(1, k));
 
@@ -552,9 +572,10 @@
         if (t > BANNER) banner = null;
         else drawBanner(banner.text, clamp01((BANNER - t) / 400));
       }
+      if (passedAt && !over && now - passedAt < PASS_SHOW) drawBanner('친구 기록을 넘었어요!', clamp01((PASS_SHOW - (now - passedAt)) / 400), PAD + CELL / 2);
       if (over) {
-        // 결과를 잠깐 크게 보여 준 뒤 흐려져 판이 드러난다. 다 지운 판은 볼 것이 없으므로 결과를 그대로 둔다.
-        const alpha = end.kind === 'clear' ? 1 : clamp01(1 - (now - end.at - RESULT) / 400);
+        // 결과를 잠깐 크게 보여 준 뒤 흐려져 판이 드러난다. 다 지운 판은 볼 것이 없으므로, 쪽지 단추가 뜬 판은 단추가 파일을 가리지 않게 결과를 그대로 둔다.
+        const alpha = end.kind === 'clear' || end.note ? 1 : clamp01(1 - (now - end.at - RESULT) / 400);
         if (alpha > 0) {
           ctx.globalAlpha = alpha;
           ctx.fillStyle = '#000a';
@@ -566,6 +587,11 @@
           ctx.fillText(end.title, W / 2, H / 2 - 16);
           ctx.font = '18px Galmuri11, sans-serif';
           ctx.fillText(end.sub, W / 2, H / 2 + 22);
+          if (end.vs) {
+            ctx.font = '15px Galmuri11, sans-serif';
+            ctx.fillStyle = '#f6cf6a';
+            ctx.fillText(end.vs, W / 2, H / 2 + 56);
+          }
           ctx.globalAlpha = 1;
         }
       }
@@ -653,15 +679,27 @@
       { text: '시간 제한 없음', sub: `다 정리 ${clears}번`, main: mode === 'casual', onClick: () => startMode('casual', fresh) },
     ];
     // midGame: 게임 방법 단추로 다시 연 카드. 하던 판을 이어서 하거나, 모드를 골라 새 판을 시작한다(Esc는 이어서 하기)
+    // 친구 집에서는 단추 위의 기록 줄에 주인의 보통 모드 기록을 보인다(F34)
+    let cardMid = false;
     function openCard(midGame) {
+      cardMid = midGame;
+      const note = rival ? `${rival.name}의 기록 ${rival.best}개 (보통)` : '';
       card.open(midGame
-        ? { rows: [{ buttons: [{ text: '이어서 하기', main: true, onClick() {} }] }, { label: '새 판 시작', buttons: modeButtons(true).map(b => ({ ...b, main: false })) }], onEscape: () => {} }
-        : { rows: [{ buttons: modeButtons(false) }] });
+        ? { note, rows: [{ buttons: [{ text: '이어서 하기', main: true, onClick() {} }] }, { label: '새 판 시작', buttons: modeButtons(true).map(b => ({ ...b, main: false })) }], onEscape: () => {} }
+        : { note, rows: [{ buttons: modeButtons(false) }] });
     }
 
     reset();
     openCard(false);
     requestAnimationFrame(loop);
+    // 친구 집이면 주인 기록을 받아 떠 있는 시작 카드에 더한다. 답은 카드가 뜬 바로 뒤에 온다.
+    // 긴 닉네임은 앞 6글자만 쓴다(결과 화면의 한 줄이 판 폭을 넘지 않게)
+    AGA.info().then(i => {
+      if (!i.visitor || !(i.ownerBest > 0)) return;
+      const chars = [...i.owner];
+      rival = { name: chars.length > 6 ? chars.slice(0, 5).join('') + '…' : i.owner, best: i.ownerBest, canNote: i.canNote };
+      if (card.isOpen) openCard(cardMid);
+    });
   </script>
 </body>
 </html>

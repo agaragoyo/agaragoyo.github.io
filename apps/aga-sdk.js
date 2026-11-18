@@ -5,10 +5,14 @@
 //   AGA.id              내 앱 id (apps/<id>/ 폴더 이름)
 //   AGA.close()         내 창을 닫는다
 //   AGA.setTitle(글자)   창 제목을 바꾼다
-//   AGA.info()          { owner: 방 주인 닉네임, visitor: 친구 컴퓨터를 구경 중인지 } 를 Promise로 준다
+//   AGA.info()          { owner: 방 주인 닉네임, visitor: 친구 컴퓨터를 구경 중인지, ownerBest: 그 집 주인의 이 게임 최고 기록(없으면 0),
+//                       canNote: 그 집 코르크 보드에 쪽지를 남길 수 있는지 } 를 Promise로 준다.
+//                       ownerBest는 친구 집에서 연, 기록을 겨룰 수 있는 게임(src/records.js의 RECORD_APPS)에만 온다(F34)
 //   AGA.load(이름, 기본값) / AGA.save(이름, 값)
 //                       이 컴퓨터에 기록을 남기고 읽는다. 키 앞에 '<id>.'가 저절로 붙어서 다른 앱과 섞이지 않는다
-//                       (AGA.save('best', 12) 는 localStorage 'tidy-up.best'). 값은 숫자, 글자, 배열, 객체 다 된다
+//                       (AGA.save('best', 12) 는 localStorage 'tidy-up.best'). 값은 숫자, 글자, 배열, 객체 다 된다.
+//                       기록을 겨룰 수 있는 게임은 'best'에 클수록 좋은 정수 점수를 남긴다. 주인의 링크에 그 점수가 담긴다
+//   AGA.leaveNote(글)    친구 집에서 이 게임을 닫고 그 집 코르크 보드를 열어, 쪽지 쓰기 칸에 글을 넣어 둔다(canNote일 때만, F34)
 //   AGA.fitCanvas(캔버스, 자리, 가로, 세로)
 //                       게임판을 자리(부모 요소)에 꽉 차게 맞춘다. 그리기는 늘 가로×세로 게임 단위로 하면 된다.
 //                       창 크기가 바뀌면 저절로 다시 맞추고, 스크롤바 진동과 흐릿함(known-issues 12, 14)을 피한다.
@@ -17,6 +21,7 @@
 //                       게임판 위에 시작 카드(게임 이름, 조작 안내 한 문장, 되풀이되는 시범 그림, 단추)를 띄운다.
 //                       card.open({ note, rows }) 로 열고 card.close() 로 닫는다. card.isOpen 동안 게임은 멈춘다.
 //                       card.tip(글, { at, onSkip }) 은 판 위에 한 줄 안내와 건너뛰기 단추를 띄운다(card.tip(null) 로 숨김).
+//                       card.action(글, { at, onClick }) 은 판 위에 단추 하나를 띄운다(card.action(null) 로 숨김, 결과 화면의 쪽지 단추).
 //                       자세한 쓰는 법은 아래 gameCard 함수 위의 설명과 apps/README.md
 //   AGA.onHide(함수) / AGA.onShow(함수)
 //                       앱이 가려지면 onHide에 넣은 함수를, 다시 보이면 onShow에 넣은 함수를 부른다. 가려지는 때는 창을 최소화했을 때와
@@ -31,6 +36,7 @@
   const id = (location.pathname.match(/\/apps\/([^/]+)\//) || [])[1] || '';
   let info = null;
   const waiting = [];
+  const NO_INFO = { owner: '', visitor: false, ownerBest: 0, canNote: false }; // 아가라고요 바깥에서 열었을 때
   // 앱이 가려지고 다시 보일 때 부를 함수들(AGA.onHide, AGA.onShow). 가려지는 길은 둘이다. OS가 창을 최소화했다고 알릴 때와
   // 브라우저 탭이 뒤로 가서 이 문서가 hidden이 될 때다. 최소화는 탭이 보이는 채라 문서에 visibilitychange가 오지 않으므로(known-issues 75)
   // 둘을 합쳐 보고, 보이는지가 바뀔 때만 부른다
@@ -49,7 +55,7 @@
   window.addEventListener('message', e => {
     if (e.source !== host || !e.data || e.data.aga !== 1) return;
     if (e.data.type === 'info') {
-      info = e.data.info;
+      info = { ...NO_INFO, ...e.data.info };
       waiting.splice(0).forEach(resolve => resolve(info));
     }
     if (e.data.type === 'cursor') applyCursor(e.data.cursor || {});
@@ -82,6 +88,7 @@
   }
   function save(name, value) {
     try { localStorage.setItem(key(name), JSON.stringify(value)); } catch { /* 저장소를 못 쓰는 환경 */ }
+    send({ type: 'saved', name: String(name), app: id }); // 최고 기록이 바뀌면 OS가 링크에 담은 기록도 고친다(src/sdk-host.js)
   }
 
   // 게임판 맞추기. 크기를 정수로 내리고, 크기가 그대로면 다시 맞추지 않는다(소수점 차이로 끝없이 다시 맞추는 일을 막는다).
@@ -136,6 +143,10 @@
   //
   //   card.tip('눌러서 떨어뜨려요', { at: 0.3, onSkip() {} })   판 높이의 at(0 위 ~ 1 아래) 자리에 한 줄 안내. 안내는 클릭을 가리지 않는다
   //   card.tip(null)                                           안내를 숨긴다
+  //   card.action('코르크 보드에 쪽지 남기기', { at: 0.7, onClick() {} })
+  //                                                            판 높이의 at 자리에 단추 하나. 누르면 단추가 숨고 onClick이 불린다.
+  //                                                            판을 눌러 다시 시작하는 결과 화면에 둔다(단추를 눌러도 판에는 닿지 않는다). 카드가 떠 있는 동안은 숨는다
+  //   card.action(null)                                        단추를 숨긴다
   const CARD_CSS = `
     .aga-layer { position: absolute; z-index: 5; display: grid; place-items: center; pointer-events: none; }
     .aga-layer.open { pointer-events: auto; background: rgba(0, 0, 0, 0.4); }
@@ -149,7 +160,7 @@
     .aga-card h2 { margin: 0; font-size: 22px; font-weight: 400; }
     .aga-card p { margin: 0; font-size: 13px; line-height: 1.5; word-break: keep-all; }
     .aga-card canvas { display: block; max-width: 100%; height: auto; border-radius: 4px; }
-    .aga-card .aga-note { font-size: 13px; opacity: 0.85; }
+    .aga-card .aga-note { font-size: 13px; opacity: 0.85; white-space: pre-line; }
     .aga-card .aga-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
     .aga-card .aga-row-label { flex-basis: 100%; font-size: 12px; opacity: 0.8; }
     .aga-card button {
@@ -167,6 +178,13 @@
     }
     .aga-tip[hidden] { display: none; }
     .aga-tip button { pointer-events: auto; font: inherit; font-size: 12px; padding: 2px 8px; cursor: var(--aga-hand, pointer); }
+    .aga-action {
+      position: absolute; left: 50%; transform: translate(-50%, -50%); pointer-events: auto; white-space: nowrap;
+      min-height: 36px; padding: 4px 14px; font: inherit; font-size: 15px; border: 2px solid var(--aga-card-line); border-radius: 4px;
+      background: var(--aga-card-accent); color: var(--aga-card-on-accent); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25); cursor: var(--aga-hand, pointer);
+    }
+    .aga-action:focus-visible { outline: 2px solid var(--aga-card-line); outline-offset: 2px; }
+    .aga-action[hidden], .aga-layer.open .aga-action { display: none; }
   `;
 
   function gameCard(canvas, opt) {
@@ -223,7 +241,13 @@
     let onSkip = null;
     skip.addEventListener('click', () => { const f = onSkip; api.tip(null); if (f) f(); });
 
-    layer.append(card, tip);
+    const action = make('button', 'aga-action');
+    action.type = 'button';
+    action.hidden = true;
+    let onAction = null;
+    action.addEventListener('click', () => { const f = onAction; api.action(null); if (f) f(); });
+
+    layer.append(card, tip, action);
     box.append(layer);
 
     // 카드를 판 크기에 맞춘다. 너비는 판의 78%까지, 그래도 높이가 넘치면 통째로 줄인다.
@@ -303,6 +327,13 @@
         tip.style.top = (o.at ?? 0.5) * 100 + '%';
         onSkip = o.onSkip || null;
       },
+      action(text, o = {}) {
+        action.hidden = !text;
+        if (!text) { onAction = null; return; }
+        action.textContent = text;
+        action.style.top = (o.at ?? 0.7) * 100 + '%';
+        onAction = o.onClick || null;
+      },
     };
     return api;
   }
@@ -314,14 +345,15 @@
     setTitle: title => send({ type: 'title', title: String(title) }),
     info() {
       if (info) return Promise.resolve(info);
-      if (!host) return Promise.resolve({ owner: '', visitor: false });
+      if (!host) return Promise.resolve(NO_INFO);
       return new Promise(resolve => {
         waiting.push(resolve);
-        send({ type: 'hello' });
+        send({ type: 'hello', app: id });
         // 바깥이 아가라고요가 아니면(다른 사이트에 임베드된 경우) 답이 오지 않으므로 기본값으로 끝낸다.
-        setTimeout(() => resolve(info || { owner: '', visitor: false }), 1000);
+        setTimeout(() => resolve(info || NO_INFO), 1000);
       });
     },
+    leaveNote: text => send({ type: 'note', text: String(text ?? '') }),
     load,
     save,
     fitCanvas,

@@ -71,6 +71,7 @@
 | 서버(Firebase)에 둘 것 더하기(짧은 링크의 방, 쪽지) | `src/cloud.js`에 함수, 문서 모양과 누가 읽고 쓰는지는 `firestore.rules`. 서버에서 읽은 값도 링크처럼 `decodeHome` 검사를 거친다. 규칙은 저절로 올라가지 않아 PR을 합친 뒤 Admin이 Firebase 콘솔에 게시한다(known-issues 59) |
 | 방 그림(PNG) 내려받기 | 단추는 `src/apps/share-app.js`, 그림 그리기는 `src/room-image.js`. 파일 크기는 `IMAGE_SCALE`. 그림 속 아바타는 `src/avatar.js`의 `avatarStill`, 서는 칸은 `src/os.js`의 `avatarSpot` |
 | 앱 SDK에 기능 더하기 | `src/sdk-host.js`의 `HANDLERS`와 `apps/aga-sdk.js` |
+| 친구 집에서 방 주인의 미니게임 기록과 겨루기(F34), 겨룰 게임 더하기 | 겨루는 게임 목록과 기록 검사는 `src/records.js`(새 게임은 `RECORD_APPS` 끝에 앱 id), 링크에 담는 곳은 `src/share.js`의 `recordBytes`, 손님 게임에 주인 기록을 알리는 곳은 `src/sdk-host.js`의 `hello`, 쪽지 단추로 코르크 보드를 여는 곳은 `src/os.js`의 `openNoteDraft`. 게임 쪽은 `AGA.info().ownerBest`, `card.action`, `AGA.leaveNote`(`apps/tidy-up`이 예) |
 | 자동 점검 규칙 더하기 | `tools/check.py`에 `check_...` 함수 |
 | 예전에 겪은 함정 | `known-issues.md`. 통째로 읽지 않고 제목의 영역 태그(맨 위 표)로 거른다. 없어진 기능의 함정은 `docs/known-issues-archive.md` |
 
@@ -117,7 +118,7 @@
 | `src/context-menu.js` | 오른쪽 단추 메뉴(윈도우의 바로 가기 메뉴)를 띄운다. 누른 자리에 뜨고 무대 밖으로 나가면 반대쪽으로 펴며, 한 번에 하나만 뜬다. 굵은 줄(두 번 누를 때 하는 일), 회색 줄(지금 할 수 없는 일), 점을 찍는 줄(펫의 할 일), 새 탭으로 가는 줄의 바깥 화살표, 위아래 방향키로 줄 옮기기, Esc와 바깥 누르기로 닫기를 맡는다. 자리마다의 줄은 `src/os.js`, `src/win.js`, `src/pet.js`가 정한다 | `openMenu`, `closeMenu` |
 | `src/win.js` | 창 관리자. 창과 작업 표시줄 버튼을 만들고 끌기, 최소화, 최대화, 닫기를 한다. 앱(iframe)을 누르면 그 창을 앞으로 가져오고, 다른 곳을 누르면 앱의 키보드 초점을 거둔다. 최소화하거나 다시 띄우면 `onVisible`로 알린다 | `createWM` |
 | `src/icons.js` | 아이콘 하나 만들기. 기본 앱 여덟 개(방 꾸미기, 나도 만들기, 내 컴퓨터로, 게임, 공유하기, 배경음악, 펫, 실험실), 시작 메뉴 아래쪽 항목, 가구 화면 앱, 튜토리얼과 이웃집 창, 추억의 플래시 게임, 시작 단추, 아바타 머리 위의 말하기 표시의 그림은 한 글자가 한 칸인 글자 격자로 그린 픽셀 그림이다(`PIXEL`, 48px와 24px 자리용 24칸, 16px와 게임기 화면용 16칸). 무대 배율에 맞춰 그림 한 칸이 화면 픽셀 정수 개가 되는 크기를 고른다(실험실의 반짝임 별 한 칸 `--sparkle-cell`과 펫 한 칸 `--pet-cell`도 여기서 고른다) | `iconEl`, `fitPixelIcons` |
-| `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`). 창을 최소화하면 그 창의 앱에 가려졌다고 알린다(`tellVisible`. 탭이 뒤로 가는 것은 SDK가 스스로 안다) | `createSdkHost` |
+| `src/sdk-host.js` | 팀원 앱(iframe)과 주고받는 메시지. 종류마다 함수 하나(`HANDLERS`). 친구 집에서 연 미니게임에 그 집 주인의 기록과 쪽지를 남길 수 있는지 알리고(`hello`), 내 컴퓨터의 최고 기록이 바뀌면 서버의 방을 고치게 하며(`saved`), 쪽지 단추를 누르면 게임을 닫고 코르크 보드를 연다(`note`, F34). 창을 최소화하면 그 창의 앱에 가려졌다고 알린다(`tellVisible`. 탭이 뒤로 가는 것은 SDK가 스스로 안다) | `createSdkHost` |
 | `src/screensaver.js` | 화면 보호기. 바탕화면을 2분 동안 그냥 두면 검은 화면에 주인의 인사말(없으면 "주인 이름의 컴퓨터")이 흘러가고, 마우스나 키로 걷힌다. 실험실의 화면 보호기 빨리 보기를 켜면 20초를 기다린다. 언제 돌지는 `os.js`가 정한다 | `createScreensaver` |
 | `src/cursors.js` | 화면 안 커서 그림(화살표, 손, 잡는 손, 모래시계)을 만들어 `--cur-*` CSS 변수로 넣는다. 2005년식 그림 한 벌뿐이고 직접 그린 것이다 | `initCursors`, `cursorSet` |
 
@@ -135,9 +136,10 @@
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서 새로 걸 때만 쓴다(불러올 때 쓰면 예전에 걸어 둔 가구가 사라진다). 펫(고양이)이 올라가 앉을 가구 위 자리(`perchesOf`)도 책상 위 물건의 지지 규칙(`supportOf`)과 같이 여기서 구한다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `perchesOf`, `dims`, `isWall` |
 | `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방 배경 그림(방 벽의 현관문과 벽지 무늬 포함), 벽지 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기와 카드 끌기 | `mountShelf`, `filterShelf` |
-| `src/share.js` | 집 상태 검사와 방 글자 만들기, 읽기. 서버에 두는 방 글자이고, 예전 긴 링크(`#r=...`, 그 전에는 `#room=...`)도 같은 글자라 여기서 연다. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말과 고른 벽지, 주인 사진 번호(둘 가운데 하나라도 있으면 형식 5)도 담긴다. 주인 사진이 내 그림이면 사진 번호 자리에 255와 그림 바이트를 담는다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다. 주인 이름 검사(`ownerName`)는 이름 바꾸기 창도 같이 쓴다 | `sanitizeHome`, `ownerName`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
+| `src/share.js` | 집 상태 검사와 방 글자 만들기, 읽기. 서버에 두는 방 글자이고, 예전 긴 링크(`#r=...`, 그 전에는 `#room=...`)도 같은 글자라 여기서 연다. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말과 고른 벽지, 주인 사진 번호, 주인의 미니게임 최고 기록(F34, 셋 가운데 하나라도 있으면 형식 5)도 담긴다. 주인 사진이 내 그림이면 사진 번호 자리에 255와 그림 바이트를 담는다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다. 주인 이름 검사(`ownerName`)는 이름 바꾸기 창도 같이 쓴다 | `sanitizeHome`, `ownerName`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
 | `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기(링크로 온 친구 집과 link 이웃집). SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 링크를 지우면 쪽지도 지운다. 이름을 바꾸면 쪽지에 쓴 닉네임도 예전 이름일 때 새 이름으로 바꾼다(`renameNick`). 링크를 만든 방에 아이디를 달고(서버의 `handles` 컬렉션에 아이디마다 문서 하나, 먼저 정한 한 사람만 쓴다) 아이디로 방 번호를 찾으며, 링크를 지우면 아이디도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `claimHandle`, `dropHandle`, `findHandle`, `myHandle`, `normalHandle`, `handleFrom`, `HANDLE_RE`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `renameNick`, `NOTE`, `MAX_CODE`, `CloudError` |
 | `src/likes.js` | 주인이 가구마다 담아 두는 것(집 상태의 `likes`). 가구별 칸과 개수, 글자 수 제한, 저장본과 링크에서 온 값 검사, 주소 검사(`safeLink`), 라디오 CD 링크 알아보기(`parseMusic`), 그림 주소 검사(`safeImage`), 새 책과 작품의 색 고르기(`nextColor`), 바꾸고 저장하기 | `sanitizeLikes`, `setLike`, `safeLink`, `safeImage`, `parseMusic`, `nextColor`, `line`, `para`, `isOwner`, `LIMIT` |
+| `src/records.js` | 친구 집에서 방 주인의 미니게임 기록과 겨루기(F34). 겨루는 게임 목록(링크에 담는 순서라 끝에만 더한다), 집 상태의 `records` 검사, 이 컴퓨터의 최고 기록(`<앱 id>.best`)을 링크에 담을 집에 붙이기. 다른 파일을 불러오지 않는다(`src/share.js`가 부르고 Node로 도는 링크 점검도 부른다) | `RECORD_APPS`, `MAX_RECORD`, `sanitizeRecords`, `myRecords`, `withRecords` |
 
 | `src/furniture-line.js` | 기믹이 없는 가구를 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄을 꺼낸다. 가구 목록의 `say`를 쓰고, 없으면 "옷장이네."처럼 이름을 말한다. `{시각}`은 지금 시각("3시 40분")으로 바뀐다. `os.js`의 두 번 누르기와 실험실의 심심할 때 혼잣말(`src/idle-talk.js`)이 같이 쓴다 | `furnitureLine` |
 
@@ -162,7 +164,7 @@
 | `src/apps/radio-app.js` | 가구 기믹: 라디오. 주인이 넣은 CD(스포티파이, 애플 뮤직, 유튜브 링크)를 펼치고, 고른 CD가 라디오에 들어가 돌면 공식 플레이어를 옆의 작은 창에 띄운다. 음악 창은 라디오를 내려놓아도 남고 그동안 사이트 배경음악을 멈춘다. 주인은 CD마다 이름과 색(`CD_COLORS`)을 정하고 고친다. 유튜브 플레이어는 IFrame Player API로 재생하지 못한 영상을 알아채 아래 안내 줄에 할 일을 쓰고, 재생목록 CD에는 플레이어 아래에 곡 넘기기 단추(이전 곡, 다음 곡)와 "목록 보기" 단추, 이전 곡과 다음 곡의 이름 두 줄을 두며(곡 정보는 `src/apps/radio-tracks.js`가 맡는다), 떠 있는 동안 `os.showingVideo`로 화면 효과와 화면 보호기를 끈다. 실험실의 친구 집 배경음악(`home-bgm`)을 켜면 친구 집에 들어올 때 첫 유튜브 CD의 음악 창을 저절로 연다(`startHomeMusic`, 스위치는 `syncHomeMusic`) |
 | `src/apps/radio-tracks.js` | 라디오의 유튜브 재생목록 CD에 쓰는 곡 정보(`hasTracks`, `createTracks`, `trackTitle`). 플레이어(IFrame Player API)에서 곡 id와 지금 번호를 읽어 음악 창의 이전 곡, 다음 곡 이름 두 줄과 "목록 보기"로 따로 여는 곡 목록 창(곡을 누르면 `playVideoAt`)을 맞춘다. 곡 이름은 유튜브 oEmbed로 곡 id마다 받고, 보이는 줄만 물으며, 한꺼번에 묻는 수를 제한하고 곡마다 받아 둔다 |
 | `src/apps/tv-app.js` | 가구 기믹: TV. 주인이 고른 영화와 TV 시리즈의 포스터를 추천 줄로 늘어놓고 휠과 방향키로 넘긴다. 주인은 위키데이터로 이름을 찾아 연도, 감독, 링크를 채우고 포스터 그림 주소와 추천 이유를 넣는다. 내 컴퓨터의 진짜 집에서 켜면 화면 맨 아래 띠에 숨은 기능의 소문(`src/secrets.js`의 `HINTS`) 한 줄이 뜨고 켤 때마다 다음 소문으로 넘어간다(`nextHint`, 차례는 설정 `tvHint`) |
-| `src/apps/corkboard-app.js` | 가구 기믹: 코르크 보드(방명록, 시험). 가까이 보기 화면의 코르크 판에 손님이 붙인 쪽지가 최근 것부터 12장씩 붙는다. 손님은 색을 골라 닉네임과 글을 써 붙이고 자기 쪽지를 지우며, 주인은 모든 쪽지를 지운다. 쪽지는 서버(`src/cloud.js`)에 있어 짧은 링크를 만든 방에서만 쓴다(그 링크로 온 손님과 서버에서 받은 이웃집의 손님) |
+| `src/apps/corkboard-app.js` | 가구 기믹: 코르크 보드(방명록, 시험). 가까이 보기 화면의 코르크 판에 손님이 붙인 쪽지가 최근 것부터 12장씩 붙는다. 손님은 색을 골라 닉네임과 글을 써 붙이고 자기 쪽지를 지우며, 주인은 모든 쪽지를 지운다. 쪽지는 서버(`src/cloud.js`)에 있어 짧은 링크를 만든 방에서만 쓴다(그 링크로 온 손님과 서버에서 받은 이웃집의 손님). 미니게임 결과 화면의 쪽지 단추로 열면 쪽지를 받은 뒤 남길 말 칸에 기록을 넣은 채 쪽지 쓰기를 연다(F34) |
 | `src/apps/computer-app.js` | 가구 기믹: 옛날 컴퓨터. 주인이 넣은 웹 게임이 어느 사이트의 새 탭에서 열리는지 보여 주고 연다. 주인에게는 게임을 넣고 고치는 칸이 있다 |
 
 ## data/: 목록
@@ -182,7 +184,7 @@
 | 경로 | 하는 일 |
 | --- | --- |
 | `apps/README.md` | 앱 만드는 법(사람용). 시작하기, 가구에 붙이기, SDK, 지킬 것 |
-| `apps/aga-sdk.js` | 앱이 불러 쓰는 SDK. 창 닫기와 제목, 기록 저장(`AGA.save`, `AGA.load`), 게임판 맞추기(`AGA.fitCanvas`), 시작 카드와 판 위 한 줄 안내(`AGA.gameCard`), 창이 가려지고 다시 보일 때(`AGA.onHide`, `AGA.onShow`), 커서 |
+| `apps/aga-sdk.js` | 앱이 불러 쓰는 SDK. 창 닫기와 제목, 기록 저장(`AGA.save`, `AGA.load`), 게임판 맞추기(`AGA.fitCanvas`), 시작 카드와 판 위 한 줄 안내와 단추 하나(`AGA.gameCard`의 `card.tip`, `card.action`), 친구 집의 주인 기록과 쪽지(`AGA.info().ownerBest`, `AGA.leaveNote`, F34), 창이 가려지고 다시 보일 때(`AGA.onHide`, `AGA.onShow`), 커서 |
 | `apps/_template/` | 새 앱의 틀. 복사해서 시작한다. `_`로 시작하는 폴더는 화면에 나오지 않는다 |
 | `apps/tidy-up/` | 짐 정리. 같은 물건 두 개가 닿으면 커지는 게임(아가라고요용으로 만든 예시) |
 | `apps/file-ten/` | 파일 정리 10. 바탕화면처럼 끌어서 네모로 파일을 고르고, 숫자 합이 10이면 지우는 게임(아가라고요용으로 만든 예시). 100초 동안 겨루는 보통 모드는 막히면 새 판을 깔고 끝나면 바로 지울 수 있던 묶음을 보여 준다. 캐주얼 모드는 끝까지 다 지울 수 있는 판을 거꾸로 쌓아 만든다 |

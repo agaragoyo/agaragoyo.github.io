@@ -8,6 +8,7 @@
 import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
 import { withPicture } from '../user-pictures.js';
+import { withRecords } from '../records.js';
 import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE } from '../cloud.js';
 import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
@@ -29,7 +30,7 @@ function saveFile(blob, name) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다(known-issues 40)
-  const code = () => encodeHome(withPicture(home())); // 서버에 올리는 방 글자. 내 사진도 담는다(F25, 그림 파일로 만든 사진은 F26)
+  const code = () => encodeHome(withRecords(withPicture(home()))); // 서버에 올리는 방 글자. 내 사진(F25, 그림 파일로 만든 사진은 F26)과 미니게임 최고 기록(F34)도 담는다
   const link = id => `${location.origin}${location.pathname}#s=${id}`;
   const button = (label, onclick, title) => h('button', { type: 'button', className: 'btn', onclick, title }, label);
   const win = os.wm.open({
