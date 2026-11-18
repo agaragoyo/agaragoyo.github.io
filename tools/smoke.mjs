@@ -69,7 +69,7 @@ const LONG = {
   scenes: HOME.scenes,
   likes: {
     computer: { url: LONG_LINK, name: WORST.emoji },
-    console: 'file-ten',
+    console: ['fireboy-watergirl', 'outlet-villains', 'avatar-star-shu', 'prison-escape'], // 추천 게임 네 개(id가 긴 것)
     bookshelf: KINDS.map((k, i) => ({ title: WORST[k], author: WORST[k], note: WORST[i === 1 ? 'lines' : k], color: i })),
     tv: KINDS.map((k, i) => ({ title: WORST[k], year: WORST[k], by: WORST[k], why: WORST[k], link: LONG_LINK, color: i })),
     radio: KINDS.map((k, i) => ({ url: `https://music.apple.com/kr/playlist/x/pl.u-longtext${i}`, name: WORST[k], color: i })),
@@ -957,7 +957,8 @@ async function walk(page, base) {
   };
   const openIcon = id => page.run(clickTwice, `#icons .desk-icon[data-app="${id}"]`);
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
-  // 바탕화면의 가구를 두 번 눌러 아바타가 걸어가 쓸 때까지 기다린다
+  // 바탕화면의 가구를 두 번 눌러 아바타가 걸어가 쓸 때까지 기다린다.
+  // ready는 페이지 안에서 돌고 인자를 받지 않으므로 이 파일의 변수(LONG 같은 것)를 쓰지 못한다. 쓰면 ReferenceError로 점검이 그 자리에서 멈춘다
   const use = async (id, ready, what) => {
     await page.run(clickTwice, `#wallpaper .furn[data-id="${id}"]`);
     check(`가구(${id})를 두 번 누르면 ${what}`, await until(page, ready, 15000));
@@ -1772,7 +1773,31 @@ async function walk(page, base) {
   await until(page, closed, 3000);
 
   await use('console', () => !!document.querySelector('.closeup .console-grid'), '게임기가 열린다');
-  check('주인이 고른 추천 게임이 맨 앞에 선다', await page.run(() => document.querySelector('.closeup .console-game')?.dataset.app === 'file-ten' && !!document.querySelector('.closeup .console-game .console-pick')));
+  // 추천 게임(likes.console)은 맨 위의 추천 게임 묶음에 고른 차례로 서고, 주인에게는 고르지 않은 자리가 빈 칸으로 남아 늘 네 칸이다
+  const picks = () => ({
+    tiles: [...document.querySelectorAll('.closeup .console-picks .console-game')].map(t => t.dataset.app).join(','),
+    empty: document.querySelectorAll('.closeup .console-picks .console-empty').length,
+    saved: (JSON.parse(localStorage.getItem('agarago.home.v3')).likes.console || []).join(','),
+    off: document.querySelectorAll('.closeup .console-star:disabled').length,
+    hint: document.querySelector('.closeup .console-hint')?.textContent || '',
+    focus: document.activeElement?.closest('.console-picks') ? document.activeElement.dataset.app : null,
+  });
+  const star = id => {
+    const s = document.querySelector(`.closeup .console-group:not(.console-picks) .console-game[data-app="${id}"]`)?.parentElement.querySelector('.console-star');
+    if (!s || s.disabled) return false;
+    s.click();
+    return true;
+  };
+  let pk = await page.run(picks);
+  check('주인이 고른 추천 게임이 맨 위 추천 게임 묶음에 서고 빈 칸이 셋 남는다', pk.tiles === 'file-ten' && pk.empty === 3 && pk.focus === 'file-ten', JSON.stringify(pk));
+  for (const id of ['tidy-up', 'mallangi', 'avatar-star-shu']) await page.run(star, id);
+  pk = await page.run(picks);
+  check('별을 눌러 고른 추천 게임이 고른 차례로 저장되고 빈 칸을 채운다', pk.tiles === 'file-ten,tidy-up,mallangi,avatar-star-shu' && pk.saved === pk.tiles && pk.empty === 0, JSON.stringify(pk));
+  check('추천 게임을 네 개 고르면 다른 게임의 별은 눌리지 않고 안내가 바뀐다', pk.off > 0 && !(await page.run(star, 'enigma')) && pk.hint.includes('4개까지'), JSON.stringify(pk));
+  await probe('추천 게임을 네 개 고른 게임기');
+  for (const id of ['tidy-up', 'mallangi', 'avatar-star-shu']) await page.run(star, id);
+  pk = await page.run(picks);
+  check('별을 다시 누르면 추천 게임에서 빠진다', pk.tiles === 'file-ten' && pk.saved === 'file-ten' && pk.empty === 3 && pk.off === 0, JSON.stringify(pk));
   if (await page.run(clickOnce, '.closeup .console-game.external')) {
     await sleep(200);
     check('게임기에서 새 탭 게임을 고르면 열리는 곳을 먼저 보여 준다', await page.run(() => !!document.querySelector('.closeup .console-ask a[target="_blank"]')));
@@ -3510,6 +3535,13 @@ async function walk(page, base) {
   check('손님의 TV에는 소문 띠가 없다', await page.run(() => !document.querySelector('.closeup .tv-hint')));
   await shut();
   await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '손님에게도 긴 이름의 CD가 펼쳐진다');
+  await shut();
+  await use('console', () => document.querySelectorAll('.closeup .console-picks .console-game').length === 4, '손님에게도 추천 게임 네 개가 맨 위에 선다');
+  check('손님의 게임기는 추천 게임을 고른 차례로 스크롤하지 않고 다 보여 준다', await page.run(want => {
+    const box = document.querySelector('.closeup .console-grid').getBoundingClientRect();
+    const tiles = [...document.querySelectorAll('.closeup .console-picks .console-game')];
+    return tiles.map(t => t.dataset.app).join(',') === want && tiles.every(t => t.getBoundingClientRect().top >= box.top && t.getBoundingClientRect().bottom <= box.bottom);
+  }, LONG.likes.console.join(',')));
   await shut();
 
   // 이웃집의 긴 이름: 로그인 화면의 이웃집 자리, 이웃집 목록 창(이름은 두 줄까지 쓰고, 넘치면 말줄임표로 끝내고 마우스를 올리면 전체가 보인다).
