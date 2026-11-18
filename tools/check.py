@@ -1015,6 +1015,20 @@ def check_room_image():
         err('style.css', f'방 바탕(.room)이 src/room-image.js의 BACKDROP과 다르다(찾는 값: {want}). 한쪽을 고쳤다면 다른 쪽도 같이 고친다')
 
 
+# ---------- 공유 링크의 칸 이름 줄이기 ----------
+# src/share.js의 KEY_SHORT는 가구에 담는 것의 칸 이름을 모든 깊이에서 짧은 이름으로 바꿔 링크에 담고, 풀 때(KEY_LONG) 되돌린다.
+# 짧은 이름 하나를 두 칸에 쓰면 풀 때 한쪽 칸이 다른 칸으로 바뀐다(시험지의 answer를 a로 줄였다면 책의 author가 answer로 열린다).
+def check_link_keys():
+    where = 'src/share.js'
+    m = re.search(r'^const KEY_SHORT = \{\n(.*?)^\};', read(where), re.S | re.M)
+    if not m:
+        err(where, 'KEY_SHORT 를 찾지 못했다(모양이 바뀌었으면 tools/check.py 의 check_link_keys 도 고친다)')
+        return
+    shorts = re.findall(r"'?[\w-]+'?: '([^']+)'", m.group(1))
+    for s in sorted({s for s in shorts if shorts.count(s) > 1}):
+        err(where, f"KEY_SHORT 의 짧은 이름 '{s}' 를 두 칸이 같이 쓴다. 링크를 풀면 한 칸이 다른 칸으로 바뀌니 겹치지 않는 이름을 고른다")
+
+
 # ---------- 라디오 CD 색 ----------
 # CD 색 번호는 likes에 담기고(src/likes.js의 LIMIT.cdColors가 받는 번호의 수), 색 이름은 src/apps/radio-app.js의 CD_COLORS,
 # 색 자체는 style.css의 .cd[data-color]에 있다. 셋의 개수가 어긋나면 고른 색이 은색으로 그려지거나 저장할 때 지워진다.
@@ -1174,6 +1188,7 @@ def main():
     check_secrets()
     check_cloud()
     check_room_image()
+    check_link_keys()
     check_cd_colors()
     check_labs()
     check_sounds()

@@ -2490,6 +2490,134 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   .cork-note.fresh { animation: none; }
 }
 
+/* 시험지(src/apps/test-paper-app.js): 학교 시험지 한 장. 위 칸에 "○○ 능력고사"와 이름 줄, 오른쪽에 점수 칸이 있고
+   문제마다 번호와 보기(두 칸씩 두 줄)가 이어진다. 폭 640px에 좌우 여백 42px라 본문은 556px, 보기 한 칸은 250px다(src/likes.js의 LIMIT).
+   고른 보기는 연필로 칠한 듯 번호 원을 채우고, 채점하면 빨간 펜으로 맞힌 문제 번호에 동그라미, 틀린 문제 번호에 빗금, 정답 보기의 번호에 동그라미를 긋는다.
+   종이라서 밤에도 바탕과 글자색을 고정한다(known-issues 47) */
+.exam-paper {
+  position: relative;
+  width: 640px;
+  padding: 26px 42px 22px;
+  border: 1px solid #c8bfa8;
+  background: #fbf8ee;
+  box-shadow: 0 12px 0 #0004;
+  font-size: 16px;
+  line-height: 1.45;
+  color: #2b2620;
+}
+.exam-head {
+  display: grid;
+  grid-template-columns: 1fr 104px;
+  gap: 18px;
+  align-items: start;
+  padding-bottom: 12px;
+  border-bottom: 4px double #2b2620;
+}
+.exam-title { margin: 0; font-size: 26px; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
+.exam-name { display: flex; align-items: baseline; gap: 10px; margin: 10px 0 0; font-size: 15px; }
+.exam-name span { min-width: 180px; padding: 0 4px 1px; border-bottom: 1px solid #2b2620; font-size: 16px; overflow-wrap: anywhere; }
+.exam-score { display: grid; grid-template-rows: 24px 56px; border: 2px solid #2b2620; text-align: center; }
+.exam-score span { border-bottom: 1px solid #2b2620; font-size: 14px; line-height: 22px; }
+/* 점수는 글자 폭만큼의 상자만 기울인다(칸 폭 전체를 기울이면 기운 모서리가 칸 밖으로 나온다) */
+.exam-score b { justify-self: center; font-size: 38px; line-height: 56px; color: #d2372c; transform: rotate(-8deg); }
+/* 주인이 보는 정답지: 점수 칸 자리의 빨간 표시 */
+.exam-key { justify-self: center; margin-top: 18px; padding: 4px 10px; border: 3px double #d2372c; font-size: 20px; font-weight: 700; color: #d2372c; transform: rotate(-8deg); }
+.exam-list { display: flex; flex-direction: column; gap: 18px; margin: 18px 0 0; padding: 0; list-style: none; }
+.exam-q { position: relative; }
+.exam-ask { display: grid; grid-template-columns: 32px 1fr; margin: 0 0 6px; font-size: 17px; }
+.exam-ask-text { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.exam-no { font-weight: 700; }
+.exam-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; padding-left: 32px; }
+.exam-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.exam-choice { cursor: var(--cur-hand); }
+button.exam-choice:hover { background: #ece4cc; }
+button.exam-choice:focus-visible { outline: 2px dashed #2b2620; outline-offset: 1px; }
+.exam-text { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.3; }
+/* 원 안의 보기 번호. 원 숫자 글자 대신 테두리로 그린다(작은 글꼴에 새 글자를 넣지 않는다, known-issues 77) */
+.exam-num {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+}
+.exam-choice.picked .exam-num { border-color: #3a3631; background: #3a3631; color: #fbf8ee; }
+/* 빨간 펜 표시는 문제 줄(.exam-q)과 보기 칸(.exam-choice)의 가상 요소로 그린다. 번호 글자에 붙이면 표시가 글자 상자 밖으로 나가 넘친 상자가 된다.
+   문제 번호("1.")는 문제 줄 왼쪽 위에 있고 가운데가 (7px, 12px)쯤이다. 보기 번호 원은 보기 칸 왼쪽 6px에서 22px이라 가운데가 17px이다 */
+.exam-q.right::before, .exam-q.wrong::before, .exam-choice.answer::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.exam-q.right::before { left: -11px; top: -6px; width: 36px; height: 36px; border: 3px solid #d2372c; border-radius: 50%; }
+.exam-q.wrong::before { left: -16px; top: 11px; width: 46px; height: 3px; border-radius: 2px; background: #d2372c; transform: rotate(-60deg); }
+.exam-choice.answer::after { left: 0; top: calc(50% - 17px); width: 34px; height: 34px; border: 2.5px solid #d2372c; border-radius: 50%; }
+.exam-tools { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 40px; margin-top: 18px; }
+.exam-error { margin: 0 auto 0 0; font-size: 14px; color: #b3261e; }
+.exam-hint { margin: 0 auto 0 0; font-size: 14px; color: #6b6253; }
+/* 100점이면 아래 줄 왼쪽에 찍는 도장 */
+.exam-stamp {
+  display: grid;
+  place-content: center;
+  width: 84px;
+  height: 84px;
+  margin: -16px auto -12px 0;
+  border: 3px double #d2372c;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #d2372c;
+  text-align: center;
+  transform: rotate(-14deg);
+}
+.exam-stamp span { display: block; }
+/* 방금 채점하는 시험지(.marking): 표시가 문제마다 차례로 그어지고, 점수를 적은 뒤(.scored)에 도장과 쪽지 단추가 나온다 */
+.exam-paper.marking .exam-q.right::before,
+.exam-paper.marking .exam-q.wrong::before,
+.exam-paper.marking .exam-choice.answer::after { animation: exam-mark 0.2s ease-out; }
+.exam-paper.marking:not(.scored) .exam-tools > * { visibility: hidden; }
+.exam-paper.marking.scored .exam-score b, .exam-paper.marking.scored .exam-stamp { animation: exam-mark 0.25s ease-out; }
+@keyframes exam-mark { from { opacity: 0; scale: 1.5; } }
+/* 주인의 문제 내기. 문제마다 묶음(fieldset) 하나에 문제 한 줄과 보기 넷(두 칸씩 두 줄)이고, 보기 앞의 동그라미(radio)로 정답을 고른다 */
+.like-card.exam-form { width: 640px; gap: 10px; }
+.exam-field { margin: 0; padding: 2px 12px 10px; border: 1px solid #cdbf9f; border-radius: 6px; }
+.exam-field legend { padding: 0 4px; font-size: 15px; font-weight: 700; }
+.exam-form input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 2px solid;
+  border-color: var(--bev-mid) var(--bev-hi) var(--bev-hi) var(--bev-mid);
+  background: #fffdf6;
+  font: 15px var(--font);
+  color: var(--ink);
+}
+.exam-field-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-top: 6px; }
+.exam-field-choice { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px; }
+.exam-pick { display: flex; align-items: center; gap: 3px; cursor: var(--cur-hand); }
+.exam-pick input { margin: 0; cursor: inherit; }
+.exam-pick input:checked + .exam-num { border-color: #d2372c; background: #d2372c; color: #fff; }
+
 /* 로그인 화면의 초기화 버튼 (시험용) */
 .reset-link {
   margin-top: 6px;
