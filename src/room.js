@@ -145,6 +145,10 @@ function renderShade(container, items) {
   shade.style.webkitMaskImage = mask;
 }
 
+// 바탕화면에 그린 가구 상자에서 그 가구 줄(item)을 찾는다. 오른쪽 단추 메뉴(src/os.js의 menuFor)가 누른 가구를 알아낼 때 쓴다
+const STATIC_ITEMS = new WeakMap();
+export const staticItem = el => STATIC_ITEMS.get(el);
+
 // 바탕화면 배경의 공간 그림 한 장. container 는 1280×720 크기여야 한다. scene: config.js의 SCENES 한 줄.
 // 두 번 누르면 on에 넘긴 함수를 부른다(아바타가 그 옆으로 걸어가 쓴다).
 //   on.use(item, el)  가구          on.door(door)  방의 현관문(이웃집 목록 창을 띄운다)
@@ -160,6 +164,7 @@ export function renderStatic(container, items, scene, on = {}, decor = null) {
   for (const item of items) {
     const def = BY_ID[item.id];
     const el = furnitureEl(item.id, item.r);
+    STATIC_ITEMS.set(el, item);
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
     el.addEventListener('click', onTwice(item, () => on.use?.(item, el)));

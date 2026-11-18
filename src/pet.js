@@ -35,6 +35,7 @@ import { dims, perchesOf, supportOf } from './rules.js';
 import { zOf } from './room.js';
 import { h, clamp, doubleClick, reduceMotion } from './util.js';
 import { play, prime } from './sound.js';
+import { openMenu } from './context-menu.js';
 import { PET_SPECIES, DEFAULT_PET, DEFAULT_MOOD } from '../data/pets.js';
 
 export const PET_COLS = 24;     // 그림 한 장의 가로 칸 수(data/pets.js)
@@ -1055,72 +1056,26 @@ export function mountPet(host) {
     }, SNUB_MS);
   }
 
-  // 오른쪽 단추로 누르면 할 일 메뉴를 띄운다(host.menu가 있는 내 펫만). 나는 동안에는 띄우지 않는다
+  // 오른쪽 단추로 누르면 할 일 메뉴를 띄운다(host.menu가 있는 내 펫만). 나는 동안에는 띄우지 않는다.
+  // 바탕화면의 메뉴(src/os.js)는 펫이 막아 둔 것(defaultPrevented)을 보고 그 자리에 바탕화면 메뉴를 띄우지 않는다
   if (host.menu) {
     el.addEventListener('contextmenu', e => {
       e.preventDefault(); // 브라우저의 메뉴 대신 띄운다
-      if (cell && !flying) openMenu(e.clientX, e.clientY);
+      if (cell && !flying) showMenu(e);
     });
   }
 
-  // 할 일 메뉴. 윈도우의 바로 가기 메뉴처럼 누른 자리에 뜨고(무대 밖으로 나가면 반대쪽으로 편다), 맨 위의 굵은 줄은 두 번 누를 때 하는 일(쓰다듬기)이다.
-  // 그 아래 세 줄은 할 일이고 지금 하는 일 앞에 점이 찍힌다(ORDERS). 줄을 고르거나, 메뉴 밖을 누르거나, Esc를 누르면 닫힌다.
-  // 메뉴가 받은 키는 아바타(방향키로 걷기, Enter로 말하기)에게 넘기지 않고, 위아래 방향키로 줄을 옮긴다
-  function openMenu(cx, cy) {
-    closeMenu();
-    const { root, toStage } = host.menu;
-    const line = (label, run, checked) => h('button', {
-      type: 'button',
-      className: 'pet-menu-item',
-      role: checked === undefined ? 'menuitem' : 'menuitemradio',
-      'aria-checked': checked === undefined ? null : String(checked),
-      tabIndex: -1,
-      onclick: () => {
-        closeMenu();
-        run();
-      },
-    }, label);
-    const main = line('쓰다듬기', pat);
-    main.classList.add('main');
-    menu = h('div', { className: 'pet-menu', role: 'menu', tabIndex: -1, 'aria-label': `${species.name} 메뉴` },
-      main,
-      h('div', { className: 'pet-menu-sep', role: 'separator' }),
-      ...ORDERS.map(([next, label, words]) => line(label, () => command(next, words), mode === next)),
-    );
-    menu.addEventListener('keydown', menuKey);
-    root.append(menu);
-    const p = toStage(cx, cy);
-    const w = menu.offsetWidth;
-    const hh = menu.offsetHeight;
-    const x = p.x + w > root.clientWidth ? p.x - w : p.x;
-    const y = p.y + hh > root.clientHeight ? p.y - hh : p.y;
-    menu.style.left = `${Math.round(clamp(x, 0, root.clientWidth - w))}px`;
-    menu.style.top = `${Math.round(clamp(y, 0, root.clientHeight - hh))}px`;
-    document.addEventListener('pointerdown', outside, true);
-    window.addEventListener('blur', closeMenu);
-    menu.focus();
+  // 할 일 메뉴(src/context-menu.js). 맨 위의 굵은 줄은 두 번 누를 때 하는 일(쓰다듬기)이고,
+  // 그 아래 세 줄은 할 일이며 지금 하는 일 앞에 점이 찍힌다(ORDERS)
+  function showMenu(e) {
+    menu = openMenu(host.menu, e, [
+      { label: '쓰다듬기', main: true, run: pat },
+      '-',
+      ...ORDERS.map(([next, label, words]) => ({ label, checked: mode === next, run: () => command(next, words) })),
+    ], `${species.name} 메뉴`);
   }
-  function menuKey(e) {
-    e.stopPropagation();
-    const items = [...menu.querySelectorAll('.pet-menu-item')];
-    const i = items.indexOf(document.activeElement);
-    if (e.key === 'Escape' || e.key === 'Tab') {
-      e.preventDefault();
-      closeMenu();
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      const d = e.key === 'ArrowDown' ? 1 : -1;
-      items[i < 0 ? (d > 0 ? 0 : items.length - 1) : (i + d + items.length) % items.length].focus();
-    }
-  }
-  const outside = e => {
-    if (!menu?.contains(e.target)) closeMenu();
-  };
   function closeMenu() {
-    if (!menu) return;
-    document.removeEventListener('pointerdown', outside, true);
-    window.removeEventListener('blur', closeMenu);
-    menu.remove();
+    menu?.close();
     menu = null;
   }
 
