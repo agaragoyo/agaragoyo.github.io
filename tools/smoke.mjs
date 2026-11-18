@@ -695,7 +695,8 @@ async function pigeonScene() {
   };
 }
 // 비둘기 떼를 지켜본다(page.run으로 건다). 떠 있는 "구구" 말풍선의 가장 많은 수와 말풍선을 띄운 비둘기 수(window.__coo),
-// 내려앉은 뒤 날아오른 때(window.__takeoff, 비둘기마다 처음 .flying이 붙은 때와 그 칸)를 적는다. 비둘기가 나타나기 전에 건다
+// 내려앉은 뒤 날아오른 때(window.__takeoff, 비둘기마다 처음 .flying이 붙은 때와 그 칸)를 적는다. 앉은 모습을 본 비둘기만 날아오른 것으로 적으므로
+// 건 순간 앉아 있는 비둘기는 바로 앉은 것으로 적어 둔다(첫 20ms 확인을 기다리면 그 사이에 뜬 첫 비둘기가 빠진다, known-issues 108)
 function watchFlock() {
   const layer = document.getElementById('wallpaper');
   const cellOf = el => { const s = (parseFloat(el.style.left) - 640) / 36, t = (parseFloat(el.style.top) - 270) / 18 - 1; return { x: Math.round((s + t) / 2), y: Math.round((t - s) / 2) }; };
@@ -703,8 +704,7 @@ function watchFlock() {
   const landed = new Set();
   window.__coo = { max: 0, birds: 0 };
   window.__takeoff = [];
-  clearInterval(window.__flockTimer);
-  window.__flockTimer = setInterval(() => {
+  const scan = () => {
     const shown = [...layer.querySelectorAll('.room-pet-say')].filter(x => !x.hidden && x.isConnected);
     for (const x of shown) seen.add(x);
     window.__coo = { max: Math.max(window.__coo.max, shown.length), birds: seen.size };
@@ -716,7 +716,10 @@ function watchFlock() {
         window.__takeoff.push({ t: Math.round(performance.now()), ...cellOf(b) });
       }
     }
-  }, 20);
+  };
+  clearInterval(window.__flockTimer);
+  scan();
+  window.__flockTimer = setInterval(scan, 20);
 }
 
 // 실험실의 심심할 때 혼잣말(src/idle-talk.js)을 지켜본다. 내 아바타의 말풍선에 말이 뜰 때마다 그 말, 뜬 때, 아바타가 선 칸과
@@ -752,6 +755,46 @@ async function watchIdle() {
   for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) {
     addEventListener(type, () => { window.__inputs++; window.__lastInput = performance.now(); }, { capture: true });
   }
+}
+// 심심할 때 혼잣말이 걸어야 하는 가장 먼 길(걸음 수). 내 방의 어느 빈칸에서든 어느 가구 옆까지 걸어서 가장 먼 쪽이다.
+// 가구 옆 칸(src/avatar.js의 besideOf)에서 거꾸로 넓이 우선으로 훑어 칸마다 가장 가까운 가구 옆까지의 걸음 수를 세고, 가구마다 가장 먼 칸의 걸음 수 가운데 가장 큰 것을 돌려준다.
+// 점검이 줄여 쓰는 되풀이 간격은 이 길보다 길어야 한다(길면 다음 차례가 도착하기 전에 길을 바꾼다, known-issues 107)
+async function longestTrip() {
+  const { blockedOf } = await import(new URL('src/avatar.js', document.baseURI).href);
+  const { BY_ID } = await import(new URL('data/furniture.js', document.baseURI).href);
+  const { dims, isWall, supportOf } = await import(new URL('src/rules.js', document.baseURI).href);
+  const { N } = await import(new URL('src/config.js', document.baseURI).href);
+  const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes.room.filter(item => BY_ID[item.id]); // 공간은 내 방 하나다
+  const blocked = blockedOf(items);
+  const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const key = (x, y) => `${x},${y}`;
+  const free = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !blocked.has(key(x, y));
+  let worst = 0;
+  for (const item of items) {
+    let beside;
+    if (isWall(item)) {
+      const along = u => u >= item.x && u < item.x + dims(item)[0];
+      beside = (x, y) => (item.wall === 'R' ? y === 0 && along(x) : x === 0 && along(y));
+    } else {
+      const base = supportOf(items, item) || item;
+      const [w, d] = dims(base);
+      const inside = (x, y) => x >= base.x && x < base.x + w && y >= base.y && y < base.y + d;
+      beside = (x, y) => !inside(x, y) && DIRS.some(([dx, dy]) => inside(x + dx, y + dy));
+    }
+    const steps = new Map();
+    const queue = [];
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if (free(x, y) && beside(x, y)) { steps.set(key(x, y), 0); queue.push({ x, y }); }
+    for (let i = 0; i < queue.length; i++) {
+      for (const [dx, dy] of DIRS) {
+        const n = { x: queue[i].x + dx, y: queue[i].y + dy };
+        if (!free(n.x, n.y) || steps.has(key(n.x, n.y))) continue;
+        steps.set(key(n.x, n.y), steps.get(key(queue[i].x, queue[i].y)) + 1);
+        queue.push(n);
+      }
+    }
+    for (const n of steps.values()) worst = Math.max(worst, n);
+  }
+  return worst;
 }
 // 분신사바의 공포 모드에서 아무도 없는 빈칸에 뜬 말풍선(src/horror.js의 speak)을 본다. 글이 text인 말풍선이 없으면 null이다.
 // 말풍선이 뜬 칸이 가구도 아바타도 없는 빈칸인지(empty), 아바타가 선 칸에서 몇 칸인지(dist), 화면에서 아바타와 같은 높이의 바로 옆 칸인지(side),
@@ -1567,6 +1610,21 @@ async function walk(page, base) {
   const pigeonGone = ms => until(page, () => !document.querySelector('#wallpaper .room-pet[data-pet^="pigeon/"]'), ms);
   await page.run(catchAudio); // 놀라 날아갈 때만 새소리를 한 번 내는지 본다
   await pigeonTime(60000);
+  // 지켜보기(watchFlock)가 건 바로 뒤에 날아오른 비둘기도 세는지 가짜 비둘기 하나로 본다. 앉아 있는 가짜 비둘기가 있는 방에 지켜보기를 걸고,
+  // 첫 20ms 확인이 오기 전에 날아오르게 한다(known-issues 108)
+  const earlyTakeoff = await page.run(async src => {
+    const fake = document.createElement('div');
+    fake.className = 'room-pet';
+    fake.dataset.pet = 'pigeon/gray';
+    document.getElementById('wallpaper').append(fake);
+    (0, eval)(`(${src})`)();
+    fake.classList.add('flying');
+    await new Promise(r => setTimeout(r, 100));
+    clearInterval(window.__flockTimer);
+    fake.remove();
+    return window.__takeoff.length;
+  }, watchFlock.toString());
+  check('비둘기 지켜보기를 건 바로 뒤에 날아오른 비둘기도 날아오른 기록에 든다', earlyTakeoff === 1, `${earlyTakeoff}개`);
   await page.run(watchFlock);
   await sayWord('999999999');
   check('말풍선에 999999999를 말하면 회색 비둘기가 날개를 치며 날아 들어온다', await until(page, () => {
@@ -3026,18 +3084,26 @@ async function walk(page, base) {
   // 켜고 바탕화면을 그냥 두면 내 아바타가 걸어서 갈 수 있는 가구 옆으로 가서 그 가구의 혼잣말을 하고, 같은 가구를 연달아 고르지 않고 되풀이한다(src/idle-talk.js).
   // 진짜 마우스를 움직이면(CDP) 가던 길을 버리고 처음부터 다시 잰다. 창이 열려 있거나(최소화한 창은 괜찮다) 방 꾸미기 창이 있거나 말풍선에 쓰는 중이면 하지 않는다.
   // 아바타가 혼자 걷는 동안 입력 이벤트가 생기지 않는지도 센다(생기면 화면 보호기가 늦어진다). 그림을 누르는 것은 click만 보내는 .click()으로 해서 입력으로 세지 않는다.
-  // 30초와 40~60초를 다 기다리지 않게 들어갈 때마다 src/config.js의 IDLE_TALK를 페이지 안에서 0.8초와 1.0~1.2초로 줄인다(새로 고침하면 원래대로 돌아간다)
+  // 30초와 40~60초를 다 기다리지 않게 들어갈 때마다 src/config.js의 IDLE_TALK를 페이지 안에서 줄인다(새로 고침하면 원래대로 돌아간다).
+  // 첫 차례는 0.8초, 되풀이 간격은 점검용 집에서 가장 먼 가구 옆까지 걷는 시간(longestTrip)보다 0.4~0.6초 길게 둔다. 간격이 걷는 시간보다 짧으면 다음 차례가
+  // 도착하기 전에 길을 바꾸어, 먼 가구를 고를 때마다 아바타가 말하지 못하고 왔다 갔다 한다. 진짜 간격(40~60초)은 걷는 시간의 열 배라서 이런 일이 없다(known-issues 107)
   const idleSettings = await page.run(() => localStorage.getItem('agarago.settings'));
   const idleBox = '.labs-item[data-lab="idle-talk"] input';
   const FIRST = 800;
   const idle = () => page.run(() => ({ said: window.__said, moves: window.__moves, inputs: window.__inputs, lastInput: window.__lastInput }));
   const avatarAt = () => page.run(() => { const a = document.querySelector('#wallpaper .room-avatar'); return `${a.style.left},${a.style.top}`; });
   const saidMore = (n, ms) => until(page, n => window.__said.length >= n, ms, n);
+  // 마우스를 움직인다(부를 때마다 40px씩 오가서 늘 움직임으로 보낸다). 혼잣말이 기다리는 시간을 처음부터 다시 재서 다음 차례가 FIRST 뒤로 온다
+  let nudges = 0;
+  const nudge = () => page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 700 + (nudges++ % 2) * 40, y: 500 });
   check('심심할 때 혼잣말: 내 집으로 돌아온다', await enterMine());
-  await page.run(async first => {
+  const WALK = 200 * (await page.run(longestTrip)); // 한 칸 0.2초
+  check('점검용 집에서 가구 옆까지 가장 먼 길을 잰다', WALK >= 1000 && WALK <= 8000, `${WALK}ms`);
+  const AGAIN = [WALK + 400, WALK + 600];
+  await page.run(async (first, again) => {
     const { IDLE_TALK } = await import(new URL('src/config.js', document.baseURI).href);
-    Object.assign(IDLE_TALK, { first, again: [first + 200, first + 400] });
-  }, FIRST);
+    Object.assign(IDLE_TALK, { first, again });
+  }, FIRST, AGAIN);
   await page.run(watchIdle);
   await page.run(async () => (await import(new URL('src/labs.js', document.baseURI).href)).openLabs());
   await openIcon('labs');
@@ -3054,24 +3120,29 @@ async function walk(page, base) {
   await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: over.x, y: over.y });
   await sleep(300); // 걷던 한 칸(0.2초)은 마저 걷는다
   const halted = await avatarAt();
-  await sleep(FIRST - 400);
+  await sleep(FIRST - 600); // 다음 차례(FIRST 뒤)에 가깝게 읽으면 느린 컴퓨터에서 새로 걷기 시작한 걸음을 본다
   seen = await idle();
   check('가구로 걷다가 마우스를 움직이면 바로 멈추고 혼잣말을 하지 않는다', seen.said.length === 0 && halted === await avatarAt(), `${halted} → ${await avatarAt()}, ${JSON.stringify(seen.said)}`);
-  check('마우스를 움직이고 기다리면 다시 가구로 가서 혼잣말을 한다', await saidMore(1, FIRST + 5000), JSON.stringify(await idle()));
+  // 앞 확인이 실패해 말한 기록이 비어도 뒤 확인이 예외로 점검 전체를 끊지 않게 ?.로 읽는다
+  check('마우스를 움직이고 기다리면 다시 가구로 가서 혼잣말을 한다', await saidMore(1, FIRST + WALK + 2000), JSON.stringify(await idle()));
   seen = await idle();
-  check('혼잣말은 마우스를 움직인 때부터 기다리는 시간을 처음부터 다 채운 뒤에 한다', seen.said[0].at - seen.lastInput >= FIRST - 10, `${Math.round(seen.said[0].at - seen.lastInput)}ms`);
-  check('혼잣말을 할 때는 그 말을 하는 가구 바로 옆에 서 있다', seen.said[0].ids.length > 0, JSON.stringify(seen.said[0]));
+  check('혼잣말은 마우스를 움직인 때부터 기다리는 시간을 처음부터 다 채운 뒤에 한다', seen.said[0]?.at - seen.lastInput >= FIRST - 10, `${Math.round(seen.said[0]?.at - seen.lastInput)}ms`);
+  check('혼잣말을 할 때는 그 말을 하는 가구 바로 옆에 서 있다', seen.said[0]?.ids.length > 0, JSON.stringify(seen.said[0]));
   await page.run(() => { window.__inputs = 0; });
-  check('그 뒤로 혼잣말을 되풀이한다', await saidMore(3, 12000), JSON.stringify(await idle()));
+  check('그 뒤로 혼잣말을 되풀이한다', await saidMore(3, 2 * (AGAIN[1] + WALK) + 2000), JSON.stringify(await idle()));
   seen = await idle();
   check('같은 가구의 혼잣말을 연달아 하지 않고, 말할 때마다 그 가구 옆에 서 있다',
     seen.said.every((s, i) => s.ids.length > 0 && (i === 0 || s.text !== seen.said[i - 1].text)), JSON.stringify(seen.said.map(s => `${s.text} ${s.ids}`)));
   check('아바타가 혼자 걷는 동안에는 마우스와 키 입력이 생기지 않는다(화면 보호기가 늦어지지 않는다)', seen.inputs === 0, `${seen.inputs}번`);
-  // 말풍선에 쓰는 칸을 열어 둔 동안에는 하지 않는다. 아바타를 누르면 칸이 열린다
+  // 말풍선에 쓰는 칸을 열어 둔 동안에는 하지 않는다. 아바타를 누르면 칸이 열린다.
+  // 되풀이 간격이 걷는 시간보다 길어서 다음 차례가 한참 뒤에 오므로, 먼저 마우스를 움직여 다음 차례를 FIRST 뒤로 당겨 둔다(그래야 이 기다리는 사이에 차례가 두 번 온다)
+  await nudge();
   await page.run(() => { window.__moves = 0; window.__said.length = 0; document.querySelector('#wallpaper .room-avatar').click(); });
   await sleep(FIRST * 2 + 500);
   seen = await idle();
   check('말풍선에 쓰는 칸이 열려 있으면 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
+  // 칸을 닫고 방 꾸미기 창을 열기까지 차례가 끼어들지 않게 다음 차례를 다시 FIRST 뒤로 당겨 둔다
+  await nudge();
   await press(page, 'Escape');
   // 방 꾸미기 창은 최소화해도 하지 않는다
   await openIcon('room');
@@ -3081,15 +3152,22 @@ async function walk(page, base) {
   seen = await idle();
   check('방 꾸미기 창이 열려 있으면 최소화해도 혼잣말하러 가지 않는다', seen.said.length === 0 && seen.moves === 0, JSON.stringify(seen));
   // 갈 수 있는 가구가 하나뿐이면 한 번 말한 뒤에는 쉰다. 가구 하나만 주고 늘 그 옆에 서 있는 가짜 아바타로
-  // 고르는 순서(src/idle-talk.js의 createIdleTalk)만 본다
-  const alone = await page.run(async ms => {
+  // 고르는 순서(src/idle-talk.js의 createIdleTalk)만 본다. 되풀이 간격이 길어서 20ms 간격의 차례를 0.6초 동안 돌린다
+  const alone = await page.run(async () => {
     const { createIdleTalk } = await import(new URL('src/idle-talk.js', document.baseURI).href);
+    const { IDLE_TALK } = await import(new URL('src/config.js', document.baseURI).href);
+    const kept = { ...IDLE_TALK };
     const said = [];
     const me = { spot: () => ({ x: 5, y: 5 }), stepsTo: () => 0, approach: (item, then) => then(), say: text => said.push(text), halt() {} };
-    createIdleTalk({ avatar: () => me, items: () => [{ id: 'lamp', x: 0, y: 0 }], canRun: () => true });
-    await new Promise(r => setTimeout(r, ms));
+    try {
+      Object.assign(IDLE_TALK, { first: 20, again: [20, 20] });
+      createIdleTalk({ avatar: () => me, items: () => [{ id: 'lamp', x: 0, y: 0 }], canRun: () => true });
+      await new Promise(r => setTimeout(r, 600));
+    } finally {
+      Object.assign(IDLE_TALK, kept);
+    }
     return said;
-  }, FIRST * 4);
+  });
   check('갈 수 있는 가구가 지난번 가구 하나뿐이면 같은 말을 되풀이하지 않고 쉰다', alone.length === 1, JSON.stringify(alone));
   // 걷는 길이 다음 차례보다 길어서 도착하기 전에 길이 바뀌는 가구(far)가 끼어도, 말하지 못한 가구를 지난번 가구로 치지 않는다(known-issues 94).
   // 바로 도착하는 가구(lamp)와 영영 도착하지 못하는 가구(far)만 있는 가짜 아바타로 20ms 간격의 차례를 0.6초 동안 돌린다.
