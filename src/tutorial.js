@@ -60,12 +60,20 @@ export function createTutorial(os) {
   // text: 안내 문구. 카드 폭이 고정이라 \n으로 의미 단위마다 직접 줄을 나눈다.
   // done: 끝났는지. target: 화살표로 가리킬 요소. lesson: LESSONS의 몇 번째인지.
   // once: 한 번 끝나면 되돌아가지 않는다(passed에 적는다). detour: 먼저 해야 할 다른 단계(없으면 null).
-  // card: 선반에서 끌어 놓을 가구 카드. side: 화살표를 대상 오른쪽에 둔다(없으면 위, 위에 자리가 없으면 아래). use: 바탕화면에서 쓰는 단계.
-  const place = (id, lead) => ({
+  // card: 선반에서 꺼내 놓을 가구 카드. side: 화살표를 대상 오른쪽에 둔다(없으면 위, 위에 자리가 없으면 아래). use: 바탕화면에서 쓰는 단계.
+  // 가구는 끌어서도, 눌러서 집은 뒤 놓을 자리를 눌러서도 놓는다. 처음 놓는 단계(teach)가 두 방법을 함께 알리고(known-issues 99),
+  // 다음 단계는 방법을 되풀이하지 않는다
+  const place = (id, lead, teach = false) => ({
     id: `place-${id}`,
     lesson: 0,
     card: () => shelfCard(id),
-    text: () => `${lead} ${eul(BY_ID[id].name)} 끌어다\n${BY_ID[id].zone === 'wall' ? '벽에 거세요' : '바닥에 놓으세요'}.`,
+    text: () => {
+      const { name, zone } = BY_ID[id];
+      const to = zone === 'wall' ? '벽에 거세요' : '바닥에 놓으세요';
+      return teach
+        ? `${lead} ${eul(name)} 끌어다\n${to}.\n한 번 누른 뒤 ${zone === 'wall' ? '벽' : '바닥'}을 눌러도 됩니다.`
+        : `${lead} ${eul(name)}\n${to}.`;
+    },
     done: () => has(id),
     target: () => cardOrArrow(shelfCard(id)),
   });
@@ -78,7 +86,7 @@ export function createTutorial(os) {
       target: () => os.stage.querySelector('#icons [data-app="room"]'),
       side: true, // 첫 아이콘은 위에 자리가 없고 아래에는 다음 아이콘이 있어서 화살표를 옆에 둔다
     },
-    place(first, '아래 선반의'),
+    place(first, '아래 선반의', true),
     place(light, '이번에는'),
     {
       id: 'close',
