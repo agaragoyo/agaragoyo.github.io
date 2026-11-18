@@ -22,7 +22,7 @@
 export const FURNITURE = [
   // 내 방: 바닥
   { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, perch: 62, color: '#ede8da', say: '숙제는 내일 해야지.' },
-  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, perch: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
+  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, surface: true, perch: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, perch: 30, perchAt: [1.5, 3], color: '#c4b094', say: '눕자마자 잠들겠다.' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a', say: '푹 파묻히고 싶다.' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
@@ -32,7 +32,7 @@ export const FURNITURE = [
   { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },
   { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66', say: '노래 듣고 싶은데.' },
   { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#5c643b', say: '물을 자주 줘야겠다.' },
-  // 내 방: 책상 위 (바닥에도 놓을 수 있다)
+  // 내 방: 책상이나 식탁 위 (바닥에도 놓을 수 있다)
   { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 48, color: '#d7d3c8', gimmick: 'app:computer' },
   { id: 'tv',        scene: 'room', name: 'TV',       zone: 'top', size: [2, 1], height: 57, color: '#939d8a', gimmick: 'app:tv' },
   { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9895a4', gimmick: 'app:console' },
