@@ -25,6 +25,7 @@ import { createTutorial } from './tutorial.js';
 import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
+import { withRecords } from './records.js';
 import { openNameWindow } from './user-name.js';
 import { h, wait, reduceMotion, saveJSON, doubleClick, isField } from './util.js';
 import { furnitureLine } from './furniture-line.js';
@@ -53,6 +54,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     realHome: null, // 튜토리얼 연습 중이면 저장된 진짜 집. 그동안 os.home은 빈 연습 방이다
     closeup: null, // 가구를 가까이 보는 화면(src/closeup.js)이 열려 있으면 그 화면
     closeupFrom: null, // 가구를 두 번 눌러 가까이 보기를 여는 동안만 그 가구의 상자. 판이 그 자리에서 커지며 다가온다(src/closeup.js)
+    noteDraft: null, // 미니게임의 쪽지 단추로 코르크 보드를 여는 동안만 쪽지 칸에 넣어 둘 글(os.openNoteDraft, F34)
     mode: null,
     hasOwnHome: false, // 이 컴퓨터에 저장된 내 집이 있는지. 손님 바탕화면에서 나도 만들기와 내 컴퓨터로 가운데 무엇을 보일지 정한다
     boardId: null, // 짧은 링크(#s=)나 서버에서 받은 이웃집으로 온 손님이면 그 방 번호. 코르크 보드의 쪽지가 이 번호의 방에 붙는다(src/apps/corkboard-app.js)
@@ -155,6 +157,11 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 이 컴퓨터에 사는 사람의 닉네임. 손님으로 쪽지를 붙일 때 닉네임 칸에 미리 넣는다(src/apps/corkboard-app.js)
   os.ownName = () => ownHome()?.owner || '';
 
+  // 서버의 방에 올리는 글자. 내 사진(F25)과 미니게임 최고 기록(F34)을 붙여 담는다(공유하기 창도 같다, src/apps/share-app.js)
+  const roomCode = home => encodeHome(withRecords(withPicture(home)));
+  // 이 집의 코르크 보드(방에 건 가구). 없으면 undefined
+  const corkboardOf = home => Object.values(home.scenes).flat().find(it => BY_ID[it.id]?.gimmick === 'app:corkboard');
+
   // boardId: 손님이 코르크 보드에 쪽지를 붙일 서버의 방 번호. 짧은 링크(#s=)로 왔으면 그 링크의 번호, 서버에서 받은 이웃집이면 그 집의 link 번호다
   // (src/neighbors.js의 neighborBoard). 긴 링크로 온 손님과 room 이웃집, 복사본으로 연 이웃집은 없다. 손님이 들어오는 길을 새로 만들면 여기까지 넘긴다.
   async function enter(mode, home, my, boardId = null) {
@@ -163,7 +170,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.home = home;
     os.hasOwnHome = mode === 'edit' || !!ownHome();
     os.boardId = mode === 'visit' ? boardId : null;
-    if (mode === 'edit') syncLater(() => encodeHome(withPicture(home))); // 지난번에 탭을 닫느라 서버에 못 올린 고침이 있으면 올린다(src/cloud.js)
+    if (mode === 'edit') syncLater(() => roomCode(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침(친구 집에서 세운 게임 기록 포함)이 있으면 올린다(src/cloud.js)
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
@@ -179,8 +186,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 짧은 링크가 있고 보드를 방에 걸어 두었을 때만 묻는다. 걷는 법 안내가 떠 있으면 그 안내가 사라진 뒤에 알리고,
   // 그사이에 주인이 보드를 열어 쪽지를 봤으면(notesSeenAt) 알리지 않는다.
   function checkNotes(my) {
-    const hung = Object.values(os.home.scenes).flat().some(it => BY_ID[it.id]?.gimmick === 'app:corkboard');
-    if (!hung || !sharedId()) return;
+    if (!corkboardOf(os.home) || !sharedId()) return;
     latestNoteAt().then(latest => {
       if (latest <= notesSeenAt() || my !== run) return;
       setTimeout(() => {
@@ -656,10 +662,38 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (os.mode === 'edit' && !os.realHome) {
       saveJSON(STORAGE_ROOM, os.home);
       const home = os.home;
-      syncLater(() => encodeHome(withPicture(home)));
+      syncLater(() => roomCode(home));
     }
     if (redraw) renderWallpaper();
     else markLiked(); // 담아 둔 것만 바뀌었으면 방은 그대로 두고 반짝임만 고친다
+  };
+
+  // 내 컴퓨터의 미니게임이 최고 기록을 새로 남겼다(src/sdk-host.js의 saved). 기록은 링크에 담기므로(F34) 짧은 링크를 만든 방이면
+  // 서버의 방도 따라 고친다. 판이 이어지는 동안 기록이 계속 바뀌어도 syncLater가 3초 동안 바뀌지 않을 때 한 번만 올린다.
+  // 친구 집에서 세운 내 기록은 내 컴퓨터로 돌아올 때 올린다(enter). 연습 방에서는 올리지 않는다(known-issues 40)
+  os.recordChanged = () => {
+    if (os.mode !== 'edit' || os.realHome) return;
+    const home = os.home;
+    syncLater(() => roomCode(home));
+  };
+
+  // 손님이 이 집의 코르크 보드에 쪽지를 남길 수 있는지. 서버에 있는 방(boardId)이고 주인이 보드를 방에 걸어 두었을 때다
+  os.canNote = () => os.mode === 'visit' && !!os.boardId && !!corkboardOf(os.home);
+
+  // 친구 집 미니게임의 결과 화면에서 쪽지 단추를 누르면(src/sdk-host.js의 note) 그 집의 코르크 보드를 열고 쪽지 쓰기 칸에 기록을 넣어 둔다(F34).
+  // 게임 창에서 바로 넘어오므로 아바타는 걸어가지 않고, 보드가 방의 그 가구 자리에서 커지며 다가온다(os.closeupFrom).
+  // 넣어 둘 글은 열리는 동안만 os.noteDraft에 두고, 코르크 보드(src/apps/corkboard-app.js)가 읽어 간다
+  os.openNoteDraft = text => {
+    const board = corkboardOf(os.home);
+    if (!os.canNote() || !board) return;
+    os.noteDraft = text;
+    os.closeupFrom = el.wallpaper.querySelector(`.furn[data-id="${board.id}"]`);
+    try {
+      os.openApp(BY_ID[board.id].gimmick.slice(4)); // 'app:corkboard'
+    } finally {
+      os.closeupFrom = null;
+      os.noteDraft = null;
+    }
   };
 
   // 아바타가 말풍선으로 한마디 한다(가구에 담아 둔 것이 없을 때 등). 바탕화면이 아니면 아무 일도 하지 않는다.

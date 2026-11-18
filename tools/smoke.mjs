@@ -8,7 +8,7 @@
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 자리마다의 오른쪽 단추 메뉴(손님 화면 포함), 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
-// 미니게임 창, 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
+// 미니게임 창(친구 집의 주인 기록과 겨루기와 쪽지 단추 포함), 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
 // 내 방의 펫(펫 창의 상태와 단추, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
 // 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
@@ -894,6 +894,31 @@ function miniGame(title, act = '', want = null) {
   if ('leftBelow' in want) return state.left < want.leftBelow;
   return state.y > want.fellFrom;
 }
+// 미니게임 창의 시작 카드 기록 줄과 짐 정리의 주인 기록 겨루기(F34). act: 'merge'(같은 단추 둘을 맞붙여 3점), 'over'(넘침 시간을 다 채워 판을 끝냄),
+// 'action'(결과 화면의 쪽지 단추 누르기). want가 있으면 { note: 기록 줄의 끝 }, { passed }, { action: 단추 글 }과 맞는지만 돌려준다
+function gamePeek(title, act = '', want = null) {
+  const win = [...document.querySelectorAll('#windows .win')].find(w => w.querySelector('.win-title')?.textContent.startsWith(title));
+  const fw = win?.querySelector('iframe')?.contentWindow;
+  let doc = null;
+  try { doc = fw.document; } catch { /* 다른 문서 */ }
+  if (!doc || doc.readyState !== 'complete' || !doc.querySelector('canvas')) return null;
+  const born = 'born: performance.now() - 2000';
+  if (act === 'merge') fw.eval(`tutor = null; showTip(); bodies.push({ x: 200, y: 500, vx: 0, vy: 0, t: 0, r: 14, ${born} }, { x: 210, y: 500, vx: 0, vy: 0, t: 0, r: 14, ${born} })`);
+  // 판을 끝내는 물건도 2초 전에 놓인 것으로 한다. born: 0이면 창을 연 지 0.9초가 안 된 판에서 넘침으로 세지 않는다(checkOver)
+  if (act === 'over') fw.eval(`bodies.push({ x: 60, y: 40, vx: 0, vy: 0, t: 0, r: 14, ${born} }); checkOver(2)`);
+  const button = doc.querySelector('.aga-action');
+  if (act === 'action') button?.click();
+  const state = {
+    note: doc.querySelector('.aga-card:not([hidden]) .aga-note')?.textContent ?? '',
+    passed: fw.eval('typeof passedAt === "number" && passedAt > 0'),
+    action: button && !button.hidden ? button.textContent : '',
+    game: fw.eval('JSON.stringify({ score, over, rival: typeof rival === "object" ? rival : null })'), // 실패를 알릴 때 같이 보이는 판의 상태
+  };
+  if (!want) return state;
+  if ('note' in want) return state.note.endsWith(want.note);
+  if ('passed' in want) return state.passed === want.passed;
+  return state.action === want.action;
+}
 const centreOf = sel => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
 
 // ---------- 크롬을 모는 도우미 ----------
@@ -1258,6 +1283,22 @@ async function walk(page, base) {
       await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
       await page.run(nameSubmit, '점검');
       await until(page, () => !document.querySelector('#windows .name-app'), 3000);
+      // 게임 기록(F34): 링크를 만든 방은 미니게임에서 최고 기록을 새로 세우면 3초 뒤 서버의 방에도 그 기록이 담긴다(src/os.js의 recordChanged)
+      const sentBeforeBest = await page.run(() => window.__cloudSent.length);
+      await page.run(() => { localStorage.setItem('tidy-up.best', '0'); localStorage.setItem('tidy-up.tutored', 'true'); });
+      await openIcon('games');
+      await sleep(300);
+      await page.run(clickTwice, '.folder-grid .desk-icon[data-app="tidy-up"]');
+      await until(page, miniGame, 8000, '짐 정리', '', { card: '게임 시작' });
+      await page.run(miniGame, '짐 정리', 'card:게임 시작');
+      await page.run(gamePeek, '짐 정리', 'merge');
+      check('링크를 만든 방은 미니게임에서 최고 기록을 세우면 3초 뒤 서버의 방에도 그 기록이 담긴다', await until(page, async n => {
+        const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+        return window.__cloudSent.length > n && decodeHome(window.__cloudSent.at(-1))?.records?.['tidy-up'] === 3;
+      }, 8000, sentBeforeBest), JSON.stringify(await page.run(gamePeek, '짐 정리')));
+      await page.run(() => { // 게임 창과 게임 폴더만 닫고 공유하기 창은 둔다
+        for (const w of document.querySelectorAll('#windows .win')) if (/^(짐 정리|게임)/.test(w.querySelector('.win-title')?.textContent || '')) w.querySelector('.win-close').click();
+      });
       await page.run(clickText, '#windows .win .btn', '링크 지우기');
       check('링크 지우기를 누르면 지우기 전에 아이디도 지우고 이 링크가 더는 열리지 않는다고 알린다', (await page.run(winText)).includes('서버에서 방과 쪽지, 아이디를 지웁니다. 이 링크는 더는 열리지 않습니다.'));
       await page.run(clickText, '#windows .win .btn', '지우기');
@@ -2237,7 +2278,7 @@ async function walk(page, base) {
   // 받는 동안의 자리, 받은 뒤의 주인 사진과 서버의 주인 이름, 현관문으로 여는 목록 창, 목록 창에서 놀러 가기, 서버에 방이 없을 때 빠지는 것을 본다
   const LINK_NEIGHBOR = { id: 'smoke-link', name: '링크이웃', link: 'NbHd5678' };
   const SERVER_NAME = '서버의이름'; // 서버의 방 주인 이름. 받은 뒤에는 목록의 이름(링크이웃) 대신 이 이름이 보여야 한다
-  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake' }, SERVER_NAME);
+  const neighborCode = await page.run(linkOf, { ...HOME, picture: 'cake', records: { 'tidy-up': 2, 'file-ten': 1 } }, SERVER_NAME); // 주인 기록은 F34 점검이 쓴다
   // 레포의 목록에 든 link 이웃집에도 서버 대신 답한다. 답하지 않으면 서버에 방이 없는 집처럼 빠져서 문의 수가 어긋난다
   const listedLinks = [...fs.readFileSync(new URL('../data/neighbors.js', import.meta.url), 'utf8').matchAll(/link: '([0-9A-Za-z]{8})'/g)].map(m => m[1]);
   const listedCode = await page.run(linkOf, HOME, '이웃점검');
@@ -2312,6 +2353,32 @@ async function walk(page, base) {
   await use('corkboard', () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), '이웃집 손님에게도 쪽지 남기기 단추가 보인다');
   check('이웃집의 코르크 보드는 그 집의 링크 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === LINK_NEIGHBOR.link);
   await press(page, 'Escape');
+  // 친구 집의 주인 기록과 겨루기(F34): 이웃집 방에 담긴 주인 기록(짐 정리 2점, 파일 정리 10 1개)이 두 미니게임의 시작 카드에 뜨고,
+  // 짐 정리에서 주인 기록을 넘어 끝난 판의 쪽지 단추를 누르면 게임 창이 닫히고 그 집의 코르크 보드가 쪽지 칸에 기록을 넣은 채 열린다
+  await openIcon('games');
+  await sleep(300);
+  await page.run(clickTwice, '.folder-grid .desk-icon[data-app="file-ten"]');
+  check('친구 집의 파일 정리 10 시작 카드에 주인의 보통 모드 기록이 뜬다', await until(page, gamePeek, 8000, '파일 정리 10', '', { note: `${SERVER_NAME}의 기록 1개 (보통)` }),
+    JSON.stringify(await page.run(gamePeek, '파일 정리 10')));
+  await page.run(clickTwice, '.folder-grid .desk-icon[data-app="tidy-up"]');
+  check('친구 집의 짐 정리 시작 카드에 내 최고 기록 아래로 주인 기록이 뜬다', await until(page, gamePeek, 8000, '짐 정리', '', { note: `점\n${SERVER_NAME}의 기록 2점` }),
+    JSON.stringify(await page.run(gamePeek, '짐 정리')));
+  await page.run(miniGame, '짐 정리', 'card:게임 시작');
+  await page.run(gamePeek, '짐 정리', 'merge');
+  check('짐 정리에서 주인 기록을 넘으면 넘었다는 알림을 띄운다', await until(page, gamePeek, 5000, '짐 정리', '', { passed: true }), JSON.stringify(await page.run(gamePeek, '짐 정리')));
+  await page.run(gamePeek, '짐 정리', 'over');
+  check('주인 기록을 넘어 끝난 판에 코르크 보드 쪽지 단추가 뜬다', await until(page, gamePeek, 3000, '짐 정리', '', { action: '코르크 보드에 쪽지 남기기' }),
+    JSON.stringify(await page.run(gamePeek, '짐 정리')));
+  await page.run(gamePeek, '짐 정리', 'action');
+  check('쪽지 단추를 누르면 게임 창이 닫히고 그 집의 코르크 보드가 남길 말 칸에 기록을 넣은 채 열린다', await until(page, () => {
+    const t = document.querySelector('.closeup .cork-form textarea');
+    return !!t && t.value === '짐 정리 3점' && ![...document.querySelectorAll('#windows .win-title')].some(x => x.textContent.startsWith('짐 정리'));
+  }, 8000), await page.run(() => document.querySelector('.closeup .cork-form textarea')?.value ?? '쪽지 칸 없음'));
+  check('쪽지 단추로 연 코르크 보드도 그 집의 링크 번호로 쪽지를 찾는다', (await page.run(() => window.__noteBoards.at(-1))) === LINK_NEIGHBOR.link);
+  await probe('쪽지 단추로 연 코르크 보드');
+  await press(page, 'Escape'); // 남길 말 칸에서 빠져나오고
+  await press(page, 'Escape'); // 보드를 닫는다
+  await closeWindows();
   // 받는 중인 집: 서버의 답을 붙잡아 둔 채 현관문으로 목록 창을 연다. 그 줄은 "불러오는 중"으로 눌리지 않다가 답이 오면 놀러 갈 수 있게 바뀐다
   await open();
   await page.run(fakeCloud, 'hold', neighborRooms);
@@ -2635,6 +2702,7 @@ async function walk(page, base) {
   const ten4 = await page.run(miniGame, TEN);
   check('다른 탭에 가 있던 2초 동안 남은 시간이 그대로다(0.5초 안쪽)', Math.abs(ten3.left - ten4.left) < 0.5, `${ten3.left} → ${ten4.left}`);
   check('짐 정리가 시작 카드와 함께 뜬다', await openGame('tidy-up', '짐 정리', '게임 시작'));
+  check('내 집의 짐 정리 시작 카드에는 내 최고 기록만 있고 주인 기록 줄이 없다', /^최고 \d+점$/.test((await page.run(gamePeek, '짐 정리'))?.note), JSON.stringify(await page.run(gamePeek, '짐 정리')));
   await page.run(miniGame, '짐 정리', 'card:게임 시작');
   await sleep(600); // 게임 페이지가 뜨고 0.45초(DROP_GAP) 안에는 떨어뜨리지 않는다
   await page.run(miniGame, '짐 정리', 'drop');

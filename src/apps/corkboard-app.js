@@ -7,6 +7,8 @@
 // 쪽지를 남길 수 없다는 안내를 띄운다.
 // 쪽지는 보드를 열 때만 한 장(NOTE.page장)씩 받는다(Firestore는 받은 문서마다 읽기를 센다).
 // 받은 글은 누구든 쓸 수 있는 값이라 글자 수를 다시 줄이고 h()의 자식(글자)으로만 넣는다.
+// 친구 집 미니게임에서 주인 기록을 넘은 손님이 결과 화면의 쪽지 단추를 누르면(F34, src/os.js의 openNoteDraft) 보드를 받은 뒤
+// 쪽지 쓰기 칸을 바로 열고 남길 말에 기록(예: 짐 정리 1610점)을 넣어 둔다. 붙이기는 손님이 고쳐 쓰고 누른다.
 import { h, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { isOwner, line } from '../likes.js';
@@ -57,6 +59,7 @@ const button = (label, onclick, className = 'btn') => h('button', { type: 'butto
 export function openCorkboardApp(os, app) {
   const owner = isOwner(os);
   const boardId = owner ? sharedId() : os.boardId || null; // 쪽지가 붙는 서버의 방 번호
+  let draft = owner ? '' : String(os.noteDraft || ''); // 미니게임의 쪽지 단추로 열었으면 남길 말에 넣어 둘 글. 처음 보드를 받은 뒤 한 번 쓴다
 
   return openCloseup(os, {
     key: app.id,
@@ -102,6 +105,11 @@ export function openCorkboardApp(os, app) {
           next = got.notes[got.notes.length - 1] || null;
           if (owner && !from && notes[0]) markNotesSeen(notes[0].at); // 새 쪽지 알림은 이 시각보다 새 쪽지가 붙었을 때만 뜬다(src/os.js)
           render();
+          if (draft) {
+            const text = draft;
+            draft = '';
+            form(text);
+          }
         } catch (err) {
           console.warn('쪽지를 받지 못했다', err);
           if (closed) return;
@@ -125,7 +133,7 @@ export function openCorkboardApp(os, app) {
         fresh = null;
         tools.replaceChildren(...[
           page ? button('최근 쪽지', () => !busy && load(null)) : null,
-          owner ? null : button('쪽지 남기기', form),
+          owner ? null : button('쪽지 남기기', () => form()),
           more ? button('지난 쪽지', () => !busy && load(next)) : null,
         ].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣는다(known-issues 50)
       }
@@ -171,14 +179,15 @@ export function openCorkboardApp(os, app) {
         keep.focus(); // Enter를 잘못 눌러 지우지 않게 그대로 두기에 둔다
       }
 
-      // 손님이 쪽지를 쓴다. 포스트잇 색을 고르면 쓰는 쪽지의 색이 바로 바뀐다
-      function form() {
+      // 손님이 쪽지를 쓴다. 포스트잇 색을 고르면 쓰는 쪽지의 색이 바로 바뀐다. preset: 남길 말 칸에 미리 넣어 둘 글
+      function form(preset = '') {
         let color = 0;
         let sending = false;
         const nick = h('input', { type: 'text', maxLength: NOTE.name, value: lastNick() || os.ownName() || '', autocomplete: 'off' });
         nick.spellcheck = false; // h()는 false 값을 건너뛰므로 따로 끈다
         const text = h('textarea', { rows: 3, maxLength: NOTE.text });
-        const count = h('span', { className: 'cork-count' }, `0/${NOTE.text}`);
+        text.value = fit(preset, NOTE.text);
+        const count = h('span', { className: 'cork-count' }, `${text.value.length}/${NOTE.text}`);
         const error = h('p', { className: 'like-error', hidden: true });
         const send = h('button', { type: 'submit', className: 'btn' }, '붙이기');
         const swatches = COLORS.map((c, i) => {
@@ -244,7 +253,11 @@ export function openCorkboardApp(os, app) {
         pick(0);
         area.replaceChildren(h('div', { className: 'cork-empty' }, card));
         tools.replaceChildren();
-        setTimeout(() => (nick.value ? text : nick).focus(), 50);
+        setTimeout(() => {
+          if (!nick.value) return nick.focus();
+          text.focus();
+          text.setSelectionRange(text.value.length, text.value.length); // 넣어 둔 글 뒤에 이어 쓰게
+        }, 50);
       }
 
       message(h('p', {}, '쪽지를 불러오는 중'));
