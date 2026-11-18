@@ -11,6 +11,8 @@
 //              이름 칸이 생기기 전(2026-11-14)에 넣은 CD는 { url }뿐이고, 화면은 서비스에서 받은 이름을 쓴다
 //   tv         [{ title, year, by, link, poster, why, color }]   영화나 TV 시리즈 6편까지. by는 감독, link는 보러 갈 곳,
 //              poster는 포스터 그림 주소(https), why는 추천 이유. 포스터가 없으면 color 색의 제목 카드를 건다
+//   test-paper [{ question, choices, answer }]   시험지의 객관식 문제 3개까지. choices는 보기 2~4개, answer는 정답 보기의 번호(0부터).
+//              손님이 풀고 채점받는다(src/apps/test-paper-app.js). 링크에 담겨 손님 브라우저가 채점하므로 정답을 숨기지는 않는다(친구끼리 하는 퀴즈다)
 //
 // 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink, safeImage, parseMusic을 거친 것만 쓴다.
 // 그래서 주인이 넣은 글이나 링크(javascript: 주소 같은 것)로 손님 화면에서 스크립트가 돌지 않는다.
@@ -34,6 +36,10 @@ export const LIMIT = {
   workYear: 9,   // 2019, 2015~2016
   workBy: 30,    // 감독
   workWhy: 80,   // 추천 이유
+  questions: 3,     // 시험지의 문제 수
+  questionText: 30, // 문제 하나. 시험지(본문 폭 556px, 17px 글자)에 두 줄까지 든다
+  choices: 4,       // 문제 하나의 보기 수(2개부터)
+  choiceText: 12,   // 보기 하나. 두 칸으로 놓은 보기 자리(한 칸 250px)에 한 줄로 든다
 };
 
 // 글을 글자(코드 포인트) 단위로 나눈다. 이모지를 반으로 자르지 않으려는 것이고, 이미 반으로 잘려 들어온 조각(짝 없는 서러게이트)은 버린다.
@@ -175,6 +181,18 @@ const SANITIZE = {
       return work;
     }).filter(w => w.title);
     return works.length ? works : null;
+  },
+  // 빈 보기는 빼고 앞으로 당기며, 정답 번호도 당긴 자리로 옮긴다. 문제가 비었거나 보기가 둘보다 적거나 정답이 빈 보기를 가리키면 그 문제를 버린다
+  'test-paper'(raw) {
+    if (!Array.isArray(raw)) return null;
+    const list = raw.slice(0, LIMIT.questions).map(q => {
+      const question = line(q?.question, LIMIT.questionText);
+      const kept = (Array.isArray(q?.choices) ? q.choices.slice(0, LIMIT.choices) : [])
+        .map((c, i) => [line(c, LIMIT.choiceText), i]).filter(([c]) => c);
+      const answer = kept.findIndex(([, i]) => i === q?.answer);
+      return question && kept.length >= 2 && answer >= 0 ? { question, choices: kept.map(([c]) => c), answer } : null;
+    }).filter(Boolean);
+    return list.length ? list : null;
   },
 };
 

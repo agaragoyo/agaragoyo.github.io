@@ -797,6 +797,28 @@ const PIXEL = {
       '................',
     ],
   },
+  // 가구 화면 앱: 시험지. 위 칸의 빨간 점수 동그라미와 이름 줄, 아래의 문제 줄마다 빨간 채점 표시
+  exam: {
+    colors: { k: '#8a8170', w: '#fcf9ef', g: '#aaa292', R: '#d2372c' },
+    16: [
+      '................',
+      '..kkkkkkkkkkkk..',
+      '..kwwwwwwwwwwk..',
+      '..kwggggwRRwwk..',
+      '..kwwwwwRwwRwk..',
+      '..kwgggwRwwRwk..',
+      '..kwwwwwwRRwwk..',
+      '..kwggggggggwk..',
+      '..kwwwwwwwwwwk..',
+      '..kwRwgggggwwk..',
+      '..kwwwwwwwwwwk..',
+      '..kwRwggggggwk..',
+      '..kwwwwwwwwwwk..',
+      '..kwRwggggwwwk..',
+      '..kkkkkkkkkkkk..',
+      '................',
+    ],
+  },
   // 이웃집 창: 파란 지붕 집
   neighbor: {
     colors: { K: '#2f5f9e', r: '#a9d3ff', R: '#62a6f2', Q: '#3d7ad6', k: '#9a7a62', W: '#fff6e6', w: '#f2e0c2', d: '#9a5e2c', D: '#d39456', b: '#9fd8ff' },

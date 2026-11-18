@@ -39,6 +39,7 @@ const SCREENS = [
   ['게임기', 'console', '.closeup .console-grid', []],
   ['라디오', 'radio', '.closeup form', []],
   ['코르크 보드', 'corkboard', '.closeup .cork-card', []],
+  ['시험지', 'test-paper', '.closeup .exam-paper', ['고치기']],
   ['컴퓨터', 'computer', '#windows .computer-app', ['고치기']],
 ];
 // 원래 있고 화면에서 읽히는 낮은 대비는 여기에 이유와 함께 적는다. 재는 값이 min 아래로 더 떨어지면 다시 실패로 센다.

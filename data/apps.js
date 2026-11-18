@@ -72,6 +72,8 @@ export const APPS = [
   { id: 'tv', title: 'TV', icon: 'builtin:tv', builtin: 'tv', folder: 'furniture' },
   // 코르크 보드는 주인이 아니라 손님이 쪽지를 붙인다(방명록, 시험). 쪽지는 서버(src/cloud.js)에 있다
   { id: 'corkboard', title: '코르크 보드', icon: 'builtin:corkboard', builtin: 'corkboard', folder: 'furniture' },
+  // 시험지는 주인이 문제를 내고 손님이 풀어 점수를 받는다. 문제는 가구에 담는 것(likes['test-paper'])이다
+  { id: 'test-paper', title: '시험지', icon: 'builtin:exam', builtin: 'test-paper', folder: 'furniture' },
 
   // 게임 폴더. 묶음(group)은 'mini'(아가라고요용으로 만든 작은 게임), 'installed'(따로 만든 큰 게임), 'flash'(새 탭으로 여는 추억의 게임).
   // 레포 밖 게임은 게임 안에 배경음악이 있어서 music: 'own' 이다.

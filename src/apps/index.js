@@ -12,6 +12,7 @@ import { openBookshelfApp } from './bookshelf-app.js';
 import { openRadioApp } from './radio-app.js';
 import { openTvApp } from './tv-app.js';
 import { openCorkboardApp } from './corkboard-app.js';
+import { openTestPaperApp } from './test-paper-app.js';
 import { openLabsApp } from './labs-app.js';
 import { openPetApp } from './pet-app.js';
 
@@ -30,6 +31,7 @@ export const BUILTIN_APPS = {
   radio: openRadioApp,
   tv: openTvApp,
   corkboard: openCorkboardApp, // 손님이 쪽지를 붙이는 방명록(서버에 둔다, src/cloud.js)
+  'test-paper': openTestPaperApp, // 주인이 낸 문제를 손님이 풀어 점수를 받는 시험지
 };
 
 export { openFrameApp } from './frame-app.js';

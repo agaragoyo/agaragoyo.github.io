@@ -93,6 +93,15 @@ function randomHome() {
       poster: pick(['https://img.example/p.jpg', 'http://img.example/p.jpg', '']),
     }));
   }
+  // 시험지: 받지 않는 값(빈 문제, 빈 보기, 보기가 하나뿐인 문제, 정수가 아니거나 빈 보기를 가리키는 정답 번호)을 섞는다.
+  // 검사는 빈 보기를 빼고 앞으로 당기며 정답 번호도 따라 옮긴다
+  if (rnd() < 0.6) {
+    likes['test-paper'] = Array.from({ length: int(5) }, () => ({
+      question: rnd() < 0.9 ? text(10) : pick(['', null, 3]),
+      choices: Array.from({ length: int(6) }, () => (rnd() < 0.85 ? text(5) : pick(['', null, 7]))),
+      answer: pick([0, 1, 2, 3, 4, -1, 1.5, '1', null]),
+    }));
+  }
   // 벽지: 목록의 벽지와 기본 벽, 목록에 없는 이름을 섞는다(기본 벽과 없는 이름은 검사가 decor째 지운다)
   const decor = rnd() < 0.6 ? { decor: { wall: pick([...WALL_PATTERNS.map(w => w.id), 'nope', '__proto__', 3]) } } : {};
   // 주인 사진: 목록의 사진, 내 그림(그림 파일로 만든 사진), 받지 않는 값을 섞는다(받지 않는 값은 검사가 picture째 지운다)
@@ -162,6 +171,13 @@ function invariants(home, where) {
   // 게임 기록은 있으면 비지 않고, 겨루는 게임의 1부터 MAX_RECORD까지의 정수만 있다
   const r = home.records;
   if ('records' in home && (!r || !Object.keys(r).length || Object.entries(r).some(([id, v]) => !RECORD_APPS.includes(id) || !Number.isInteger(v) || v < 1 || v > MAX_RECORD))) fail(`${where}: 게임 기록`, r);
+  // 시험지: 문제는 1~3개이고, 문제마다 빈 글이 아닌 문제와 보기 2~4개(빈 보기 없음), 보기 안을 가리키는 정수 정답 번호의 세 칸뿐이다
+  const badQuestion = q => !q.question || Array.from(q.question).length > LIMIT.questionText || !wellFormed(q.question)
+    || !Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > LIMIT.choices
+    || q.choices.some(c => !c || Array.from(c).length > LIMIT.choiceText || !wellFormed(c))
+    || !(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length) || Object.keys(q).length !== 3;
+  const paper = l['test-paper'];
+  if (paper && (!paper.length || paper.length > LIMIT.questions || paper.some(badQuestion))) fail(`${where}: 시험지`, paper);
 }
 
 // 1. 왕복
@@ -205,7 +221,7 @@ for (let i = 0; i < ROUNDS; i++) {
   const raw = pick([
     junk(),
     { owner: junk(), scenes: junk(), likes: junk(), greeting: junk(), decor: pick([junk(), { wall: junk() }]), picture: pick([junk(), brokenCustom()]), records: pick([junk(), { [pick(RECORD_APPS)]: junk() }]) },
-    { owner: 'a', scenes: { room: Array.from({ length: int(6) }, junk), playground: junk() }, likes: { computer: junk(), console: junk(), bookshelf: [junk(), junk()], radio: junk(), tv: [junk()] } },
+    { owner: 'a', scenes: { room: Array.from({ length: int(6) }, junk), playground: junk() }, likes: { computer: junk(), console: junk(), bookshelf: [junk(), junk()], radio: junk(), tv: [junk()], 'test-paper': [junk(), { question: junk(), choices: [junk(), junk(), junk()], answer: junk() }] } },
     { owner: 'a', items: [junk(), { id: pick(FURNITURE).id, x: int(14) - 1, y: int(14) - 1, wall: junk(), r: junk() }] },
   ]);
   let home = null;

@@ -78,7 +78,7 @@ export const LINK_CODES = [
   'desk', 'dining-table', 'bed', 'sofa', 'bookshelf', 'wardrobe', 'armchair', 'fridge', 'lamp', 'audio',
   'big-plant', 'computer', 'tv', 'console', 'camera', 'diary', 'desk-lamp', 'desk-lamp-2', 'mug', 'plant',
   'books', 'clock', 'radio', 'fishbowl', 'window', 'wide-window', 'beads-window', 'wide-beads-window', 'frame', 'poster',
-  'wall-clock', 'sandbox', 'slide', 'swing', 'seesaw', 'bench', 'tree', 'streetlight', 'corkboard',
+  'wall-clock', 'sandbox', 'slide', 'swing', 'seesaw', 'bench', 'tree', 'streetlight', 'corkboard', 'test-paper',
 ];
 const CODE = new Map(LINK_CODES.map((id, i) => [id, i]));
 const ESCAPE = 127; // LINK_CODES에 없는 가구: 이 번호 뒤에 id의 바이트 수와 id 글자를 넣는다
@@ -106,9 +106,11 @@ const fromB64 = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g,
 
 // 주인이 가구에 담아 둔 것(likes)은 JSON 그대로 담되, 칸 이름과 잘 아는 주소의 앞부분을 줄인다.
 // 여기 없는 칸 이름과 주소는 그대로 두므로 담는 칸이 늘어도 링크는 열린다(그때 이 표에 더하면 더 짧아진다).
+// 짧은 이름은 모든 깊이의 칸 이름에 같이 쓰므로 겹치지 않게 고른다(시험지의 question, choices, answer는 q, o, k).
 const KEY_SHORT = {
-  computer: 'C', console: 'G', bookshelf: 'B', radio: 'R', tv: 'T',
+  computer: 'C', console: 'G', bookshelf: 'B', radio: 'R', tv: 'T', 'test-paper': 'Q',
   title: 't', author: 'a', note: 'n', color: 'c', url: 'u', name: 'm', year: 'y', by: 'b', link: 'l', poster: 'p', why: 'w',
+  question: 'q', choices: 'o', answer: 'k',
 };
 const KEY_LONG = Object.fromEntries(Object.entries(KEY_SHORT).map(([k, v]) => [v, k]));
 // ~w 뒤의 위키백과 문서 이름은 퍼센트 인코딩을 풀어 한글 그대로 담는다(한 글자가 9자에서 4자 남짓으로 준다)

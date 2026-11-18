@@ -77,3 +77,4 @@ export const STORAGE_SAID = 'agarago.said';
 export const STORAGE_CLOUD = 'agarago.cloud'; // 서버에 올린 방의 번호와 익명 로그인(src/cloud.js)
 export const STORAGE_PICTURE = 'agarago.picture'; // 내 사용자 사진의 id(data/user-pictures.js, src/user-pictures.js)
 export const STORAGE_RECENT = 'agarago.recent'; // 최근에 놀러 간 집(로그인 화면 오른쪽 단 맨 위, src/neighbors.js의 recentVisits)
+export const STORAGE_QUIZ = 'agarago.quiz'; // 손님으로 풀고 채점한 시험지의 고른 답(src/apps/test-paper-app.js)

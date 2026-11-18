@@ -46,6 +46,8 @@ export const FURNITURE = [
   { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 30, color: '#e07a5f', say: '벌써 {시각}이네.' },
   { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
   { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8', say: '멍하니 보게 된다.' },
+  // 시험지: 주인이 낸 객관식 문제를 손님이 풀고 점수를 받는다(src/apps/test-paper-app.js). 그림이 오기 전까지는 종이색 상자로 보인다
+  { id: 'test-paper', scene: 'room', name: '시험지', zone: 'top', size: [1, 1], height: 4, color: '#f3eedd', gimmick: 'app:test-paper' },
   // 내 방: 벽
   { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', say: '바깥 날씨는 어떨까.' },
   { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', say: '탁 트여서 시원하다.' },

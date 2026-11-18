@@ -10,7 +10,7 @@
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 자리마다의 오른쪽 단추 메뉴(손님 화면 포함), 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창(친구 집의 주인 기록과 겨루기와 쪽지 단추 포함), 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
 // 내 방의 펫(펫 창의 상태와 단추, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
-// 가구 가까이 보기(TV의 소문 띠 포함), 방 꾸미기의 끌기와 돌리기와 눌러서 집고 놓기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
+// 가구 가까이 보기(TV의 소문 띠, 시험지의 문제 내기와 손님의 채점 포함), 방 꾸미기의 끌기와 돌리기와 눌러서 집고 놓기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
@@ -73,6 +73,8 @@ const LONG = {
     bookshelf: KINDS.map((k, i) => ({ title: WORST[k], author: WORST[k], note: WORST[i === 1 ? 'lines' : k], color: i })),
     tv: KINDS.map((k, i) => ({ title: WORST[k], year: WORST[k], by: WORST[k], why: WORST[k], link: LONG_LINK, color: i })),
     radio: KINDS.map((k, i) => ({ url: `https://music.apple.com/kr/playlist/x/pl.u-longtext${i}`, name: WORST[k], color: i })),
+    // 시험지는 세 문제까지다. 문제마다 정답 번호를 달리 둬서 보기마다 첫째 것을 고르면 한 문제만 맞는다(33점)
+    'test-paper': KINDS.slice(0, 3).map((k, i) => ({ question: WORST[k], choices: [WORST[k], WORST.emoji, WORST.wide, WORST.mixed], answer: i })),
   },
 };
 // 코르크 보드에 붙은 쪽지(서버 대신 fakeCloud가 답한다). 닉네임과 글을 한도까지 채운다(쪽지 화면이 다시 자른다)
@@ -1815,6 +1817,33 @@ async function walk(page, base) {
   await press(page, 'Escape');
   await until(page, closed, 3000);
 
+  // 시험지: 주인에게는 정답 보기에 빨간 동그라미를 친 정답지가 뜨고, 고치기를 누르면 문제 내기 칸이 열린다.
+  // 저장할 때 빈 보기는 빼고 앞으로 당기며 정답 번호도 따라 옮긴다. 보기가 하나뿐인 문제와 비운 보기를 정답으로 고른 문제는 저장하지 않고 알린다
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.key'), '시험지의 정답지가 열린다');
+  check('정답지에는 정답 보기에만 빨간 동그라미가 있다',
+    (await page.run(() => [...document.querySelectorAll('.closeup .exam-choice.answer .exam-text')].map(e => e.textContent).join())) === '둘째,가');
+  await page.run(clickText, '.closeup .exam-tools .btn', '고치기');
+  await sleep(200); // 내는 칸은 0.05초 뒤에 첫 문제 칸에 초점을 준다
+  await probe('시험지 문제 고치기');
+  const askThird = (fields, answer) => page.run((fields, answer) => {
+    const form = document.querySelector('.closeup .exam-form');
+    const box = form.querySelectorAll('.exam-field')[2];
+    box.querySelectorAll('input[type="text"]').forEach((input, i) => { input.value = fields[i]; });
+    box.querySelectorAll('input[type="radio"]')[answer].checked = true;
+    form.requestSubmit();
+    const error = form.querySelector('.like-error');
+    return error.hidden ? '' : error.textContent;
+  }, fields, answer);
+  check('보기가 하나뿐인 문제는 저장하지 않고 알린다', (await askThird(['셋째 문제', '하나', '', '', ''], 0)).includes('보기가 모자랍니다'));
+  check('비운 보기를 정답으로 고르면 저장하지 않고 알린다', (await askThird(['셋째 문제', '하나', '', '셋', ''], 1)).includes('보기가 비어 있습니다'));
+  await askThird(['셋째 문제', '하나', '', '셋', ''], 2);
+  check('시험지는 빈 보기를 빼고 정답 번호를 따라 옮겨 저장한다',
+    JSON.stringify((await page.run(savedHome)).likes['test-paper'][2]) === JSON.stringify({ question: '셋째 문제', choices: ['하나', '셋'], answer: 1 }),
+    JSON.stringify((await page.run(savedHome)).likes['test-paper']));
+  check('문제를 저장하면 세 문제의 정답지로 돌아온다', await page.run(() => document.querySelectorAll('.closeup .exam-paper.key .exam-q').length === 3));
+  await press(page, 'Escape');
+  check('시험지가 Esc로 내려간다', await until(page, closed, 3000));
+
   await use('console', () => !!document.querySelector('.closeup .console-grid'), '게임기가 열린다');
   // 추천 게임(likes.console)은 맨 위의 추천 게임 묶음에 고른 차례로 서고, 주인에게는 고르지 않은 자리가 빈 칸으로 남아 늘 네 칸이다
   const picks = () => ({
@@ -2356,6 +2385,29 @@ async function walk(page, base) {
   check('가구 화면이 열리면 앞의 알림이 걷힌다(아래쪽 단추 줄을 가리지 않게)', await page.run(() => !document.getElementById('toast').classList.contains('show')));
   check('손님에게는 넣기, 고치기, 빼기 단추가 없다', await page.run(() => !document.querySelector('.closeup .shelf-tools, .closeup .book-spine.add')));
   await press(page, 'Escape');
+  // 시험지: 손님은 정답 표시 없이 풀고, 다 고르지 않고 채점하기를 누르면 알린다. 채점하면 맞힌 문제와 틀린 문제에 표시가 그어지고 점수가 적힌다.
+  // 채점한 시험지는 이 브라우저에 남아 다시 열어도 그대로다. 긴 링크로 온 손님에게는 쪽지를 붙일 서버의 방이 없어 점수 쪽지 단추가 없다
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.solve'), '손님에게는 풀 수 있는 시험지가 열린다');
+  check('손님의 시험지에는 정답 표시와 고치기 단추가 없다', await page.run(() => !document.querySelector('.closeup .exam-choice.answer, .closeup .exam-key')
+    && ![...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '고치기')));
+  await page.run(clickText, '.closeup .exam-tools .btn', '채점하기');
+  check('다 고르지 않고 채점하기를 누르면 알린다', await page.run(() => !document.querySelector('.closeup .exam-error').hidden));
+  await page.run(() => { for (const q of document.querySelectorAll('.closeup .exam-q')) q.querySelector('.exam-choice').click(); });
+  await page.run(clickText, '.closeup .exam-tools .btn', '채점하기');
+  check('채점하면 틀린 문제에 빗금, 맞힌 문제에 동그라미를 긋고 정답 보기를 표시한 뒤 점수를 적는다', await until(page, () => {
+    const paper = document.querySelector('.closeup .exam-paper.scored');
+    return paper?.querySelector('.exam-score b').textContent === '50'
+      && [...paper.querySelectorAll('.exam-q')].map(q => (q.classList.contains('right') ? 'o' : 'x')).join('') === 'xo'
+      && [...paper.querySelectorAll('.exam-choice.answer .exam-text')].map(e => e.textContent).join() === '둘째';
+  }, 4000));
+  await sleep(400); // 점수와 도장이 커졌다 자리 잡는 움직임(0.25초)이 끝난 뒤에 잰다
+  await probe('채점한 시험지');
+  check('긴 링크로 온 손님에게는 쪽지 단추가 없다', await page.run(() => ![...document.querySelectorAll('.closeup .btn')].some(b => b.textContent.includes('쪽지'))));
+  await press(page, 'Escape');
+  await until(page, closed, 3000);
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.graded.scored:not(.marking)'), '채점한 시험지는 다시 열어도 채점한 그대로다');
+  await press(page, 'Escape');
+  await until(page, closed, 3000);
   await sayWord('분신사바');
   await sleep(1500); // 내 집이었다면 불이 꺼졌을 시간(0.9초)을 넘겨 본다
   check('손님이 분신사바를 말해도 친구 집의 불은 꺼지지 않는다', await page.run(() => document.getElementById('stage').dataset.theme === 'day' && !document.querySelector('#wallpaper .horror-dark')));
@@ -3617,6 +3669,12 @@ async function walk(page, base) {
     await probe(`긴 글의 작품 ${i + 1}편`);
   }
   await shut();
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.key'), '긴 글의 시험지 정답지가 열린다');
+  await page.run(clickText, '.closeup .exam-tools .btn', '고치기');
+  await sleep(200);
+  await probe('긴 글의 시험지 문제 고치기');
+  await page.run(() => document.activeElement?.blur()); // 쓰던 칸에서 Esc를 누르면 칸만 빠져나온다
+  await shut();
   await use('radio', () => document.querySelectorAll('.closeup .cd-pick').length === 6, '긴 이름의 CD 여섯 장이 펼쳐진다');
   // 이모지 이름은 표시창 한 줄에 들지 않아 말줄임표로 끝나고, 표시창에 마우스를 올리면 전체가 보인다
   await page.run(n => document.querySelectorAll('.closeup .cd-pick')[n].click(), KINDS.indexOf('emoji'));
@@ -3666,6 +3724,19 @@ async function walk(page, base) {
   await probe('긴 이름의 친구 방 시작 메뉴');
   await page.run(clickOnce, '.start-btn');
   await use('corkboard', () => document.querySelectorAll('.closeup .cork-note').length === 6, '긴 글의 쪽지가 붙은 코르크 보드가 열린다');
+  await shut();
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.solve'), '손님에게도 긴 글의 시험지가 열린다');
+  await page.run(() => { for (const q of document.querySelectorAll('.closeup .exam-q')) q.querySelector('.exam-choice').click(); });
+  await page.run(clickText, '.closeup .exam-tools .btn', '채점하기');
+  check('긴 글의 시험지도 채점하면 점수가 적힌다', await until(page, () => document.querySelector('.closeup .exam-paper.scored .exam-score b')?.textContent === '33', 4000));
+  await sleep(400);
+  await probe('긴 글의 채점한 시험지');
+  // 짧은 링크로 온 손님은 채점한 점수를 코르크 보드 쪽지로 남긴다. 미니게임의 기록 쪽지(F34)와 같은 쪽지 칸이 점수를 넣은 채 열린다
+  await page.run(clickText, '.closeup .exam-tools .btn', '코르크 보드에 쪽지 남기기');
+  check('채점한 시험지의 쪽지 단추를 누르면 코르크 보드가 남길 말 칸에 점수를 넣은 채 열린다',
+    await until(page, () => document.querySelector('.closeup .cork-form textarea')?.value === '시험지 33점', 8000),
+    await page.run(() => document.querySelector('.closeup .cork-form textarea')?.value ?? '쪽지 칸 없음'));
+  await page.run(() => document.activeElement?.blur()); // 남길 말 칸에서 빠져나온 뒤 보드를 닫는다
   await shut();
   await use('bookshelf', () => !!document.querySelector('.closeup .book-cover'), '손님에게도 긴 글의 책장이 열린다');
   await shut();

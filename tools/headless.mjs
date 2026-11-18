@@ -167,7 +167,7 @@ export const TEST_HOME = {
     room: [
       { id: 'lamp', x: 0, y: 0 }, { id: 'desk', x: 3, y: 0 }, { id: 'computer', x: 3, y: 0 }, { id: 'radio', x: 4, y: 1 },
       { id: 'bookshelf', x: 7, y: 0 }, { id: 'bed', x: 0, y: 3 }, { id: 'tv', x: 8, y: 3 }, { id: 'console', x: 10, y: 3 },
-      { id: 'corkboard', wall: 'R', x: 0, y: 4 },
+      { id: 'corkboard', wall: 'R', x: 0, y: 4 }, { id: 'test-paper', x: 5, y: 0 },
     ],
   },
   likes: {
@@ -175,6 +175,7 @@ export const TEST_HOME = {
     console: 'file-ten',
     bookshelf: [{ title: '첫 책', author: '지은이', note: '남긴 말', color: 0 }, { title: '둘째 책', color: 3 }, { title: '셋째 책', color: 5 }],
     tv: [{ title: '첫 작품', year: '2005', by: '감독', why: '추천 이유', color: 2 }, { title: '둘째 작품', color: 6 }],
+    'test-paper': [{ question: '첫 문제', choices: ['하나', '둘째', '셋째'], answer: 1 }, { question: '둘째 문제', choices: ['가', '나'], answer: 0 }],
   },
 };
 
