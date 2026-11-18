@@ -1,4 +1,4 @@
-// 화면 아래 가구 선반. 좌우 화살표나 마우스 휠로 넘기고, 카드를 끌어 방에 놓는다.
+// 화면 아래 가구 선반. 좌우 화살표나 마우스 휠로 넘기고, 카드를 끌거나 눌러서 꺼내 방에 놓는다.
 import { DRAG_THRESHOLD } from './config.js';
 import { FURNITURE } from '../data/furniture.js';
 import { furnitureEl, beginDrag, shelfGrab } from './room.js';
@@ -55,19 +55,25 @@ export function filterShelf(app, sceneId) {
   app.syncShelf?.();
 }
 
+// 방의 가구와 같이, 누르고 조금만 움직이면 끌기이고 움직이지 않고 떼면 집기다(src/room.js의 beginDrag의 carry).
 function onCardDown(app, def, e) {
-  if (e.button !== 0 || app.mode !== 'edit') return;
+  if (e.button !== 0 || app.mode !== 'edit' || app.dragging) return;
   e.preventDefault();
+  const card = e.currentTarget;
   const start = { x: e.clientX, y: e.clientY };
   const cleanup = () => {
     window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', cleanup);
+    window.removeEventListener('pointerup', up);
   };
   const move = ev => {
     if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < DRAG_THRESHOLD) return;
     cleanup();
-    beginDrag(app, { id: def.id, grab: shelfGrab(def), ev });
+    beginDrag(app, { id: def.id, grab: shelfGrab(def), ev, card });
+  };
+  const up = ev => {
+    cleanup();
+    beginDrag(app, { id: def.id, grab: shelfGrab(def), ev, carry: true, card });
   };
   window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', cleanup);
+  window.addEventListener('pointerup', up);
 }

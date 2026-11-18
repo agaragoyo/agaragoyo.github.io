@@ -49,7 +49,7 @@ export function openRoomApp(os, appInfo) {
             <div class="shelf-track"></div>
             <button type="button" class="shelf-arrow" aria-label="뒤 가구">▶</button>
           </div>
-          <p class="rotate-tip">가구를 옮기는 동안 R 키나 마우스 휠로 돌릴 수 있습니다.</p>
+          <p class="rotate-tip"><span class="tip-move">가구를 옮기는 동안 R 키나 마우스 휠로 돌릴 수 있습니다.</span><span class="tip-carry">오른쪽 단추나 Esc 키를 누르면 제자리로 돌아갑니다.</span></p>
           <p class="room-hint" hidden></p>
           <div class="hud">
             <span class="owner"></span>
@@ -69,6 +69,7 @@ export function openRoomApp(os, appInfo) {
         itemsEl: root.querySelector('.items'),
         itemEls: new Map(),
         dragging: false,
+        stopDrag: null, // 옮기는 동안 room.js의 beginDrag가 채운다. 창을 닫을 때 들고 있던 가구를 내려놓는다
         // room.js 는 "지금 공간의 가구 목록"만 안다.
         room: {
           get items() { return os.home.scenes[scene.id]; },
@@ -174,6 +175,7 @@ export function openRoomApp(os, appInfo) {
       // 내 집을 꾸미는 동안은 방 꾸미기 음악(친구 집 구경은 바탕화면 음악 그대로)
       const releaseMusic = os.mode === 'edit' ? holdMusic('room-app', 'office') : null;
       return () => {
+        ctx.stopDrag?.();
         ro.disconnect();
         releaseMusic?.();
       };
