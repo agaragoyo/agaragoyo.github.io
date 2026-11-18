@@ -10,7 +10,7 @@
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 자리마다의 오른쪽 단추 메뉴(손님 화면 포함), 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창(친구 집의 주인 기록과 겨루기와 쪽지 단추 포함), 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
 // 내 방의 펫(펫 창의 상태와 단추, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
-// 가구 가까이 보기(TV의 소문 띠, 시험지의 문제 내기와 손님의 채점 포함),방 꾸미기의 끌기와 돌리기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
+// 가구 가까이 보기(TV의 소문 띠, 시험지의 문제 내기와 손님의 채점 포함), 방 꾸미기의 끌기와 돌리기와 눌러서 집고 놓기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
@@ -953,6 +953,8 @@ async function tap(page, p) {
   await mouse(page, 'mousePressed', p);
   await mouse(page, 'mouseReleased', p);
 }
+// 단추를 누르지 않은 채 포인터만 p로 옮긴다. 눌러서 집은 가구가 따라오는지 볼 때 쓴다(mouse의 mouseMoved는 왼쪽 단추를 누른 채 움직인다)
+const hover = (page, p) => page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y, button: 'none', buttons: 0 });
 // 진짜 마우스의 오른쪽 단추로 p를 누른다. 크롬이 그 자리의 요소를 골라 contextmenu를 보낸다
 async function rightTap(page, p) {
   await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'right', buttons: 2, clickCount: 1 });
@@ -2175,6 +2177,57 @@ async function walk(page, base) {
   await sleep(300);
   const shelf = (await page.run(savedHome)).scenes.room.find(i => i.id === 'bookshelf');
   check('돌린 채 놓으면 돌린 모습으로 저장된다', shelf?.r === 1, JSON.stringify(shelf));
+  // 끌지 않고 옮기기(F4): 누르고 움직이지 않은 채 떼면 집고, 단추를 뗀 채로 그림이 따라온다. 바닥을 누르면 놓고, 빨간 자리를 누르면 계속 들고 있으며,
+  // Esc, 오른쪽 단추, 창 밖(제목 줄) 누르기는 그만둔다(가구는 제자리). 집자마자 다시 누르면 두 번 누르기로 보고 바탕화면에서 쓰라고 알린다
+  const shelfAt = async () => JSON.stringify((await page.run(savedHome)).scenes.room.find(i => i.id === 'bookshelf'));
+  const carrying = () => { const g = document.querySelector('.ghost'); return g ? `${g.className}:${g.dataset.state}` : ''; };
+  const shelfStart = await shelfAt();
+  const bookshelf = await page.run(centreOf, '.room-app .items .furn[data-id="bookshelf"] .hit');
+  const floorSpot = await page.run(roomPoint, 0.55, 0.7);
+  await tap(page, bookshelf);
+  await hover(page, floorSpot);
+  check('방 꾸미기에서 가구를 누르고 떼면 집어서 단추를 뗀 채로 그림이 따라오고, 그만두는 법이 안내 줄에 뜬다', (await until(page, carrying, 2000)) === 'ghost carry:ok'
+    && await page.run(() => getComputedStyle(document.querySelector('.room-app .rotate-tip .tip-carry')).display !== 'none'), await page.run(carrying));
+  await press(page, 'Escape');
+  check('들고 있다가 Esc를 누르면 그만두고 가구는 제자리에 있다', !(await page.run(carrying)) && (await shelfAt()) === shelfStart, await shelfAt());
+  await tap(page, bookshelf);
+  await rightTap(page, floorSpot);
+  await sleep(100);
+  check('들고 있다가 오른쪽 단추를 누르면 그만두고 메뉴는 뜨지 않는다', !(await page.run(carrying)) && (await shelfAt()) === shelfStart && !(await page.run(() => !!document.querySelector('.ctx-menu'))));
+  await tap(page, bookshelf);
+  const bedHere = await page.run(centreOf, '.room-app .items .furn[data-id="bed"] .hit');
+  await hover(page, bedHere);
+  await tap(page, bedHere);
+  check('들고 있다가 놓을 수 없는 빨간 자리를 누르면 놓지 않고 계속 들고 있다', (await page.run(carrying)) === 'ghost carry:bad' && (await shelfAt()) === shelfStart, await page.run(carrying));
+  await tap(page, await page.run(centreOf, '#windows .win:has(.room-app) .win-bar'));
+  check('들고 있다가 창 밖(제목 줄)을 누르면 그만둔다', !(await page.run(carrying)) && (await shelfAt()) === shelfStart && !(await page.run(() => document.body.classList.contains('grabbing'))));
+  await tap(page, bookshelf);
+  await tap(page, bookshelf);
+  check('방 꾸미기에서 가구를 두 번 누르면 제자리에 둔 채 바탕화면에서 쓰라고 알린다', !(await page.run(carrying)) && (await shelfAt()) === shelfStart
+    && await until(page, () => { const t = document.getElementById('toast'); return t.classList.contains('show') && t.textContent.includes('바탕화면에서 가구를 두 번 눌러'); }, 2000));
+  await tap(page, bookshelf);
+  await hover(page, floorSpot);
+  await tap(page, floorSpot);
+  const movedTo = await shelfAt();
+  await tap(page, await page.run(centreOf, '.room-app .items .furn[data-id="bookshelf"] .hit'));
+  await hover(page, bookshelf);
+  await tap(page, bookshelf);
+  check('집은 가구는 바닥을 누르면 그 자리에 놓이고, 다시 집어 처음 자리를 누르면 처음 자리로 돌아간다', movedTo !== shelfStart && (await shelfAt()) === shelfStart && !(await page.run(carrying)), `${shelfStart} -> ${movedTo} -> ${await shelfAt()}`);
+  await mouse(page, 'mousePressed', bookshelf);
+  await mouse(page, 'mouseMoved', { x: bookshelf.x + 4, y: bookshelf.y + 2 });
+  await mouse(page, 'mouseMoved', floorSpot);
+  await press(page, 'Escape');
+  await mouse(page, 'mouseReleased', floorSpot);
+  check('끄는 동안 Esc를 누르면 그만두고 가구는 제자리에 있다', !(await page.run(carrying)) && (await shelfAt()) === shelfStart, await shelfAt());
+  // 선반 카드도 누르고 떼면 집는다. 가구 그림은 방 위로 올라올 때까지 숨고, 선반을 다시 누르면 선반으로 돌아간다.
+  // 그림만 숨기고 층(.ghost)은 숨기지 않아야 선반 위의 누르기도 이 층이 받는다(known-issues 48)
+  const firstShelfCard = () => { const c = [...document.querySelectorAll('.room-app .card')].find(x => !x.hidden); const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+  const pickedCard = () => !!document.querySelector('.room-app .card.picked');
+  const roomCount = (await page.run(savedHome)).scenes.room.length;
+  await tap(page, await page.run(firstShelfCard));
+  check('선반 카드를 누르고 떼면 카드가 눌린 모양이 되고, 가구 그림은 방 위로 올라올 때까지 숨는다', (await page.run(carrying)) === 'ghost carry:idle' && await page.run(pickedCard), await page.run(carrying));
+  await tap(page, await page.run(firstShelfCard));
+  check('카드를 집은 채 선반을 누르면 선반으로 돌아가고 방의 가구는 늘지 않는다', !(await page.run(carrying)) && !(await page.run(pickedCard)) && (await page.run(savedHome)).scenes.room.length === roomCount);
   // 벽지(F13): 고르면 창과 바탕화면의 벽이 그 무늬가 되고 저장된다. 다음 단계를 위해 기본 벽으로 되돌린다
   await page.run(clickOnce, '.room-app .wall-swatch[data-wall="heart"]');
   await sleep(200);
@@ -2211,8 +2264,24 @@ async function walk(page, base) {
     check(`튜토리얼: ${what}`, await until(page, cardSays, 8000, word), `안내 카드: "${await page.run(cardSays, '')}"`);
     await sleep(350); // 안내 카드가 가리키는 자리로 선반이 넘어가는 동안 기다린다
   };
-  // 선반의 카드를 방 안의 자리로 끌어 놓는다. 자리가 막혀 있으면 다음 자리에 놓아 본다
-  const placeFromShelf = async (id, spots) => {
+  // 선반의 카드를 방 안의 자리로 끌어 놓는다. 자리가 막혀 있으면 다음 자리에 놓아 본다.
+  // how가 'click'이면 끌지 않고 카드를 한 번 눌러 집은 뒤 자리를 누른다. 막힌(빨간) 자리를 누르면 계속 들고 있으므로 다음 자리를 바로 누른다
+  const placeFromShelf = async (id, spots, how = 'drag') => {
+    const placed = () => page.run(i => !!document.querySelector(`.room-app .items .furn[data-id="${i}"]`), id);
+    if (how === 'click') {
+      const card = await until(page, shelfCard, 4000, id);
+      if (!card) return false;
+      await tap(page, card);
+      for (const [fx, fy] of spots) {
+        const to = await page.run(roomPoint, fx, fy);
+        await hover(page, to);
+        await tap(page, to);
+        await sleep(200);
+        if (await placed()) return true;
+      }
+      await press(page, 'Escape');
+      return false;
+    }
     for (const [fx, fy] of spots) {
       const card = await until(page, shelfCard, 4000, id);
       if (!card) return false;
@@ -2223,7 +2292,7 @@ async function walk(page, base) {
       await mouse(page, 'mouseMoved', to);
       await mouse(page, 'mouseReleased', to);
       await sleep(200);
-      if (await page.run(i => !!document.querySelector(`.room-app .items .furn[data-id="${i}"]`), id)) return true;
+      if (await placed()) return true;
     }
     return false;
   };
@@ -2231,9 +2300,10 @@ async function walk(page, base) {
   check('튜토리얼: 화살표가 가리킬 곳을 찾았다', await page.run(() => !document.querySelector('.coach-arrow').hidden && !document.querySelector('.coach-ring').hidden));
   await openIcon('room');
   await step(tut.firstName, `방 꾸미기를 열면 ${tut.firstName} 놓기로 넘어간다`);
+  check('튜토리얼: 처음 놓는 단계가 끌어서 놓기와 한 번 눌러 놓기를 함께 알린다(known-issues 99)', (await page.run(cardSays, '끌어다')) && (await page.run(cardSays, '한 번 누른 뒤')), await page.run(cardSays, ''));
   check(`튜토리얼: 선반에서 ${tut.firstName} 카드를 끌어 방에 놓는다`, await placeFromShelf(tut.first, [[0.5, 0.68], [0.5, 0.8]]));
   await step(tut.lightName, `${tut.firstName}를 놓으면 ${tut.lightName} 놓기로 넘어간다`);
-  check(`튜토리얼: 선반에서 ${tut.lightName} 카드를 끌어 방에 놓는다`, await placeFromShelf(tut.light, [[0.25, 0.62], [0.75, 0.62], [0.5, 0.45], [0.5, 0.92]]));
+  check(`튜토리얼: 선반의 ${tut.lightName} 카드를 끌지 않고 눌러서 집은 뒤 방을 눌러 놓는다`, await placeFromShelf(tut.light, [[0.25, 0.62], [0.75, 0.62], [0.5, 0.45], [0.5, 0.92]], 'click'));
   await step('창을 닫으세요', '가구 둘을 놓으면 창을 닫으라고 한다');
   await closeWindows();
   await step('두 번 누르면 아바타가', '창을 닫으면 놓은 가구를 써 보라고 한다');

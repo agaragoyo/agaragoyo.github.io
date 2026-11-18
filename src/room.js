@@ -1,5 +1,5 @@
-// 방 그리기와 가구 끌어 놓기.
-import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD } from './config.js';
+// 방 그리기와 가구 옮기기(끌어 놓기, 눌러서 집고 놓기).
+import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { canPlace, coversDoor, dims, supportOf, elevOf, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
@@ -201,12 +201,23 @@ export function zOf(items, item) {
   return 100 + Math.round(depthOf(item) * 100);
 }
 
-// 누르고 조금만 움직이면 드래그, 그대로 떼면 클릭. 방 꾸미기는 꾸미는 화면이라 클릭해도 기믹을 쓰지 않는다(바탕화면에서 쓴다).
+// 가구의 어느 칸을 쥐었는지(누른 자리 p와 가구 자리의 칸 좌표 차이). 끌기와 집기가 같이 쓴다
+function grabOf(app, item, p) {
+  if (isWall(item)) {
+    const f = fromWall(p.x, p.y);
+    return { u: f.u - item.x, v: f.v - item.y };
+  }
+  const t = toTile(p.x, p.y, elevOf(app.room.items, item));
+  return { x: t.x - item.x, y: t.y - item.y, elev: 0 };
+}
+
+// 누르고 조금만 움직이면 끌기, 움직이지 않고 떼면 집기(beginDrag의 carry). 끌기를 정확히 하기 어려운 사람도 옮기도록
+// 누르기로도 옮긴다(WCAG 2.5.7). 방 꾸미기는 꾸미는 화면이라 가구를 눌러도 기믹을 쓰지 않는다(바탕화면에서 쓴다).
+// 친구 집을 구경하는 창에서는 가구를 옮기지 않고, 누르면 바탕화면에서 쓰라고 알려 준다.
 function onItemDown(app, item, e) {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || app.dragging) return;
   e.preventDefault();
   const start = app.toLocal(e.clientX, e.clientY);
-  let dragging = false;
   const cleanup = () => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
@@ -215,21 +226,13 @@ function onItemDown(app, item, e) {
     if (app.mode !== 'edit') return;
     const p = app.toLocal(ev.clientX, ev.clientY);
     if (Math.hypot(p.x - start.x, p.y - start.y) < DRAG_THRESHOLD) return;
-    dragging = true;
     cleanup();
-    let grab;
-    if (isWall(item)) {
-      const f = fromWall(start.x, start.y);
-      grab = { u: f.u - item.x, v: f.v - item.y };
-    } else {
-      const t = toTile(start.x, start.y, elevOf(app.room.items, item));
-      grab = { x: t.x - item.x, y: t.y - item.y, elev: 0 };
-    }
-    beginDrag(app, { item, grab, ev });
+    beginDrag(app, { item, grab: grabOf(app, item, start), ev });
   };
-  const up = () => {
+  const up = ev => {
     cleanup();
-    if (!dragging) app.pressItem(item);
+    if (app.mode === 'edit') beginDrag(app, { item, grab: grabOf(app, item, start), ev, carry: true });
+    else app.pressItem(item);
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
@@ -243,7 +246,12 @@ export function shelfGrab(def) {
 
 // 선반에서 새 가구를 꺼낼 때는 id 를, 방의 가구를 옮길 때는 item 을 넘긴다.
 // grab: 벽 가구는 { u, v }, 바닥 가구는 { x, y, elev } (잡은 지점의 칸 좌표 차이)
-export function beginDrag(app, { id, item = null, grab, ev }) {
+// carry: 눌렀다 떼서 집었다. 단추를 뗀 채로 그림이 포인터를 따라오고, 방을 누르면 놓고 선반을 누르면 선반에 넣는다(끌어서 선반에 놓을 때와 같다).
+//   놓을 수 없는(빨간) 자리를 누르면 놓지 않고 계속 들고 있다. 오른쪽 단추, Esc 키, 방 꾸미기 창 밖을 누르면 그만둔다(가구는 제자리).
+//   방의 가구를 집자마자 그 자리를 다시 누르면 두 번 누르기로 보고, 제자리에 둔 채 바탕화면에서 쓰라고 알린다(app.pressItem).
+//   Esc는 끄는 동안에도 그만두기다.
+// card: 꺼낸 선반 카드. 놓거나 그만둘 때까지 눌린 모양으로 둔다.
+export function beginDrag(app, { id, item = null, grab, ev, carry = false, card = null }) {
   if (app.dragging) return; // 드래그는 한 번에 하나만
   app.dragging = true;
   const items = app.room.items;
@@ -254,7 +262,7 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
   const others = items.filter(o => !group.includes(o));
 
   const ghost = document.createElement('div');
-  ghost.className = 'ghost';
+  ghost.className = carry ? 'ghost carry' : 'ghost'; // carry인 동안은 창 안의 누르기를 이 층이 모두 받는다(style.css)
   // 끄는 동안 R 키나 마우스 휠로 돌린다(바닥 가구만, 위에 물건을 얹은 책상은 빼고).
   // 칸이 정사각형인 가구도 돌린다. 차지하는 칸은 그대로지만 그림은 좌우로 뒤집혀 다른 쪽을 본다(1인 소파, 디카처럼 방향이 있는 그림).
   let rot = item?.r ? 1 : 0;
@@ -267,7 +275,9 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
   });
   app.root.append(ghost);
   for (const g of group) app.itemEls.get(g)?.classList.add('lifted');
+  card?.classList.add('picked');
   app.roomEl.classList.add('dragging');
+  app.root.classList.toggle('carrying', carry); // 방 꾸미기 창의 안내 줄이 그만두는 법으로 바뀐다
   document.body.classList.add('grabbing');
 
   let result = null; // { action: 'place' | 'remove', moved }
@@ -343,6 +353,11 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
   // 한글 입력 상태에서도 같게 동작하도록 글자(e.key) 대신 자리(e.code)로 읽는다(아바타의 WASD와 같다).
   // Ctrl+R(새로 고침)처럼 조합 키를 누른 것은 브라우저 단축키라 건드리지 않는다(known-issues 37).
   const onKey = e => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      finish(false);
+      return;
+    }
     if (e.code !== 'KeyR' || e.ctrlKey || e.metaKey || e.altKey) return;
     e.preventDefault();
     rotate();
@@ -353,16 +368,41 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     if (now - lastWheel > 180) { lastWheel = now; rotate(); }
   };
 
-  const finish = commit => {
+  // 들고 있는 동안(carry)의 누르기. 왼쪽 단추를 누르면 떼는 자리에 놓는다(누른 채 끌다가 떼도 된다).
+  // 방 꾸미기 창 밖(제목 줄, 작업 표시줄, 튜토리얼 카드)을 누르면 그만두고, 그 누르기는 원래 받을 곳이 그대로 받는다.
+  let armed = false;
+  const picked = { at: performance.now(), x: ev.clientX, y: ev.clientY };
+  const onDown = e => {
+    if (!ghost.contains(e.target)) return finish(false);
+    e.preventDefault();
+    if (e.button === 0) {
+      armed = true;
+      move(e);
+    } else if (e.button === 2) finish(false); // 뒤따르는 contextmenu는 창 안이라 메뉴를 띄우지 않는다(src/os.js의 menuFor)
+  };
+  // 다른 프로그램이나 다른 창 안의 게임(iframe)으로 초점이 넘어가도 그만둔다. iframe 안의 누르기는 이 문서에 오지 않는다(known-issues 36)
+  const onBlur = () => finish(false);
+
+  let done = false;
+  // closing: 방 꾸미기 창이 닫힌다(app.stopDrag). 방은 그대로라 저장하고 다시 그리지 않는다
+  const finish = (commit, closing = false) => {
+    if (done) return;
+    done = true;
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', cancel);
+    window.removeEventListener('pointerdown', onDown, true);
+    window.removeEventListener('blur', onBlur);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('wheel', onWheel);
     ghost.remove();
+    card?.classList.remove('picked');
+    app.root.classList.remove('carrying');
     app.roomEl.classList.remove('dragging');
     document.body.classList.remove('grabbing');
     app.dragging = false;
+    app.stopDrag = null;
+    if (closing) return;
     // 드래그하는 사이에 방이 바뀌었을 수 있으니 놓는 순간 한 번 더 검사한다.
     if (result?.action === 'place' && !valid(app.room.items.filter(o => !group.includes(o)), result.moved)) {
       result = null;
@@ -382,11 +422,31 @@ export function beginDrag(app, { id, item = null, grab, ev }) {
     app.commit();
   };
   const move = e => { last = { x: e.clientX, y: e.clientY }; update(e.clientX, e.clientY); };
-  const up = () => finish(true);
-  const cancel = () => finish(false);
+  const up = e => {
+    if (!carry) return finish(true);
+    if (!armed) return; // 집으려고 누른 단추를 뗀 것이다
+    armed = false;
+    move(e);
+    if (ghost.dataset.state === 'bad') return;
+    if (item && performance.now() - picked.at < DOUBLE_CLICK_MS && Math.hypot(e.clientX - picked.x, e.clientY - picked.y) < DRAG_THRESHOLD) {
+      finish(false);
+      app.pressItem(item);
+      return;
+    }
+    finish(true);
+  };
+  const cancel = () => {
+    if (carry) armed = false;
+    else finish(false);
+  };
+  app.stopDrag = () => finish(false, true);
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', cancel);
+  if (carry) {
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('blur', onBlur);
+  }
   window.addEventListener('keydown', onKey);
   window.addEventListener('wheel', onWheel, { passive: false });
   update(ev.clientX, ev.clientY);
