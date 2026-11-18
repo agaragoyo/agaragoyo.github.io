@@ -11,7 +11,6 @@ import { renderStatic, preloadFurniture, staticItem } from './room.js';
 import { mountAvatar, mountOwner } from './avatar.js';
 import { mountPet, NO_PET, patted, petChoice } from './pet.js';
 import { visitFlock } from './pigeon.js';
-import { openPetPicker } from './pet-picker.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
 import { createSdkHost } from './sdk-host.js';
@@ -270,11 +269,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
 
   // 친구 컴퓨터를 구경할 때는 editOnly 앱을 숨기고, visitOnly 앱(나도 만들기, 내 컴퓨터로)은 그때만 보인다.
   // ownHome이 적힌 앱은 이 컴퓨터에 내 집이 있는 손님(true)이나 없는 손님(false)에게만 보인다.
+  // noPractice 앱(펫)은 튜토리얼 연습 방에서 숨긴다. 연습 방에는 펫이 없고, 연습에서 한 일은 남지 않아야 한다(known-issues 40).
   // 공간 바로 가기(data/apps.js의 scene)는 지금 있는 공간의 것을 숨긴다.
   // 실험실 앱(labs: true)은 실험실을 연 브라우저에서만 보인다(src/labs.js).
   os.canSee = app => (os.mode === 'visit'
     ? !app.editOnly && (app.ownHome === undefined || app.ownHome === os.hasOwnHome)
-    : !app.visitOnly) && app.scene !== os.place && (!app.labs || labsOpen());
+    : !app.visitOnly) && !(app.noPractice && os.realHome) && app.scene !== os.place && (!app.labs || labsOpen());
   function renderDesktopIcons() {
     os.renderIcons(el.icons, APPS.filter(a => !a.folder && os.canSee(a)));
   }
@@ -292,12 +292,13 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     ownerAvatar?.attach(scene.id === SCENES[0].id, doorstep(scene)); // 주인은 방에만 선다. 손님이 주인이 선 칸을 피하도록 손님보다 먼저 세운다
     walker?.attach();
     pet?.attach(scene.id === SCENES[0].id); // 펫은 방에만 있다. 아바타가 선 칸을 피해 앉도록 아바타 다음에 세운다
+    petChanged(); // 방이 가구로 꽉 차 펫이 앉을 칸이 없으면 펫 창이 그렇다고 쓴다
     flock?.attach(scene.id === SCENES[0].id); // 날아온 비둘기들은 펫 둘레를 피해 앉도록 펫 다음에 세운다
     markLiked();
     horror.attach(); // 공포 모드의 어둠과 기운 벽 가구도 다시 붙인다
   }
 
-  // 내 집의 방에 사는 펫(src/pet.js). 고르기 전에는 기본 펫이 살고, 펫 바꾸기 창(src/pet-picker.js)에서 "없음"을 고르면 바로 사라진다.
+  // 내 집의 방에 사는 펫(src/pet.js). 고르기 전에는 기본 펫이 살고, 펫 창(src/apps/pet-app.js)에서 "없음"을 고르면 바로 사라진다.
   // 내 컴퓨터의 진짜 집에만 둔다. 친구 집과 이웃집, 튜토리얼 연습 방에는 없다(2026-11-17까지 실험실 pet).
   // 바탕화면을 만든 뒤와 펫 설정이 바뀔 때 부른다. 종류나 색만 바뀌면 그 자리에서 그림만 바꾼다
   function syncPet() {
@@ -314,9 +315,17 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         look: () => settings.get('pet'),
         pat: petPatted,
         menu: { root: stage, toStage }, // 오른쪽 단추로 누르면 따라오기, 기다리기, 쓰다듬기 메뉴를 시작 메뉴처럼 무대에 띄운다
+        changed: petChanged, // 메뉴로 할 일을 시키면 열린 펫 창의 하는 일도 바뀐다
       });
       pet.attach(os.place === SCENES[0].id);
     }
+    petChanged();
+  }
+  // 펫 창(src/apps/pet-app.js)이 방의 펫을 읽고 단추로 시킨다. 방에 펫이 없으면 null이다
+  os.pet = () => pet;
+  // 펫이 생기거나 사라지거나, 방을 다시 그리거나, 할 일이 바뀌면 열린 펫 창을 다시 그린다(win.refreshPet)
+  function petChanged() {
+    for (const w of os.wm.all()) w.refreshPet?.();
   }
 
   // 말풍선에 999999999를 말하면(src/secrets.js) 비둘기 떼가 창문이나 현관문으로 날아와 조금 있다 간다(src/pigeon.js, F32).
@@ -337,11 +346,10 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     flock = visitor;
   };
 
-  // 펫을 쓰다듬을 때마다 부른다(src/pet.js). 병아리처럼 자라는 펫이면 쓰다듬은 횟수를 설정(petPats)에 세고, 다 자라면
+  // 펫을 쓰다듬을 때마다 부른다(src/pet.js). 쓰다듬은 횟수를 설정(petPats)에 세고(펫 창이 보인다), 병아리처럼 자라는 펫이 다 자라면
   // 펫 설정을 자란 종류로 바꿔 그 자리에서 그림이 바뀌게 하고(아래 구독의 restyle) 아바타가 한마디 한다(data/pets.js의 grown)
   function petPatted() {
     const next = patted(settings.get('pet'), settings.get('petPats'));
-    if (!next) return;
     settings.set(next);
     if (next.pet) walker?.say(petChoice(next.pet).species.grown || '');
   }
@@ -581,9 +589,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       light,
       item({ title: '소리', icon: settings.get('sound') ? 'builtin:soundOff' : 'builtin:soundOn' }, settings.get('sound') ? '소리 끄기' : '소리 켜기', () => settings.set({ sound: !settings.get('sound') })),
       ...(os.mode === 'edit' && !os.realHome ? [item(os.tutorial.app, '튜토리얼 다시 보기', os.tutorial.restart)] : []),
-      // 내 방에 사는 펫의 종류와 색을 바꾸거나 "없음"을 골라 펫을 두지 않는다(src/pet-picker.js). 펫이 바뀌는 곳이 방이라
-      // 다른 입구가 보이지 않으므로 이름 바꾸기처럼 시작 메뉴에 글자로 된 줄로 둔다(known-issues 80)
-      ...(editable ? [item({ title: '펫 바꾸기', icon: 'builtin:pet' }, '펫 바꾸기', () => openPetPicker(os))] : []),
+      // 2026-11-18까지 여기 있던 "펫 바꾸기" 줄은 펫 창(src/apps/pet-app.js)으로 합쳤다. 펫 창은 위의 앱 줄에 "펫"으로 나온다(known-issues 80)
       // 이름 바꾸기는 맨 위의 이름 말고도 글자로 된 줄로 둔다. 이름만 누르게 했을 때는 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80).
       // 윈도우 10의 아바타 메뉴가 로그아웃 옆에 계정 설정을 두는 것처럼 로그아웃 바로 위에 둔다
       ...(editable ? [item({ title: '이름 바꾸기', icon: 'builtin:rename' }, '이름 바꾸기', () => openNameWindow(os))] : []),

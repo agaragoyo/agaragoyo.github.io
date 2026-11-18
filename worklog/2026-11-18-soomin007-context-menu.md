@@ -11,13 +11,13 @@
 - `src/context-menu.js`: 새 파일. 누른 자리에 메뉴를 띄우고(넘치면 반대쪽으로 편다) 굵은 줄, 회색 줄, 점을 찍는 줄, 새 탭 화살표, 방향키, Esc와 바깥 누르기로 닫기를 맡는다
 - `src/os.js`: 무대의 contextmenu를 받아 자리마다 줄을 고른다(`menuFor`). 글을 치는 칸과 링크는 브라우저 메뉴를 두고, 메뉴가 없는 자리는 아무것도 띄우지 않는다.
   시작 메뉴와 메뉴의 불 문구를 `lightLabel` 하나로 같이 쓴다
-- `src/win.js`: 창 메뉴(`win.menu`). 제목 줄의 두 번 누르기가 오른쪽 단추를 세지 않게 했다(known-issues 105)
+- `src/win.js`: 창 메뉴(`win.menu`). 제목 줄의 두 번 누르기가 오른쪽 단추를 세지 않게 했다(known-issues 106)
 - `src/room.js`: 바탕화면의 가구 상자에서 가구 줄을 찾는 `staticItem`
 - `src/pet.js`: 할 일 메뉴를 공용 메뉴로 띄운다(`showMenu`). 줄과 동작은 그대로다
 - `style.css`: `.pet-menu`를 `.ctx-menu`로 바꾸고 회색 줄과 바깥 화살표를 더했다
 - `tools/smoke.mjs`: "오른쪽 단추 메뉴" 절(자리마다의 줄과 누른 뒤의 일, 키와 닫기, 글 칸과 링크의 브라우저 메뉴, 진짜 오른쪽 단추), 손님 화면의 메뉴, 펫 절의 선택자
 - `tools/night-contrast.mjs`: 펫 메뉴에 더해 회색 줄이 든 창 메뉴를 잰다(`openWindowMenu`)
-- `known-issues.md`: 105(pointerdown이 누른 단추를 보지 않아 오른쪽 단추도 두 번 누르기로 셌다)
+- `known-issues.md`: 106(pointerdown이 누른 단추를 보지 않아 오른쪽 단추도 두 번 누르기로 셌다)
 - `docs/requirements.md`(F33과 정한 것), `docs/guide.md`, `docs/file-map.md`, `docs/tasks.md`
 
 ## 정한 것과 이유

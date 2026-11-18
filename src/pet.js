@@ -1,6 +1,7 @@
 // 내 집의 방에 사는 펫(docs/requirements.md의 F30). 고른 펫 한 마리가 살고, 고르기 전에는 기본 펫(data/pets.js의 DEFAULT_PET)이 산다.
-// 종류(강아지, 고양이, 기니피그, 병아리, 비둘기, 코끼리, 코알라, 공룡)와 색은 시작 메뉴의 펫 바꾸기 창(src/pet-picker.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
-// 병아리는 쓰다듬은 횟수가 GROW_PATS번이 되면 같은 색의 닭으로 자란다(patted). 횟수(petPats)와 자란 모습(pet)도 이 브라우저의 설정에만 남는다.
+// 종류(강아지, 고양이, 기니피그, 병아리, 비둘기, 코끼리, 코알라, 공룡)와 색은 펫 창(src/apps/pet-app.js)에서 고르고, 이 브라우저의 설정(src/settings.js의 pet)에만 남는다.
+// 쓰다듬은 횟수(petPats)도 이 브라우저의 설정에만 남고(patted), 병아리는 그 횟수가 GROW_PATS번이 되면 같은 색의 닭으로 자란다.
+// 펫 창의 쓰다듬기와 할 일 단추는 아래 mountPet이 돌려주는 pat, command를 부른다. 방에서 두 번 누르거나 오른쪽 단추 메뉴로 시킨 것과 같다.
 // 2026-11-15에 실험실의 '펫 데려오기'(pet)로 넣었고, 2026-11-17에 모든 사람에게 켰다. 같은 날 비둘기와 병아리를 더하고 햄스터를 기니피그로 바꿨고,
 // 종류마다의 성격과 오른쪽 단추 메뉴의 명령을 더했다. 그림과 색, 성격(mood)은 data/pets.js에 있다.
 // 펫은 아바타처럼 바닥 한 칸에 선다. 할 일(mode)은 셋이다.
@@ -40,7 +41,7 @@ import { PET_SPECIES, DEFAULT_PET, DEFAULT_MOOD } from '../data/pets.js';
 
 export const PET_COLS = 24;     // 그림 한 장의 가로 칸 수(data/pets.js)
 export const PET_ROWS = 20;     // 세로 칸 수. 한 칸이 2px이면 48×40px로, 아바타 그림(64×104px) 폭의 75%다
-export const NO_PET = 'none';   // 펫 바꾸기 창에서 "없음"을 고르면 설정(pet)에 남는 값. 이때는 방에 펫을 두지 않는다(src/os.js의 syncPet)
+export const NO_PET = 'none';   // 펫 창에서 "없음"을 고르면 설정(pet)에 남는 값. 이때는 방에 펫을 두지 않는다(src/os.js의 syncPet)
 const STEP_MS = 400;            // 혼자 놀 때 한 칸 걷는 시간. 아바타(200ms)의 절반 빠르기다
 const FOLLOW_MS = 200;          // 따라올 때 한 칸 걷는 시간. 아바타와 같은 빠르기라 한 걸음 뒤에서 발을 맞춘다
 const LAG = 0;                  // 따라올 때 앞선 이와의 사이에 비워 두는 칸 수. 0이면 바로 뒤 칸까지 와서 선다
@@ -211,18 +212,17 @@ export function petChoice(value) {
   return { species, color, value: `${species.id}/${color.id}` };
 }
 
-// 펫 바꾸기 창의 종류 단추 하나가 맡는 종류. 자라서 된 종류(닭)는 자라기 전 종류(병아리)의 단추가 맡는다
+// 펫 창의 종류 단추 하나가 맡는 종류. 자라서 된 종류(닭)는 자라기 전 종류(병아리)의 단추가 맡는다
 export const petRoot = species => PET_SPECIES.find(s => s.grow === species.id) || species;
-// 펫 바꾸기 창의 종류 단추에 나오는 종류. 자라서 된 종류는 빼고 data/pets.js의 차례대로다
+// 펫 창의 종류 단추에 나오는 종류. 자라서 된 종류는 빼고 data/pets.js의 차례대로다
 export const PET_KINDS = PET_SPECIES.filter(s => petRoot(s) === s);
 
-// 쓰다듬은 뒤에 바꿀 설정(src/settings.js의 pet과 petPats). 자라는 펫이면 쓰다듬은 횟수를 하나 더하고, GROW_PATS번이 되면
-// 같은 색 id의 자란 종류로 바꾸며 횟수를 0으로 돌린다. 자라지 않는 펫이면 null이라 설정을 건드리지 않는다
+// 쓰다듬은 뒤에 바꿀 설정(src/settings.js의 pet과 petPats). 쓰다듬은 횟수를 하나 더하고(펫 창이 보인다), 자라는 펫이 GROW_PATS번이 되면
+// 같은 색 id의 자란 종류로 바꾼다. 자라도 같은 펫이라 횟수는 이어서 센다(2026-11-18까지는 병아리만 세고 닭이 되면 0으로 돌렸다)
 export function patted(value, pats) {
   const { species, color } = petChoice(value);
-  if (!species.grow) return null;
   const n = (Number(pats) || 0) + 1;
-  return n < GROW_PATS ? { petPats: n } : { pet: `${species.grow}/${color.id}`, petPats: 0 };
+  return species.grow && n >= GROW_PATS ? { pet: `${species.grow}/${color.id}`, petPats: n } : { petPats: n };
 }
 
 // 펫 한 마리의 SVG. frames에 든 장마다 <g data-frame>을 하나씩 넣는다. 보이는 장은 petPuppet이 고르고, 한 장만 넣으면 그 장이 보인다
@@ -242,7 +242,7 @@ function heartRise(rows) {
   return top - 1 - HEART.rows.length - PET_ROWS;
 }
 
-// 펫 그림을 담은 상자(방의 .room-pet, 펫 바꾸기 창의 큰 그림)를 움직인다.
+// 펫 그림을 담은 상자(방의 .room-pet, 펫 창의 큰 그림)를 움직인다.
 //   look(choice)  종류와 색을 정하고 그림을 다시 넣는다(petChoice가 돌려준 것)
 //   pose(name)    'sit'(앉기), 'loaf'(가구 위에 웅크리기, 웅크린 그림이 있는 종류만), 'walk1', 'walk2'(걷기 두 장),
 //                 'fly1', 'fly2'(날기 두 장, 나는 그림이 있는 종류만), 'peck'(바닥 쪼기, mood.peck인 종류만)
@@ -322,7 +322,7 @@ export function petPuppet(box) {
 //   items()   그 공간의 가구 목록
 //   avatar()  내 아바타(src/avatar.js의 mountAvatar). 그 칸은 피해서 걷고, 쓰다듬을 때와 명령할 때(말풍선) 부른다. 없으면 null
 //   look()    고른 펫(src/settings.js의 pet 값). 비었으면 기본 펫이다
-//   pat()     쓰다듬을 때마다 부른다. 자라는 펫의 횟수를 세고 다 자라면 펫 설정을 바꾼다(src/os.js의 petPatted). 없어도 된다
+//   pat()     쓰다듬을 때마다 부른다. 쓰다듬은 횟수를 세고 자라는 펫이 다 자라면 펫 설정을 바꾼다(src/os.js의 petPatted). 없어도 된다
 //   others()  같은 방의 다른 펫 목록(내 펫과 날아온 비둘기들이 서로를 넘긴다). 저마다 claims()(없으면 cells())로 차지한 칸을 알려 주고,
 //             혼자 놀거나 기다리는 펫은 그 칸과 둘레 한 칸에, 따라오는 펫은 그 칸에 가지 않는다. 없어도 된다
 //   leader()  따라올 때 뒤를 밟을 앞선 이. spot()으로 선 칸을 알려 주면 된다. 없으면 아바타다.
@@ -333,8 +333,11 @@ export function petPuppet(box) {
 //   menu      있으면 오른쪽 단추로 눌렀을 때 할 일 메뉴를 띄운다. { root, toStage }: 메뉴를 넣을 무대와 화면 좌표를 무대 좌표로 바꾸는 함수.
 //             가구와 펫이 든 상자(layer)는 쌓임 맥락이 따로라 그 안에 넣으면 창 아래에 깔리므로 무대에 넣는다
 //   title     마우스를 올리면 보이는 글. 없으면 "두 번 눌러 쓰다듬기"다
-// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), order(at, rect, z), vacate(item), hold(on), flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
-// cells와 order는 아바타가 부른다(host.others). vacate는 아바타가 가구를 쓸 때 os.js가 부른다. hold, flyIn, flyOut, say는 날아오는 비둘기 떼(src/pigeon.js)가 쓴다.
+//   changed() 할 일(mode)이 바뀔 때마다 부른다. 열린 펫 창(src/apps/pet-app.js)이 하는 일을 다시 쓴다. 없어도 된다
+// 돌려주는 것: attach(here), restyle(), cells(), claims(), spot(), mode(), pat(), command(next, words), order(at, rect, z), vacate(item), hold(on),
+// flyIn(gate, then), flyOut(gate, then), say(text, ms), destroy().
+// cells와 order는 아바타가 부른다(host.others). vacate는 아바타가 가구를 쓸 때 os.js가 부른다. pat과 command는 펫 창의 단추가 부른다.
+// hold, flyIn, flyOut, say는 날아오는 비둘기 떼(src/pigeon.js)가 쓴다.
 // 가구 위에 웅크리고 있는 동안에는 펫 상자(.room-pet)의 data-perch에 그 가구의 id가 있다(눌러 보기 점검이 읽는다)
 export function mountPet(host) {
   const el = h('div', { className: 'room-pet', title: host.title || '두 번 눌러 쓰다듬기' });
@@ -382,7 +385,7 @@ export function mountPet(host) {
   const mood = () => moodOf(species);
   const leader = () => host.leader?.() || host.avatar();
 
-  // 고른 펫으로 그림과 하트 높이를 맞춘다. 펫 바꾸기 창에서 바꾸거나 병아리가 자라면 os.js가 다시 부른다(자리는 그대로다).
+  // 고른 펫으로 그림과 하트 높이를 맞춘다. 펫 창에서 바꾸거나 병아리가 자라면 os.js가 다시 부른다(자리는 그대로다).
   // 처음이거나 다른 종류를 골랐으면 새 펫이라 그 종류가 처음 하는 일(follow면 따라오기, 아니면 혼자 놀기)로 돌아간다.
   // 자라서 종류가 바뀐 것(병아리가 닭으로)은 같은 펫이라, 메뉴로 시킨 일이 있으면 그대로 하고 없으면 자란 종류가 처음 하는 일로 바뀐다
   function restyle() {
@@ -479,6 +482,7 @@ export function mountPet(host) {
   // 할 일을 next로 바꾼다. 방에 있으면 바로 시작하고, 걷던 중이면 들어가던 칸까지 마저 걸은 뒤(settle) 시작한다
   function assign(next) {
     mode = next;
+    host.changed?.();
     stopMode();
     if (!cell || !el.isConnected || flying) return;
     if (walking) {
@@ -812,7 +816,7 @@ export function mountPet(host) {
     return true;
   }
 
-  // 가구 위에 있다가 올라가지 않는 종류로 바뀌면(펫 바꾸기 창) 뛰지 않고 내려앉을 칸(landing)에 바로 앉는다.
+  // 가구 위에 있다가 올라가지 않는 종류로 바뀌면(펫 창) 뛰지 않고 내려앉을 칸(landing)에 바로 앉는다.
   // 방에 없으면 다음에 붙일 때(attach) 가장 가까운 빈칸을 고른다
   function drop() {
     const p = perch;
@@ -1191,6 +1195,9 @@ export function mountPet(host) {
     spot: () => (cell && el.isConnected ? { x: cell.x, y: cell.y } : null),
     // 지금 할 일('free', 'follow', 'stay')
     mode: () => mode,
+    // 펫 창(src/apps/pet-app.js)의 쓰다듬기와 할 일 단추. 두 번 누르기와 오른쪽 단추 메뉴의 줄과 같다
+    pat,
+    command,
     // 아바타가 가구 item을 쓰러 왔다(src/os.js의 useFurniture). 그 가구(책상 위 물건이면 그 책상) 위에 있으면 뛰어내려 비킨다.
     // 뛰어오르던 중이면 다 오른 뒤 바로 내려오고(settle), 그 가구로 걸어가던 중이면 올라가지 않는다. 쓰다듬으러 오던 아바타는 기다리지 않는다
     vacate(item) {
