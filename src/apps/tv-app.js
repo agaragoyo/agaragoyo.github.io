@@ -5,12 +5,17 @@
 // 넣은 작품은 likes.tv에 저장되고 공유 링크에도 담긴다(src/likes.js). 손님에게는 넣기, 고치기, 빼기 단추가 없다.
 // 내 컴퓨터의 진짜 집에서 켜면 작품 화면 맨 아래 띠에 숨은 기능의 소문 한 줄(src/secrets.js의 HINTS)이 뜨고, 켤 때마다 다음 소문으로 넘어간다.
 // 숨은 기능은 내 컴퓨터에서만 켜지므로 손님의 TV와 튜토리얼 연습 방의 TV에는 소문이 없다.
+// 틀은 방의 TV 그림과 같은 회보라 TV에 점무늬 덮개를 씌운 도트 그림 한 장(assets/closeup/tv-frame.png)이고, 화면이 그 위에 올라가 틀에 가려지지 않는다.
 import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { BOOK_COLORS } from './bookshelf-app.js';
 import { fitHost } from './link-app.js';
 import { LIMIT, safeLink, safeImage, setLike, isOwner, nextColor } from '../likes.js';
 import { HINTS } from '../secrets.js';
+
+// TV 틀 그림(style.css의 .tv-set 배경)은 CSS가 받아서, TV를 처음 켜는 순간에야 받으면 틀이 늦게 뜬다. 이 모듈을 읽을 때 미리 받아 둔다
+const FRAME = new Image();
+FRAME.src = 'assets/closeup/tv-frame.png';
 
 // ---------- 위키데이터(키 없이 다른 사이트에서 부를 수 있다, origin=*) ----------
 const WD = 'https://www.wikidata.org/w/api.php';
@@ -144,14 +149,7 @@ export function openTvApp(os, app) {
     build(panel, cu) {
       const screen = h('div', { className: 'tv-screen' });
       const tools = h('div', { className: 'tv-tools' });
-      const dial = () => h('div', { className: 'tv-dial' }, h('i'));
-      panel.append(
-        h('div', { className: 'tv-antenna', 'aria-hidden': 'true' }, h('i'), h('i')),
-        h('div', { className: 'tv-body' },
-          h('div', { className: 'tv-bezel' }, screen),
-          h('div', { className: 'tv-side', 'aria-hidden': 'true' }, dial(), dial(), h('div', { className: 'tv-grille' }))),
-        h('div', { className: 'tv-legs', 'aria-hidden': 'true' }, h('i'), h('i')),
-        tools);
+      panel.append(h('div', { className: 'tv-set' }, screen), tools); // 틀 그림은 .tv-set의 배경이고 화면은 그 위에 올라간다(style.css의 TV 절)
 
       let at = 0;     // 고른 작품
       let row = null; // 포스터 줄(보는 화면일 때만)
