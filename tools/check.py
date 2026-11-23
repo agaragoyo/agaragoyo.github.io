@@ -1272,6 +1272,40 @@ def check_line_endings():
         warn('줄 끝', '원래 줄 끝으로 되돌리고, 고칠 때는 파일을 바이트로 읽고 쓴다(파이썬은 read_bytes와 write_bytes, sed는 sed -b -i). known-issues 28')
 
 
+# ---------- 가까이 보기 틀 ----------
+# TV 가까이 보기의 틀 그림(assets/closeup/tv-frame.png)은 점 한 칸이 1픽셀이고, style.css의 TV 절이 그 점 수로 틀의 크기와 화면 구멍의 자리를 적는다.
+# 그림만 고치고 숫자를 안 고치면 화면이 틀에서 어긋나므로, 그림 크기와 .tv-set 크기가 같은지, 화면 구멍이 그림 안에 드는지 본다(known-issues 116).
+def check_closeup_frame():
+    path = ROOT / 'assets/closeup/tv-frame.png'
+    if not path.is_file():
+        err('assets/closeup/tv-frame.png', 'TV 가까이 보기의 틀 그림이 없다')
+        return
+    data = path.read_bytes()
+    if data[:8] != b'\x89PNG\r\n\x1a\n':
+        err('assets/closeup/tv-frame.png', 'PNG 파일이 아니다')
+        return
+    w, h = struct.unpack('>II', data[16:24])
+    css = read('style.css')
+
+    def rule(sel):
+        m = re.search(re.escape(sel) + r'\s*\{(.*?)\n\}', css, re.S)
+        return m.group(1) if m else ''
+
+    def dots(body, prop):
+        m = re.search(r'(?<![\w-])' + prop + r':\s*calc\((\d+) \* var\(--dot\)\)', body)
+        return int(m.group(1)) if m else None
+
+    tv_set, screen = rule('.tv-set'), rule('.tv-screen')
+    sw, sh = dots(tv_set, 'width'), dots(tv_set, 'height')
+    if (sw, sh) != (w, h):
+        err('style.css', f'.tv-set 의 크기 {sw}×{sh}점이 틀 그림의 크기 {w}×{h}점과 다르다. 그림을 고쳤으면 TV 절의 숫자도 같이 고친다(known-issues 116)')
+    x, y, cw, ch = (dots(screen, k) for k in ('left', 'top', 'width', 'height'))
+    if None in (x, y, cw, ch):
+        err('style.css', '.tv-screen 의 left, top, width, height 는 calc(점 수 * var(--dot)) 꼴로 적는다(그림의 점 수와 맞추려고)')
+    elif x + cw > w or y + ch > h:
+        err('style.css', f'.tv-screen 이 틀 그림({w}×{h}점) 밖으로 나간다(왼쪽 위 {x}, {y}점, 크기 {cw}×{ch}점)')
+
+
 # ---------- 파일 지도 ----------
 # docs/file-map.md 가 실제 파일과 어긋나지 않게 한다. 핵심 파일이 지도에 빠졌거나, 지도에 적힌 경로가 없으면 오류.
 def check_file_map():
@@ -1361,6 +1395,7 @@ def main():
     check_cd_colors()
     check_labs()
     check_sounds()
+    check_closeup_frame()
     check_file_map()
     check_js_syntax()
     for w in warnings:

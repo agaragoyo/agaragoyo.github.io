@@ -2255,46 +2255,38 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
   .cd-pick { transition: none; }
 }
 
-/* TV: 가구 그림(assets/furniture/tv.png)처럼 안테나가 달린 초록 TV를 앞에서 본 모습. 화면 안은 넷플릭스 추천 줄처럼 어둡다 */
+/* TV: 방의 TV 그림(assets/furniture/tv.png)과 같은 회보라 TV에 분홍 점무늬 천 덮개를 씌운 모습을 정면에서 본 도트 그림(assets/closeup/tv-frame.png)이다.
+   그림의 한 점은 무대에서 --dot(8px)이고, 화면(.tv-screen)은 그 그림 위에 올라가 틀이 화면 가장자리를 덮지 않는다(known-issues 116).
+   아래의 점 수(그림 111×79, 화면 구멍의 왼쪽 위 8, 15와 크기 95×56)는 그림 파일과 한 쌍이라 그림을 고치면 같이 고친다. 화면 안은 넷플릭스 추천 줄처럼 어둡다 */
 .tv-closeup { display: flex; flex-direction: column; align-items: center; }
-.tv-antenna { position: relative; width: 300px; height: 74px; }
-.tv-antenna i { position: absolute; left: 150px; bottom: -6px; width: 6px; height: 96px; border-radius: 3px; background: #4e5547; transform-origin: 50% 100%; }
-.tv-antenna i:first-child { transform: rotate(-32deg); }
-.tv-antenna i:last-child { transform: rotate(28deg); }
-.tv-antenna i::before { content: ''; position: absolute; left: -4px; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: #4e5547; }
-.tv-body {
+.tv-set {
+  --dot: 8px;
   position: relative;
-  display: grid;
-  grid-template-columns: 800px 1fr;
-  align-items: center;
-  gap: 20px;
-  width: 1020px;
-  height: 540px;
-  padding: 20px 24px;
-  border: 4px solid #4e5547;
-  border-radius: 40px;
-  background: linear-gradient(#b8c2ab, #9ca78f);
-  box-shadow: inset -8px -10px 0 #8a957d, 0 14px 0 #0005;
+  flex: none;
+  width: calc(111 * var(--dot));
+  height: calc(79 * var(--dot));
+  background: url("assets/closeup/tv-frame.png") 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
 }
-.tv-bezel { width: 800px; height: 492px; padding: 16px; border: 4px solid #3a4035; border-radius: 30px; background: #2e332b; }
 .tv-screen {
-  position: relative;
+  --c1: var(--dot); /* 화면 모서리는 그림의 구멍과 같은 두 점 계단으로 깎는다 */
+  --c2: calc(2 * var(--dot));
+  position: absolute;
+  left: calc(8 * var(--dot));
+  top: calc(15 * var(--dot));
   display: flex;
   flex-direction: column;
-  width: 760px;
-  height: 452px;
+  width: calc(95 * var(--dot));
+  height: calc(56 * var(--dot));
   overflow: hidden;
-  border-radius: 18px;
   background: #141414;
   color: #f2f2f2;
+  clip-path: polygon(
+    var(--c2) 0, calc(100% - var(--c2)) 0, calc(100% - var(--c2)) var(--c1), calc(100% - var(--c1)) var(--c1), calc(100% - var(--c1)) var(--c2), 100% var(--c2),
+    100% calc(100% - var(--c2)), calc(100% - var(--c1)) calc(100% - var(--c2)), calc(100% - var(--c1)) calc(100% - var(--c1)), calc(100% - var(--c2)) calc(100% - var(--c1)), calc(100% - var(--c2)) 100%,
+    var(--c2) 100%, var(--c2) calc(100% - var(--c1)), var(--c1) calc(100% - var(--c1)), var(--c1) calc(100% - var(--c2)), 0 calc(100% - var(--c2)),
+    0 var(--c2), var(--c1) var(--c2), var(--c1) var(--c1), var(--c2) var(--c1));
 }
-.tv-side { display: grid; justify-items: center; gap: 22px; }
-.tv-dial { position: relative; width: 74px; height: 74px; border: 4px solid #3a4035; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f3f1e8, #cfcab9); }
-.tv-dial i { position: absolute; left: 50%; top: 8px; width: 6px; height: 26px; margin-left: -3px; border-radius: 3px; background: #3a4035; }
-.tv-dial + .tv-dial i { transform: rotate(120deg); transform-origin: 50% 26px; }
-.tv-grille { width: 86px; height: 92px; background: repeating-linear-gradient(#3a4035 0 4px, transparent 4px 12px); }
-.tv-legs { display: flex; justify-content: space-between; width: 760px; height: 18px; }
-.tv-legs i { width: 60px; border: 4px solid #4e5547; border-top: 0; border-radius: 0 0 10px 10px; background: #8a957d; }
 .tv-tools { display: flex; gap: 8px; min-height: 34px; margin-top: 14px; }
 .tv-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 20px 6px; }
 .tv-head b { font-size: 19px; }
