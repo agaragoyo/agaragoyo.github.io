@@ -516,14 +516,14 @@ const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
 // 내 아바타 머리 위의 말하기 표시(src/avatar.js의 cue). 보이지 않으면 '없음', 보이면 가운데가 아바타 가운데이고
-// 아래 끝이 머리 꼭대기(그림 상자 위 끝에서 9px)보다 8px 위일 때 '머리 위'(무대 px, 1px까지 봐 준다). want를 주면 그 상태인지만 돌려준다
+// 아래 끝이 머리 꼭대기(그림 상자 위 끝에서 16px, src/avatar.js의 HEAD_TOP)보다 8px 위일 때 '머리 위'(무대 px, 1px까지 봐 준다). want를 주면 그 상태인지만 돌려준다
 function sayCue(want = '') {
   const cue = document.querySelector('#wallpaper .say-cue');
   const a = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
   let state = '없음';
   if (cue && a && !cue.hidden && getComputedStyle(cue).visibility !== 'hidden') {
     const dx = parseFloat(cue.style.left) - (parseFloat(a.style.left) + a.offsetWidth / 2);
-    const dy = parseFloat(cue.style.top) - (parseFloat(a.style.top) + 9 - 8);
+    const dy = parseFloat(cue.style.top) - (parseFloat(a.style.top) + 16 - 8);
     state = Math.abs(dx) <= 1 && Math.abs(dy) <= 1 ? '머리 위' : `어긋남(${dx}, ${dy})`;
   }
   return want ? state === want : state;
@@ -545,11 +545,11 @@ const myCell = () => {
   const t = (parseFloat(a.style.top) + 100 - 270) / 18 - 1;
   return { x: (s + t) / 2, y: (t - s) / 2 };
 };
-// 바탕화면 방의 주인 아바타(친구 집에서 방에 서 있는 주인)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
+// 바탕화면 방의 주인 아바타(친구 집에서 방에 서 있는 주인)와 내 아바타. 옷은 data/avatars.js의 기본 그림(sheet)과 손님 그림(guestSheet)으로 가린다
 async function ownerScene() {
   const { AVATAR_BY_ID } = await import(new URL('data/avatars.js', document.baseURI).href);
-  const { color, guestColor } = AVATAR_BY_ID.basic;
-  const shirt = el => { const bg = decodeURIComponent(el?.style.backgroundImage || ''); return bg.includes(guestColor) ? '손님 옷' : bg.includes(color) ? '기본 옷' : '모르는 옷'; };
+  const { sheet, guestSheet } = AVATAR_BY_ID.basic;
+  const shirt = el => { const bg = el?.style.backgroundImage || ''; return bg.includes(guestSheet) ? '손님 옷' : bg.includes(sheet) ? '기본 옷' : '모르는 옷'; };
   const owner = document.querySelector('#wallpaper .room-owner');
   const tag = document.querySelector('#wallpaper .room-owner-name');
   return `${owner ? `주인 ${shirt(owner)} ${tag?.textContent ?? '이름표 없음'}` : '주인 없음'}, 나 ${shirt(document.querySelector('#wallpaper .room-avatar:not(.room-owner)'))}`;

@@ -10,7 +10,7 @@ import { N, DRAG_THRESHOLD, STORAGE_SAID } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
 import { dims, isWall, supportOf, elevOf } from './rules.js';
 import { zOf } from './room.js';
-import { AVATAR_BY_ID } from '../data/avatars.js';
+import { AVATARS, AVATAR_BY_ID, SHEET_SCALE } from '../data/avatars.js';
 import { BY_ID } from '../data/furniture.js';
 import { h, isField, loadJSON, saveJSON } from './util.js';
 import { iconEl } from './icons.js';
@@ -22,11 +22,12 @@ const FOOT = 100;     // 그림 안에서 발끝의 높이 (px)
 const STEP_MS = 200;  // 한 칸 걷는 시간
 const SAY_MS = 4000;  // 말풍선이 떠 있는 시간. 글자가 길면 글자마다 60ms씩 더 둔다
 const SPAWN = { x: N - 4, y: N - 4 }; // 처음 서는 곳(이 칸이 막혀 있으면 가장 가까운 빈칸)
+const HEAD_TOP = 16;  // 그림 상자 위 끝에서 머리 꼭대기(모자 단추의 겉선)까지. data/avatars.js의 그림 규격이다
 const TAG_H = 18;     // 주인 아바타의 이름표 높이(style.css의 .room-owner-name). 말풍선은 이름표 위에 띄운다
-const TAG_DROP = 8;   // 이름표 아래 끝이 그림 상자 위 끝보다 내려오는 만큼. 머리는 상자 위에서 12px 아래부터 그려진다
+const TAG_DROP = HEAD_TOP - 1; // 이름표 아래 끝이 그림 상자 위 끝보다 내려오는 만큼. 머리 꼭대기 1px 위에 닿는다
 const GREET_MS = 600; // 손님이 방에 들어온 뒤 주인 아바타가 인사말을 하기까지 기다리는 시간
-const HEAD_TOP = 9;   // 그림 상자 위 끝에서 머리 꼭대기까지(임시 그림의 앞모습 머리카락 윤곽선. 뒷모습은 11px)
 const CUE_GAP = 8;    // 말하기 표시(16×16px 말풍선 그림)의 아래 끝과 머리 꼭대기 사이
+const SAY_GAP = 13;   // 말풍선 꼬리 끝과 머리 꼭대기 사이
 
 // 걷는 방향(칸 좌표의 변화)마다 쓸 그림 줄과 좌우 뒤집기. 화면에서 x는 오른쪽 아래, y는 왼쪽 아래로 늘어난다.
 const FACING = {
@@ -47,37 +48,18 @@ const KEYS = {
 
 const key = (x, y) => `${x},${y}`;
 
-// 임시 그림 한 칸. back: 뒷모습, step: 0 서 있기, 1 왼발 걸음, 2 오른발 걸음
-function figure(back, step, shirt) {
-  const ink = '#2b2b33';
-  const hair = '#4a3426';
-  const leg = (x, lift) => `<rect x="${x}" y="${80 - lift}" width="9" height="19" rx="4" fill="#3d4a6b" stroke="${ink}" stroke-width="2"/>`;
-  const arm = (x, dy) => `<rect x="${x}" y="${60 + dy}" width="8" height="20" rx="4" fill="${shirt}" stroke="${ink}" stroke-width="2"/>`;
-  const swing = [0, -2, 2][step];
-  const legs = [[leg(22, 0), leg(33, 0)], [leg(20, 0), leg(35, 3)], [leg(20, 3), leg(35, 0)]][step].join('');
-  const face = back
-    ? `<circle cx="32" cy="33" r="21" fill="${hair}" stroke="${ink}" stroke-width="2"/>
-       <path d="M20 21 q7 -6 15 -4" stroke="#6b4e3a" stroke-width="3" fill="none" stroke-linecap="round"/>`
-    : `<circle cx="32" cy="33" r="21" fill="#f7d9bd" stroke="${ink}" stroke-width="2"/>
-       <path d="M11 33 C11 14 22 10 32 10 C44 10 53 16 53 31 C46 24 40 22 32 23 C24 22 16 26 11 33 Z" fill="${hair}" stroke="${ink}" stroke-width="2"/>
-       <circle cx="24" cy="37" r="2.6" fill="${ink}"/><circle cx="35" cy="37" r="2.6" fill="${ink}"/>
-       <ellipse cx="20" cy="43" rx="3.5" ry="2" fill="#f2a0a0"/><ellipse cx="38" cy="43" rx="3.5" ry="2" fill="#f2a0a0"/>
-       <path d="M27 45 q3 2.5 6 0" fill="none" stroke="${ink}" stroke-width="1.6" stroke-linecap="round"/>`;
-  return `<ellipse cx="32" cy="99" rx="15" ry="4" fill="#00000030"/>${legs}${arm(13, swing)}${arm(43, -swing)}
-    <rect x="18" y="56" width="28" height="30" rx="9" fill="${shirt}" stroke="${ink}" stroke-width="2"/>${face}`;
-}
-
-// SVG 그림 주소(data:). w, h는 viewBox 크기이고, 그림 자체는 scale배 크기로 만든다(두 배로 그리는 방 그림에서 흐려지지 않게).
-const svgURL = (body, w, h, scale = 1) =>
-  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}">${body}</svg>`)}`;
-
-// 임시 그림의 시트 한 장(가로 3칸 × 세로 2줄)을 SVG 그림 주소로 돌려준다. 그림 파일(sheet)과 같은 규격이다.
-function placeholderSheet(shirt) {
-  let frames = '';
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 3; col++) frames += `<g transform="translate(${col * FW} ${row * FH})">${figure(row === 1, col, shirt)}</g>`;
+// 아바타 그림을 미리 받는다. 전원을 켤 때(os.js의 boot) 불러, 바탕화면이 처음 뜰 때 아바타가 늦게 나타나지 않게 한다(known-issues 54).
+// 받은 그림은 kept에 붙잡아 둔다. 쓰는 곳이 없으면 브라우저가 메모리를 정리할 때 버린다(src/room.js의 hasImage와 같다)
+const kept = [];
+export function preloadAvatars() {
+  if (kept.length) return; // 전원을 다시 켤 때는 이미 받아 둔 것을 쓴다
+  for (const a of AVATARS) {
+    for (const src of [a.sheet, a.guestSheet]) {
+      const img = new Image();
+      img.src = src;
+      kept.push(img);
+    }
   }
-  return svgURL(frames, FW * 3, FH * 2);
 }
 
 const inRoom = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -116,10 +98,10 @@ export function emptyCells(items, taken = []) {
 }
 
 // 칸 pos(걷는 중에는 소수)에 선 그림의 머리 위에 띄우는 말풍선 자리(무대 px의 left, top. 말풍선은 이 점 위에 꼬리를 대고 뜬다).
-// 아바타의 말풍선과 분신사바의 빈칸 말풍선(src/horror.js)이 같이 쓴다
+// 머리 꼭대기에서 SAY_GAP 위다. 아바타의 말풍선과 분신사바의 빈칸 말풍선(src/horror.js)이 같이 쓴다
 export function sayPoint(pos) {
   const c = tile(pos.x + 0.5, pos.y + 0.5);
-  return { left: `${Math.round(c.x)}px`, top: `${Math.round(c.y - FOOT - 4)}px` };
+  return { left: `${Math.round(c.x)}px`, top: `${Math.round(c.y - FOOT) + HEAD_TOP - SAY_GAP}px` };
 }
 
 // 칸 pos에 선 아바타의 말하기 표시 자리(무대 px의 left, top. 표시는 이 점 위에 아래 가운데를 대고 뜬다). 머리 꼭대기에서 CUE_GAP 위다
@@ -166,12 +148,12 @@ export function covered(items, a, rect) {
   return items.some(it => !isWall(it) && zOf(items, it) > z && overlaps(rect, furnRect(items, it)));
 }
 
-// 아바타 그림 상자 하나. 그림 파일(sheet)이 없으면 임시 그림을 배경으로 깐다.
-// guest: 주인 아바타가 서 있는 친구 집의 손님이면 손님 옷 색(guestColor)의 임시 그림을 쓴다. 그림 파일은 색을 바꾸지 못해 그대로 쓴다
+// 아바타 그림 상자 하나. 그림 시트를 배경으로 깔고 칸을 backgroundPosition으로 고른다(placeAt).
+// guest: 주인 아바타가 서 있는 친구 집의 손님이면 손님 그림(guestSheet, 모자가 빨강)을 쓴다
 function avatarEl(avatarId, guest = false) {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
   const el = h('div', { className: 'room-avatar' });
-  el.style.backgroundImage = `url("${def.sheet || placeholderSheet((guest && def.guestColor) || def.color)}")`;
+  el.style.backgroundImage = `url("${guest ? def.guestSheet : def.sheet}")`;
   return el;
 }
 
@@ -193,9 +175,9 @@ function placeAt(el, pos, facing, col) {
 
 // 공유하기에서 내려받는 방 그림(src/room-image.js)에 세울 아바타 한 명. 화면과 같은 그림과 자리(boxAt), 가구와의 앞뒤(depthZ)를 쓴다.
 // items: 그 공간의 가구. spot: 설 칸 { x, y }과 방향 facing(걷는 아바타의 spot()이 준다). 없으면 처음 서는 곳에 앞을 보고 선다.
-// 그 칸이 막혀 있으면 가장 가까운 빈칸에 선다(화면의 attach와 같다). scale: 임시 그림을 만들 배율.
-// 돌려주는 것: { src(그림 주소), frame(그림에서 오려 낼 네모, 그림 파일일 때만), left, top, w, h, flip, z }. 설 칸이 없으면 null
-export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
+// 그 칸이 막혀 있으면 가장 가까운 빈칸에 선다(화면의 attach와 같다). 공유하기는 내 집에서만 열려서 손님 그림은 쓰지 않는다.
+// 돌려주는 것: { src(그림 주소), frame(그림에서 오려 낼 네모, 그림 파일 px), left, top, w, h, flip, z }. 설 칸이 없으면 null
+export function avatarStill(items, spot, avatarId = 'basic') {
   const blocked = blockedOf(items);
   const want = spot || SPAWN;
   const cell = inRoom(want.x, want.y) && !blocked.has(key(want.x, want.y)) ? { x: want.x, y: want.y } : nearestFree(blocked, want.x, want.y);
@@ -204,9 +186,9 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
   const def = AVATAR_BY_ID[avatarId] || AVATAR_BY_ID.basic;
   const { left, top } = boxAt(cell);
   return {
-    // 그림 파일은 시트에서 서 있는 칸을 오려 내고, 임시 그림은 서 있는 칸 하나만 SVG로 그린다
-    src: def.sheet || svgURL(figure(facing.row === 1, 0, def.color), FW, FH, scale),
-    frame: def.sheet ? { x: 0, y: facing.row * FH, w: FW, h: FH } : null,
+    // 시트에서 그 방향의 서 있는 칸을 오려 낸다. 그림 파일은 화면 크기의 SHEET_SCALE배다
+    src: def.sheet,
+    frame: { x: 0, y: facing.row * FH * SHEET_SCALE, w: FW * SHEET_SCALE, h: FH * SHEET_SCALE },
     left, top, w: FW, h: FH, flip: facing.flip,
     z: depthZ(items, cell),
   };
@@ -222,7 +204,7 @@ export function avatarStill(items, spot, avatarId = 'basic', scale = 1) {
 //   onSay(text)    사용자가 말하기 칸에 쳐서 말했을 때(앞뒤 공백을 뺀 글). 가구가 시킨 혼잣말(say)에는 부르지 않는다
 //   others()       같은 공간에 있는 다른 그림 목록(친구 집의 주인 mountOwner, 내 방의 펫 src/pet.js의 mountPet). 저마다 cells()로 차지한 칸을,
 //                  order()로 앞뒤를 알려 준다. 그 칸은 지나가지 못하고, 그림이 겹치면 앞뒤를 맞춘다. 펫은 걸어 다니므로 칸은 그때그때 묻는다. 없어도 된다
-// guest: true이면 손님 옷 색(data/avatars.js의 guestColor)을 입는다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
+// guest: true이면 손님 그림(data/avatars.js의 guestSheet, 모자가 빨강)을 쓴다. 주인 아바타가 서 있는 친구 집에서 주인과 구분하려고 쓴다
 // 돌려주는 것: attach(다시 그린 뒤), spot(지금 선 칸), openSay, typing, approachCell, stepsTo, behind, lookAt, halt, restack, destroy
 export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
   const el = avatarEl(avatarId, guest);
