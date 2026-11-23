@@ -636,7 +636,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
       pet?.vacate(item);
       os.closeupFrom = from || null;
       try {
-        os.openFurniture(item);
+        os.openFurniture(item, from);
       } finally {
         os.closeupFrom = null;
       }
@@ -649,12 +649,19 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 가구 기믹. 가구 목록의 gimmick 대로 하고, 아직 기믹이 없는 가구는 빈 창 대신 아바타가 그 가구의 혼잣말 한 줄(data/furniture.js의 say)을 말한다.
   // 공포 모드에서는 혼잣말이 src/horror.js의 줄로 바뀐다. 기믹은 그대로이고, 불빛 가구('night')는 불을 켜서 공포 모드를 푼다.
   // 'scene:' 기믹은 바탕화면을 그 공간으로 옮긴다(지금은 공간이 내 방 하나라 쓰는 가구가 없다).
-  os.openFurniture = item => {
+  // el은 그 가구의 상자다. 쓰는 동안의 그림이 있는 가구(data/furniture.js의 open, 옷장)는 혼잣말이 떠 있는 동안 상자에 is-open을 달아
+  // 그 그림(문이 열린 옷장)을 보인다. 다시 쓰면 그때부터 다시 센다
+  const openTimers = new WeakMap();
+  os.openFurniture = (item, el = null) => {
     const def = BY_ID[item.id];
     if (def.gimmick === 'night') return os.toggleNight();
     if (def.gimmick?.startsWith('scene:')) return os.goScene(def.gimmick.slice(6));
     if (def.gimmick?.startsWith('app:')) return os.openApp(def.gimmick.slice(4));
-    walker?.say(horror.on() ? horror.line(item) : furnitureLine(def));
+    const ms = walker?.say(horror.on() ? horror.line(item) : furnitureLine(def));
+    if (!def.open || !el || !ms) return;
+    clearTimeout(openTimers.get(el));
+    el.classList.add('is-open');
+    openTimers.set(el, setTimeout(() => el.classList.remove('is-open'), ms));
   };
 
   // redraw: 가구 배치가 바뀌었으면 바탕화면 방을 다시 그린다. 가구에 담아 둔 것(src/likes.js)만 바뀌었으면 false로 저장만 한다.

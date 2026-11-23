@@ -429,6 +429,10 @@ button { font-family: inherit; }
 .furn svg { display: block; overflow: visible; }
 .furn img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
 .furn .mirror { transform: scaleX(-1); }
+/* 밤 그림과 쓰는 동안의 그림(data/furniture.js의 night, open, src/room.js의 furnitureEl). 원래 그림 위에 겹쳐 두고 밤에만, 문을 연 동안에만 보인다.
+   문을 연 동안에는 밤이어도 열린 그림만 보인다(src/os.js의 openFurniture가 is-open을 단다) */
+.furn img.night, .furn img.open { position: absolute; left: 0; top: 0; display: none; }
+.stage[data-theme="night"] .furn:not(.is-open) img.night, .furn.is-open img.open { display: block; }
 /* 그림 가구의 클릭 자리. room.js가 그림의 칠해진 모양대로 clip-path를 씌운다 */
 .furn-hit { position: absolute; inset: 0; }
 .furn-label {
