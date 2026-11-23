@@ -516,14 +516,14 @@ const winCount = () => document.querySelectorAll('#windows .win').length;
 const theme = () => document.getElementById('stage').dataset.theme;
 const avatarSpot = () => { const a = document.querySelector('#wallpaper .room-avatar'); return a ? `${a.style.left},${a.style.top}` : null; };
 // 내 아바타 머리 위의 말하기 표시(src/avatar.js의 cue). 보이지 않으면 '없음', 보이면 가운데가 아바타 가운데이고
-// 아래 끝이 머리 꼭대기(그림 상자 위 끝에서 9px)보다 8px 위일 때 '머리 위'(무대 px, 1px까지 봐 준다). want를 주면 그 상태인지만 돌려준다
+// 아래 끝이 머리 꼭대기(그림 상자 위 끝에서 16px, src/avatar.js의 HEAD_TOP)보다 8px 위일 때 '머리 위'(무대 px, 1px까지 봐 준다). want를 주면 그 상태인지만 돌려준다
 function sayCue(want = '') {
   const cue = document.querySelector('#wallpaper .say-cue');
   const a = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
   let state = '없음';
   if (cue && a && !cue.hidden && getComputedStyle(cue).visibility !== 'hidden') {
     const dx = parseFloat(cue.style.left) - (parseFloat(a.style.left) + a.offsetWidth / 2);
-    const dy = parseFloat(cue.style.top) - (parseFloat(a.style.top) + 9 - 8);
+    const dy = parseFloat(cue.style.top) - (parseFloat(a.style.top) + 16 - 8);
     state = Math.abs(dx) <= 1 && Math.abs(dy) <= 1 ? '머리 위' : `어긋남(${dx}, ${dy})`;
   }
   return want ? state === want : state;
@@ -545,11 +545,11 @@ const myCell = () => {
   const t = (parseFloat(a.style.top) + 100 - 270) / 18 - 1;
   return { x: (s + t) / 2, y: (t - s) / 2 };
 };
-// 바탕화면 방의 주인 아바타(친구 집에서 방에 서 있는 주인)와 내 아바타. 옷은 data/avatars.js의 기본 옷 색(color)과 손님 옷 색(guestColor)으로 가린다
+// 바탕화면 방의 주인 아바타(친구 집에서 방에 서 있는 주인)와 내 아바타. 옷은 data/avatars.js의 기본 그림(sheet)과 손님 그림(guestSheet)으로 가린다
 async function ownerScene() {
   const { AVATAR_BY_ID } = await import(new URL('data/avatars.js', document.baseURI).href);
-  const { color, guestColor } = AVATAR_BY_ID.basic;
-  const shirt = el => { const bg = decodeURIComponent(el?.style.backgroundImage || ''); return bg.includes(guestColor) ? '손님 옷' : bg.includes(color) ? '기본 옷' : '모르는 옷'; };
+  const { sheet, guestSheet } = AVATAR_BY_ID.basic;
+  const shirt = el => { const bg = el?.style.backgroundImage || ''; return bg.includes(guestSheet) ? '손님 옷' : bg.includes(sheet) ? '기본 옷' : '모르는 옷'; };
   const owner = document.querySelector('#wallpaper .room-owner');
   const tag = document.querySelector('#wallpaper .room-owner-name');
   return `${owner ? `주인 ${shirt(owner)} ${tag?.textContent ?? '이름표 없음'}` : '주인 없음'}, 나 ${shirt(document.querySelector('#wallpaper .room-avatar:not(.room-owner)'))}`;
@@ -808,9 +808,11 @@ async function voiceSpot(text, need = '') {
   const me = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
   if (!v || !me || v.textContent !== text) return null;
   const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
-  const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + 104);
+  const { emptyCells, sayPoint } = await import(new URL('src/avatar.js', document.baseURI).href);
+  // 말풍선 자리는 칸 가운데(발끝)보다 이만큼 위다. 칸 (0, 0)의 가운데는 무대 (640, 288)이다(위 cellOf를 거꾸로 푼 것)
+  const lift = 288 - parseFloat(sayPoint({ x: 0, y: 0 }).top);
+  const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + lift);
   const my = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
-  const { emptyCells } = await import(new URL('src/avatar.js', document.baseURI).href);
   const scene = 'room'; // 공간은 내 방 하나다
   const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
   const dx = at.x - my.x;
@@ -2236,6 +2238,16 @@ async function walk(page, base) {
     return painted('.room-app') && painted('.wallpaper') && document.querySelector('.room-app .wall-swatch[data-wall="heart"]').getAttribute('aria-pressed') === 'true';
   }) && (await page.run(savedHome)).decor?.wall === 'heart', JSON.stringify((await page.run(savedHome)).decor));
   check('공간이 내 방 하나라 방 꾸미기 창에 공간 탭이 없다', await page.run(() => !document.querySelector('.room-app .scene-tab')));
+  // 바닥(F13): 고르면 창과 바탕화면의 바닥에 그 무늬가 깔리고, 고른 벽지와 같이 저장된다. 기본 바닥을 고르면 바닥만 빠진다
+  await page.run(clickOnce, '.room-app .floor-swatch[data-floor="wood"]');
+  await sleep(200);
+  check('바닥을 고르면 창과 바탕화면의 바닥에 그 무늬가 깔리고 벽지와 같이 저장된다', await page.run(() => {
+    const floored = box => !!document.querySelector(`${box} .room-bg pattern[id^="floor-paint-"]`);
+    return floored('.room-app') && floored('.wallpaper') && document.querySelector('.room-app .floor-swatch[data-floor="wood"]').getAttribute('aria-pressed') === 'true';
+  }) && JSON.stringify((await page.run(savedHome)).decor) === '{"wall":"heart","floor":"wood"}', JSON.stringify((await page.run(savedHome)).decor));
+  await page.run(clickOnce, '.room-app .floor-swatch[data-floor="plain"]');
+  check('기본 바닥을 고르면 저장본에서 바닥만 빠진다', JSON.stringify((await page.run(savedHome)).decor) === '{"wall":"heart"}'
+    && await page.run(() => !document.querySelector('.room-app .room-bg pattern[id^="floor-paint-"]')), JSON.stringify((await page.run(savedHome)).decor));
   await page.run(clickOnce, '.room-app .wall-swatch[data-wall="plain"]');
   check('기본 벽을 고르면 저장본에서 벽지가 빠진다', !('decor' in (await page.run(savedHome))));
   await closeWindows();

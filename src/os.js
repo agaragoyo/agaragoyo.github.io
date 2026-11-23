@@ -8,7 +8,7 @@ import { APPS, APP_BY_ID, hostTip } from '../data/apps.js';
 import { createWM } from './win.js';
 import { iconEl } from './icons.js';
 import { renderStatic, preloadFurniture, staticItem } from './room.js';
-import { mountAvatar, mountOwner } from './avatar.js';
+import { mountAvatar, mountOwner, preloadAvatars } from './avatar.js';
 import { mountPet, NO_PET, patted, petChoice } from './pet.js';
 import { visitFlock } from './pigeon.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
@@ -126,6 +126,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const my = ++run;
     show('boot');
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
+    preloadAvatars(); // 아바타 그림도 같다(바탕화면이 뜬 뒤에 아바타가 늦게 나타나지 않게)
     const sid = linkId(location.hash);
     if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
     prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 이웃집 목록 창이 받은 값을 같이 쓴다)

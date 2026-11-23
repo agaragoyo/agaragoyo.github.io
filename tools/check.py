@@ -540,7 +540,7 @@ def decode_room(code):
     import json
     try:
         raw = base64.urlsafe_b64decode(code + '=' * (-len(code) % 4))
-        if raw[:1] in (b'\x04', b'\x05'):  # 짧은 형식(src/share.js의 encodeShort): [4나 5][이름 바이트 수][이름]... (5는 벽지나 주인 사진이 덧붙은 것)
+        if raw[:1] in (b'\x04', b'\x05'):  # 짧은 형식(src/share.js의 encodeShort): [4나 5][이름 바이트 수][이름]... (5는 벽지, 바닥, 주인 사진, 게임 기록이 덧붙은 것)
             if len(raw) < 2 or len(raw) < 2 + raw[1]:
                 raise ValueError('짧다')
             return {'v': 4, 'o': raw[2:2 + raw[1]].decode('utf-8')}
@@ -603,19 +603,34 @@ def check_pinned_unshare():
             err(p.relative_to(ROOT).as_posix(), 'unshare()로 서버의 방을 지우면서 pinnedHere()를 보지 않는다. 이웃집에 고정한 방은 지우지 않는다(data/neighbors.js의 keep)')
 
 
-# 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
+# 아바타 목록의 id와 그림 경로, 그림 크기 (그림 규격은 data/avatars.js 맨 위)
 def check_avatars():
+    text = read('data/avatars.js')
+    m = re.search(r'SHEET_SCALE = (\d+)', text)
+    k = int(m.group(1)) if m else 1
+    want = (192 * k, 208 * k)  # 화면에서 192×208px인 시트를 SHEET_SCALE배로 그린 파일
     ids = set()
-    for a in entries(read('data/avatars.js')):
+    for a in entries(text):
         where = f"data/avatars.js '{a['id']}'"
         if a['id'] in ids:
             err(where, 'id가 겹친다')
         ids.add(a['id'])
         if not KEBAB.match(a['id']):
             err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
-        sheet = a.get('sheet')
-        if sheet and not (ROOT / sheet).is_file():
-            err(where, f"그림 '{sheet}' 이 레포에 없다")
+        for field in ('sheet', 'guestSheet'):
+            path = a.get(field)
+            if not path:
+                err(where, f'{field}(그림 파일 경로)가 없다')
+                continue
+            f = ROOT / path
+            if not f.is_file():
+                err(where, f"그림 '{path}' 이 레포에 없다")
+                continue
+            head = f.read_bytes()[:24]
+            size = struct.unpack('>II', head[16:24]) if head[:8] == b'\x89PNG\r\n\x1a\n' else None
+            if size != want:
+                got = f'{size[0]}×{size[1]}px' if size else 'PNG가 아니다'
+                err(where, f"그림 '{path}' 의 크기가 {got}. 화면 크기(192×208px)의 SHEET_SCALE배인 {want[0]}×{want[1]}px로 만든다")
 
 
 def check_feature_numbers():
@@ -666,27 +681,33 @@ def check_user_pictures():
             err(where, f"{pid}: colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
 
 
-def check_wall_patterns():
-    """data/wall-patterns.js 의 벽지 그림이 colors 에 있는 글자만 쓰고, 줄 수와 칸 수가 벽 한 칸의 칸 수의 배수인지 본다.
-    벽 한 칸(한 줄)은 무대 36px(src/config.js 의 WH)이고 그림 한 칸은 src/iso.js 의 WALL_PX(2px)라 18칸이 벽 한 칸이다.
-    배수가 아니면 무늬가 벽의 칸과 어긋나게 이어진다. 벽지 단추에 보여 줄 자리(swatch)가 그림 안에 드는지도 본다(단추는 iso.js 의 SWATCH칸).
-    공유 링크가 목록의 순서 번호를 담으므로 맨 앞이 기본 벽(plain)인지와 id가 겹치지 않는지도 본다."""
-    where = 'data/wall-patterns.js'
-    text = read(where)
+def check_decor_patterns():
+    """data/wall-patterns.js 의 벽지와 data/floor-patterns.js 의 바닥 그림이 colors 에 있는 글자만 쓰고, 줄 수와 칸 수가 한 칸의 칸 수의 배수인지 본다.
+    벽 한 칸(한 줄)은 무대 36px(src/config.js 의 WH)이고 벽지 그림 한 칸은 src/iso.js 의 WALL_PX(2px)라 18칸이 벽 한 칸이다.
+    바닥 그림은 바닥 한 칸의 가장자리가 src/iso.js 의 FLOOR_DOTS(18)칸이다. 배수가 아니면 무늬가 벽이나 바닥의 칸과 어긋나게 이어진다.
+    단추에 보여 줄 자리(swatch)가 그림 안에 드는지도 본다(단추는 iso.js 의 SWATCH칸).
+    공유 링크가 목록의 순서 번호를 담으므로 맨 앞이 기본(plain)인지와 id가 겹치지 않는지도 본다."""
     iso = read('src/iso.js')
     px = re.search(r'^const WALL_PX = (\d+);', iso, re.M)
+    fd = re.search(r'^const FLOOR_DOTS = (\d+);', iso, re.M)
     sw = re.search(r'^const SWATCH = (\d+);', iso, re.M)
     wh = re.search(r'^export const WH = (\d+);', read('src/config.js'), re.M)
-    if not (px and sw and wh) or int(wh.group(1)) % int(px.group(1)):
-        err('src/iso.js', '벽지 그림 한 칸(WALL_PX)이나 단추 칸 수(SWATCH)를 읽지 못했거나, 벽 한 줄(src/config.js 의 WH)이 WALL_PX로 나누어떨어지지 않는다')
+    if not (px and fd and sw and wh) or int(wh.group(1)) % int(px.group(1)):
+        err('src/iso.js', '벽지 그림 한 칸(WALL_PX), 바닥 한 칸의 칸 수(FLOOR_DOTS), 단추 칸 수(SWATCH)를 읽지 못했거나, 벽 한 줄(src/config.js 의 WH)이 WALL_PX로 나누어떨어지지 않는다')
         return
-    unit = int(wh.group(1)) // int(px.group(1))
     swatch = int(sw.group(1))
-    if not re.search(r"WALL_PATTERNS = \[\n  \{ id: 'plain', name: '[^']+' \},", text):
-        err(where, "맨 앞 줄이 기본 벽 { id: 'plain', name: '...' } 이 아니다(링크의 0번이 기본 벽이다)")
+    check_pattern_list('data/wall-patterns.js', 'WALL_PATTERNS', '벽지', '기본 벽', int(wh.group(1)) // int(px.group(1)), swatch)
+    check_pattern_list('data/floor-patterns.js', 'FLOOR_PATTERNS', '바닥', '기본 바닥', int(fd.group(1)), swatch)
+
+
+def check_pattern_list(where, const, word, plain, unit, swatch):
+    """check_decor_patterns 의 목록 하나(벽지나 바닥)를 본다. unit: 그림의 줄 수와 칸 수가 맞춰야 할 배수"""
+    text = read(where)
+    if not re.search(const + r" = \[\n  \{ id: 'plain', name: '[^']+' \},", text):
+        err(where, f"맨 앞 줄이 {plain} {{ id: 'plain', name: '...' }} 이 아니다(링크의 0번이 {plain}이다)")
     blocks = re.findall(r'^  \{\n(.*?)^  \},', text, re.S | re.M)
     if not blocks:
-        err(where, '벽지를 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_wall_patterns 도 고친다)')
+        err(where, f'{word} 무늬를 하나도 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_pattern_list 도 고친다)')
         return
     ids = {'plain'}
     for body in blocks:
@@ -698,7 +719,7 @@ def check_wall_patterns():
         if not KEBAB.match(wid):
             err(where, f'{wid}: id는 영어 소문자, 숫자, 하이픈만 쓴다')
         if not re.search(r"^    name: '[^']+',", body, re.M):
-            err(where, f'{wid}: 이름(name)이 없다. 벽지 단추에 마우스를 올리면 보이는 이름이다')
+            err(where, f'{wid}: 이름(name)이 없다. {word} 단추에 마우스를 올리면 보이는 이름이다')
         if not re.search(r"^    bg: '#[0-9a-fA-F]{6}',", body, re.M):
             err(where, f"{wid}: 바탕 색(bg)이 '#rrggbb' 모양이 아니다")
         colors_text = re.search(r'^    colors: \{(.*?)\},', body, re.S | re.M)
@@ -710,7 +731,7 @@ def check_wall_patterns():
             err(where, f'{wid}: 그림의 줄 수와 줄마다 칸 수는 {unit}의 배수이고 줄마다 같다(지금 {len(rows)}줄, 칸 수 {sorted(widths)})')
         at = re.search(r'^    swatch: \[(\d+), (\d+)\],', body, re.M)
         if not at:
-            err(where, f'{wid}: 벽지 단추에 보여 줄 자리 swatch: [x, y] 가 없다')
+            err(where, f'{wid}: {word} 단추에 보여 줄 자리 swatch: [x, y] 가 없다')
         elif rows and widths and (int(at.group(1)) + swatch > min(widths) or int(at.group(2)) + swatch > len(rows)):
             err(where, f'{wid}: swatch 자리에서 {swatch}×{swatch}칸이 그림 밖으로 나간다')
         extra = set(''.join(rows)) - colors - {'.'}
@@ -1308,7 +1329,7 @@ def main():
     check_pinned_unshare()
     check_avatars()
     check_user_pictures()
-    check_wall_patterns()
+    check_decor_patterns()
     check_pets()
     check_feature_numbers()
     check_known_issues()

@@ -174,12 +174,12 @@ function drawSprite(g, sp) {
 }
 
 // 아바타 한 명(avatarStill이 정한 그림과 자리). 화면의 .room-avatar.flip처럼 그림 상자 가운데를 기준으로 좌우를 뒤집는다.
+// 그림 파일은 화면 크기의 두 배라 IMAGE_SCALE(2)로 그리면 파일의 점 하나가 PNG의 점 하나에 그대로 들어간다
 function drawAvatar(g, a, img) {
   g.save();
   g.translate(a.left, a.top);
   if (a.flip) { g.translate(a.w, 0); g.scale(-1, 1); }
-  if (a.frame) g.drawImage(img, a.frame.x, a.frame.y, a.frame.w, a.frame.h, 0, 0, a.w, a.h);
-  else g.drawImage(img, 0, 0, a.w, a.h);
+  g.drawImage(img, a.frame.x, a.frame.y, a.frame.w, a.frame.h, 0, 0, a.w, a.h);
   g.restore();
 }
 
@@ -198,7 +198,7 @@ export async function renderRoomImage(items, scene, avatar = null, decor = null)
   // 화면은 z-index가 낮은 가구부터 쌓고, 같으면 목록에서 뒤에 있는 가구가 위에 온다(sort는 같은 값의 순서를 지킨다).
   // 아바타는 가구 뒤에 붙인 요소라 z-index가 같은 가구보다 위에 오므로 목록 맨 끝 자리로 넣는다.
   const order = items.map((item, i) => ({ item, i, z: zOf(items, item) }));
-  const still = avatar === false ? null : avatarStill(items, avatar, undefined, IMAGE_SCALE);
+  const still = avatar === false ? null : avatarStill(items, avatar);
   if (still) order.push({ still, i: items.length, z: still.z });
   order.sort((a, b) => a.z - b.z || a.i - b.i);
   const cache = new Map(); // 같은 모양의 가구는 한 번만 준비한다
