@@ -35,8 +35,9 @@
 | 바탕화면 방을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 바탕화면에 붙이는 곳은 `src/os.js`의 `showDesktop`, 가구와의 앞뒤는 `depthZ` |
 | 처음 말하기 전까지 아바타 머리 위에 뜨는 말하기 표시 | 띄우고 숨기기와 자리(`cuePoint`, 머리 꼭대기 `HEAD_TOP`과 간격 `CUE_GAP`)는 `src/avatar.js`의 `syncCue`, 그림은 `src/icons.js`의 `say`(16×16칸), 모양과 튜토리얼 중 숨기기는 `style.css`의 `.say-cue`, 말한 기록은 `src/config.js`의 `STORAGE_SAID` |
 | 아바타 그림과 친구 집의 손님 그림 | `data/avatars.js`. 그림은 `assets/avatars/<id>.png`(한 칸 64×104px, 가로 3칸 × 세로 2줄, 파일은 화면의 두 배), 손님 그림은 `assets/avatars/<id>-guest.png`(모자만 빨강) |
-| 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`) |
+| 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`, 벽지 무늬는 `wallPaint`, 바닥 무늬는 `floorPaint`) |
 | 벽지 그림 고치기와 더하기(방 꾸미기 창 위쪽의 벽지 단추) | `data/wall-patterns.js`. 한 글자가 한 칸(무대 2px)이고 '.'은 바탕 색이다. 가로세로 칸 수는 18의 배수이고, 단추에 보여 줄 14×14칸 자리는 `swatch`다. 새 벽지는 끝에 더한다(공유 링크가 순서 번호를 담는다). 벽을 따라 비스듬히 이어 붙이는 곳은 `src/iso.js`의 `wallPaint`, 단추 그림은 `wallSwatchSVG`, 고르는 단추는 `src/apps/room-app.js` |
+| 바닥 그림 고치기와 더하기(방 꾸미기 창 위쪽의 바닥 단추) | `data/floor-patterns.js`. 위에서 본 바닥 무늬를 한 글자가 한 칸인 격자로 그리고 '.'은 바탕 색이다. 바닥 한 칸의 가장자리가 18칸이라 가로세로 칸 수는 18의 배수이고, 단추에 보여 줄 14×14칸 자리는 `swatch`다. 새 바닥은 끝에 더한다(공유 링크가 순서 번호를 담는다). 바닥 칸의 기울기로 눕혀 까는 곳은 `src/iso.js`의 `floorPaint`, 단추 그림은 `floorSwatchSVG`, 고르는 단추는 `src/apps/room-app.js` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 코드를 고친 뒤 주요 흐름이 그대로 도는지 기계로 눌러 보기 | `node tools/smoke.mjs`. 새 창이나 가구 화면을 만들면 그 파일의 `walk`에 한 줄을 더한다 |
 | 공유 링크와 집 검사를 고친 뒤 무작위 입력으로 두드려 보기 | `node tools/link-fuzz.mjs`. 가구에 담는 것의 종류를 더하면 그 파일의 `randomHome`과 `invariants`에도 더한다 |
@@ -135,7 +136,7 @@
 말풍선 암호로 날아온 비둘기 떼(`src/pigeon.js`)도 한 마리씩 이 코드로 걷고(내려앉은 칸 둘레에서만, `host.roam`), 창문이나 현관문에서 날개를 치며 날아 들어오고 나가며(`flyIn`, `flyOut`, 나는 길과 빠르기는 `flightAt`, 나는 동안의 앞뒤는 내려앉을 칸으로 정한다) 머리 위에 말풍선을 띄운다(`say`). 다 내려앉을 때까지와 날아오르기 전에는 멈춰 선다(`hold`). 그 비둘기는 두 번 누르면 쓰다듬는 대신 날아간다(`host.shy`). 내 펫과 날아온 비둘기, 비둘기끼리는 서로의 칸과 그 둘레 한 칸에 들어가지 않고, 혼자 노는 펫은 걸음마다 다시 본다(`host.others`, known-issues 103) | `mountPet`, `petChoice`, `petSvg`, `petPuppet`, `petCell`, `petRoot`, `patted`, `moodOf`, `flyMs`, `flightAt`, `flightSeen`, `PET_KINDS`, `PET_COLS`, `PET_ROWS`, `NO_PET`, `GROW_PATS`, `ORDERS`, `IGNORED` |
 | `src/pigeon.js` | 말풍선 암호 999999999로 부르는 비둘기 떼(F32). 방 벽에 창문(id가 window로 끝나는 벽 가구)이 있으면 그 가운데 하나로, 없으면 현관문으로 아홉 마리까지 한 마리씩 날아 들어와 빈 바닥 칸에 서로 한 칸씩 띄워 내려앉고(`seats`), 두세 마리가 차례로 "구구" 한다(`sing`). 12~18초가 지나거나 아바타가 어느 비둘기의 둘레 여덟 칸에 들어오거나(`watch`) 비둘기 하나를 두 번 누르면 떼 전체가 차례로 날아올라 가장 가까운 창문이나 현관문으로 나간다(`leave`). 다가온 아바타에 놀라 날아갈 때만 새소리를 한 번 낸다. 드나드는 비둘기끼리 공중에서 겹치지 않게 날 때를 정하고(`book`), 앉은 비둘기 위로 날지 않게 차례를 바꾸며(`arrivals`, `queue`), 나는 동안 가구에 가려지는 칸에는 앉지 않는다(`hidden`). 걷기와 날기는 `src/pet.js`의 `mountPet`이 맡는다. 부르는 곳은 `src/os.js`의 `callPigeon`이다 | `visitFlock`, `isWindow`, `COO` |
 | `src/rules.js` | 배치 규칙. 화면과 상관없는 계산만 있어서 공유 링크 검사에도 같이 쓴다. 현관문 자리 검사(`coversDoor`)는 방 꾸미기에서 새로 걸 때만 쓴다(불러올 때 쓰면 예전에 걸어 둔 가구가 사라진다). 펫(고양이)이 올라가 앉을 가구 위 자리(`perchesOf`)도 책상 위 물건의 지지 규칙(`supportOf`)과 같이 여기서 구한다 | `canPlace`, `coversDoor`, `supportOf`, `elevOf`, `perchesOf`, `dims`, `isWall` |
-| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방 배경 그림(방 벽의 현관문과 벽지 무늬 포함), 벽지 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG` 등 |
+| `src/iso.js` | 아이소메트릭 좌표 바꾸기(칸과 화면 픽셀), 가구 상자 크기와 놓이는 자리(`placementOf`), 방 배경 그림(방 벽의 현관문과 벽지, 바닥 무늬 포함), 벽지와 바닥 단추의 작은 그림 | `tile`, `toTile`, `boxSize`, `placementOf`, `placeEl`, `sceneSVG`, `wallSwatchSVG`, `floorSwatchSVG` 등 |
 | `src/shelf.js` | 방 꾸미기 아래 가구 선반. 넘기기, 카드 끌기와 눌러서 꺼내기 | `mountShelf`, `filterShelf` |
 | `src/share.js` | 집 상태 검사와 방 글자 만들기, 읽기. 서버에 두는 방 글자이고, 예전 긴 링크(`#r=...`, 그 전에는 `#room=...`)도 같은 글자라 여기서 연다. 가구 하나를 2바이트로 담는 짧은 형식이고 가구 번호는 `LINK_CODES`(끝에만 더한다). 링크에는 화면 보호기 인사말과 고른 벽지, 주인 사진 번호, 주인의 미니게임 최고 기록(F34, 셋 가운데 하나라도 있으면 형식 5)도 담긴다. 주인 사진이 내 그림이면 사진 번호 자리에 255와 그림 바이트를 담는다. 짧은 링크(`#s=`)의 방 번호도 여기서 읽는다. 주인 이름 검사(`ownerName`)는 이름 바꾸기 창도 같이 쓴다 | `sanitizeHome`, `ownerName`, `encodeHome`, `decodeHome`, `linkCode`, `linkId`, `LINK_CODES` |
 | `src/cloud.js` | 서버(Firebase의 Firestore)에 공유한 방을 올리고 받아 오기(링크로 온 친구 집과 link 이웃집). SDK 없이 REST 주소를 fetch로 부르고, 쓰기는 익명 로그인 토큰으로 한다. 링크를 만든 뒤에는 방을 고칠 때마다 서버의 방도 따라 고친다. 코르크 보드 쪽지(방 문서 아래 `notes`)를 최근 것부터 12장씩 받고, 붙이고, 지우고, 주인이 들어올 때 가장 최근 쪽지 한 장으로 새 쪽지를 확인한다. 링크를 지우면 쪽지도 지운다. 이름을 바꾸면 쪽지에 쓴 닉네임도 예전 이름일 때 새 이름으로 바꾼다(`renameNick`). 링크를 만든 방에 아이디를 달고(서버의 `handles` 컬렉션에 아이디마다 문서 하나, 먼저 정한 한 사람만 쓴다) 아이디로 방 번호를 찾으며, 링크를 지우면 아이디도 지운다. 보안 규칙은 `firestore.rules` | `fetchHome`, `share`, `unshare`, `sharedId`, `syncLater`, `syncNow`, `claimHandle`, `dropHandle`, `findHandle`, `myHandle`, `normalHandle`, `handleFrom`, `HANDLE_RE`, `fetchNotes`, `postNote`, `removeNote`, `latestNoteAt`, `markNotesSeen`, `notesSeenAt`, `myUid`, `lastNick`, `renameNick`, `NOTE`, `MAX_CODE`, `CloudError` |
@@ -151,7 +152,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `src/apps/index.js` | 기본 앱 등록부(`BUILTIN_APPS`). 새 기본 앱은 여기에 한 줄 더한다 |
-| `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바탕화면에 보이는 공간부터), 벽지 고르기(벽이 있는 공간에서만), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
+| `src/apps/room-app.js` | 방 꾸미기. 공간 탭(바탕화면에 보이는 공간부터), 벽지와 바닥 고르기(벽이 있는 공간에서만), 선반, 창 크기에 맞춰 1280×840 방을 줄이기 |
 | `src/apps/folder-app.js` | 폴더(게임 폴더). 그 폴더에 속한 앱 아이콘을 보여 준다. 게임 폴더는 앱의 `group` 칸으로 묶음을 나눠 묶음 이름 아래에 늘어놓는다 |
 | `src/apps/share-app.js` | 공유하기. "링크 만들기"로 방을 서버에 올려 링크(`#s=`)를 만들고 복사하거나 지우며(이웃집에 고정한 방은 지울 수 없고 이유를 보인다), 링크를 만든 뒤에는 방에 아이디를 정하거나 지우고(칸에는 닉네임에서 쓸 수 있는 글자를 미리 넣는다), 화면 보호기 인사말을 적고 미리 보고, 공간마다 방 그림을 PNG 파일로 내려받는다(그림은 `src/room-image.js`가 만든다) |
 | `src/apps/mine-app.js` | 나도 만들기와 내 컴퓨터로. 친구 컴퓨터를 구경하는 손님에게만 보이는 아이콘으로, 이 컴퓨터에 내 집이 없으면 로그인 화면으로, 있으면 곧장 내 바탕화면으로 보낸다 |
@@ -180,6 +181,7 @@
 | `data/user-pictures.js` | 사용자 사진 여덟 장(강아지, 고양이, 꽃, 축구공, 기타, 로켓, 케이크, 오리). 24×24칸 글자 격자와 바탕 색, 글자마다의 색. 새 사진은 끝에 더하고 있던 id는 바꾸지 않는다 |
 | `data/pets.js` | 내 방의 펫(F30)의 그림과 색. 종류 여덟 가지(강아지, 고양이, 기니피그, 병아리, 비둘기, 코끼리, 코알라, 공룡)와 병아리가 자란 닭마다 24×20칸 글자 격자로 그린 앉은 그림과 걷는 그림 두 장, 숨 쉴 때 빼는 줄, 색 네 가지. 고양이에는 가구 위에서 쓰는 웅크린 그림(`loaf`)도 있다. 비둘기에는 말풍선 암호로 날아올 때 쓰는 나는 그림 두 장(`fly1`, `fly2`)도 있다. 아직 고르지 않았을 때의 펫(`DEFAULT_PET`)도 여기 있다. 종류마다의 성격(`mood`)은 기본값(`DEFAULT_MOOD`)과 다른 값만 적는다(명령을 듣는지, 처음부터 따라오는지, 벽 앞과 가구 옆을 좋아하는지, 쉬는 시간, 걷는 칸 수, 쓰다듬으면 폴짝 뛰는지, 바닥을 쪼는지, 가구에 올라가는지). 칸의 뜻과 자라는 종류(`grow`, `grown`), 성격 값의 뜻은 파일 맨 위에 있다 |
 | `data/wall-patterns.js` | 방 벽지 목록(F13). 맨 앞은 기본 벽이고, 나머지는 팀이 보낸 벽지 그림을 점 격자로 다시 찍은 하트, 구름, 초록 줄무늬, 잔꽃무늬, 민트 줄무늬, 리본. 글자 격자와 바탕 색, 글자마다의 색, 벽지 단추에 보여 줄 자리(`swatch`). 공유 링크가 순서 번호를 담으므로 새 벽지는 끝에 더한다 |
+| `data/floor-patterns.js` | 방 바닥 목록(F13). 맨 앞은 기본 바닥(칸마다 두 색을 번갈아 칠함)이고, 나머지는 팀이 보낸 바닥 그림을 점 격자로 다시 찍은 파랑 체크, 분홍 체크, 빨강 체크, 나무, 분홍 나무, 헤링본. 위에서 본 모양의 글자 격자와 바탕 색, 글자마다의 색, 바닥 단추에 보여 줄 자리(`swatch`). 공유 링크가 순서 번호를 담으므로 새 바닥은 끝에 더한다 |
 
 ## apps/: 팀원 앱
 

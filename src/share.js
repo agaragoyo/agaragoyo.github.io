@@ -1,6 +1,6 @@
 // 집 상태 검사와 공유 링크(#r=..., 예전 #room=...) 변환. (localStorage 읽고 쓰기는 util.js에 있다)
 // 집 상태: { v: 3, owner, scenes: { room: [가구...] }, likes: { 가구 id: 주인이 담아 둔 것 }, greeting: 화면 보호기 인사말,
-//           decor: { wall: 벽지 id }, picture: 주인 사진 값 }. decor는 기본 벽이 아닌 벽지를 골랐을 때만 있다(F13).
+//           decor: { wall: 벽지 id, floor: 바닥 id }, picture: 주인 사진 값 }. decor는 기본이 아닌 벽지나 바닥을 골랐을 때만 있고, 고른 쪽만 담는다(F13).
 // picture는 링크로 연 친구 집에만 있다(F25). 내 사진은 집과 따로 저장하고, 링크를 만들 때 withPicture(src/user-pictures.js)로 붙인다.
 // picture는 목록 사진의 id이거나, 그림 파일로 만든 내 그림('my:'로 시작하는 글, src/custom-picture.js, F26)이다.
 // records는 주인이 미니게임에서 낸 최고 기록 { 앱 id: 점수 }다(F34). picture처럼 링크로 연 친구 집에만 있고, 링크를 만들 때 withRecords(src/records.js)로 붙인다.
@@ -8,6 +8,7 @@
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
+import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
 import { customBytes, customFromBytes } from './custom-picture.js';
 import { canPlace } from './rules.js';
@@ -33,11 +34,13 @@ function sanitizeItems(list, sceneId) {
   return items;
 }
 
-// 방 꾸밈. 지금은 벽지 하나다. 기본 벽(plain)이거나 목록에 없는 벽지면 null이고, 집 상태에 decor를 두지 않는다.
+// 방 꾸밈. 벽지(wall)와 바닥(floor)이다. 기본(plain)이거나 목록에 없는 id는 빼고, 둘 다 빠지면 null이라 집 상태에 decor를 두지 않는다.
 // decor가 없는 집은 벽지를 넣기 전과 저장본, 링크가 똑같다.
 function sanitizeDecor(raw) {
-  const wall = raw && typeof raw === 'object' ? raw.wall : null;
-  return wall !== 'plain' && WALL_PATTERNS.some(w => w.id === wall) ? { wall } : null;
+  const pick = (list, id) => (id !== 'plain' && list.some(p => p.id === id) ? id : null);
+  const wall = raw && typeof raw === 'object' ? pick(WALL_PATTERNS, raw.wall) : null;
+  const floor = raw && typeof raw === 'object' ? pick(FLOOR_PATTERNS, raw.floor) : null;
+  return wall || floor ? { ...(wall && { wall }), ...(floor && { floor }) } : null;
 }
 
 // 주인 이름(닉네임) 검사. 한 줄로 만들고 12글자까지 남긴다. 집 상태 검사와 이름 바꾸기 창(src/user-name.js)이 같이 쓴다.
@@ -162,6 +165,8 @@ function grow(v) {
 //   사진이 없으면 벽지 번호 하나만 담는다(벽지를 넣을 때 정한 모양). 바닥 같은 칸이 늘면 뒤에 더한다(내 그림이 있으면 그 바이트 뒤).
 //   주인의 게임 기록(F34)은 사진 뒤(내 그림이 있으면 그 바이트 뒤)에 [기록 수] [기록마다 2바이트, 큰 자리 먼저]로 붙는다(recordBytes).
 //   기록은 RECORD_APPS(src/records.js)의 순서이고 0은 그 게임의 기록이 없다는 뜻이다. 기록이 있으면 사진이 없어도 사진 자리에 0을 둔다.
+//   바닥(F13)은 기록 뒤에 [바닥 번호(data/floor-patterns.js의 순서)] 한 바이트로 붙는다. 기본 바닥이면 담지 않고,
+//   바닥을 담을 때는 사진 자리와 기록 수 자리를 비워 두지 않는다(사진이 없으면 0, 기록이 없으면 기록 수 0). 바닥을 넣기 전의 페이지는 기록 뒤를 건너뛰어 기본 바닥으로 연다.
 //   푸는 쪽은 아는 바이트만 읽고 나머지는 건너뛴다. 그래서 사진을 넣기 전의 페이지도 사진이 든 링크를 사진 없이 열고,
 //   내 그림을 넣기 전의 페이지는 255를 모르는 사진 번호로 읽어 사진 없이 연다. 덧붙임 바이트는 모두 255개까지라 내 그림은 240바이트까지다.
 //   벽지도 사진도 없는 집은 벽지를 넣기 전과 같은 형식 4로 만든다(그 전의 페이지로 열어도 열린다).
@@ -187,11 +192,13 @@ function readRecords(d, at) {
 
 function encodeShort(home) {
   const wall = WALL_PATTERNS.findIndex(w => w.id === home.decor?.wall);
+  const floor = FLOOR_PATTERNS.findIndex(f => f.id === home.decor?.floor);
   const pic = USER_PICTURES.findIndex(p => p.id === home.picture);
   const mine = customBytes(home.picture);
   const records = recordBytes(home.records);
   const extra = mine ? [Math.max(wall, 0), MY_PICTURE, mine.length, ...mine, ...records]
-    : pic >= 0 || records.length ? [Math.max(wall, 0), pic + 1, ...records] : wall > 0 ? [wall] : [];
+    : pic >= 0 || records.length || floor > 0 ? [Math.max(wall, 0), pic + 1, ...records] : wall > 0 ? [wall] : [];
+  if (floor > 0) extra.push(...(records.length ? [] : [0]), floor);
   const out = [extra.length ? 5 : 4];
   const text = str => {
     const b = utf8(str || '');
@@ -252,6 +259,8 @@ function decodeShort(b) {
       picture = USER_PICTURES[d[1] - 1]?.id; // 0이나 모르는 번호면 사진 없음
     }
     records = readRecords(d, at);
+    const end = at < d.length ? at + 1 + 2 * d[at] : d.length; // 기록 뒤. 바닥 번호가 여기 있다
+    if (end < d.length) decor.floor = FLOOR_PATTERNS[d[end]]?.id; // 모르는 번호면 기본 바닥(sanitizeHome이 지운다)
   }
   const count = byte();
   const scenes = {};

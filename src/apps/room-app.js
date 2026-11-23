@@ -4,8 +4,9 @@ import { ROOM_W, STAGE_H, SCENES } from '../config.js';
 import { renderItems, setSceneBg } from '../room.js';
 import { mountShelf, filterShelf } from '../shelf.js';
 import { holdMusic } from '../sound.js';
-import { wallSwatchSVG } from '../iso.js';
+import { wallSwatchSVG, floorSwatchSVG } from '../iso.js';
 import { WALL_PATTERNS } from '../../data/wall-patterns.js';
+import { FLOOR_PATTERNS } from '../../data/floor-patterns.js';
 
 const ROOT_H = STAGE_H; // 공간 720 + 선반 120
 
@@ -55,6 +56,7 @@ export function openRoomApp(os, appInfo) {
             <span class="owner"></span>
             <span class="scene-tabs" role="tablist"></span>
             <span class="wall-picker edit-only" role="group" aria-label="벽지"><span class="wall-picker-name">벽지</span></span>
+            <span class="floor-picker edit-only" role="group" aria-label="바닥"><span class="floor-picker-name">바닥</span></span>
             <button type="button" class="btn edit-only" data-act="share">공유 링크</button>
           </div>
         </div>`;
@@ -77,7 +79,7 @@ export function openRoomApp(os, appInfo) {
         },
         get mode() { return os.mode; },
         get scene() { return scene; }, // 지금 꾸미는 공간(config.js의 SCENES 한 줄). 현관문 자리 검사에 쓴다
-        get decor() { return os.home.decor; }, // 방 꾸밈(벽지). 집 상태의 decor
+        get decor() { return os.home.decor; }, // 방 꾸밈(벽지와 바닥). 집 상태의 decor
         // 화면 좌표 → 공간 좌표 (1280×840)
         toLocal(clientX, clientY) {
           const p = os.toStage(clientX, clientY);
@@ -108,37 +110,48 @@ export function openRoomApp(os, appInfo) {
         tabs.append(t);
       }
 
-      // 벽지(F13). 벽이 있는 공간을 꾸밀 때만 보인다. 고르면 바탕화면의 방과 저장본, 짧은 링크의 방도 따라 바뀐다(os.saveHome).
-      // 단추마다 그 무늬를 그려 두어 누르기 전에 어떤 벽이 될지 보인다.
-      const picker = root.querySelector('.wall-picker');
-      for (const w of WALL_PATTERNS) {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'wall-swatch';
-        b.dataset.wall = w.id;
-        b.title = `${w.name} 벽지`;
-        b.setAttribute('aria-label', w.name);
-        b.innerHTML = wallSwatchSVG(w.id);
-        b.addEventListener('click', () => setWall(w.id));
-        picker.append(b);
+      // 벽지와 바닥(F13). 벽이 있는 공간을 꾸밀 때만 보인다. 고르면 바탕화면의 방과 저장본, 짧은 링크의 방도 따라 바뀐다(os.saveHome).
+      // 단추마다 그 무늬를 그려 두어 누르기 전에 어떤 벽이나 바닥이 될지 보인다. 고른 것은 집 상태의 decor에 담고, 기본을 고르면 그 칸을 뺀다.
+      const DECOR = [
+        { key: 'wall', list: WALL_PATTERNS, svg: wallSwatchSVG, word: '벽지' },
+        { key: 'floor', list: FLOOR_PATTERNS, svg: floorSwatchSVG, word: '바닥' },
+      ];
+      const pickers = DECOR.map(({ key, list, svg, word }) => {
+        const picker = root.querySelector(`.${key}-picker`);
+        for (const p of list) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = `${key}-swatch`;
+          b.dataset[key] = p.id;
+          b.title = `${p.name} ${word}`;
+          b.setAttribute('aria-label', p.name);
+          b.innerHTML = svg(p.id);
+          b.addEventListener('click', () => setDecor(key, p.id));
+          picker.append(b);
+        }
+        return picker;
+      });
+      function markDecor() {
+        for (const { key } of DECOR) {
+          const now = os.home.decor?.[key] || 'plain';
+          for (const b of root.querySelectorAll(`.${key}-swatch`)) b.setAttribute('aria-pressed', String(b.dataset[key] === now));
+        }
       }
-      function markWall() {
-        const now = os.home.decor?.wall || 'plain';
-        for (const b of picker.querySelectorAll('.wall-swatch')) b.setAttribute('aria-pressed', String(b.dataset.wall === now));
-      }
-      function setWall(id) {
-        if (id === 'plain') delete os.home.decor;
-        else os.home.decor = { wall: id };
+      function setDecor(key, id) {
+        const next = { ...os.home.decor, [key]: id };
+        if (id === 'plain') delete next[key];
+        if (Object.keys(next).length) os.home.decor = next;
+        else delete os.home.decor;
         os.saveHome();
         setSceneBg(ctx, scene);
-        markWall();
+        markDecor();
       }
 
       function showScene(id) {
         scene = SCENES.find(sc => sc.id === id) || SCENES[0];
         for (const t of tabs.children) t.setAttribute('aria-selected', String(t.dataset.scene === scene.id));
-        picker.hidden = scene.kind !== 'indoor';
-        markWall();
+        for (const picker of pickers) picker.hidden = scene.kind !== 'indoor';
+        markDecor();
         setSceneBg(ctx, scene);
         filterShelf(ctx, scene.id);
         render();

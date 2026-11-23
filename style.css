@@ -1504,8 +1504,8 @@ form.user { cursor: var(--cur-arrow); }
   cursor: var(--cur-hand);
 }
 .scene-tab[aria-selected="true"] { background: #fffbea; box-shadow: inset 0 -4px 0 var(--win-bar-b); }
-/* 방 꾸미기 창 위쪽의 벽지 고르기(F13). 단추 속 무늬는 src/iso.js의 wallSwatchSVG가 그린다. 벽이 있는 공간(kind indoor)에서만 보인다 */
-.wall-picker {
+/* 방 꾸미기 창 위쪽의 벽지와 바닥 고르기(F13). 단추 속 무늬는 src/iso.js의 wallSwatchSVG와 floorSwatchSVG가 그린다. 벽이 있는 공간(kind indoor)에서만 보인다 */
+.wall-picker, .floor-picker {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1516,9 +1516,9 @@ form.user { cursor: var(--cur-arrow); }
   font-size: 17px;
   color: var(--ink);
 }
-.wall-picker[hidden] { display: none; }
-.wall-picker-name { margin-right: 4px; }
-.wall-swatch {
+.wall-picker[hidden], .floor-picker[hidden] { display: none; }
+.wall-picker-name, .floor-picker-name { margin-right: 4px; }
+.wall-swatch, .floor-swatch {
   width: 32px;
   height: 32px;
   padding: 0;
@@ -1528,8 +1528,8 @@ form.user { cursor: var(--cur-arrow); }
   overflow: hidden;
   cursor: var(--cur-hand);
 }
-.wall-swatch svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
-.wall-swatch[aria-pressed="true"] { border-color: var(--win-bar-b); box-shadow: 0 0 0 2px var(--win-bar-b); }
+.wall-swatch svg, .floor-swatch svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+.wall-swatch[aria-pressed="true"], .floor-swatch[aria-pressed="true"] { border-color: var(--win-bar-b); box-shadow: 0 0 0 2px var(--win-bar-b); }
 
 /* ---------- 밤 모드 (스탠드, 탁상 조명으로 켜고 끈다) ---------- */
 .stage[data-theme="night"] {
