@@ -5,7 +5,7 @@
 // 바탕화면과 게임 폴더(48px), 시작 메뉴(24px)에는 24×24칸 그림을 2배와 1배로 쓰고,
 // 창 제목과 작업 표시줄(16px), 게임기 화면(40px, 32px)에는 16×16칸으로 따로 그린 그림을 쓴다(SLOTS).
 // 바탕화면에 나오는 기본 앱 여덟 개에는 48px 자리에 쓰는 48×48칸 그림(한 칸이 무대 1px)도 있다. 윈도우 XP가 48, 24, 16픽셀 아이콘을 따로 그린 것처럼
-// 크기마다 따로 그리고, 화면이 작아 48칸 그림이 흐려지는 배율에서는 24칸 그림을 쓴다(fitPixelIcons).
+// 크기마다 따로 그렸고, 바탕화면에는 화면 크기와 상관없이 48칸 그림을 또렷하게 그리며 아이콘 자리를 그림 크기에 맞춘다(fitPixelIcons).
 // 16칸 자리에 나오지 않는 아이콘에는 16칸 그림이 없고, 16칸 자리에만 나오는 아이콘(가구 화면 앱, 이웃집)에는 24칸 그림이 없다.
 // 색은 물건의 재료 색으로 한다(문은 나무색, 달은 노랑). 처음에 분홍이 많아 2026-11-14에 바꿨다.
 // 겉선은 검은 선 대신 재료마다 그 색의 어두운 색으로 그리고, 24칸과 48칸 그림에는 오른쪽 아래로 무대 2px 민 옅은 그림자를 깐다.
@@ -1719,7 +1719,7 @@ const PIXEL = {
 
 // 아이콘 자리 크기(px)마다 쓰는 그림의 칸 수. 게임기 화면의 40px와 32px 자리에는 16칸 그림을 쓴다.
 // 24칸 그림을 40px에 놓으면 한 칸이 1.67배라 정수 픽셀로 맞출 때 크기가 0.7배와 1.3배 사이를 크게 오가고, 16칸 그림은 2배 남짓으로 고르게 맞는다
-// 바탕화면의 기본 앱은 48px 자리에 쓰는 48칸 그림(한 칸이 무대 1px)도 따로 있다. 그런 아이콘은 48칸과 24칸 그림을 둘 다 넣어 두고 화면에 맞는 쪽을 보인다(fitPixelIcons)
+// 바탕화면의 기본 앱은 48px 자리에 48칸 그림(한 칸이 무대 1px)을 쓴다. 그 그림의 크기는 SLOTS가 아니라 fitPixelIcons의 --pixel-48dot이 정한다
 const SLOTS = { 48: 24, 40: 16, 32: 16, 24: 24, 16: 16 };
 
 // 그림 한 칸이 화면 픽셀 정수 개가 되도록 자리마다 그림 크기를 고른다. main.js의 fit()이 무대 배율이 바뀔 때마다 부른다(known-issues 67).
@@ -1738,17 +1738,14 @@ export function fitPixelIcons(style, scale, dpr) {
     style.setProperty(`--pixel-${slot}`, (k ? grid * k / (scale * dpr) : slot) + 'px');
     style.setProperty(`--pixel-${slot}-render`, k || raw >= 1 ? 'crispEdges' : 'auto');
   }
-  // 48칸 그림이 있는 아이콘의 48px 자리. 48칸 그림을 정수 배로 그린 크기가 원래 크기의 1.3배 안팎이면 48칸을 쓰고,
-  // 아니면 24칸 그림과 견줘 원래 크기에 더 가까운 쪽을 쓴다. 1366×768처럼 무대가 0.6배쯤이면 48칸은 한 칸이 1픽셀보다 작아 흐려지고,
-  // 맥북(무대 0.75배, 화면 2배)에서는 두 배로 그리면 1.33배라 24칸을 세 배로 그린 쪽이 자리에 맞는다. 윈도우 XP가 크기마다 따로 그린 아이콘 가운데 가까운 것을 고른 것과 같다
-  const raw48 = scale * dpr, raw24 = 2 * scale * dpr;
-  const k48 = nearest(raw48), k24 = nearest(raw24);
-  const off = (k, raw) => k ? Math.abs(Math.log(k / raw)) : Infinity;
-  const hi = off(k48, raw48) <= Math.log(1.3) || off(k48, raw48) <= off(k24, raw24);
-  style.setProperty('--pixel-48hi', (k48 ? 48 * k48 / (scale * dpr) : 48) + 'px');
-  style.setProperty('--pixel-48hi-render', k48 || raw48 >= 1 ? 'crispEdges' : 'auto');
-  style.setProperty('--pixel-48hi-on', hi ? 'block' : 'none');
-  style.setProperty('--pixel-48lo-on', hi ? 'none' : 'block');
+  // 48칸 그림이 있는 아이콘(바탕화면의 기본 앱)은 화면 크기와 상관없이 48칸 그림을, 한 점이 화면 픽셀 정수 개가 되는 크기로 또렷하게 그린다.
+  // 정수는 원래 크기(무대 48px)에 가장 가까운 것으로 고르되 1보다 작게는 고르지 않는다. 그림이 48px보다 크면 style.css가 아이콘 자리와 바탕화면 칸을 그만큼 늘인다.
+  // 1366×768(무대 0.59배)은 한 점 1픽셀로 자리의 1.7배, 2880×1800 랩탑의 150~200%는 한 점 2픽셀로 1.3~1.4배가 된다.
+  // 처음(2026-11-23)에는 자리를 48px로 두고 그림을 맞추느라 이런 화면에서 24칸 그림을 썼는데, 그러면 랩탑에서 48칸 그림을 볼 수 없었다
+  const raw48 = scale * dpr;
+  const k48 = [Math.floor(raw48), Math.ceil(raw48)].filter(n => n >= 1)
+    .sort((a, b) => Math.abs(Math.log(a / raw48)) - Math.abs(Math.log(b / raw48)))[0];
+  style.setProperty('--pixel-48dot', 48 * k48 / (scale * dpr) + 'px');
   // 내 방의 펫(src/pet.js)과 하트도 한 칸이 2px인 픽셀 그림이다. 바닥에 서서 아바타와 크기를 견주므로 반짝임과 달리
   // 원래 크기에 가장 가까운 정수를 고르고, 아이콘처럼 그런 정수가 없으면 원래 크기로 둔다. 펫은 이 값으로 가구와의 앞뒤를 따질 그림 크기도 잰다
   const pet = nearest(2 * scale * dpr);
@@ -1792,19 +1789,21 @@ export function iconEl(app, size = 48) {
   box.style.width = box.style.height = size + 'px';
   const name = app.icon?.startsWith('builtin:') ? app.icon.slice(8) : null;
   if (name && Object.hasOwn(PIXEL, name)) {
+    box.classList.add('pixel');
+    // 48px 자리에 48칸 그림이 있으면(바탕화면의 기본 앱) 그것을 쓴다. 자리 크기는 style.css가 그림 크기(fitPixelIcons의 --pixel-48dot)에 맞춘다
+    if (size === 48 && PIXEL[name][48]) {
+      box.dataset.slot = '48dot';
+      box.style.width = box.style.height = '';
+      box.innerHTML = pixelSvg(name, 48);
+      return box;
+    }
     // 자리에 맞는 칸 수의 그림을 쓰고, 그 그림이 없으면 있는 그림을 쓴다
     const want = SLOTS[size] ?? (size <= 16 ? 16 : 24);
     const grid = PIXEL[name][want] ? want : PIXEL[name][24] ? 24 : 16;
-    box.classList.add('pixel');
     // 크기를 맞추는 자리(SLOTS)면 그 자리의 그림 크기를 쓴다. 16칸 그림이 없는 아이콘을 16px에 놓으면 칸이 빠지지 않게 부드럽게 줄인다
     if (SLOTS[size] === grid) box.dataset.slot = size;
     else if (grid > size) box.style.setProperty('--render', 'auto');
     box.innerHTML = pixelSvg(name, grid);
-    // 48px 자리에 48칸 그림이 있으면 그것도 넣어 두고, 둘 가운데 하나만 보인다(style.css의 .app-icon.pixel.dual)
-    if (size === 48 && grid === 24 && PIXEL[name][48]) {
-      box.classList.add('dual');
-      box.insertAdjacentHTML('beforeend', pixelSvg(name, 48).replace('<svg ', '<svg class="hi" '));
-    }
     return box;
   }
   const letter = () => {
