@@ -133,7 +133,7 @@ function doorSVG(door) {
 }
 
 // ---------- 벽지 (data/wall-patterns.js) ----------
-const WALL_PX = 3; // 벽지 그림 한 칸의 무대 px
+const WALL_PX = 2; // 벽지 그림 한 칸의 무대 px. 가구 그림과 펫의 한 점(무대 2px)과 같은 굵기다
 
 // 벽지 그림 한 장을 SVG 조각으로. 같은 색 칸이 가로로 이어지면 한 조각으로 묶는다(src/icons.js의 pixelSvg와 같은 방식).
 function tileMarkup(p) {
@@ -164,14 +164,18 @@ function wallPaint(p, top) {
   return { defs: `<defs>${one('L', -1)}${one('R', 1)}</defs>`, L: `url(#${id}-L)`, R: `url(#${id}-R)` };
 }
 
-// 벽지를 고르는 단추에 넣을 작은 그림. 무늬의 왼쪽 위 12×12칸을 비틀지 않고 보여 준다.
+// 벽지를 고르는 단추에 넣을 작은 그림. 무늬에서 swatch가 가리키는 14×14칸(단추 안 28px에 한 칸 2px)을 비틀지 않고 보여 준다.
+// 무늬 한 장은 단추보다 훨씬 커서 왼쪽 위만 보이면 바탕색뿐이라, 하트나 리본처럼 그 벽지를 알아볼 무늬가 든 자리를 data/wall-patterns.js에 적어 둔다.
 // 기본 벽은 style.css의 --wall-l 색에 반 칸마다 세로줄이다(단추는 방 상자 밖이라 변수 대신 같은 색을 적었다).
+const SWATCH = 14;
 export function wallSwatchSVG(id) {
   const p = WALL_PATTERNS.find(w => w.id === id);
-  const art = p?.rows
-    ? tileMarkup(p)
-    : '<rect width="12" height="12" fill="#f2e6cb" /><path d="M3 0v12M9 0v12" stroke="#0000001f" stroke-width="0.6" />';
-  return `<svg viewBox="0 0 12 12" aria-hidden="true">${art}</svg>`;
+  if (!p?.rows) {
+    return `<svg viewBox="0 0 ${SWATCH} ${SWATCH}" aria-hidden="true"><rect width="${SWATCH}" height="${SWATCH}" fill="#f2e6cb" />`
+      + '<path d="M3.5 0v14M10.5 0v14" stroke="#0000001f" stroke-width="0.7" /></svg>';
+  }
+  const [x, y] = p.swatch || [0, 0];
+  return `<svg viewBox="${x} ${y} ${SWATCH} ${SWATCH}" aria-hidden="true">${tileMarkup(p)}</svg>`;
 }
 
 // 방의 벽과 바닥 (가구를 놓아도 바뀌지 않는 배경). door가 있으면 벽에 현관문을 그린다.
