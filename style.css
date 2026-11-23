@@ -341,7 +341,8 @@ button { font-family: inherit; }
 .items { position: absolute; inset: 0; z-index: 1; }
 /* 바탕화면 방을 걷는 아바타(src/avatar.js): 가구와 같은 상자(.wallpaper)에서 앞뒤 순서를 맞춘다. 그림 한 칸은 64×104px.
    .avatar는 로그인 화면과 시작 메뉴의 사용자 그림이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24). 누르면 말하기 */
-.room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; pointer-events: auto; cursor: var(--cur-hand); }
+/* 그림 시트(data/avatars.js)는 화면 크기의 두 배 파일이라 화면 크기(192×208px)로 줄여 깐다. 브라우저가 줄여 그려 점 굵기가 고르다(known-issues 92) */
+.room-avatar { position: absolute; width: 64px; height: 104px; background-repeat: no-repeat; background-size: 192px 208px; pointer-events: auto; cursor: var(--cur-hand); }
 .room-avatar.flip { transform: scaleX(-1); }
 /* 친구 집의 주인 아바타(src/avatar.js의 mountOwner)는 한 자리에 계속 서 있어서 누르기를 받지 않는다.
    받으면 뒤에 가려진 가구를 두 번 눌러 쓸 수 없다. .owner는 방 꾸미기 창이 이미 쓰는 이름이라 room-을 붙인다(known-issues 24) */

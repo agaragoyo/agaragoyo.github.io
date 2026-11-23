@@ -587,19 +587,34 @@ def check_pinned_unshare():
             err(p.relative_to(ROOT).as_posix(), 'unshare()로 서버의 방을 지우면서 pinnedHere()를 보지 않는다. 이웃집에 고정한 방은 지우지 않는다(data/neighbors.js의 keep)')
 
 
-# 아바타 목록의 id와 그림 경로 (그림 규격은 data/avatars.js 맨 위)
+# 아바타 목록의 id와 그림 경로, 그림 크기 (그림 규격은 data/avatars.js 맨 위)
 def check_avatars():
+    text = read('data/avatars.js')
+    m = re.search(r'SHEET_SCALE = (\d+)', text)
+    k = int(m.group(1)) if m else 1
+    want = (192 * k, 208 * k)  # 화면에서 192×208px인 시트를 SHEET_SCALE배로 그린 파일
     ids = set()
-    for a in entries(read('data/avatars.js')):
+    for a in entries(text):
         where = f"data/avatars.js '{a['id']}'"
         if a['id'] in ids:
             err(where, 'id가 겹친다')
         ids.add(a['id'])
         if not KEBAB.match(a['id']):
             err(where, 'id는 영어 소문자, 숫자, 하이픈만 쓴다')
-        sheet = a.get('sheet')
-        if sheet and not (ROOT / sheet).is_file():
-            err(where, f"그림 '{sheet}' 이 레포에 없다")
+        for field in ('sheet', 'guestSheet'):
+            path = a.get(field)
+            if not path:
+                err(where, f'{field}(그림 파일 경로)가 없다')
+                continue
+            f = ROOT / path
+            if not f.is_file():
+                err(where, f"그림 '{path}' 이 레포에 없다")
+                continue
+            head = f.read_bytes()[:24]
+            size = struct.unpack('>II', head[16:24]) if head[:8] == b'\x89PNG\r\n\x1a\n' else None
+            if size != want:
+                got = f'{size[0]}×{size[1]}px' if size else 'PNG가 아니다'
+                err(where, f"그림 '{path}' 의 크기가 {got}. 화면 크기(192×208px)의 SHEET_SCALE배인 {want[0]}×{want[1]}px로 만든다")
 
 
 def check_feature_numbers():
