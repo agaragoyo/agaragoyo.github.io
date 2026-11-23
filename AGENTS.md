@@ -19,7 +19,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 2. 고칠 곳과 새 기능을 붙일 자리는 `docs/file-map.md`(파일 지도)의 "자주 찾는 것" 표와 파일 표에서 찾는다. 레포 전체를 검색하지 않는다
 3. 무엇을 만들지는 `docs/requirements.md`, 누가 무엇을 하는지는 `docs/tasks.md`에서 관련된 절만 본다. 요구 사항에 없는 새 기능이면 만들기 전에 사용자에게 묻는다
 4. `worklog/`에서 지금 작업과 관련된 최근 일지 한 편의 "남은 일과 알아 둘 것"을 본다
-5. `git status`, `git log --oneline -10`으로 지금 브랜치와 진행 상황을 확인한다
+5. `git fetch` 뒤 `git status`, `git log --oneline -10`으로 지금 브랜치와 진행 상황을 확인한다. 지금 브랜치가 `origin/main`보다 뒤처졌으면 `git merge origin/main`으로 먼저 따라잡는다(known-issues 111)
 
 ## 작업 방식
 
