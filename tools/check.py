@@ -651,11 +651,21 @@ def check_user_pictures():
 
 
 def check_wall_patterns():
-    """data/wall-patterns.js 의 벽지 그림이 colors 에 있는 글자만 쓰고, 줄 수와 칸 수가 12의 배수인지 본다.
-    한 칸이 무대 3px라 12칸이 벽 한 칸(한 줄)이고, 12의 배수가 아니면 무늬가 벽의 칸과 어긋나게 이어진다.
+    """data/wall-patterns.js 의 벽지 그림이 colors 에 있는 글자만 쓰고, 줄 수와 칸 수가 벽 한 칸의 칸 수의 배수인지 본다.
+    벽 한 칸(한 줄)은 무대 36px(src/config.js 의 WH)이고 그림 한 칸은 src/iso.js 의 WALL_PX(2px)라 18칸이 벽 한 칸이다.
+    배수가 아니면 무늬가 벽의 칸과 어긋나게 이어진다. 벽지 단추에 보여 줄 자리(swatch)가 그림 안에 드는지도 본다(단추는 iso.js 의 SWATCH칸).
     공유 링크가 목록의 순서 번호를 담으므로 맨 앞이 기본 벽(plain)인지와 id가 겹치지 않는지도 본다."""
     where = 'data/wall-patterns.js'
     text = read(where)
+    iso = read('src/iso.js')
+    px = re.search(r'^const WALL_PX = (\d+);', iso, re.M)
+    sw = re.search(r'^const SWATCH = (\d+);', iso, re.M)
+    wh = re.search(r'^export const WH = (\d+);', read('src/config.js'), re.M)
+    if not (px and sw and wh) or int(wh.group(1)) % int(px.group(1)):
+        err('src/iso.js', '벽지 그림 한 칸(WALL_PX)이나 단추 칸 수(SWATCH)를 읽지 못했거나, 벽 한 줄(src/config.js 의 WH)이 WALL_PX로 나누어떨어지지 않는다')
+        return
+    unit = int(wh.group(1)) // int(px.group(1))
+    swatch = int(sw.group(1))
     if not re.search(r"WALL_PATTERNS = \[\n  \{ id: 'plain', name: '[^']+' \},", text):
         err(where, "맨 앞 줄이 기본 벽 { id: 'plain', name: '...' } 이 아니다(링크의 0번이 기본 벽이다)")
     blocks = re.findall(r'^  \{\n(.*?)^  \},', text, re.S | re.M)
@@ -680,8 +690,13 @@ def check_wall_patterns():
         rows_text = re.search(r'^    rows: \[\n(.*?)^    \],', body, re.S | re.M)
         rows = re.findall(r"'([^']*)'", rows_text.group(1)) if rows_text else []
         widths = {len(r) for r in rows}
-        if not rows or len(widths) != 1 or len(rows) % 12 or min(widths) % 12:
-            err(where, f'{wid}: 그림의 줄 수와 줄마다 칸 수는 12의 배수이고 줄마다 같다(지금 {len(rows)}줄, 칸 수 {sorted(widths)})')
+        if not rows or len(widths) != 1 or len(rows) % unit or min(widths) % unit:
+            err(where, f'{wid}: 그림의 줄 수와 줄마다 칸 수는 {unit}의 배수이고 줄마다 같다(지금 {len(rows)}줄, 칸 수 {sorted(widths)})')
+        at = re.search(r'^    swatch: \[(\d+), (\d+)\],', body, re.M)
+        if not at:
+            err(where, f'{wid}: 벽지 단추에 보여 줄 자리 swatch: [x, y] 가 없다')
+        elif rows and widths and (int(at.group(1)) + swatch > min(widths) or int(at.group(2)) + swatch > len(rows)):
+            err(where, f'{wid}: swatch 자리에서 {swatch}×{swatch}칸이 그림 밖으로 나간다')
         extra = set(''.join(rows)) - colors - {'.'}
         if extra:
             err(where, f"{wid}: colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
