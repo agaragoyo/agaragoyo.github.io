@@ -30,6 +30,11 @@ export function supportOf(items, item) {
   return items.find(s => s !== item && !isWall(s) && BY_ID[s.id].surface && inside(item, s)) || null;
 }
 
+// item의 바닥 면이 surface 가구(책상, 식탁)의 바닥 면 안에 들어가 있는지. zone과 상관없이 본다.
+// 'top'에서 'floor'로 바꾼 가구가 예전 저장본에서 책상 위에 있었는지 가릴 때 쓴다(src/share.js의 sanitizeItems)
+export const onSurface = (items, item) =>
+  !isWall(item) && items.some(s => s !== item && !isWall(s) && BY_ID[s.id].surface && inside(item, s));
+
 export function elevOf(items, item) {
   const s = supportOf(items, item);
   return s ? BY_ID[s.id].height : 0;
@@ -83,4 +88,21 @@ export function canPlace(others, item) {
     if (def.surface && BY_ID[o.id].zone === 'top' && inside(o, item)) return false; // 책상 위의 물건
     return true;
   });
+}
+
+// 바닥 쪽 가구 item을 others 사이에 놓을 수 있는 가장 가까운 자리. 같은 방향으로 놓을 곳이 없을 때만 돌려 놓고, 그래도 없으면 null.
+// 예전 저장본과 링크에서 지금 규칙으로는 그 자리에 둘 수 없게 된 가구를 옮길 때 쓴다(src/share.js의 sanitizeItems)
+export function nearestSpot(others, item) {
+  for (const r of item.r ? [1, 0] : [0, 1]) {
+    let best = null;
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const spot = { id: item.id, x, y, ...(r ? { r: 1 } : {}) };
+        const d = (x - item.x) ** 2 + (y - item.y) ** 2;
+        if ((!best || d < best.d) && canPlace(others, spot)) best = { d, spot };
+      }
+    }
+    if (best) return best.spot;
+  }
+  return null;
 }

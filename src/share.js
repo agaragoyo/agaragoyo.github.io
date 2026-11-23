@@ -11,7 +11,7 @@ import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
 import { customBytes, customFromBytes } from './custom-picture.js';
-import { canPlace } from './rules.js';
+import { canPlace, nearestSpot, onSurface } from './rules.js';
 import { sanitizeLikes, line } from './likes.js';
 import { RECORD_APPS, sanitizeRecords } from './records.js';
 
@@ -19,19 +19,31 @@ const MAX_ITEMS = 200;
 const MAX_NAME = 12;
 const MAX_GREETING = 30; // 화면 보호기 인사말(src/screensaver.js)
 
+// 'top'(책상 위 물건)이던 것을 'floor'(바닥 가구)로 바꾼 가구. 바꾸기 전의 저장본과 링크에서 책상이나 식탁 위에 있던 것은
+// 받침 가구와 겹친 배치가 되어 둘 가운데 목록에서 뒤에 온 쪽이 버려지므로, 다른 가구를 다 놓은 뒤 가장 가까운 빈 바닥으로 내린다.
+// TV는 2026-11-23에 받침까지 그린 그림으로 바꾸며 바닥 가구가 됐다
+const WAS_TOP = new Set(['tv']);
+
 // 한 공간의 가구 목록 검사. 모르는 가구, 다른 공간의 가구, 정수가 아닌 좌표, 규칙에 어긋나는 배치는 버린다.
 function sanitizeItems(list, sceneId) {
   // 'top' 가구는 받쳐 줄 책상이 먼저 놓여 있어야 검사를 통과한다.
   const rank = it => (BY_ID[it.id].zone === 'top' ? 1 : 0);
-  const items = [];
-  (Array.isArray(list) ? list.slice(0, MAX_ITEMS) : [])
+  const all = (Array.isArray(list) ? list.slice(0, MAX_ITEMS) : [])
     .filter(it => it && BY_ID[it.id] && BY_ID[it.id].scene === sceneId && Number.isInteger(it.x) && Number.isInteger(it.y))
     .map(it => (BY_ID[it.id].zone === 'wall'
       ? { id: it.id, wall: it.wall, x: it.x, y: it.y }
-      : { id: it.id, x: it.x, y: it.y, ...(it.r === 1 ? { r: 1 } : {}) }))
+      : { id: it.id, x: it.x, y: it.y, ...(it.r === 1 ? { r: 1 } : {}) }));
+  const lifted = all.filter(it => WAS_TOP.has(it.id) && onSurface(all, it));
+  const items = [];
+  all.filter(it => !lifted.includes(it))
     .sort((a, b) => rank(a) - rank(b))
     .forEach(it => { if (canPlace(items, it)) items.push(it); });
-  return items;
+  for (const it of lifted) {
+    const spot = nearestSpot(items, it);
+    if (spot) items.push(spot);
+  }
+  // 내린 가구도 바닥 가구 자리로 정렬해 두어, 다시 검사해도 같은 목록이 나온다
+  return items.sort((a, b) => rank(a) - rank(b));
 }
 
 // 방 꾸밈. 벽지(wall)와 바닥(floor)이다. 기본(plain)이거나 목록에 없는 id는 빼고, 둘 다 빠지면 null이라 집 상태에 decor를 두지 않는다.
