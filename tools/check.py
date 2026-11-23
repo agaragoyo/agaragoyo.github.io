@@ -138,7 +138,7 @@ def check_pixel_icons():
     """src/icons.js 의 PIXEL 그림이 칸 수에 맞고 colors 에 있는 글자만 쓰는지,
     data/apps.js 와 src/ 의 'builtin:<이름>' 아이콘이 PIXEL 에 있는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
     바탕화면, 미니게임 폴더, 시작 메뉴에 나오는 앱(가구 화면 앱이 아닌 앱)은 48px와 24px 자리에 쓰는 24칸 그림이 있어야 한다.
-    48px 자리의 48칸 그림은 한 판(바탕화면, 폴더)의 아이콘에 모두 있거나 모두 없어야 하고, 24칸 그림과 함께 있어야 한다."""
+    48px 자리의 48칸 그림은 한 판(바탕화면, 폴더)의 아이콘에 모두 있거나 모두 없어야 하고, 시작 메뉴에 쓰는 24칸 그림과 함께 있어야 한다."""
     where = 'src/icons.js'
     m = re.search(r'^const PIXEL = \{\n(.*?)^\};', read(where), re.S | re.M)
     if not m:
@@ -169,7 +169,7 @@ def check_pixel_icons():
             err(f"data/apps.js '{a['id']}'", f"아이콘 {icon} 이 src/icons.js 의 PIXEL 에 없다")
         elif icon.startswith('builtin:') and a.get('folder') != 'furniture' and '24' not in names[icon[8:]]:
             err(f"data/apps.js '{a['id']}'", f'아이콘 {icon} 에 바탕화면과 시작 메뉴에 쓰는 24칸 그림이 없다')
-    # 한 판(바탕화면, 폴더 창)에 나란히 서는 아이콘끼리 점 굵기가 섞이지 않게 한다. 48px 자리에 48칸 그림은 한 칸이 무대 1px, 24칸 그림은 2px다(known-issues 67)
+    # 한 판(바탕화면, 폴더 창)에 나란히 서는 아이콘끼리 점 굵기가 섞이지 않게 한다. 48px 자리에는 48칸 그림이 있으면 화면 크기와 상관없이 그것을 쓰고, 한 칸이 무대 1px다. 24칸 그림은 2px다(known-issues 67)
     boards = {}
     for a in entries(read('data/apps.js')):
         icon = a.get('icon', '')
@@ -183,7 +183,7 @@ def check_pixel_icons():
             err('data/apps.js', f"{where_board}에 48칸 그림이 있는 아이콘({', '.join(has)})과 없는 아이콘({', '.join(lack)})이 섞여 있다. 한 판의 아이콘은 모두 그리거나 모두 뺀다")
     for name, grids in names.items():
         if '48' in grids and '24' not in grids:
-            err(where, f'{name}: 48칸 그림만 있다. 시작 메뉴와 작은 화면에 쓰는 24칸 그림도 그린다')
+            err(where, f'{name}: 48칸 그림만 있다. 시작 메뉴에 쓰는 24칸 그림도 그린다')
     # 시작 메뉴 아래쪽 항목, 튜토리얼, 이웃집 창처럼 src/ 안에서 바로 쓰는 그림 이름
     for p in sorted(ROOT.glob('src/**/*.js')):
         for icon in re.findall(r"'builtin:(\w+)'", p.read_text(encoding='utf-8')):
