@@ -13,6 +13,9 @@
 // perchAt: 앉는 자리 [가로 칸, 세로 칸]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)이고 펫의 발끝이 놓인다.
 //          없으면 윗면이 평평한 가구라 칸마다 가운데에 앉고, 책상 위 물건이 놓인 칸은 뺀다(src/rules.js의 perchesOf)
 // light:   true 이면 밤에 둘레를 밝힌다. 누르면 밤과 낮이 바뀐다
+// night:   true 이면 밤에는 assets/furniture/<id>-night.png 를 원래 그림 위에 겹쳐 보인다(옷장 문의 야광 별). 원래 그림과 크기를 같게 만든다
+// open:    true 이면 바탕화면에서 두 번 눌러 아바타가 쓴 뒤 혼잣말이 떠 있는 동안 assets/furniture/<id>-open.png 를 보인다(문이 열린 옷장)
+//          둘 다 돌려 놓으면 원래 그림처럼 좌우로 뒤집어 쓰고, 돌린 그림(<id>-r.png)이 있는 가구면 <id>-r-night.png, <id>-r-open.png 를 쓴다
 // gimmick: 눌렀을 때 하는 일. 'night' 밤/낮 바꾸기, 'scene:<id>' 그 공간으로 가기, 'app:<id>' 앱 열기.
 //          바탕화면에서 가구를 두 번 누르면 아바타가 옆으로 가서 쓴다. 없으면 아바타가 say의 혼잣말을 한다
 // say:     기믹이 없는 가구를 두 번 눌렀을 때 아바타가 하는 혼잣말 한 줄. 반말로, 이름만 되풀이하지 않고 그 물건을 본 사람이 할 말로 쓴다.
@@ -26,7 +29,7 @@ export const FURNITURE = [
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, perch: 30, perchAt: [1.5, 3], color: '#c4b094', say: '눕자마자 잠들겠다.' },
   { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a', say: '푹 파묻히고 싶다.' },
   { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
-  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 118, color: '#e0d9a1', say: '입을 옷이 없네.' },
+  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 102, night: true, open: true, color: '#e0d9a1', say: '입을 옷이 없네.' },
   { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, perch: 30, perchAt: [1, 1], color: '#cdc39e', say: '여긴 내 지정석이야.' },
   { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0', say: '출출한데 뭐 있나.' },
   { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },

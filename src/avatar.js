@@ -425,17 +425,20 @@ export function mountAvatar(host, avatarId = 'basic', { guest = false } = {}) {
     if (!walking) nextStep();
   }
 
+  // 말풍선을 띄우고 떠 있을 시간(ms)을 돌려준다. 쓰는 동안의 가구 그림(문이 열린 옷장)이 그만큼 보인다(os.js의 openFurniture)
   function say(text) {
     const t = text.trim();
-    if (!t) return;
+    if (!t) return 0;
     bubble.textContent = t;
     bubble.hidden = false;
     draw(null);
     clearTimeout(sayTimer);
+    const ms = SAY_MS + t.length * 60;
     sayTimer = setTimeout(() => {
       bubble.hidden = true;
       syncCue();
-    }, SAY_MS + t.length * 60);
+    }, ms);
+    return ms;
   }
 
   function openSay() {

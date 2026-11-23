@@ -232,15 +232,29 @@ def check_furniture(app_ids):
                 err(where, f"gimmick 의 공간 '{g[6:]}' 이 SCENES 에 없다")
             elif g != 'night' and not g.startswith(('app:', 'scene:')):
                 err(where, "gimmick 은 'night', 'app:<앱 id>', 'scene:<공간 id>' 중 하나다")
-    # 가구 그림 파일 이름이 가구 id와 맞는지 (웹에서 올릴 때 이름을 틀리기 쉽다)
+    # 가구 그림 파일 이름이 가구 id와 맞는지 (웹에서 올릴 때 이름을 틀리기 쉽다).
+    # 밤 그림(-night)과 쓰는 동안의 그림(-open)은 그 가구 줄에 night: true, open: true 가 있어야 쓰이고, 원래 그림과 크기가 같아야 겹쳐진다
+    by_id = {f['id']: f for f in items}
     for p in sorted((ROOT / 'assets/furniture').glob('*')):
         if p.name.startswith('.'):
             continue
-        m = re.match(r'^(.+?)(-r)?\.png$', p.name)
+        where = p.relative_to(ROOT).as_posix()
+        m = re.match(r'^(.+?)(-r)?(-night|-open)?\.png$', p.name)
         if not m:
-            err(p.relative_to(ROOT).as_posix(), '가구 그림은 <가구 id>.png 또는 <가구 id>-r.png 로 올린다')
+            err(where, '가구 그림은 <가구 id>.png 또는 <가구 id>-r.png 로 올리고, 밤 그림과 쓰는 동안의 그림은 끝에 -night, -open 을 붙인다')
         elif m.group(1) not in ids:
-            err(p.relative_to(ROOT).as_posix(), f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
+            err(where, f"'{m.group(1)}' 라는 가구가 data/furniture.js 에 없다(이름 확인)")
+        elif m.group(3):
+            key = m.group(3)[1:]
+            base = ROOT / 'assets/furniture' / f"{m.group(1)}{m.group(2) or ''}.png"
+            if by_id[m.group(1)].get(key) != 'true':
+                err(where, f"data/furniture.js '{m.group(1)}' 에 {key}: true 가 없어 쓰이지 않는다")
+            elif not base.is_file() or png_size(p) != png_size(base):
+                err(where, f'{base.name} 와 크기가 같아야 원래 그림 위에 겹쳐진다')
+    for f in items:
+        for key in ('night', 'open'):
+            if f.get(key) == 'true' and not (ROOT / 'assets/furniture' / f"{f['id']}-{key}.png").is_file():
+                err(f"data/furniture.js '{f['id']}'", f"{key}: true 인데 assets/furniture/{f['id']}-{key}.png 가 없다")
     # 공유 링크의 가구 번호(src/share.js의 LINK_CODES). 순서를 바꾸면 이미 보낸 링크의 가구가 바뀌므로 끝에만 더한다(known-issues 57)
     block = re.search(r'export const LINK_CODES = \[(.*?)\];', read('src/share.js'), re.S)
     codes = re.findall(r"'([^']+)'", block.group(1)) if block else []
@@ -319,14 +333,19 @@ def check_horror_lines():
 
 # ---------- 가구 그림이 칸에 맞는지 ----------
 # 가구 그림은 data/furniture.js 의 칸(size)과 높이(height)로 만든 상자에 맞춰 줄어 아래 가운데에 붙는다(src/iso.js 의 boxSize,
-# style.css 의 .furn img). 사이트와 같은 식으로 그림을 상자에 얹어 재고, 바닥 밖으로 나오거나 칸을 다 채우지 못하거나 벽 가구가 기울어 있으면 경고한다.
+# style.css 의 .furn img). 사이트와 같은 식으로 그림을 상자에 얹어 재고, 바닥 밖으로 나오거나 가장 아래 점이 앞 꼭짓점에서 벗어나거나 벽 가구가 기울어 있으면 경고한다.
+# 칸을 다 채우지 않는 것은 괜찮다. 받은 그림이 기준이라 칸이 남아도 늘리지 않는다(2026-11-23).
 # 이미 올라간 그림도 있고 고치는 데 시간이 걸리므로 오류가 아니라 경고다. 그림이 없는 가구와 돌린 그림(-r.png)은 보지 않는다.
 FIT_ALPHA = 64              # 알파가 이 값 이상인 점을 칠해진 점으로 본다
 FIT_STICK_OUT = 6           # 바닥 변보다 이만큼(px) 넘게 아래로 나오면 경고
-FIT_FILL = 0.85             # 가로 칸과 세로 칸의 합이 3 이상인 가구는 칠해진 폭이 상자 폭의 이 비율은 되어야 한다
 FIT_FRONT = 10              # 가장 아래 점이 앞 꼭짓점에서 이만큼(px) 넘게 벗어나면 경고
 FIT_WALL_DEG = 3            # 벽 가구 그림의 아래 변이 이 각도(도)를 넘게 기울면 경고
 FIT_MAX_PIXELS = 4_000_000  # 이보다 큰 그림은 읽지 않는다(파이썬으로 푸는 데 오래 걸린다)
+
+
+def png_size(path):
+    """PNG 파일의 (가로, 세로). 머리(IHDR)만 읽는다."""
+    return struct.unpack('>II', path.read_bytes()[16:24])
 
 
 def png_alpha(data):
@@ -439,10 +458,7 @@ def fit_floor(f, w, d, iw, ih, low, tw, th):
     stick = max(by(low[x]) - edge(bx(x)) for x in xs)
     if stick > FIT_STICK_OUT:
         out.append(f'바닥 변보다 {fit_num(stick, FIT_STICK_OUT)}px 튀어나온다')
-    if w + d >= 3:  # 1×1 같은 작은 물건은 칸을 다 채우지 않아도 된다
-        fill = (xs[-1] + 1 - xs[0]) * s / bw
-        if fill < FIT_FILL:
-            out.append(f'칠해진 폭이 칸 폭의 {int(fill * 100)}%뿐이다')
+    if w + d >= 3:  # 1×1 같은 작은 물건은 칸 가운데에 두기도 해서 앞 꼭짓점을 보지 않는다
         bottom = by(max(low))
         tip = [bx(x) for x in xs if by(low[x]) >= bottom - 1]  # 가장 아래 점 둘레(1px 이내)의 열들
         gap = sum(tip) / len(tip) - front

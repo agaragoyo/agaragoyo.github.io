@@ -108,7 +108,16 @@ export function furnitureEl(id, r = 0) {
     // 클릭은 그림 위에 겹친 상자가 받는다. 그림의 칠해진 모양대로 잘라 두어, 투명한 여백을 누르면 뒤의 가구가 눌린다.
     const hit = document.createElement('div');
     hit.className = mirror ? 'hit furn-hit mirror' : 'hit furn-hit';
-    el.replaceChildren(img, hit);
+    // 밤 그림(night)과 쓰는 동안의 그림(open)은 원래 그림 위에 겹쳐 두고, 그때만 CSS가 보인다(style.css의 .furn img.night)
+    const layers = ['night', 'open'].filter(k => def[k]).map(k => {
+      const layer = new Image();
+      layer.className = mirror ? `${k} mirror` : k;
+      layer.alt = '';
+      layer.draggable = false;
+      layer.src = `assets/furniture/${name}-${k}.png`;
+      return layer;
+    });
+    el.replaceChildren(img, ...layers, hit);
     outlineOf(name).then(o => {
       if (!o) return;
       // 그림은 상자에 맞춰 줄고 아래 가운데에 붙는다(style.css의 .furn img)
