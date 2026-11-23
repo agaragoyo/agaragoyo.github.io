@@ -30,7 +30,7 @@
 | 기믹이 없는 가구를 두 번 눌렀을 때 아바타의 혼잣말 고치기 | `data/furniture.js`의 그 가구 줄의 `say`. 줄을 꺼내는 곳은 `src/furniture-line.js`의 `furnitureLine`, 말하게 하는 곳은 `src/os.js`의 `openFurniture`. 13자를 넘거나 이름만 되풀이하면 `python tools/check.py`가 알려 준다 |
 | 가구의 밤 그림과 쓰는 동안의 그림(옷장 문의 야광 별, 열린 문) | `data/furniture.js`의 그 가구 줄의 `night`, `open`과, 원래 그림과 크기가 같은 `assets/furniture/<id>-night.png`, `<id>-open.png`. 겹쳐 그리는 곳은 `src/room.js`의 `furnitureEl`, 밤에만, 연 동안에만 보이게 하는 곳은 `style.css`의 `.furn img.night`, 문을 여는 때와 시간(혼잣말이 떠 있는 동안)은 `src/os.js`의 `openFurniture`와 `src/avatar.js`의 `say`. 그림 이름과 크기는 `python tools/check.py`가 본다 |
 | 격자 크기, 벽 높이, 화면 크기 | `src/config.js` |
-| 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace`(불러올 때도 쓴다), 방 꾸미기에서 새로 걸 때만 보는 현관문 자리는 `coversDoor` |
+| 가구를 놓을 수 있는지 정하는 규칙 | `src/rules.js`의 `canPlace`(불러올 때도 쓴다), 방 꾸미기에서 새로 걸 때만 보는 현관문 자리는 `coversDoor`. 책상 위에 올리던 가구를 바닥 가구로 바꿨을 때 예전 저장본에서 책상 위에 있던 것을 빈 바닥으로 내리는 일은 `src/share.js`의 `WAS_TOP`과 `src/rules.js`의 `nearestSpot` |
 | 가구 끌기와 눌러서 옮기기, 돌리기, 치우기 | `src/room.js`의 `beginDrag`(누르고 움직이지 않은 채 떼면 집는 것은 `carry`) |
 | 앞뒤로 겹쳐 그리는 순서 | `src/room.js`의 `zOf`, `src/iso.js`의 `depthOf` |
 | 바탕화면 방을 걷는 아바타(걷기, 길찾기, 말풍선) | `src/avatar.js`. 바탕화면에 붙이는 곳은 `src/os.js`의 `showDesktop`, 가구와의 앞뒤는 `depthZ` |

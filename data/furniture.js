@@ -7,6 +7,7 @@
 // zone: 'wall'  벽에만 건다. size: [벽을 따라 칸 수, 높이 줄 수]
 //       'floor' 바닥에 놓는다. size: [오른쪽 아래 방향 칸 수, 왼쪽 아래 방향 칸 수], height: 화면 높이(px)
 //       'top'   바닥에 놓거나 surface 가구 위에 올린다. size, height는 floor와 같다
+//       'top'이던 가구를 'floor'로 바꾸면 src/share.js의 WAS_TOP에도 적는다. 그래야 예전 저장본과 링크에서 책상 위에 있던 것이 빈 바닥으로 내려온다(TV)
 // surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
 // perch:   고양이처럼 가구에 올라가는 펫(data/pets.js의 mood.perch)이 앉는 윗면의 높이(무대 px). 바닥 가구에만 두고, 없으면 올라가지 않는다.
 //          가구 그림에서 잰 값이라 그림을 바꾸면 다시 잰다(침대는 이불 위, 1인 소파는 방석 위다). 한 번에 뛰어오를 수 있게 75px 이하로 둔다
@@ -35,9 +36,9 @@ export const FURNITURE = [
   { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },
   { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66', say: '노래 듣고 싶은데.' },
   { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#5c643b', say: '물을 자주 줘야겠다.' },
+  { id: 'tv',        scene: 'room', name: 'TV',       zone: 'floor', size: [2, 1], height: 46, color: '#939d8a', gimmick: 'app:tv' },
   // 내 방: 책상이나 식탁 위 (바닥에도 놓을 수 있다)
   { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 48, color: '#d7d3c8', gimmick: 'app:computer' },
-  { id: 'tv',        scene: 'room', name: 'TV',       zone: 'top', size: [2, 1], height: 57, color: '#939d8a', gimmick: 'app:tv' },
   { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9895a4', gimmick: 'app:console' },
   { id: 'camera',    scene: 'room', name: '디카',     zone: 'top', size: [1, 1], height: 12, color: '#b6b6b2', say: '메모리 카드 남았나.' },
   { id: 'diary',     scene: 'room', name: '다이어리', zone: 'top', size: [1, 1], height: 4, color: '#af7570', say: '오늘은 뭘 적지.' },
