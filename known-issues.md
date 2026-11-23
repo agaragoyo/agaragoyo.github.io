@@ -893,3 +893,9 @@ grep -n '^## .*\[라디오\]' known-issues.md   # 한 영역의 제목
 - 증상: 게임 기록을 담는 `src/records.js`를 `src/share.js`에 붙이자 `node tools/link-fuzz.mjs`가 `ReferenceError: matchMedia is not defined`로 멈췄다(2026-11-18).
 - 원인: 링크 점검은 브라우저 없이 Node로 `src/share.js`와 그 파일이 부르는 파일을 불러온다. `src/util.js`는 불러오는 순간 `matchMedia`(움직임 줄이기)를 읽어서 Node에서는 오류가 난다.
 - 규칙: `src/share.js`, `src/likes.js`, `src/rules.js`처럼 링크 점검이 부르는 파일은 `src/util.js`와 화면 파일을 부르지 않는다. localStorage 같은 브라우저 값은 함수 안에서 try로 읽는다.
+
+## 111. [작업] 처음 clone한 폴더의 main이 27커밋 뒤처져 있었다 (GitHub에서 합쳐도 내 폴더의 main은 그대로다)
+
+- 증상: 2026-11-23에 처음 clone한 폴더의 `main`이 2026-11-17의 PR 140에 멈춰 있어 `origin/main`보다 27커밋(PR 141~166) 뒤였다. 그대로 AI 도구의 새 작업 폴더(worktree)를 만들면 그 `main`에서 갈라져 엿새 전 코드로 일을 시작한다.
+- 원인: PR은 GitHub에서 합쳐져 `origin/main`만 앞으로 간다. 그동안의 작업은 모두 따로 만든 작업 폴더에서 했고, 처음 clone한 폴더에서는 `git pull`을 하지 않았다. 새 작업 폴더는 원격이 아니라 그 폴더의 `main`에서 갈라진다.
+- 규칙: 일을 시작할 때 `git fetch`로 원격을 받고, 지금 브랜치가 `origin/main`보다 뒤처졌으면 먼저 따라잡는다(`AGENTS.md`의 "작업 시작 전" 5번). 새 작업 폴더를 만들기 전에는 처음 clone한 폴더의 `main`을 `git pull --ff-only`로 당긴다.
