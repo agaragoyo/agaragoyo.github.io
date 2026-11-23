@@ -2236,6 +2236,16 @@ async function walk(page, base) {
     return painted('.room-app') && painted('.wallpaper') && document.querySelector('.room-app .wall-swatch[data-wall="heart"]').getAttribute('aria-pressed') === 'true';
   }) && (await page.run(savedHome)).decor?.wall === 'heart', JSON.stringify((await page.run(savedHome)).decor));
   check('공간이 내 방 하나라 방 꾸미기 창에 공간 탭이 없다', await page.run(() => !document.querySelector('.room-app .scene-tab')));
+  // 바닥(F13): 고르면 창과 바탕화면의 바닥에 그 무늬가 깔리고, 고른 벽지와 같이 저장된다. 기본 바닥을 고르면 바닥만 빠진다
+  await page.run(clickOnce, '.room-app .floor-swatch[data-floor="wood"]');
+  await sleep(200);
+  check('바닥을 고르면 창과 바탕화면의 바닥에 그 무늬가 깔리고 벽지와 같이 저장된다', await page.run(() => {
+    const floored = box => !!document.querySelector(`${box} .room-bg pattern[id^="floor-paint-"]`);
+    return floored('.room-app') && floored('.wallpaper') && document.querySelector('.room-app .floor-swatch[data-floor="wood"]').getAttribute('aria-pressed') === 'true';
+  }) && JSON.stringify((await page.run(savedHome)).decor) === '{"wall":"heart","floor":"wood"}', JSON.stringify((await page.run(savedHome)).decor));
+  await page.run(clickOnce, '.room-app .floor-swatch[data-floor="plain"]');
+  check('기본 바닥을 고르면 저장본에서 바닥만 빠진다', JSON.stringify((await page.run(savedHome)).decor) === '{"wall":"heart"}'
+    && await page.run(() => !document.querySelector('.room-app .room-bg pattern[id^="floor-paint-"]')), JSON.stringify((await page.run(savedHome)).decor));
   await page.run(clickOnce, '.room-app .wall-swatch[data-wall="plain"]');
   check('기본 벽을 고르면 저장본에서 벽지가 빠진다', !('decor' in (await page.run(savedHome))));
   await closeWindows();

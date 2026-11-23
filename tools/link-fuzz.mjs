@@ -6,7 +6,7 @@
 // 필요한 것: Node 22.7 이상(확장자가 .js인 모듈을 그대로 불러온다). 브라우저와 서버는 쓰지 않는다.
 // `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
 // 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants에도 그 칸을 더해야 그 칸까지 두드린다.
-// 방 꾸밈(decor, 지금은 벽지), 주인 사진(picture), 게임 기록(records)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
+// 방 꾸밈(decor, 벽지와 바닥), 주인 사진(picture), 게임 기록(records)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
 //
 // 보는 것
 //   1. 왕복: 무작위로 꾸민 집을 검사(sanitizeHome)한 뒤 링크로 만들었다 풀면 같은 집이 나온다. 링크에는 주소에 쓸 수 있는 글자만 있다
@@ -25,6 +25,7 @@ const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
 const { APP_BY_ID } = await load('data/apps.js');
 const { WALL_PATTERNS } = await load('data/wall-patterns.js');
+const { FLOOR_PATTERNS } = await load('data/floor-patterns.js');
 const { USER_PICTURES } = await load('data/user-pictures.js');
 const { customValue, customBytes, customFromBytes, readCustom, MAX_BYTES } = await load('src/custom-picture.js');
 const { RECORD_APPS, MAX_RECORD } = await load('src/records.js');
@@ -102,8 +103,9 @@ function randomHome() {
       answer: pick([0, 1, 2, 3, 4, -1, 1.5, '1', null]),
     }));
   }
-  // 벽지: 목록의 벽지와 기본 벽, 목록에 없는 이름을 섞는다(기본 벽과 없는 이름은 검사가 decor째 지운다)
-  const decor = rnd() < 0.6 ? { decor: { wall: pick([...WALL_PATTERNS.map(w => w.id), 'nope', '__proto__', 3]) } } : {};
+  // 벽지와 바닥: 목록의 무늬와 기본, 목록에 없는 이름을 섞는다(기본과 없는 이름은 검사가 그 칸을 지우고, 둘 다 지우면 decor째 지운다)
+  const look = list => pick([...list.map(w => w.id), 'nope', '__proto__', 3]);
+  const decor = rnd() < 0.6 ? { decor: { ...(rnd() < 0.7 && { wall: look(WALL_PATTERNS) }), ...(rnd() < 0.7 && { floor: look(FLOOR_PATTERNS) }) } } : {};
   // 주인 사진: 목록의 사진, 내 그림(그림 파일로 만든 사진), 받지 않는 값을 섞는다(받지 않는 값은 검사가 picture째 지운다)
   const picture = rnd() < 0.6 ? { picture: pick([...USER_PICTURES.map(p => p.id), 'nope', '__proto__', 3, null, randomCustom(), randomCustom(), brokenCustom()]) } : {};
   // 게임 기록: 겨루는 게임의 점수와 받지 않는 값(0, 음수, 소수, 글, 2바이트를 넘는 수, 모르는 게임)을 섞는다(받지 않는 값은 검사가 그 칸을 지운다)
@@ -163,7 +165,10 @@ function invariants(home, where) {
     || ('name' in c && (!c.name || Array.from(c.name).length > LIMIT.cdName || !wellFormed(c.name)))
     || ('color' in c && !(Number.isInteger(c.color) && c.color > 0 && c.color < LIMIT.cdColors));
   if (l.radio && (l.radio.length > LIMIT.cds || new Set(l.radio.map(c => c.url)).size !== l.radio.length || l.radio.some(badCd))) fail(`${where}: CD`, l.radio);
-  if ('decor' in home && (home.decor.wall === 'plain' || !WALL_PATTERNS.some(w => w.id === home.decor.wall) || Object.keys(home.decor).length !== 1)) fail(`${where}: 벽지`, home.decor);
+  // 꾸밈에는 벽지(wall)와 바닥(floor) 칸만, 기본이 아닌 목록의 id만 남고, 둘 다 없으면 decor째 빠진다
+  const looks = { wall: WALL_PATTERNS, floor: FLOOR_PATTERNS };
+  if ('decor' in home && (!Object.keys(home.decor).length
+    || Object.entries(home.decor).some(([k, v]) => !Object.hasOwn(looks, k) || v === 'plain' || !looks[k].some(w => w.id === v)))) fail(`${where}: 벽지와 바닥`, home.decor);
   // 주인 사진은 목록의 사진이거나, 풀리고 240바이트 안이며 같은 바이트를 늘 같은 글로 적은 내 그림이다
   if ('picture' in home && !USER_PICTURES.some(p => p.id === home.picture)
     && !(readCustom(home.picture) && customBytes(home.picture).length <= MAX_BYTES && customFromBytes(customBytes(home.picture)) === home.picture)) fail(`${where}: 주인 사진`, String(home.picture).slice(0, 60));
@@ -343,6 +348,36 @@ for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc
   const both = sanitizeHome({ owner: '기록', picture: big, records: { [tidy]: MAX_RECORD, [ten]: 1 }, decor: { wall: 'cloud' } });
   if (!both.picture) fail('9색 내 그림을 만들지 못했다', '');
   else if (JSON.stringify(decodeHome(encodeHome(both))) !== JSON.stringify(both)) fail('내 그림 뒤에 기록이 든 링크가 다른 집으로 열린다', decodeHome(encodeHome(both)));
+}
+
+// 바닥(F13): 짧은 형식 5의 덧붙임 바이트에서 기록 뒤에 [바닥 번호] 한 바이트로 담긴다. 바닥만 고른 집은 [0, 0, 0, 바닥 번호]다
+// (벽지 번호, 사진 자리, 기록 수 0). 바닥 바이트를 빼면 바닥만 빠진 같은 집이 열리고(바닥을 넣기 전의 페이지가 여는 모습), 모르는 바닥 번호는 기본 바닥으로 연다
+{
+  const extraAt = bytes => 3 + bytes[1] + bytes[2 + bytes[1]];
+  const floor = FLOOR_PATTERNS.at(-1).id;
+  const only = sanitizeHome({ owner: '바닥', decor: { floor } });
+  const bytes = Buffer.from(encodeHome(only), 'base64url');
+  const at = extraAt(bytes);
+  const want = [0, 0, 0, FLOOR_PATTERNS.length - 1];
+  if (bytes[0] !== 5 || bytes[at] !== want.length || want.some((v, i) => bytes[at + 1 + i] !== v)) fail('바닥만 고른 집이 짧은 형식 5의 덧붙임 바이트 [0, 0, 0, 바닥 번호]로 만들어지지 않는다', [...bytes.subarray(at, at + 6)]);
+  const [tidy] = RECORD_APPS;
+  for (const extra of [{}, { decor: { wall: 'ribbon', floor } }, { picture: USER_PICTURES[1].id, decor: { floor } }, { records: { [tidy]: 300 }, decor: { wall: 'cloud', floor } }]) {
+    const home = sanitizeHome({ owner: '바닥', decor: { floor }, ...extra });
+    if (JSON.stringify(decodeHome(encodeHome(home))) !== JSON.stringify(home)) fail('바닥이 든 링크가 다른 집으로 열린다', [home, decodeHome(encodeHome(home))]);
+    const b = Buffer.from(encodeHome(home), 'base64url');
+    const a = extraAt(b);
+    const cut = Buffer.from([...b.subarray(0, a), b[a] - 1, ...b.subarray(a + 1, a + b[a]), ...b.subarray(a + 1 + b[a])]);
+    const rest = { ...home, decor: { ...home.decor } };
+    delete rest.decor.floor;
+    if (!Object.keys(rest.decor).length) delete rest.decor;
+    if (JSON.stringify(decodeHome(cut.toString('base64url'))) !== JSON.stringify(rest)) fail('바닥 바이트를 뺀 링크가 바닥만 빠진 같은 집으로 열리지 않는다', decodeHome(cut.toString('base64url')));
+  }
+  const unknown = Buffer.from(bytes);
+  unknown[at + 4] = 200;
+  const opened = decodeHome(unknown.toString('base64url'));
+  if (!opened || 'decor' in opened) fail('모르는 바닥 번호가 든 링크가 기본 바닥으로 열리지 않는다', opened);
+  const json = Buffer.from(JSON.stringify({ v: 3, o: '바닥', s: {}, d: { wall: 'heart', floor } })).toString('base64url');
+  if (JSON.stringify(decodeHome(json)?.decor) !== JSON.stringify({ wall: 'heart', floor })) fail('예전 형식 링크의 바닥이 열리지 않는다', decodeHome(json));
 }
 
 // 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.

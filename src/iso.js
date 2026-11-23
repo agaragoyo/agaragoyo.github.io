@@ -6,6 +6,7 @@ import { N, TW, TH, WALL_ROWS, WH, ORIGIN as O } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { dims } from './rules.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
+import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
 
 const SKEW = (Math.atan(TH / TW) * 180) / Math.PI; // 벽의 기울기 (2:1이면 26.565도)
 
@@ -111,9 +112,9 @@ export function lightPoint(item, elev = 0) {
 }
 
 // 공간 배경: 벽과 바닥과 현관문(door). scene: config.js의 SCENES 한 줄.
-// decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 지금은 벽지(decor.wall)만 있고, 없으면 기본 벽이다.
+// decor: 그 집의 방 꾸밈(src/share.js의 sanitizeHome). 벽지(decor.wall)와 바닥(decor.floor)이고, 없으면 기본 벽과 기본 바닥이다.
 export function sceneSVG(scene, decor = null) {
-  return roomSVG(scene.door, decor?.wall);
+  return roomSVG(scene.door, decor?.wall, decor?.floor);
 }
 
 // 현관문: 벽에 붙은 문틀과 문짝, 위아래 두 칸 무늬, 손잡이. 가구가 아니라 방 그림의 일부라 늘 같은 자리에 있다(config.js의 SCENES door).
@@ -164,34 +165,59 @@ function wallPaint(p, top) {
   return { defs: `<defs>${one('L', -1)}${one('R', 1)}</defs>`, L: `url(#${id}-L)`, R: `url(#${id}-R)` };
 }
 
-// 벽지를 고르는 단추에 넣을 작은 그림. 무늬에서 swatch가 가리키는 14×14칸(단추 안 28px에 한 칸 2px)을 비틀지 않고 보여 준다.
-// 무늬 한 장은 단추보다 훨씬 커서 왼쪽 위만 보이면 바탕색뿐이라, 하트나 리본처럼 그 벽지를 알아볼 무늬가 든 자리를 data/wall-patterns.js에 적어 둔다.
-// 기본 벽은 style.css의 --wall-l 색에 반 칸마다 세로줄이다(단추는 방 상자 밖이라 변수 대신 같은 색을 적었다).
+// ---------- 바닥 (data/floor-patterns.js) ----------
+const FLOOR_DOTS = 18; // 바닥 그림에서 바닥 한 칸의 가장자리 칸 수. 그림 한 칸이 방에서 가로 4px, 세로 2px 마름모가 된다
+
+// 방 그림 한 장에 넣을 바닥 무늬. 위에서 본 그림을 바닥 칸의 2:1 기울기로 눕혀, 바닥 마름모의 뒤 꼭짓점(두 벽이 만나는 곳)에서 시작한다.
+// 그림의 가로는 바닥의 x축(오른쪽 아래), 세로는 y축(왼쪽 아래)을 따라간다. 무늬 id는 벽지처럼 그릴 때마다 새로 붙인다.
+function floorPaint(p) {
+  const id = `floor-paint-${++paintSeq}`;
+  const a = TW / 2 / FLOOR_DOTS;
+  const b = TH / 2 / FLOOR_DOTS;
+  return {
+    defs: `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${p.rows[0].length}" height="${p.rows.length}"
+    patternTransform="matrix(${a} ${b} ${-a} ${b} ${O.x} ${O.y})">${tileMarkup(p)}</pattern></defs>`,
+    fill: `url(#${id})`,
+  };
+}
+
+// 벽지와 바닥을 고르는 단추에 넣을 작은 그림. 무늬에서 swatch가 가리키는 14×14칸(단추 안 28px에 한 칸 2px)을 비틀지 않고 보여 준다.
+// 무늬 한 장은 단추보다 훨씬 커서 왼쪽 위만 보이면 바탕색뿐이라, 하트나 리본처럼 그 무늬를 알아볼 자리를 data/wall-patterns.js와 data/floor-patterns.js에 적어 둔다.
+// 기본 벽은 style.css의 --wall-l 색에 반 칸마다 세로줄이고, 기본 바닥은 --floor-a와 --floor-b의 체크다(단추는 방 상자 밖이라 변수 대신 같은 색을 적었다).
 const SWATCH = 14;
-export function wallSwatchSVG(id) {
-  const p = WALL_PATTERNS.find(w => w.id === id);
-  if (!p?.rows) {
-    return `<svg viewBox="0 0 ${SWATCH} ${SWATCH}" aria-hidden="true"><rect width="${SWATCH}" height="${SWATCH}" fill="#f2e6cb" />`
-      + '<path d="M3.5 0v14M10.5 0v14" stroke="#0000001f" stroke-width="0.7" /></svg>';
-  }
+const PLAIN_WALL = `<rect width="${SWATCH}" height="${SWATCH}" fill="#f2e6cb" /><path d="M3.5 0v14M10.5 0v14" stroke="#0000001f" stroke-width="0.7" />`;
+const PLAIN_FLOOR = `<rect width="${SWATCH}" height="${SWATCH}" fill="#c69a6b" /><path d="M0 0h7v7h-7zM7 7h7v7h-7z" fill="#bb8e60" />`;
+function swatchSVG(p, plain) {
+  if (!p?.rows) return `<svg viewBox="0 0 ${SWATCH} ${SWATCH}" aria-hidden="true">${plain}</svg>`;
   const [x, y] = p.swatch || [0, 0];
   return `<svg viewBox="${x} ${y} ${SWATCH} ${SWATCH}" aria-hidden="true">${tileMarkup(p)}</svg>`;
 }
+export const wallSwatchSVG = id => swatchSVG(WALL_PATTERNS.find(w => w.id === id), PLAIN_WALL);
+export const floorSwatchSVG = id => swatchSVG(FLOOR_PATTERNS.find(f => f.id === id), PLAIN_FLOOR);
 
 // 방의 벽과 바닥 (가구를 놓아도 바뀌지 않는 배경). door가 있으면 벽에 현관문을 그린다.
-// wall: 벽지 id(data/wall-patterns.js). 비었거나 모르는 id면 기본 벽이다.
-export function roomSVG(door, wall = 'plain') {
+// wall: 벽지 id(data/wall-patterns.js), floor: 바닥 id(data/floor-patterns.js). 비었거나 모르는 id면 기본 벽과 기본 바닥이다.
+export function roomSVG(door, wall = 'plain', floor = 'plain') {
   const up = WALL_ROWS * WH;
   const raise = p => ({ x: p.x, y: p.y - up });
   const T = 0.18; // 벽 두께 (칸)
   const SLAB = 16; // 바닥판 두께 (px)
   const below = p => ({ x: p.x, y: p.y + SLAB });
 
+  const floorPattern = FLOOR_PATTERNS.find(f => f.id === floor && f.rows);
   const floorTiles = [];
-  for (let x = 0; x < N; x++) {
-    for (let y = 0; y < N; y++) {
-      const fill = (x + y) % 2 ? 'var(--floor-a)' : 'var(--floor-b)';
-      floorTiles.push(`<polygon points="${pts([tile(x, y), tile(x + 1, y), tile(x + 1, y + 1), tile(x, y + 1)])}" style="fill:${fill}" />`);
+  if (floorPattern) {
+    // 무늬 아래에 바탕색을 한 번 더 깔아 무늬 조각 사이로 틈이 비치지 않게 한다(벽지와 같다)
+    const paint = floorPaint(floorPattern);
+    const whole = pts([tile(0, 0), tile(N, 0), tile(N, N), tile(0, N)]);
+    floorTiles.push(paint.defs, `<polygon points="${whole}" style="fill:${floorPattern.bg}" />`, `<polygon points="${whole}" style="fill:${paint.fill}" />`);
+  } else {
+    // 기본 바닥: 칸마다 두 색을 번갈아 칠한다
+    for (let x = 0; x < N; x++) {
+      for (let y = 0; y < N; y++) {
+        const fill = (x + y) % 2 ? 'var(--floor-a)' : 'var(--floor-b)';
+        floorTiles.push(`<polygon points="${pts([tile(x, y), tile(x + 1, y), tile(x + 1, y + 1), tile(x, y + 1)])}" style="fill:${fill}" />`);
+      }
     }
   }
 
