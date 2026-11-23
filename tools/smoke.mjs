@@ -808,9 +808,11 @@ async function voiceSpot(text, need = '') {
   const me = document.querySelector('#wallpaper .room-avatar:not(.room-owner)');
   if (!v || !me || v.textContent !== text) return null;
   const cellOf = (left, top) => { const s = (left - 640) / 36, t = (top - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
-  const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + 104);
+  const { emptyCells, sayPoint } = await import(new URL('src/avatar.js', document.baseURI).href);
+  // 말풍선 자리는 칸 가운데(발끝)보다 이만큼 위다. 칸 (0, 0)의 가운데는 무대 (640, 288)이다(위 cellOf를 거꾸로 푼 것)
+  const lift = 288 - parseFloat(sayPoint({ x: 0, y: 0 }).top);
+  const at = cellOf(parseFloat(v.style.left), parseFloat(v.style.top) + lift);
   const my = cellOf(parseFloat(me.style.left) + 32, parseFloat(me.style.top) + 100);
-  const { emptyCells } = await import(new URL('src/avatar.js', document.baseURI).href);
   const scene = 'room'; // 공간은 내 방 하나다
   const items = JSON.parse(localStorage.getItem('agarago.home.v3')).scenes[scene];
   const dx = at.x - my.x;

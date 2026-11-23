@@ -17,7 +17,8 @@
 export const SHEET_SCALE = 2; // 그림 파일의 크기 ÷ 화면에서의 크기
 
 export const AVATARS = [
-  // 팀이 보낸 도복 그림을 점 격자로 다시 찍은 것. 손님 그림은 모자 색만 빨강이다
+  // 팀이 보낸 도복 그림(정면, 정뒤)을 점 격자로 다시 찍고, 눈과 볼과 모자 끈을 보는 쪽에 맞춰 한 점 옮겨 비스듬히 돌린 것.
+  // 손님 그림은 모자 색만 빨강이다
   { id: 'basic', name: '기본', sheet: 'assets/avatars/basic.png', guestSheet: 'assets/avatars/basic-guest.png' },
 ];
 
