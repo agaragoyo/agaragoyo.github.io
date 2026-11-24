@@ -244,7 +244,7 @@
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `.github/workflows/pages.yml` | main에 합쳐지면 지문을 찍고 GitHub Pages로 배포한다 |
+| `.github/workflows/pages.yml` | main에 합쳐지면 지문을 찍어 묶음으로 올리고(build), 그 묶음을 GitHub Pages로 배포한다(deploy) |
 | `.github/workflows/check.yml` | PR마다 `tools/check.py`를 돌린다 |
 | `.github/pull_request_template.md` | PR 설명 칸에 미리 채워지는 질문과 확인 항목 |
 | `.github/ISSUE_TEMPLATE/bug.yml` | Issues의 버그 제보 양식 |
