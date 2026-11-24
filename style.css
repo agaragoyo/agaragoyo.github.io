@@ -584,17 +584,15 @@ button { font-family: inherit; }
 }
 .shelf-arrow {
   flex: 0 0 44px;
-  height: 40px;
-  margin-bottom: 22px;
-  padding: 0;
-  border: 3px solid #2f231b;
-  border-radius: 50%;
-  background: #fbf4e4;
-  font-size: 15px;
-  color: #2a1f18;
+  height: 88px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #e9dfc8;
+  font-size: 18px;
+  color: var(--ink);
   cursor: var(--cur-hand);
 }
-.shelf-arrow:disabled { opacity: 0.4; cursor: var(--cur-arrow); }
+.shelf-arrow:disabled { opacity: 0.35; cursor: var(--cur-arrow); }
 .shelf-track {
   flex: 1;
   display: flex;
@@ -2026,18 +2024,21 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 }
 .book-spine.on { transform: translateY(-8px); box-shadow: 0 0 0 3px #ffd76a; } /* 아래 칸(152px)에서 책등(140px)이 8px 들려도 가운데 널에 닿지 않는다 */
 .book-spine.add { border: 4px dashed var(--on-inside); background: none; font-size: 24px; color: var(--on-inside); }
-/* 방 꾸미기의 가구 선반 화살표(.shelf-arrow)와 이름이 같아 책장 안으로 범위를 좁힌다(known-issues 24) */
-.shelf-closeup .shelf-arrow {
+/* 앞 책, 다음 책 단추. 방 꾸미기의 가구 선반 화살표는 .shelf-arrow로 따로 있다(known-issues 24) */
+.book-arrow {
   flex: none;
   width: 32px;
   height: 32px;
   margin: 4px 4px 54px; /* 책등의 가운데 높이 */
+  padding: 0;
   border: 0;
-  border-radius: 0;
   background: #fdf8f6;
   box-shadow: 0 -4px #342144, 0 4px #342144, -4px 0 #342144, 4px 0 #342144;
+  font-size: 15px;
   color: #342144;
+  cursor: var(--cur-hand);
 }
+.book-arrow:disabled { opacity: 0.4; cursor: var(--cur-arrow); }
 @media (prefers-reduced-motion: reduce) { .book-spine { transition: none; } }
 
 /* 라디오: 위에 펼친 CD, 아래에 방의 라디오 그림(assets/furniture/radio.png)과 같은 은회색 라디오를 정면에서 본 도트 그림(assets/closeup/radio-frame.png)이다.
