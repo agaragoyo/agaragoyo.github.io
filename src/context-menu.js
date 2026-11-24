@@ -9,7 +9,6 @@
 //   openMenu({ root: 무대, toStage }, contextmenu 이벤트, 줄 목록, '메뉴 이름')
 // 줄 하나는 { label, run }이고 아래 값을 더할 수 있다. 거짓 값인 줄은 건너뛰고, '-'는 나누는 줄이다(맨 앞과 맨 끝, 겹친 것은 뺀다).
 //   main: true       굵은 줄. 그 자리를 두 번 누를 때 하는 일이다(윈도우의 기본 명령). 창 메뉴만 윈도우처럼 닫기가 굵다
-//   checked: 참/거짓  여럿 가운데 지금 고른 것 하나에 점을 찍는 줄(펫의 할 일)
 //   disabled: true   지금은 할 수 없는 줄. 회색이고 고를 수 없다(최대화한 창의 최대화)
 //   tip: '...'       마우스를 올리면 보이는 글. 새 탭으로 가는 줄은 external: true로 바깥 화살표를 달고 갈 곳을 여기에 쓴다(known-issues 32)
 // 돌려주는 것: { el, close() }. close는 그 메뉴가 아직 떠 있을 때만 닫는다
@@ -30,8 +29,7 @@ export function openMenu({ root, toStage }, e, items, label) {
     : h('button', {
       type: 'button',
       className: ['ctx-menu-item', it.main && 'main', it.external && 'external'].filter(Boolean).join(' '),
-      role: it.checked === undefined ? 'menuitem' : 'menuitemradio',
-      'aria-checked': it.checked === undefined ? null : String(it.checked),
+      role: 'menuitem',
       disabled: it.disabled,
       title: it.tip,
       tabIndex: -1,

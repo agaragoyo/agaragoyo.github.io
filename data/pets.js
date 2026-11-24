@@ -24,16 +24,18 @@
 //   grow는 자라서 될 종류의 id다. 쓰다듬은 횟수가 src/pet.js의 GROW_PATS번이 되면 같은 색 id의 그 종류로 바뀌므로, 자란 종류에도
 //   같은 색 id를 둔다(이름과 색은 달라도 된다. 노랑 병아리는 흰 닭이 된다). 자란 종류의 grown은 그때 아바타가 하는 말이다.
 //   mood는 성격이다. 아래 DEFAULT_MOOD와 다른 값만 적는다.
+//   trait는 그 성격을 펫 창에 보이는 한 줄이다. 합쇼체 한 문장이고 25자까지 쓴다. 창 위쪽에 지금 하는 일(src/apps/pet-app.js의 DOING)이 보이므로
+//   같은 말을 되풀이하지 않는다("아바타를 따라다니고 있습니다."가 뜨는 강아지에게 따라다닌다고 또 쓰지 않는다). mood를 바꾸면 함께 고친다.
 //   sound는 쓰다듬을 때 한 번 내는 소리의 이름이다(src/sound.js의 EFFECTS). 없으면 소리 없이 쓰다듬는다(병아리, 코알라, 공룡은 맞는 소리 파일이 없다).
 //   자라는 종류는 다 자라는 순간(열 번째로 쓰다듬을 때)부터 자란 종류의 소리를 낸다.
-//   tools/check.py의 check_pets가 줄 수와 칸 수, 쓰는 글자, 색 모양, 이름 길이, 자라는 종류의 짝, 성격 값의 이름과 모양, 소리 이름을 본다.
+//   tools/check.py의 check_pets가 줄 수와 칸 수, 쓰는 글자, 색 모양, 이름 길이, 자라는 종류의 짝, 성격 값의 이름과 모양, 성격 한 줄의 길이와 말끝, 소리 이름을 본다.
 
 // 아직 고르지 않았을 때 나오는 펫. 실험실에 처음 넣은 임시 고양이와 같은 회색 고양이다
 export const DEFAULT_PET = 'cat/gray';
 
 // 펫의 성격. 종류마다 움직이는 코드를 따로 쓰지 않고 이 값만 바꾼다(src/pet.js가 읽는다). 종류의 mood에 적은 값이 이 기본값을 덮는다.
-//   obey    오른쪽 단추 메뉴의 "따라오게 하기", "기다리게 하기", "혼자 놀게 하기"를 듣는지. 듣지 않는 펫은 아바타 쪽으로 고개만 돌렸다가 돌아선다
-//   follow  처음부터 아바타를 따라다니는지. 메뉴로 다른 일을 시키면 그 일을 한다
+// 무엇을 하며 지내는지는 이 값으로 종류가 정하고, 사용자가 시키지 않는다(2026-11-24까지는 펫 창과 오른쪽 단추 메뉴로 시켰다).
+//   follow  혼자 놀지 않고 늘 아바타를 따라다니는지. 따라다니는 종류는 아래에서 혼자 놀 때라고 적은 값을 쓰지 않는다
 //   edge    혼자 놀 때 벽 앞(벽에 붙은 줄 바로 앞 줄)이나 가구 옆 칸을 골라 가는지. 갈 수 있는 거리에 그런 칸이 없으면 아무 칸으로 간다
 //   rest    혼자 놀 때 앉아 있다가 다시 걷기까지 기다리는 시간의 범위 [ms, ms]
 //   hop     혼자 놀 때 한 번에 걷는 거리의 범위(길을 따라 센 칸 수)
@@ -41,16 +43,17 @@ export const DEFAULT_PET = 'cat/gray';
 //   peck    혼자 놀며 앉아 있는 동안 가끔 머리를 숙여 바닥을 쪼는지
 //   perch   혼자 놀다가 가끔 가구 윗면(data/furniture.js의 perch)에 뛰어올라 웅크리고 쉬는지. 웅크린 그림(loaf)이 있어야 켠다.
 //           얼마나 자주 올라가고 얼마나 머무는지는 src/config.js의 PERCH에 있다
-export const DEFAULT_MOOD = { obey: true, follow: false, edge: false, rest: [10000, 20000], hop: [2, 4], pop: false, peck: false, perch: false };
+export const DEFAULT_MOOD = { follow: false, edge: false, rest: [10000, 20000], hop: [2, 4], pop: false, peck: false, perch: false };
 
 export const PET_SPECIES = [
-  // 강아지. 귀가 늘어지고 주둥이가 밝다. 명령을 잘 듣고, 혼자 놀 때도 자주 멀리 돌아다닌다
+  // 강아지. 귀가 늘어지고 주둥이가 밝다. 사람을 좋아해 병아리처럼 처음부터 아바타를 따라다닌다
   {
     id: 'dog',
     name: '강아지',
     breath: 16,
     sound: 'pet-dog',
-    mood: { rest: [6000, 12000], hop: [2, 5] },
+    mood: { follow: true },
+    trait: '사람을 좋아하고 애교가 많습니다.',
     colors: [
       { id: 'brown', name: '갈색', b: '#e8bf8c', d: '#d4a26e', w: '#fdf0dc', m: '#b98256', e: '#4b3426', c: '#ff9fb2' },
       { id: 'cream', name: '크림', b: '#f7ecd8', d: '#e5d3b5', w: '#fffbf3', m: '#e8c39a', e: '#4b3c34', c: '#ffaebf' },
@@ -124,14 +127,15 @@ export const PET_SPECIES = [
       '....sssssssssssssss.....',
     ],
   },
-  // 고양이. 귀가 서고 이마에 줄무늬, 분홍 코 아래에 ㅅ자 입이 있다. 제멋대로라 명령을 받으면 쳐다보기만 하고 따르지 않고,
+  // 고양이. 귀가 서고 이마에 줄무늬, 분홍 코 아래에 ㅅ자 입이 있다.
   // 혼자 놀다가 침대나 책상 같은 가구 위에 뛰어올라 웅크리고(loaf) 있는다
   {
     id: 'cat',
     name: '고양이',
     breath: 16,
     sound: 'pet-cat',
-    mood: { obey: false, perch: true },
+    mood: { perch: true },
+    trait: '높은 곳에 올라가 쉬는 것을 좋아합니다.',
     colors: [
       { id: 'gray', name: '회색', b: '#c5cada', d: '#a8aec3', w: '#f6f4f0', m: '#959cb3', e: '#3c3a4c', c: '#ffaec4' },
       { id: 'cheese', name: '치즈', b: '#f8cc94', d: '#eab274', w: '#fff4e4', m: '#e79a5b', e: '#4b3326', c: '#ff9fb0' },
@@ -236,6 +240,7 @@ export const PET_SPECIES = [
     breath: 15,
     sound: 'pet-guineapig',
     mood: { edge: true, pop: true },
+    trait: '겁이 많고 구석진 곳을 좋아합니다.',
     colors: [
       { id: 'golden', name: '골든', b: '#f5c98e', d: '#e5ad6e', w: '#fff6e8', m: '#e1a066', e: '#3d2b22', c: '#ff9fb4' },
       { id: 'white', name: '흰색', b: '#f3f1ef', d: '#ddd8d3', w: '#ffffff', m: '#f2c896', e: '#3b3642', c: '#ffafc1' },
@@ -317,6 +322,7 @@ export const PET_SPECIES = [
     breath: 15,
     grow: 'chicken',
     mood: { follow: true },
+    trait: '처음 본 사람을 어미로 여깁니다.',
     colors: [
       { id: 'yellow', name: '노랑', b: '#fbe38a', d: '#f0cc63', w: '#fff6cc', m: '#f7a74f', e: '#3e3222', c: '#ffa2a8' },
       { id: 'brown', name: '갈색', b: '#e9c896', d: '#d8ae78', w: '#faeedb', m: '#f3a256', e: '#3d2c22', c: '#ffa1ad' },
@@ -399,6 +405,7 @@ export const PET_SPECIES = [
     sound: 'pet-chicken',
     grown: '벌써 닭이 됐네!',
     mood: { peck: true, rest: [5000, 10000], hop: [1, 3] },
+    trait: '바닥을 쪼며 부지런히 돌아다닙니다.',
     colors: [
       { id: 'yellow', name: '흰색', b: '#fbf9f4', d: '#e7e1d6', w: '#ffffff', m: '#f9c14e', e: '#3f3a3a', c: '#ff6f7b' },
       { id: 'brown', name: '갈색', b: '#dcab80', d: '#c99164', w: '#f5e0c9', m: '#f9c14e', e: '#3d2a20', c: '#ff6f7b' },
@@ -480,6 +487,7 @@ export const PET_SPECIES = [
     breath: 15,
     sound: 'pet-bird',
     mood: { edge: true },
+    trait: '조심성이 많아 벽 쪽으로 다닙니다.',
     colors: [
       { id: 'gray', name: '회색', b: '#b4bdd0', d: '#98a2ba', w: '#dde2ec', m: '#9fd8c6', e: '#33364a', c: '#ffa3b6' },
       { id: 'white', name: '흰색', b: '#f6f4f1', d: '#e2ddd5', w: '#ffffff', m: '#e6daf0', e: '#45404c', c: '#ffaebf' },
@@ -598,12 +606,14 @@ export const PET_SPECIES = [
       '...................oo...',
     ],
   },
-  // 코끼리. 큰 귀가 머리 뒤로 나오고 코가 왼쪽으로 말린다. 무늬(m) 색은 귀 안쪽이다. 명령을 잘 듣는다(성격은 기본값)
+  // 코끼리. 큰 귀가 머리 뒤로 나오고 코가 왼쪽으로 말린다. 무늬(m) 색은 귀 안쪽이다. 느긋해서 오래 쉬고 한두 칸씩 걷는다
   {
     id: 'elephant',
     name: '코끼리',
     breath: 16,
     sound: 'pet-elephant',
+    mood: { rest: [20000, 35000], hop: [1, 2] },
+    trait: '느긋해서 서두르는 법이 없습니다.',
     colors: [
       { id: 'gray', name: '회색', b: '#bcc5da', d: '#a0aac4', w: '#e1e7f2', m: '#f2bccb', e: '#353a52', c: '#ffb0c4' },
       { id: 'pink', name: '분홍', b: '#f7c6d6', d: '#e9a9bf', w: '#fde5ee', m: '#f0a3bd', e: '#4b2f3e', c: '#ff8fb0' },
@@ -677,12 +687,13 @@ export const PET_SPECIES = [
       '....sssssssssssssss.....',
     ],
   },
-  // 코알라. 둥근 귀에 흰 털이 있고 코가 크다. 하루 대부분을 쉬는 코알라처럼 오래 앉아 있다가 한두 칸만 움직인다
+  // 코알라. 둥근 귀에 흰 털이 있고 코가 크다. 하루 대부분을 쉬는 코알라처럼 코끼리보다 더 오래 앉아 있다가 한두 칸만 움직인다
   {
     id: 'koala',
     name: '코알라',
     breath: 16,
     mood: { rest: [30000, 60000], hop: [1, 2] },
+    trait: '하루 대부분을 쉬면서 보냅니다.',
     colors: [
       { id: 'gray', name: '회색', b: '#b9bac8', d: '#9d9eb0', w: '#f3f1f4', m: '#8e8fa3', e: '#33303f', c: '#ffb0c4' },
       { id: 'brown', name: '갈색', b: '#cfb197', d: '#b8977b', w: '#f8efe6', m: '#a3836a', e: '#3a2c26', c: '#ffa8b8' },
@@ -756,11 +767,13 @@ export const PET_SPECIES = [
       '....sssssssssssssss.....',
     ],
   },
-  // 공룡. 서서 앉고, 가시가 머리 꼭대기에서 꼬리까지 이어진다. 무늬(m) 색은 가시다. 명령을 잘 듣는다(성격은 기본값)
+  // 공룡. 서서 앉고, 가시가 머리 꼭대기에서 꼬리까지 이어진다. 무늬(m) 색은 가시다. 힘이 넘쳐 조금만 쉬고 자주, 멀리 돌아다닌다
   {
     id: 'dino',
     name: '공룡',
     breath: 15,
+    mood: { rest: [5000, 9000], hop: [3, 6] },
+    trait: '힘이 넘쳐 여기저기 돌아다닙니다.',
     colors: [
       { id: 'green', name: '초록', b: '#a8dc98', d: '#8cc57d', w: '#f3f6c9', m: '#f4b06e', e: '#2c3b2b', c: '#ffa9b8' },
       { id: 'mint', name: '민트', b: '#a3ded6', d: '#84c7bd', w: '#ecfaf4', m: '#f4a4c0', e: '#27403c', c: '#ffa9bf' },

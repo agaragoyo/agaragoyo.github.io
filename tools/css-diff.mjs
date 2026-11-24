@@ -391,8 +391,8 @@ async function main() {
   await page.run(() => { const f = document.querySelector('.name-app form'); f.querySelector('input').value = ''; f.requestSubmit(); });
   await check('이름 바꾸기와 오류');
   await closeWindows();
-  // 오른쪽 단추 메뉴. 펫에는 점을 찍는 줄과 나누는 줄이, 창에는 굵은 줄과 회색 줄이, 새 탭으로 여는 아이콘에는 바깥 화살표가 있다
-  await openMenu('펫', '#wallpaper .room-pet path:not(.shade)', '[aria-checked="true"]');
+  // 오른쪽 단추 메뉴. 펫에는 굵은 줄이, 창에는 굵은 줄과 회색 줄과 나누는 줄이, 새 탭으로 여는 아이콘에는 바깥 화살표가 있다
+  await openMenu('펫', '#wallpaper .room-pet path:not(.shade)', '.main');
   await closeMenu();
   await openIcon('music');
   await sleep(300);

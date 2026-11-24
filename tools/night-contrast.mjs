@@ -15,7 +15,7 @@
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
 // 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)을 재고 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
-// 마지막으로 오른쪽 단추 메뉴 두 가지를 잰다. 방의 펫을 눌러 뜨는 할 일 메뉴(openPetMenu)와 창 제목 줄을 눌러 뜨는 창 메뉴(openWindowMenu, 회색 줄이 있다)다.
+// 마지막으로 오른쪽 단추 메뉴 두 가지를 잰다. 방의 펫을 눌러 뜨는 메뉴(openPetMenu, 굵은 쓰다듬기 한 줄)와 창 제목 줄을 눌러 뜨는 창 메뉴(openWindowMenu, 회색 줄이 있다)다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
@@ -27,7 +27,7 @@ const ERAS = ['2005'];
 // 바탕화면에서 두 번 눌러 여는 아이콘이다(data/apps.js의 id). 이 순서대로 열어 마지막 창이 앞에 온다.
 // shu-ramen은 게임 폴더 창 안의 새 탭 앱이라 누르면 새 탭 확인 창이 열린다.
 // labs(실험실)는 암호를 말해야 아이콘이 생기므로, 열기 전에 설정으로 실험실을 연다(openLabs).
-// pet(펫 창)은 새 사용자라 기본 펫(회색 고양이)이 있어 큰 그림, 할 일 단추, 색 묶음이 다 보인다. 2026-11-18까지는 시작 메뉴의 펫 바꾸기 창을 따로 열었다.
+// pet(펫 창)은 새 사용자라 기본 펫(회색 고양이)이 있어 큰 그림, 쓰다듬기 단추와 성격 한 줄, 색 묶음이 다 보인다. 2026-11-18까지는 시작 메뉴의 펫 바꾸기 창을 따로 열었다.
 // 아이콘이 아닌 곳에서 여는 창(사진 바꾸기, 이름 바꾸기, 이웃집 목록)은 main에서 여는 함수(openUserWindow, openNeighborList)로 차례로 연다.
 const OPEN = ['games', 'room', 'share', 'music', 'labs', 'shu-ramen', 'pet'];
 // 가구를 두 번 눌러 여는 화면(가구 가까이 보기와 가구 창). 점검용 집의 가구로 연다.
@@ -136,7 +136,7 @@ function openStartMenu() {
   return !menu.hidden;
 }
 
-// 방의 펫(src/pet.js)을 오른쪽 단추로 눌러 할 일 메뉴를 연다. 지금 보이는 그림 장의 칠한 칸에 contextmenu를 보낸다
+// 방의 펫(src/pet.js)을 오른쪽 단추로 눌러 메뉴를 연다. 지금 보이는 그림 장의 칠한 칸에 contextmenu를 보낸다
 function openPetMenu() {
   const path = [...document.querySelectorAll('#wallpaper .room-pet g[data-frame] path:not(.shade)')].find(p => p.parentElement.style.display !== 'none');
   if (!path) return false;
@@ -448,7 +448,7 @@ async function main() {
       await sleep(150);
     }
     // 오른쪽 단추 메뉴(src/context-menu.js). 시작 메뉴처럼 무대에 뜨고 밤에는 창 바탕색을 쓴다. 밤으로 바꿔도 방을 다시 그리지 않아서
-    // 메뉴가 열린 채로 낮과 밤을 잰다. 점을 찍는 줄이 든 펫의 할 일 메뉴와, 굵은 줄과 회색 줄이 든 창 메뉴를 잰다
+    // 메뉴가 열린 채로 낮과 밤을 잰다. 굵은 줄 하나인 펫의 메뉴와, 굵은 줄과 회색 줄이 든 창 메뉴를 잰다
     const closeMenu = () => page.run(() => document.querySelector('.ctx-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     if (!(await page.run(openPetMenu))) throw new Stop('방의 펫을 오른쪽 단추로 눌러도 메뉴(.ctx-menu)가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 openPetMenu도 고친다.');
     await measure('펫 메뉴');
