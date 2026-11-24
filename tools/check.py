@@ -825,6 +825,10 @@ def check_door():
 
 
 # ---------- 저장소 키 ----------
+PET_TRAIT_MAX = 25  # 펫 창에 보이는 성격 한 줄의 글자 수 한도(공백을 넣어 센다)
+PET_FREE_ONLY = ('edge', 'rest', 'hop', 'peck', 'perch')  # 혼자 놀 때만 쓰는 성격 값
+
+
 def check_pets():
     """data/pets.js 의 펫 그림이 24×20칸이고 정해진 글자만 쓰는지, 색표가 빠짐없는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
     설정에는 '<종류>/<색>'으로 남으므로 종류와 색의 id가 겹치지 않는지, 기본 펫(DEFAULT_PET)이 목록에 있는지도 본다.
@@ -832,7 +836,8 @@ def check_pets():
     펫 창의 종류와 색 단추는 모두 네 글자 폭이라(src/apps/pet-app.js의 LABEL_W) 종류와 색의 이름이 네 글자를 넘지 않는지 본다.
     자라는 종류(grow)는 자란 종류가 목록에 있고 더 자라지 않는지, 색 id가 같은지(자라도 고른 색이 이어진다),
     자란 종류에 그때 아바타가 할 말(grown, 말풍선 한 줄 13자까지)이 있는지 본다.
-    쓰다듬을 때 내는 소리(sound)는 src/sound.js 의 효과음(EFFECTS) 이름인지 본다(없는 이름이면 play가 아무 소리 없이 넘어간다)."""
+    쓰다듬을 때 내는 소리(sound)는 src/sound.js 의 효과음(EFFECTS) 이름인지 본다(없는 이름이면 play가 아무 소리 없이 넘어간다).
+    펫 창에 보이는 성격 한 줄(trait)이 종류마다 있고, 합쇼체 한 문장("~니다.")이며 PET_TRAIT_MAX 자를 넘지 않는지 본다."""
     where = 'data/pets.js'
     text = read(where)
     effects = set(re.findall(r"^  '?([a-z0-9-]+)'?: \{ files:", read('src/sound.js'), re.M))
@@ -864,6 +869,11 @@ def check_pets():
         m = re.search(r"^    grown: '([^']*)',", body, re.M)
         if m:
             grown[kid] = m.group(1)
+        m = re.search(r"^    trait: '([^']*)',", body, re.M)
+        if not m:
+            err(where, f"{kid}: 성격 한 줄(trait: '...')이 없다. 펫 창의 쓰다듬기 단추 옆에 보인다")
+        elif len(m.group(1)) > PET_TRAIT_MAX or not re.fullmatch(r'[^.?!]+니다\.', m.group(1)):
+            err(where, f'{kid}: 성격 한 줄 "{m.group(1)}"({len(m.group(1))}자)은 "~니다."로 끝나는 한 문장이고 {PET_TRAIT_MAX}자까지다')
         m = re.search(r"^    sound: '([^']*)',", body, re.M)
         if m and m.group(1) not in effects:
             err(where, f"{kid}: 쓰다듬을 때 내는 소리 '{m.group(1)}' 가 src/sound.js 의 효과음(EFFECTS)에 없다")
@@ -920,8 +930,9 @@ def check_pets():
 
 def check_pet_moods(where, text, blocks):
     """data/pets.js 의 성격(mood)이 기본값(DEFAULT_MOOD)에 있는 이름만 쓰고 값의 모양이 같은지 본다.
-    src/pet.js는 기본값 위에 종류의 값을 덮어 읽으므로, 이름을 잘못 쓰면(obay) 아무 오류 없이 기본값대로 움직인다.
-    켜고 끄는 값은 true나 false, 범위는 [작은 수, 큰 수]이고, 걷는 칸 수(hop)는 1칸 이상 6칸 이하다."""
+    src/pet.js는 기본값 위에 종류의 값을 덮어 읽으므로, 이름을 잘못 쓰면(folow) 아무 오류 없이 기본값대로 움직인다.
+    켜고 끄는 값은 true나 false, 범위는 [작은 수, 큰 수]이고, 걷는 칸 수(hop)는 1칸 이상 6칸 이하다.
+    늘 따라다니는 종류(follow)에 혼자 놀 때만 쓰는 값(PET_FREE_ONLY)을 적으면 쓰이지 않으므로 알린다."""
     entry = re.compile(r'(\w+): (true|false|\[(\d+), (\d+)\])')
 
     def parse(body):
@@ -955,6 +966,10 @@ def check_pet_moods(where, text, blocks):
                 err(where, f'{kid}: 성격 {k} 의 범위는 [작은 수, 큰 수] 차례로 쓴다')
             elif k == 'hop' and not 1 <= v[0] <= v[1] <= 6:
                 err(where, f'{kid}: 걷는 칸 수(hop)는 1칸 이상 6칸 이하다')
+        if mood.get('follow') is True:
+            for k in PET_FREE_ONLY:
+                if k in mood:
+                    err(where, f'{kid}: 따라다니는 종류(follow)는 혼자 놀지 않아 성격 {k} 를 쓰지 않는다. 지운다')
         if mood.get('perch') is True and not re.search(r'^    loaf: \[', body, re.M):
             err(where, f'{kid}: 가구에 올라가는 펫(perch)은 가구 위에서 쓰는 웅크린 그림(loaf)이 있어야 한다')
 

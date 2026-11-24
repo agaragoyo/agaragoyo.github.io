@@ -9,7 +9,7 @@
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
 // 내 집으로 심어 다시 들어간다. 그 뒤 아이콘과 창 제목 줄과 가구의 두 번 누르기, 아바타의 키, 현관문, 자리마다의 오른쪽 단추 메뉴(손님 화면 포함), 기본 앱 창, 시작 메뉴의 사진 바꾸기(내 그림)와 이름 바꾸기,
 // 미니게임 창(친구 집의 주인 기록과 겨루기와 쪽지 단추 포함), 창이 뒤로 갈 때 소리 끄기, 말풍선 암호 분신사바의 공포 모드와 스탠드로 풀기, 말풍선 암호 999999999로 부르는 비둘기 떼(현관문과 창문, 서로 띄워 앉기, 차례로 우는 구구, 다가가면 모두 날아가기, 움직임 줄이기),
-// 내 방의 펫(펫 창의 상태와 단추, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 병아리가 닭으로 자라기, 오른쪽 단추 메뉴의 따라오기와 기다리기, 명령을 듣지 않는 고양이),
+// 내 방의 펫(펫 창의 상태와 성격 한 줄, 종류와 색 고르기, 쓰다듬기와 그때 부르는 종류마다의 소리 파일, 종류마다의 움직임(따라다니는 강아지와 병아리, 걷는 칸 수), 병아리가 닭으로 자라기, 오른쪽 단추 메뉴),
 // 가구 가까이 보기(TV의 소문 띠, 시험지의 문제 내기와 손님의 채점 포함), 방 꾸미기의 끌기와 돌리기와 눌러서 집고 놓기, 연습 방에서 튜토리얼을 첫 단계부터 끝까지 하기(말하기 단계를 아바타 누르기와 Enter로 열어 보고, 그때 말한 암호가 숨은 기능을 열지 않는지 포함),
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
@@ -630,17 +630,12 @@ function watchPoses() {
   }).observe(p, { subtree: true, attributes: true, attributeFilter: ['style'] });
 }
 
-// 펫의 오른쪽 단추 메뉴(src/pet.js의 showMenu)에 든 줄. 지금 하는 일 앞에는 *를 붙인다. 메뉴가 없으면 null
-function petMenu() {
-  const m = document.querySelector('.ctx-menu');
-  return m ? [...m.querySelectorAll('.ctx-menu-item')].map(b => `${b.getAttribute('aria-checked') === 'true' ? '*' : ''}${b.textContent}`).join(',') : null;
-}
-// 떠 있는 오른쪽 단추 메뉴(src/context-menu.js)의 줄. 굵은 줄 앞에는 !, 회색 줄 앞에는 ~, 점을 찍은 줄 앞에는 *를 붙이고
+// 떠 있는 오른쪽 단추 메뉴(src/context-menu.js)의 줄. 굵은 줄 앞에는 !, 회색 줄 앞에는 ~를 붙이고
 // 새 탭으로 가는 줄 끝에는 ↗를 붙여 쉼표로 잇는다. 메뉴가 없으면 null
 function ctxMenu() {
   const m = document.querySelector('.ctx-menu');
   return m ? [...m.querySelectorAll('.ctx-menu-item')].map(b => [b.classList.contains('main') ? '!' : '', b.disabled ? '~' : '',
-    b.getAttribute('aria-checked') === 'true' ? '*' : '', b.textContent, b.classList.contains('external') ? '↗' : ''].join('')).join(',') : null;
+    b.textContent, b.classList.contains('external') ? '↗' : ''].join('')).join(',') : null;
 }
 // sel 요소를 오른쪽 단추로 누른다(가운데에 contextmenu를 보낸다). 브라우저의 메뉴를 막았는지(defaultPrevented)를 돌려주고, 요소가 없으면 null
 function rightClick(sel) {
@@ -660,7 +655,7 @@ function rightClickPet() {
   path.dispatchEvent(e);
   return e.defaultPrevented;
 }
-// 펫 창(src/apps/pet-app.js)의 글과 단추. 숨은 줄은 null이다. pressed는 눌린 할 일 단추(src/pet.js의 ORDERS), off는 누를 수 없는 단추 수. 창이 없으면 null
+// 펫 창(src/apps/pet-app.js)의 글과 단추. 숨은 줄은 null이다. buttons는 큰 그림 아래의 단추들의 글, off는 그 가운데 누를 수 없는 단추 수, trait는 그 옆의 성격 한 줄. 창이 없으면 null
 function petWindow() {
   const b = document.querySelector('.pet-app');
   if (!b) return null;
@@ -672,10 +667,32 @@ function petWindow() {
     pats: shown(pats),
     grow: shown(grow),
     care: !b.querySelector('.pet-care').hidden,
-    pressed: [...b.querySelectorAll('.pet-orders [aria-pressed="true"]')].map(x => x.dataset.order).join(),
-    off: [...b.querySelectorAll('.pet-orders .btn')].filter(x => x.disabled).length,
-    tip: b.querySelector('.pet-care > .meta').textContent,
+    buttons: [...b.querySelectorAll('.pet-care .btn')].map(x => x.textContent).join(),
+    off: [...b.querySelectorAll('.pet-care .btn')].filter(x => x.disabled).length,
+    trait: b.querySelector('.pet-care > .meta').textContent,
   };
+}
+// 방의 펫이 한 번 걷는 칸 수. 앉아 있다가 걷기 시작해 다시 앉을 때까지 발끝이 든 칸이 바뀐 수를 20ms마다 센다(한 칸은 0.4초 걸린다).
+// 걷고 있을 때 부르면 앉은 뒤의 다음 걸음부터 센다. ms 안에 다 걷지 않으면 null
+async function petTrip(ms) {
+  const p = document.querySelector('#wallpaper .room-pet');
+  const walks = () => /^walk/.test([...p.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame || '');
+  const cell = () => { const s = (parseFloat(p.style.left) - 640) / 36, t = (parseFloat(p.style.top) - 270) / 18 - 1; return `${Math.round((s + t) / 2)},${Math.round((t - s) / 2)}`; };
+  const t0 = performance.now();
+  let at = null; // 앉은 모습을 본 뒤부터 지금 칸
+  let steps = 0;
+  while (performance.now() - t0 < ms) {
+    const c = cell();
+    if (!walks()) {
+      if (steps) return steps;
+      at = c;
+    } else if (at && c !== at) {
+      steps += 1;
+      at = c;
+    }
+    await new Promise(r => setTimeout(r, 20));
+  }
+  return null;
 }
 // 내 아바타의 말풍선 글(떠 있을 때만)
 const avatarSays = () => { const s = document.querySelector('#wallpaper .room-avatar-say:not(.room-pet-say)'); return s && !s.hidden ? s.textContent : null; };
@@ -740,6 +757,40 @@ function watchFlock() {
   clearInterval(window.__flockTimer);
   scan();
   window.__flockTimer = setInterval(scan, 20);
+}
+
+// 비둘기 떼가 언제 걷는지 지켜본다(page.run으로 건다). 비둘기 수(birds), 마지막 비둘기가 내려앉은 때(landed), 앉은 비둘기가 처음 걸은 때(walked),
+// 내려앉은 칸에서 가장 멀리 간 칸 수(far), 떼가 날아오르기 시작하고 한 걸음(0.4초)이 지난 뒤에도 걷던 횟수(late)를 window.__flockWalk에 적는다
+function watchFlockWalk() {
+  const layer = document.getElementById('wallpaper');
+  const cellOf = el => { const s = (parseFloat(el.style.left) - 640) / 36, t = (parseFloat(el.style.top) - 270) / 18 - 1; return { x: (s + t) / 2, y: (t - s) / 2 }; };
+  const home = new Map(); // 비둘기마다 내려앉은 칸
+  const w = window.__flockWalk = { birds: 0, landed: 0, walked: 0, far: 0, late: 0 };
+  let off = 0; // 떼가 날아오르기 시작한 때
+  const scan = () => {
+    const now = performance.now();
+    for (const b of layer.querySelectorAll('.room-pet[data-pet^="pigeon/"]')) {
+      if (b.classList.contains('flying')) {
+        if (home.has(b)) off ||= now;
+        continue;
+      }
+      const c = cellOf(b);
+      if (!home.has(b)) {
+        home.set(b, { x: Math.round(c.x), y: Math.round(c.y) });
+        w.birds += 1;
+        w.landed = now;
+      }
+      const frame = [...b.querySelectorAll('g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame || '';
+      if (/^walk/.test(frame)) {
+        w.walked ||= now;
+        if (off && now - off > 450) w.late += 1;
+      }
+      const h = home.get(b);
+      w.far = Math.max(w.far, Math.abs(c.x - h.x), Math.abs(c.y - h.y));
+    }
+  };
+  clearInterval(window.__flockWalkTimer);
+  window.__flockWalkTimer = setInterval(scan, 20);
 }
 
 // 실험실의 심심할 때 혼잣말(src/idle-talk.js)을 지켜본다. 내 아바타의 말풍선에 말이 뜰 때마다 그 말, 뜬 때, 아바타가 선 칸과
@@ -1832,10 +1883,17 @@ async function walk(page, base) {
   check('떼는 한꺼번에 뜨지 않고 조금씩 어긋나게 날아오른다', offs.length === byDoor.count && spread >= 200 && spread <= 3000, JSON.stringify(offs));
   const walkedUp = await page.run(takePetSounds);
   check('아바타가 다가가 놀라 날아갈 때는 떼 전체가 새소리를 한 번만 낸다', walkedUp.played === 'pet-bird', JSON.stringify(walkedUp));
+  // 먼저 내려앉은 비둘기는 떼가 다 내려앉을 때까지 앉아 있고(src/pet.js의 hold), 다 내려앉으면 내려앉은 칸 둘레에서 걷다가, 날아오르기 전에 멈춘다.
+  // 쉬는 시간을 짧게 두어, 붙잡아 두지 않으면 내려앉자마자 걷게 한다
   await pigeonTime(4000);
+  await page.run(async () => { (await import(new URL('src/config.js', document.baseURI).href)).PIGEON.rest = [100, 200]; });
+  await page.run(watchFlockWalk);
   await sayWord('999999999');
   const toStay = await landedFlock();
   check('머무는 시간이 지나면 떼 전체가 날아 나가 방에서 사라진다', toStay.count >= 2 && await pigeonGone(9000), JSON.stringify(toStay));
+  const flockWalk = await page.run(() => { clearInterval(window.__flockWalkTimer); return window.__flockWalk; });
+  check('비둘기는 떼가 다 내려앉은 뒤에야 걷고, 내려앉은 칸에서 두 칸 안으로만 다니다가 떼가 날아오르면 멈춘다', flockWalk.birds === toStay.count && flockWalk.walked >= flockWalk.landed
+    && flockWalk.far > 0.5 && flockWalk.far < 2.1 && flockWalk.late === 0, JSON.stringify(flockWalk)); // 그림 자리는 정수 px라 칸으로 풀면 0.02칸까지 어긋난다
   const quietLeave = await page.run(takePetSounds);
   check('머무는 시간이 다 되어 날아 나갈 때는 새소리를 내지 않는다', quietLeave.played === '' && quietLeave.made === '', JSON.stringify(quietLeave));
   await pigeonTime(60000);
@@ -3044,13 +3102,14 @@ async function walk(page, base) {
 
   // ---------- 펫(F30, 2026-11-17까지 실험실 pet) ----------
   // 고르기 전에는 내 집의 방에만 기본 펫(회색 고양이)이 빈 바닥 칸에 앉는다(src/pet.js). 시작 메뉴의 "펫"이나 바탕화면의 펫 아이콘을 누르면 펫 창(src/apps/pet-app.js)이 열려
-  // 지금 펫과 하는 일, 쓰다듬은 횟수를 보이고, 창의 쓰다듬기와 할 일 단추는 방의 펫에게 닿는다. 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다.
+  // 지금 펫과 하는 일, 쓰다듬은 횟수, 성격 한 줄을 보이고, 창의 쓰다듬기 단추는 방의 펫에게 닿는다. 종류와 색을 누르면 바로 저장되고 방의 펫이 바뀐다.
   // "없음"을 누르면 펫이 사라지고, 종류를 다시 누르면 돌아온다.
   // 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다. 내 아바타는 펫이 앉은 칸에 들어가지 못한다.
   // 병아리는 쓰다듬은 횟수가 열 번이 되면 같은 색의 닭이 되고, 펫 창의 이름과 큰 그림, 병아리 단추도 닭으로 바뀐다.
   // 친구 집에는 펫도 펫 창도 없다. 10~20초마다 걷는 것은 기다리지 않는다(쓰다듬은 뒤 10초는 걷지 않는다).
-  // 펫을 오른쪽 단추로 누르면 할 일 메뉴가 뜬다. 고양이는 명령을 받으면 쳐다보기만 하고, 강아지는 따라오기(아바타 바로 뒤 칸까지 같은 빠르기로,
-  // 아바타의 길을 막지 않는다)와 기다리기(그 칸에서 움직이지 않는다)를 듣는다. 병아리는 처음부터 따라오고 닭이 되면 혼자 논다.
+  // 펫에게 시키는 단추와 메뉴 줄은 없고(2026-11-24에 뺐다) 종류마다의 성격대로 움직인다. 강아지와 병아리는 처음부터 아바타를 따라다니고(바로 뒤 칸까지 같은 빠르기로,
+  // 아바타의 길을 막지 않는다) 병아리가 닭이 되면 따라오기를 멈춘다. 나머지는 따라오지 않고, 한 번에 걷는 칸 수가 종류마다 다르다(공룡은 3~6칸, 코끼리는 1~2칸).
+  // 펫을 오른쪽 단추로 누르면 굵은 쓰다듬기 한 줄이 든 메뉴가 뜬다.
   // 다른 절은 펫을 "없음"으로 두고 돌므로(가구가 놓인 내 집 절) 펫 설정을 비워 고르기 전 모습부터 보고, 끝나면 앞 절이 끝난 설정으로 돌려놓는다
   const petSettings = await page.run(() => localStorage.getItem('agarago.settings'));
   await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings') || '{}'); delete s.pet; localStorage.setItem('agarago.settings', JSON.stringify(s)); });
@@ -3064,21 +3123,25 @@ async function walk(page, base) {
     }
   };
   // 고양이는 방에 처음 나올 때 몫(src/config.js의 PERCH.start)만큼 가구 위에서 시작한다. 아래 확인은 바닥에서 시작하는 고양이를 보므로,
-  // 로그인 화면에서 그 몫을 페이지 안에서 0으로 두고 들어간다(새로 고침하면 돌아온다). 가구 위에서 시작하는 것은 움직임 줄이기 확인에서 본다
+  // 로그인 화면에서 그 몫을 페이지 안에서 0으로 두고 들어간다(새로 고침하면 돌아온다). 가구 위에서 시작하는 것은 움직임 줄이기 확인에서 본다.
+  // 종류의 쉬는 시간(data/pets.js의 mood.rest)도 페이지 안에서 바꾼다(setRest). 길게 두면 확인하는 동안 걷지 않고, 짧게 두면 바로 걷는다
+  const setRest = (id, ms) => page.run(async (id, ms) => {
+    (await import(new URL('data/pets.js', document.baseURI).href)).PET_SPECIES.find(s => s.id === id).mood.rest = [ms, ms];
+  }, id, ms);
   const enterPerch = async start => {
     await open();
     await powerOn();
     await page.run(async n => { (await import(new URL('src/config.js', document.baseURI).href)).PERCH.start = n; }, start);
+    await setRest('cat', 60000);
     await page.run(clickOnce, '.users .user:not(.neighbor)');
     return desktop();
   };
   check('펫: 내 집으로 돌아온다', await enterPerch(0));
   const cat = await waitPet(s => !!s.pet, 3000);
   check('고르기 전에도 내 방의 빈 바닥 칸(벽에 붙은 줄, 가구, 내 아바타가 없는 칸)에 기본 펫(회색 고양이)이 앉는다', cat.floor && !(cat.pet.x === cat.me?.x && cat.pet.y === cat.me?.y) && cat.look === 'cat/gray', JSON.stringify(cat));
-  // 오른쪽 단추 메뉴(src/pet.js의 openMenu). 맨 위의 굵은 줄은 두 번 누를 때 하는 일이고, 지금 하는 일 앞에 점이 찍힌다
-  const { IGNORED } = await page.run(async () => ({ IGNORED: (await import(new URL('src/pet.js', document.baseURI).href)).IGNORED }));
-  check('펫을 오른쪽 단추로 누르면 브라우저 메뉴 대신 쓰다듬기와 할 일 셋이 든 메뉴가 뜨고, 지금 하는 일(혼자 놀기)에 점이 찍혀 있다',
-    (await page.run(rightClickPet)) === true && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
+  // 오른쪽 단추 메뉴(src/pet.js의 showMenu). 줄은 두 번 누를 때 하는 일인 굵은 쓰다듬기 하나다
+  check('펫을 오른쪽 단추로 누르면 브라우저 메뉴 대신 굵은 쓰다듬기 한 줄이 든 메뉴가 뜬다',
+    (await page.run(rightClickPet)) === true && (await page.run(ctxMenu)) === '!쓰다듬기', String(await page.run(ctxMenu)));
   check('펫 메뉴는 무대 안에 뜨고 키를 받는다', await page.run(() => {
     const m = document.querySelector('.ctx-menu');
     const r = m.getBoundingClientRect(), s = document.getElementById('stage').getBoundingClientRect();
@@ -3092,26 +3155,16 @@ async function walk(page, base) {
     && JSON.stringify(await page.run(myCell)) === JSON.stringify(beforeKey));
   await press(page, 'Escape');
   check('Esc를 누르면 펫 메뉴가 닫힌다', await page.run(() => !document.querySelector('.ctx-menu')));
-  // 고양이는 명령을 듣지 않는다. 아바타 쪽을 쳐다보다 돌아서고(그림을 뒤집는다) 아바타가 한마디 한다
-  await page.run(() => {
-    const p = document.querySelector('#wallpaper .room-pet');
-    let was = p.classList.contains('flip');
-    window.__petTurns = 0;
-    new MutationObserver(() => { if (p.classList.contains('flip') !== was) { was = !was; window.__petTurns += 1; } }).observe(p, { attributes: true, attributeFilter: ['class'] });
-  });
-  await page.run(rightClickPet);
-  await page.run(clickText, '.ctx-menu .ctx-menu-item', '따라오게 하기');
-  check('고양이에게 따라오게 하기를 누르면 메뉴가 닫히고 내 아바타가 "따라와!"라고 말한다', (await page.run(avatarSays)) === '따라와!' && await page.run(() => !document.querySelector('.ctx-menu')));
-  check(`고양이는 쳐다보다가 돌아서고, 내 아바타가 "${IGNORED}"라고 말한다`, await until(page, t => document.querySelector('#wallpaper .room-avatar-say:not(.room-pet-say)')?.textContent === t, 3000, IGNORED)
-    && (await page.run(() => window.__petTurns)) >= 1, `돌아본 횟수 ${await page.run(() => window.__petTurns)}`);
+  // 고양이는 따라다니는 성격이 아니라서 아바타가 멀리 가도 앉은 칸에 그대로 있다(쉬는 시간을 1분으로 두어 그사이 스스로 걷지 않는다).
+  // 아바타를 펫에게서 세 칸 이상 떨어진 바닥 칸으로 보내고, 다 걸어갔을 때의 모습을 돌려준다
+  const walkAway = async from => {
+    const to = { x: from.x > 6 ? 3 : 9, y: 9 };
+    await page.run(floorTap, to.x, to.y);
+    return waitPet(s => s.me.x === to.x && s.me.y === to.y, 6000).then(s => ({ ...s, arrived: s.me.x === to.x && s.me.y === to.y }));
+  };
   const catAt = (await page.run(petScene)).pet;
-  await page.run(floorTap, catAt.x > 6 ? 3 : 9, 9);
-  await sleep(1500);
-  const catStays = await page.run(petScene);
-  await page.run(rightClickPet);
-  check('고양이는 따라오지 않고, 메뉴의 점도 혼자 놀게 하기에 그대로 있다', catStays.pet.x === catAt.x && catStays.pet.y === catAt.y
-    && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', JSON.stringify(catStays));
-  await press(page, 'Escape');
+  const catStays = await walkAway(catAt);
+  check('고양이는 아바타가 멀리 걸어가도 따라오지 않고 그 칸에 앉아 있다', catStays.arrived && catStays.pet.x === catAt.x && catStays.pet.y === catAt.y, JSON.stringify(catStays));
   // 가구 위에 올라가기(src/pet.js의 perchTrip, climb, descend, vacate). 고양이는 방에 처음 나올 때 몫(src/config.js의 PERCH.start)만큼 가구 위에서 시작하고,
   // 혼자 놀다 쉬고 일어날 때 가끔 가구 옆 칸까지 걸어가 윗면에 뛰어올라 웅크린다. 아바타가 그 가구를 쓰러 오면 뛰어내리고, 방 꾸미기에서 그 가구를 돌려 놓으면 뛰어내린다.
   // 움직임 줄이기를 켠 사람에게는 뛰지 않고 자리만 바뀐다. 쉬는 시간과 몫(data/pets.js의 mood.rest, src/config.js의 PERCH)은 페이지 안에서 바꾼다(새로 고침하면 돌아온다).
@@ -3144,7 +3197,7 @@ async function walk(page, base) {
   check('방에 처음 나올 때 고양이가 침대 위에 웅크린 채 시작할 수 있다(발끝이 침대 그림 안이고 침대보다 위에 그려진다)', !!startUp && startUp.inside && startUp.above
     && /^loaf/.test(startUp.frame), JSON.stringify(startUp));
   await probe('침대 위의 고양이');
-  check('침대 위에 있는 동안에도 쓰다듬기와 할 일 메뉴가 뜬다', (await page.run(rightClickPet)) === true && (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
+  check('침대 위에 있는 동안에도 쓰다듬기 메뉴가 뜬다', (await page.run(rightClickPet)) === true && (await page.run(ctxMenu)) === '!쓰다듬기', String(await page.run(ctxMenu)));
   await press(page, 'Escape');
   // 아바타가 침대를 쓰러 오면(두 번 누르기) 다 왔을 때 고양이가 침대 둘레의 빈 바닥 칸으로 뛰어내린다. 내려온 뒤에는 5초 쉬어 바로 다시 올라가지 않는다
   await tune([5000, 5000], { odds: 1, stay: [60000, 60000] });
@@ -3208,28 +3261,31 @@ async function walk(page, base) {
     b?.click();
     return !!b;
   })) && await until(page, () => !!document.querySelector('.pet-app'), 3000));
-  // 맨 위에는 지금 펫과 하는 일, 쓰다듬은 횟수를 쓰고 지금 하는 일의 단추가 눌려 있다. 고양이는 명령을 듣지 않아 단추 아래에 그렇다고 적는다
+  // 맨 위에는 지금 펫과 하는 일, 쓰다듬은 횟수를 쓴다. 그 아래 단추는 쓰다듬기 하나이고 그 옆에 종류의 성격 한 줄(data/pets.js의 trait)을 쓴다
+  const petKinds = await page.run(async () => (await import(new URL('data/pets.js', document.baseURI).href)).PET_SPECIES.map(s => ({ id: s.id, name: s.name, trait: s.trait, follow: !!s.mood?.follow })));
+  const traitOf = id => petKinds.find(k => k.id === id).trait;
   const catWin = await page.run(petWindow);
-  check('펫 창 맨 위에 지금 펫(회색 고양이)과 하는 일, 쓰다듬은 횟수가 있고, 혼자 놀게 하기 단추가 눌려 있다', catWin?.name === '회색 고양이' && catWin.doing === '방에서 혼자 놀고 있습니다.'
-    && catWin.pats === '쓰다듬은 횟수 0번' && catWin.grow === null && catWin.care && catWin.pressed === 'free' && catWin.off === 0, JSON.stringify(catWin));
-  check('고양이의 펫 창에는 할 일 단추 아래에 시켜도 쳐다보기만 한다고 적혀 있다', catWin?.tip === '고양이는 시켜도 쳐다보기만 합니다.', catWin?.tip);
+  check('펫 창 맨 위에 지금 펫(회색 고양이)과 하는 일, 쓰다듬은 횟수가 있고, 그 아래 단추는 쓰다듬기 하나다', catWin?.name === '회색 고양이' && catWin.doing === '방에서 혼자 놀고 있습니다.'
+    && catWin.pats === '쓰다듬은 횟수 0번' && catWin.grow === null && catWin.care && catWin.buttons === '쓰다듬기' && catWin.off === 0, JSON.stringify(catWin));
+  check('쓰다듬기 단추 옆에 고양이의 성격이 있다', !!catWin?.trait && catWin.trait === traitOf('cat'), catWin?.trait);
   check('펫 창에 종류 단추 여덟 개(닭은 병아리 단추가 맡는다)와 "없음", 색 단추 네 개가 있고 지금 펫이 골라져 있다', await page.run(() => {
     const rows = [...document.querySelectorAll('.pet-app .pet-row')];
     return rows.length === 2 && rows[0].children.length === 9 && rows[1].children.length === 4
       && [...rows[0].children].map(b => b.textContent).join() === '강아지,고양이,기니피그,병아리,비둘기,코끼리,코알라,공룡,없음'
       && rows[0].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray' && rows[1].querySelector('[aria-pressed="true"]')?.dataset.pet === 'cat/gray';
   }));
-  check('펫 창은 스크롤 없이 다 보이고, 할 일 단추는 한 줄에, 종류 단추는 같은 폭으로 한 줄에 선다', await page.run(() => {
+  check('펫 창은 스크롤 없이 다 보이고, 성격은 쓰다듬기 단추 옆에 한 줄로, 종류 단추는 같은 폭으로 한 줄에 선다', await page.run(() => {
     const b = document.querySelector('.pet-app');
     const kinds = [...document.querySelector('.pet-app .pet-row').children];
-    const orders = [...document.querySelectorAll('.pet-app .pet-orders .btn')];
-    return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth && new Set(orders.map(o => o.offsetTop)).size === 1
+    const care = b.querySelector('.pet-care');
+    const [pat, trait] = care.children;
+    return b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth && care.offsetHeight === pat.offsetHeight && trait.offsetLeft > pat.offsetLeft + pat.offsetWidth
       && new Set(kinds.map(k => k.offsetTop)).size === 1 && new Set(kinds.map(k => k.offsetWidth)).size === 1
       && kinds.every(k => k.lastChild.scrollWidth <= k.clientWidth);
   }));
   await probe('펫 창');
   await page.run(() => document.querySelector('.pet-app .pet-row [data-pet="none"]').click());
-  check('"없음"을 누르면 방의 펫이 바로 사라지고 큰 그림과 할 일 단추, 색 묶음이 숨으며 설정에 남는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')
+  check('"없음"을 누르면 방의 펫이 바로 사라지고 큰 그림과 쓰다듬기 단추, 색 묶음이 숨으며 설정에 남는다', await page.run(() => !document.querySelector('#wallpaper .room-pet')
     && document.querySelector('.pet-big').hidden && document.querySelector('.pet-care').hidden && [...document.querySelectorAll('.pet-app fieldset')][1].hidden
     && document.querySelector('.pet-app .pet-row [data-pet="none"]').getAttribute('aria-pressed') === 'true'
     && JSON.parse(localStorage.getItem('agarago.settings')).pet === 'none'));
@@ -3243,37 +3299,49 @@ async function walk(page, base) {
   await page.run(() => [...document.querySelectorAll('.pet-app .pet-row')][1].querySelector('[data-pet="dog/sky"]').click());
   const picked = await page.run(() => ({ room: document.querySelector('#wallpaper .room-pet')?.dataset.pet, big: document.querySelector('.pet-big')?.dataset.pet, saved: JSON.parse(localStorage.getItem('agarago.settings')).pet }));
   check('펫 창에서 종류와 색을 누르면 바로 저장되고 방의 펫과 창의 큰 그림이 그 펫으로 바뀐다', picked.room === 'dog/sky' && picked.big === 'dog/sky' && picked.saved === 'dog/sky', JSON.stringify(picked));
-  check('강아지처럼 명령을 듣는 펫의 창에는 방에서 오른쪽 단추로 눌러도 시킬 수 있다고 적혀 있다', (await page.run(petWindow))?.tip.includes('오른쪽 단추'), (await page.run(petWindow))?.tip);
-  // 펫 창의 단추는 방의 펫에게 닿는다(src/pet.js의 pat, command). 쓰다듬기를 누르면 두 번 누른 것처럼 아바타가 와서 쓰다듬고, 창의 횟수가 늘며 큰 그림도 눈을 감는다
-  await page.run(clickText, '.pet-app .pet-orders .btn', '쓰다듬기');
+  // 종류마다의 성격(data/pets.js의 mood와 trait). 종류를 차례로 누르면 하는 일과 성격 한 줄이 따라 바뀌고, 따라다니는 종류는 바로 아바타 옆으로 온다.
+  // 공룡은 걷는 칸 수를 보려고 쉬는 시간을 짧게 두고 고른다
+  await setRest('dino', 300);
+  const wrongWins = [];
+  const farFollowers = [];
+  for (const k of petKinds.filter(s => s.id !== 'chicken')) {
+    await page.run(id => document.querySelector(`.pet-app [data-kind="${id}"]`).click(), k.id);
+    await until(page, id => document.querySelector('#wallpaper .room-pet')?.dataset.pet?.startsWith(`${id}/`), 3000, k.id);
+    const w = await page.run(petWindow);
+    if (!w.name.endsWith(` ${k.name}`) || w.trait !== k.trait || w.buttons !== '쓰다듬기' || w.doing !== (k.follow ? '아바타를 따라다니고 있습니다.' : '방에서 혼자 놀고 있습니다.')) wrongWins.push({ id: k.id, ...w });
+    if (k.follow && !(await waitPet(s => s.next && !/^walk/.test(s.frame), 8000)).next) farFollowers.push(k.id);
+  }
+  check('종류를 누를 때마다 펫 창의 하는 일과 성격 한 줄이 그 종류의 것으로 바뀌고, 단추는 늘 쓰다듬기 하나다', wrongWins.length === 0, JSON.stringify(wrongWins));
+  check('종류마다 성격 한 줄이 다르다', new Set(petKinds.map(k => k.trait)).size === petKinds.length);
+  check('따라다니는 종류는 강아지와 병아리뿐이고, 고르면 바로 아바타 옆으로 온다', petKinds.filter(k => k.follow).map(k => k.id).join() === 'dog,chick' && farFollowers.length === 0, farFollowers.join());
+  const dinoTrips = [await page.run(petTrip, 8000), await page.run(petTrip, 8000)];
+  check('공룡은 한 번에 3~6칸을 걷는다', dinoTrips.every(n => n >= 3 && n <= 6), dinoTrips.join());
+  await setRest('elephant', 300);
+  await page.run(() => document.querySelector('.pet-app [data-kind="elephant"]').click());
+  const elephantTrips = [await page.run(petTrip, 8000), await page.run(petTrip, 8000)];
+  check('코끼리는 한 번에 한두 칸만 걷는다', elephantTrips.every(n => n >= 1 && n <= 2), elephantTrips.join());
+  // 펫 창의 쓰다듬기는 방의 펫에게 닿는다(src/pet.js의 pat). 누르면 두 번 누른 것처럼 아바타가 와서 쓰다듬고, 창의 횟수가 늘며 큰 그림도 눈을 감는다.
+  // 쓰다듬는 동안 걷지 않게 코끼리의 쉬는 시간을 길게 바꾸고, 코알라를 골랐다가 다시 골라 처음부터 쉬게 한다
+  await setRest('elephant', 60000);
+  for (const id of ['koala', 'elephant']) await page.run(k => document.querySelector(`.pet-app [data-kind="${k}"]`).click(), id);
+  await waitPet(s => !/^walk/.test(s.frame), 3000);
+  await page.run(clickText, '.pet-app .pet-care .btn', '쓰다듬기');
   const winPat = await waitPet(s => s.heart && s.next, 8000);
   const patWin = await page.run(petWindow);
   const bigShut = await page.run(() => [...document.querySelectorAll('.pet-big g[data-frame]')].find(g => g.style.display !== 'none')?.dataset.frame);
   check('펫 창의 쓰다듬기를 누르면 내 아바타가 와서 쓰다듬고, 창의 쓰다듬은 횟수가 1번이 되며 창의 큰 그림도 눈을 감는다', winPat.heart && winPat.next
     && patWin?.pats === '쓰다듬은 횟수 1번' && /blink/.test(bigShut || ''), JSON.stringify({ winPat, patWin, bigShut }));
   await waitPet(s => !s.heart, 3000);
-  // 할 일 단추는 오른쪽 단추 메뉴의 줄과 같다. 창으로 시키면 메뉴의 점이, 창을 연 채 메뉴로 시키면 창의 하는 일과 눌린 단추가 따라 바뀐다(win.refreshPet)
-  await page.run(clickText, '.pet-app .pet-orders .btn', '따라오게 하기');
-  const toldWords = await page.run(avatarSays);
-  const followWin = await page.run(petWindow);
-  check('펫 창에서 따라오게 하기를 누르면 내 아바타가 "따라와!"라고 말하고, 창의 하는 일과 눌린 단추가 따라오기로 바뀐다', toldWords === '따라와!'
-    && followWin?.doing === '아바타를 따라다니고 있습니다.' && followWin.pressed === 'follow', JSON.stringify({ toldWords, followWin }));
-  check('펫 창으로 시킨 일은 오른쪽 단추 메뉴의 점에도 찍힌다', (await page.run(rightClickPet)) && (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
-  await page.run(clickText, '.ctx-menu .ctx-menu-item', '기다리게 하기');
-  const stayWin = await page.run(petWindow);
-  check('펫 창을 연 채 메뉴로 기다리게 하면 창의 하는 일과 눌린 단추가 기다리기로 바뀐다', stayWin?.doing === '그 자리에서 기다리고 있습니다.' && stayWin.pressed === 'stay', JSON.stringify(stayWin));
-  await page.run(clickText, '.pet-app .pet-orders .btn', '혼자 놀게 하기');
-  check('펫 창에서 혼자 놀게 하기를 누르면 다시 혼자 논다', (await page.run(petWindow))?.pressed === 'free' && (await page.run(avatarSays)) === '가서 놀아!', JSON.stringify(await page.run(petWindow)));
   await closeWindows();
   await probe('펫이 있는 바탕화면');
   await page.run(catchAudio);
   await page.run(clickTwice, '#wallpaper .room-pet');
-  const primedDog = await page.run(petSoundsMade);
+  const primed = await page.run(petSoundsMade);
   const loved = await waitPet(s => s.heart && s.next, 8000);
   check('펫을 두 번 누르면 내 아바타가 바로 옆 칸으로 와서 쓰다듬고, 펫은 눈을 감고 하트가 뜬다', loved.heart && loved.next && /blink/.test(loved.frame), JSON.stringify(loved));
-  const dogSound = await page.run(takePetSounds);
-  check('쓰다듬기를 누른 순간에 그 종류의 소리(강아지는 pet-dog.mp3)를 만들어 둔다(사파리가 막지 않게, src/sound.js의 prime)', primedDog === 'pet-dog', primedDog);
-  check('아바타가 와서 쓰다듬을 때 만들어 둔 그 소리를 한 번 낸다', dogSound.played === 'pet-dog' && dogSound.made === 'pet-dog', JSON.stringify(dogSound));
+  const petSound = await page.run(takePetSounds);
+  check('쓰다듬기를 누른 순간에 그 종류의 소리(코끼리는 pet-elephant.mp3)를 만들어 둔다(사파리가 막지 않게, src/sound.js의 prime)', primed === 'pet-elephant', primed);
+  check('아바타가 와서 쓰다듬을 때 만들어 둔 그 소리를 한 번 낸다', petSound.played === 'pet-elephant' && petSound.made === 'pet-elephant', JSON.stringify(petSound));
   // 펫이 앉은 칸의 바닥을 누르면 바로 옆에 선 아바타는 그 칸에 들어가지 않는다(펫 칸은 지나갈 수 없다)
   await page.run(() => {
     const r = document.querySelector('#wallpaper .room-pet svg').getBoundingClientRect();
@@ -3284,15 +3352,13 @@ async function walk(page, base) {
   });
   await sleep(800);
   const stay = await page.run(petScene);
-  check('펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
+  check('혼자 노는 펫이 앉은 칸을 누르면 내 아바타는 그 칸에 들어가지 않고 옆 칸에 남는다', stay.next && stay.floor, JSON.stringify(stay));
+  await page.run(setSettings, { pet: 'dog/sky', petPats: 0 });
   check('새로 고침해도 고른 펫이 그대로 나온다', (await enterMine()) && await until(page, () => document.querySelector('#wallpaper .room-pet')?.dataset.pet === 'dog/sky', 3000));
-  // 따라오기(src/pet.js의 watch와 retrace). 강아지는 명령을 듣는다. 따라오게 하면 아바타 바로 옆 칸까지 오고, 아바타가 걸으면 지나온 칸을 같은 빠르기로 밟으며
+  // 따라오기(src/pet.js의 watch와 retrace). 강아지는 따라다니는 성격이라 처음부터 아바타 바로 옆 칸에 있고, 아바타가 걸으면 지나온 칸을 같은 빠르기로 밟으며
   // 1~2칸 뒤에서 따라와 바로 뒤 칸에 선다. 따라오는 펫은 아바타의 길을 막지 않아서, 아바타가 펫 칸에 들어가면 펫이 아바타가 나온 칸으로 비킨다
   const isWalk = s => /^walk/.test(s.frame);
-  await page.run(rightClickPet);
-  await page.run(clickText, '.ctx-menu .ctx-menu-item', '따라오게 하기');
-  check('강아지에게 따라오게 하기를 누르면 내 아바타가 "따라와!"라고 말하고 펫이 아바타 바로 옆 칸으로 온다', (await page.run(avatarSays)) === '따라와!'
-    && (await waitPet(s => s.next && !isWalk(s), 6000)).next);
+  check('강아지는 시키지 않아도 처음부터 아바타 바로 옆 칸에 있다', (await waitPet(s => s.next && !isWalk(s), 6000)).next);
   const leadFrom = await page.run(petScene);
   const leadTo = { x: leadFrom.me.x > 6 ? 3 : 9, y: 9 };
   await page.run(floorTap, leadTo.x, leadTo.y);
@@ -3306,25 +3372,8 @@ async function walk(page, base) {
   await page.run(floorTap, dogAt.x, dogAt.y);
   const swapped = await waitPet(s => s.me.x === dogAt.x && s.me.y === dogAt.y && s.next && !isWalk(s), 4000);
   check('따라오는 펫이 선 칸을 누르면 아바타가 그 칸에 들어가고 펫은 비켜 바로 옆에 선다', swapped.me.x === dogAt.x && swapped.me.y === dogAt.y && swapped.next, JSON.stringify(swapped));
-  // 기다리기. 그 칸에 앉아 움직이지 않고, 그 칸은 혼자 놀 때처럼 아바타가 지나가지 못한다
   await page.run(rightClickPet);
-  check('따라오는 동안 메뉴에는 따라오게 하기에 점이 찍혀 있다', (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
-  await page.run(clickText, '.ctx-menu .ctx-menu-item', '기다리게 하기');
-  const stayWords = await page.run(avatarSays);
-  const waitAt = (await page.run(petScene)).pet;
-  await page.run(floorTap, waitAt.x > 6 ? 3 : 9, 9);
-  await sleep(2500);
-  const waited = await page.run(petScene);
-  check('기다리게 하면 내 아바타가 "기다려!"라고 말하고, 아바타가 멀리 가도 펫은 그 칸에 앉아 있는다', stayWords === '기다려!' && waited.pet.x === waitAt.x && waited.pet.y === waitAt.y
-    && Math.abs(waited.me.x - waitAt.x) + Math.abs(waited.me.y - waitAt.y) > 2, JSON.stringify({ stayWords, waitAt, waited }));
-  await page.run(floorTap, waitAt.x, waitAt.y);
-  await sleep(2500);
-  const blockedBy = await page.run(petScene);
-  check('기다리는 펫이 앉은 칸은 아바타가 들어가지 못한다', !(blockedBy.me.x === waitAt.x && blockedBy.me.y === waitAt.y) && blockedBy.pet.x === waitAt.x, JSON.stringify(blockedBy));
-  await page.run(rightClickPet);
-  await page.run(clickText, '.ctx-menu .ctx-menu-item', '혼자 놀게 하기');
-  await page.run(rightClickPet);
-  check('혼자 놀게 하기를 누르면 메뉴의 점이 혼자 놀게 하기로 돌아온다', (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
+  check('따라오는 강아지의 메뉴에도 쓰다듬기 한 줄만 있다', (await page.run(ctxMenu)) === '!쓰다듬기', String(await page.run(ctxMenu)));
   // 소리를 꺼 두고 쓰다듬는다. 새로 고친 뒤라 소리 기록을 다시 건다
   await page.run(catchAudio);
   await page.run(setSettings, { sound: false });
@@ -3333,6 +3382,12 @@ async function walk(page, base) {
   const mutedPat = await page.run(takePetSounds);
   check('소리를 꺼 두면 쓰다듬어도 펫 소리를 만들거나 내지 않는다', mutedPat.played === '' && mutedPat.made === '', JSON.stringify(mutedPat));
   await page.run(setSettings, { sound: true });
+  // 따라오던 강아지를 혼자 노는 종류로 바꾸면 따라오기를 멈춘다(코알라는 30~60초를 쉰다)
+  await waitPet(s => !s.heart, 3000);
+  await page.run(setSettings, { pet: 'koala/gray', petPats: 0 });
+  const koalaAt = (await waitPet(s => s.look === 'koala/gray' && !isWalk(s), 3000)).pet;
+  const koalaStays = await walkAway(koalaAt);
+  check('따라오던 강아지를 코알라로 바꾸면 아바타가 걸어가도 따라오지 않는다', koalaStays.arrived && koalaStays.pet.x === koalaAt.x && koalaStays.pet.y === koalaAt.y, JSON.stringify(koalaStays));
   // 병아리 절은 아바타 옆에 따라와 앉는 병아리가 벽에 붙은 줄에 서지 않게 아바타를 방 가운데로 옮겨 두고 시작한다
   await page.run(floorTap, 6, 9);
   await waitPet(s => s.me.x === 6 && s.me.y === 9 && !s.heart, 6000);
@@ -3347,8 +3402,8 @@ async function walk(page, base) {
   check('병아리의 펫 창에는 닭이 되기까지 남은 횟수가 있다', (await page.run(petWindow))?.grow === '10번 더 쓰다듬으면 닭이 됩니다.', JSON.stringify(await page.run(petWindow)));
   await probe('병아리를 고른 펫 창');
   // 병아리는 처음 본 아바타를 따라다닌다(data/pets.js의 mood.follow). 펫 창이 열려 있어도 메뉴는 창 위에 뜬다
-  check('병아리는 처음부터 아바타 바로 옆으로 따라오고, 메뉴에는 따라오게 하기에 점이 찍혀 있다', (await waitPet(s => s.next && !/^walk/.test(s.frame), 6000)).next
-    && (await page.run(rightClickPet)) && (await page.run(petMenu)) === '쓰다듬기,*따라오게 하기,기다리게 하기,혼자 놀게 하기', String(await page.run(petMenu)));
+  check('병아리는 처음부터 아바타 바로 옆으로 따라오고, 메뉴에는 쓰다듬기 한 줄만 있다', (await waitPet(s => s.next && !/^walk/.test(s.frame), 6000)).next
+    && (await page.run(rightClickPet)) && (await page.run(ctxMenu)) === '!쓰다듬기', String(await page.run(ctxMenu)));
   check('펫 창이 열려 있어도 펫 메뉴가 창 위에 보인다', await page.run(() => {
     const r = document.querySelector('.ctx-menu').getBoundingClientRect();
     return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('.ctx-menu') !== null;
@@ -3365,6 +3420,7 @@ async function walk(page, base) {
   const chickSound = await page.run(takePetSounds);
   check('병아리는 쓰다듬어도 소리를 내지 않고, 누른 순간에 자랄 때 낼 닭 소리만 만들어 둔다', chickSound.played === '' && chickSound.made === 'pet-chicken', JSON.stringify(chickSound));
   await page.run(async () => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ petPats: 9 }); });
+  await setRest('chicken', 60000); // 닭이 된 뒤 스스로 걷지 않아야 따라오기를 멈췄는지 칸으로 알 수 있다
   await page.run(clickTwice, '#wallpaper .room-pet');
   const hen = await waitPet(s => s.look === 'chicken/yellow' && s.heart, 8000);
   check('열 번째로 쓰다듬으면 그 자리에서 같은 색 id의 닭(흰 닭)이 되고 하트가 뜨며, 횟수는 이어서 10이 된다', hen.look === 'chicken/yellow' && hen.heart && hen.floor
@@ -3380,12 +3436,12 @@ async function walk(page, base) {
       && [...tones].every(t => t.dataset.pet.startsWith('chicken/')) && tones[0].getAttribute('aria-pressed') === 'true';
   }));
   const henWin = await page.run(petWindow);
-  check('닭이 되면 펫 창에서 남은 횟수 줄이 사라지고 쓰다듬은 횟수는 10번이며, 하는 일은 혼자 놀기다', henWin?.grow === null && henWin.pats === '쓰다듬은 횟수 10번' && henWin.pressed === 'free',
-    JSON.stringify(henWin));
+  check('닭이 되면 펫 창에서 남은 횟수 줄이 사라지고 쓰다듬은 횟수는 10번이며, 하는 일은 혼자 놀기이고 성격 한 줄이 닭의 것으로 바뀐다', henWin?.grow === null && henWin.pats === '쓰다듬은 횟수 10번'
+    && henWin.doing === '방에서 혼자 놀고 있습니다.' && henWin.trait === traitOf('chicken'), JSON.stringify(henWin));
   await probe('닭이 된 펫 창');
-  await page.run(rightClickPet);
-  check('따라오던 병아리가 닭이 되면 따라다니지 않고 혼자 논다', (await page.run(petMenu)) === '쓰다듬기,따라오게 하기,기다리게 하기,*혼자 놀게 하기', String(await page.run(petMenu)));
-  await press(page, 'Escape');
+  const henAt = (await page.run(petScene)).pet;
+  const henStays = await walkAway(henAt);
+  check('따라오던 병아리가 닭이 되면 아바타가 걸어가도 따라오지 않는다', henStays.arrived && henStays.pet.x === henAt.x && henStays.pet.y === henAt.y, JSON.stringify(henStays));
   await page.run(() => document.querySelector('.pet-app [data-kind="chick"]').click());
   check('닭일 때 병아리 단추를 다시 누르면 닭과 쓰다듬은 횟수가 그대로 있다', JSON.stringify(await petSaved()) === '{"pet":"chicken/yellow","pats":10}', JSON.stringify(await petSaved()));
   await page.run(() => document.querySelector('.pet-app [data-kind="dog"]').click());

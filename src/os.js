@@ -341,16 +341,15 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
         others: () => flock?.birds() || [], // 날아온 비둘기들과 붙어 앉지 않는다
         look: () => settings.get('pet'),
         pat: petPatted,
-        menu: { root: stage, toStage }, // 오른쪽 단추로 누르면 따라오기, 기다리기, 쓰다듬기 메뉴를 시작 메뉴처럼 무대에 띄운다
-        changed: petChanged, // 메뉴로 할 일을 시키면 열린 펫 창의 하는 일도 바뀐다
+        menu: { root: stage, toStage }, // 오른쪽 단추로 누르면 쓰다듬기가 든 메뉴를 시작 메뉴처럼 무대에 띄운다
       });
       pet.attach(os.place === SCENES[0].id);
     }
     petChanged();
   }
-  // 펫 창(src/apps/pet-app.js)이 방의 펫을 읽고 단추로 시킨다. 방에 펫이 없으면 null이다
+  // 펫 창(src/apps/pet-app.js)이 방의 펫을 읽고 단추로 쓰다듬는다. 방에 펫이 없으면 null이다
   os.pet = () => pet;
-  // 펫이 생기거나 사라지거나, 방을 다시 그리거나, 할 일이 바뀌면 열린 펫 창을 다시 그린다(win.refreshPet)
+  // 펫이 생기거나 사라지거나 방을 다시 그리면 열린 펫 창을 다시 그린다(win.refreshPet). 종류가 바뀌어 하는 일이 바뀐 것은 창이 설정 구독으로 안다
   function petChanged() {
     for (const w of os.wm.all()) w.refreshPet?.();
   }

@@ -512,7 +512,7 @@ button { font-family: inherit; }
 /* 오른쪽 단추 메뉴(src/context-menu.js). 바탕화면, 아이콘, 가구, 창 제목 줄, 작업 표시줄 단추, 아바타, 펫이 같이 쓴다.
    윈도우의 바로 가기 메뉴처럼 누른 자리에 뜨고, 시작 메뉴와 같은 층(40)이라 창과 작업 표시줄 위에 뜬다.
    방 상자(.wallpaper)와 창 층은 쌓임 맥락이 따로라 메뉴는 무대(.stage)에 넣는다. 맨 위의 굵은 줄(.main)은 두 번 누를 때 하는 일이고,
-   펫의 할 일처럼 여럿 가운데 하나를 고르는 줄은 지금 고른 것 앞에 점을 찍는다. 지금 할 수 없는 줄(:disabled)은 회색이다 */
+   지금 할 수 없는 줄(:disabled)은 회색이다 */
 .ctx-menu {
   position: absolute;
   z-index: 40;
@@ -524,7 +524,6 @@ button { font-family: inherit; }
 }
 .ctx-menu:focus { outline: none; }
 .ctx-menu-item {
-  position: relative;
   display: block;
   width: 100%;
   padding: 5px 20px 5px 28px;
@@ -541,17 +540,6 @@ button { font-family: inherit; }
 .ctx-menu-item:disabled { color: var(--ctx-off, #8c8a82); cursor: default; }
 /* 새 탭으로 열리는 앱의 열기 줄. 아이콘(.desk-icon.external)처럼 바깥 화살표를 단다(known-issues 32) */
 .ctx-menu-item.external::after { content: '↗'; margin-left: 8px; font-weight: 700; }
-.ctx-menu-item[aria-checked="true"]::before {
-  content: "";
-  position: absolute;
-  left: 11px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  margin-top: -3px;
-  border-radius: 50%;
-  background: currentColor;
-}
 .ctx-menu-sep { margin: 3px 2px; border-top: 1px solid var(--bev-mid); border-bottom: 1px solid var(--bev-hi); }
 .stage[data-theme="night"] .ctx-menu { --ctx-off: #858a9c; border-color: var(--bev-hi); background: var(--win-paper); }
 
@@ -846,7 +834,7 @@ body.moving-window iframe { pointer-events: none; }
 .labs-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .labs-foot .btn { flex: none; }
 /* 펫 창(src/apps/pet-app.js). 위에는 고른 펫을 방의 나무 바닥 색 위에 2배로 그려 숨 쉬고 깜박이는 모습을 보이고, 그 옆에 이름과 하는 일,
-   쓰다듬은 횟수를 쓴다. 그 아래 쓰다듬기와 할 일 단추는 지금 하는 일의 단추를 안으로 들어간 모양으로 보인다(그 시절 도구 모음의 눌린 단추).
+   쓰다듬은 횟수를 쓴다. 그 아래에는 쓰다듬기 단추와 그 종류의 성격 한 줄을 나란히 둔다.
    맨 아래에는 종류와 색 단추를 실험실 창과 같은 묶음(.labs-group)으로 둔다. 단추마다 그 펫을 실제 크기로 그려 누르기 전에 결과가 보이고,
    고른 단추에는 사진 바꾸기 창처럼 파란 테두리를 두른다. 남는 높이는 닫기 단추 위로 보내 단추를 창 아래에 붙인다.
    종류와 색 단추는 모두 같은 폭(--pet-pick, 그림과 네 글자 이름 가운데 넓은 쪽)이라 종류 줄이 창 폭 안에서 한 줄로 선다 */
@@ -854,14 +842,10 @@ body.moving-window iframe { pointer-events: none; }
 .pet-app-head { display: flex; align-items: center; gap: 12px; }
 .pet-status { display: flex; flex-direction: column; gap: 2px; line-height: 1.4; }
 .pet-status b { font-size: 18px; font-weight: normal; }
-.pet-care { display: flex; flex-direction: column; gap: 4px; }
+.pet-care { display: flex; align-items: center; gap: 10px; }
 .pet-care[hidden] { display: none; }
-.pet-orders { display: flex; flex-wrap: wrap; gap: 6px; }
-.pet-orders .btn { padding: 4px 12px; font-size: 15px; }
-/* 쓰다듬기는 할 일 셋과 조금 떨어뜨린다(오른쪽 단추 메뉴의 가름줄) */
-.pet-orders .btn:first-child { margin-right: 10px; }
-.pet-orders .btn[aria-pressed="true"] { background: linear-gradient(#d6d0c5, #ecebe6 30%, #f7f6f2); box-shadow: inset 1px 1px 3px #00000059; }
-.pet-orders .btn:disabled { border-color: #9a9588; background: #e6e3d9; color: #5f5a4d; box-shadow: none; cursor: var(--cur-arrow); }
+.pet-care .btn { flex: none; padding: 4px 12px; font-size: 15px; }
+.pet-care .btn:disabled { border-color: #9a9588; background: #e6e3d9; color: #5f5a4d; box-shadow: none; cursor: var(--cur-arrow); }
 .pet-big { padding: 6px 12px 0; border-radius: 4px; background: var(--floor-a, #c69a6b); }
 .pet-big svg { display: block; width: calc(var(--pet-cell, 2px) * 48); height: calc(var(--pet-cell, 2px) * 40); shape-rendering: var(--pet-render, crispEdges); }
 .pet-row { display: flex; flex-wrap: wrap; gap: 4px; }

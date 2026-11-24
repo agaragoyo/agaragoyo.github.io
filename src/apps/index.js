@@ -21,7 +21,7 @@ export const BUILTIN_APPS = {
   folder: openFolderApp,
   share: openShareApp,
   music: openMusicApp,
-  pet: openPetApp, // 내 방의 펫(F30)을 돌보는 창. 펫의 상태, 쓰다듬기와 할 일, 종류와 색 고르기
+  pet: openPetApp, // 내 방의 펫(F30)을 돌보는 창. 펫의 상태와 성격, 쓰다듬기, 종류와 색 고르기
   mine: openMineApp,
   labs: openLabsApp, // 실험실. 말풍선에 암호를 말한 뒤에만 아이콘이 보인다(src/labs.js)
   // 가구 기믹(data/apps.js의 folder: 'furniture'). 주인이 가구에 담아 둔 것(src/likes.js)을 보여 준다
