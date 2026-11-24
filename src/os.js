@@ -13,6 +13,7 @@ import { mountPet, NO_PET, patted, petChoice } from './pet.js';
 import { visitFlock } from './pigeon.js';
 import { BUILTIN_APPS, openFrameApp, openLinkApp } from './apps/index.js';
 import { startHomeMusic, syncHomeMusic } from './apps/radio-app.js';
+import { openLinkLost } from './apps/share-app.js';
 import { createSdkHost } from './sdk-host.js';
 import { createScreensaver } from './screensaver.js';
 import { createIdleTalk } from './idle-talk.js';
@@ -20,7 +21,7 @@ import { labsOpen } from './labs.js';
 import { trySecret } from './secrets.js';
 import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
-import { sharedId, syncLater, latestNoteAt, notesSeenAt } from './cloud.js';
+import { sharedId, syncLater, latestNoteAt, notesSeenAt, lostRoom, onLost } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
@@ -180,8 +181,27 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     // 짧은 링크나 아이디로 들어간 서버의 방은 로그인 화면의 "최근에 놀러 간 집"으로 기억한다. 이웃집과 내가 올린 방은 거기서 거른다(src/neighbors.js)
     if (mode === 'visit' && boardId) rememberVisit(home, boardId);
     showDesktop();
-    if (mode === 'edit') checkNotes(my);
+    if (mode !== 'edit') return;
+    checkNotes(my);
+    tellLost(my);
   }
+
+  // 이 컴퓨터가 올린 방을 더는 고칠 수 없게 되어 번호를 잊었으면(src/cloud.js의 forget) 내 바탕화면에 안내 창을 띄운다(src/apps/share-app.js의 openLinkLost).
+  // 저절로 뜨는 창이라 튜토리얼 연습 방, 가구 가까이 보기, 화면 보호기, 말하기, 앱(iframe)을 쓰는 동안에는 끼어들지 않고 1초마다 다시 본다.
+  // 튜토리얼은 건너뛰지 않으면 계속 떠 있으므로 기다리지 않는다.
+  // 친구 집이나 로그인 화면에서 잊었으면 내 컴퓨터로 들어올 때(enter) 띄운다.
+  let lostTimer = 0;
+  function tellLost(my) {
+    clearTimeout(lostTimer);
+    const lost = lostRoom();
+    if (!lost || my !== run || os.mode !== 'edit') return;
+    if (el.desktop.hidden || os.realHome || os.closeup || os.saver.showing() || walker?.typing() || document.activeElement?.tagName === 'IFRAME') {
+      lostTimer = setTimeout(() => tellLost(my), 1000);
+    } else {
+      openLinkLost(os, APP_BY_ID.share, lost);
+    }
+  }
+  onLost(() => tellLost(run));
 
   // 주인이 내 컴퓨터로 들어오면 코르크 보드에 새 쪽지가 붙었는지 본다. 서버에서 가장 최근 쪽지 한 장만 읽는다(src/cloud.js의 latestNoteAt).
   // 짧은 링크가 있고 보드를 방에 걸어 두었을 때만 묻는다. 걷는 법 안내가 떠 있으면 그 안내가 사라진 뒤에 알리고,

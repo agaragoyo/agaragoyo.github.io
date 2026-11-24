@@ -186,6 +186,9 @@ async function linkOf(home, owner) {
 // notes: 코르크 보드의 쪽지 찾기에 답할 쪽지들({ name, text }). 하루씩 앞서 붙인 것으로, 색은 차례로 돌린다
 // handles: 아이디마다 { uid, room }(src/cloud.js의 "아이디"). 읽기는 serve와 hold에도 답하고, 만들기와 지우기는 write에만 답한다.
 //   이미 있는 아이디를 다시 만들면 서버처럼 거절한다. 지금 아이디들은 window.__handles, 아이디마다 읽은 횟수는 window.__handleCalls에 있다
+// 거절: window.__cloudRefuse에 { at: 주소에 든 글자, status, body: 답할 글자 }를 넣으면 그 주소로 온 다음 요청 하나에 그렇게 답한다.
+//   window.__cloudOwners는 방마다 올린 사용자 번호다. 로그인한 사용자(fake-uid)와 다른 방을 고치면 서버의 규칙처럼 PERMISSION_DENIED로 막는다.
+//   서버에 있는 방 번호들은 window.__cloudRooms()로 본다
 function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   const real = window.fetch;
   const held = [];
@@ -194,13 +197,23 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   window.__noteBoards = [];
   window.__handles = handles;
   window.__handleCalls = {};
+  window.__cloudRefuse = [];
+  window.__cloudOwners = {};
+  window.__cloudRooms = () => Object.keys(rooms);
   window.__cloudAnswer = () => held.splice(0).forEach(done => done());
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
+  const firestoreError = (status, code) => reply({ error: { code: status, message: 'fake', status: code } }, status);
+  const denied = () => firestoreError(403, 'PERMISSION_DENIED');
   window.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (!u.includes('googleapis.com')) return real(url, opts);
     if (how === 'offline') throw new TypeError('Failed to fetch');
     const write = how === 'write';
+    const refuse = window.__cloudRefuse.findIndex(r => u.includes(r.at));
+    if (refuse >= 0) {
+      const [r] = window.__cloudRefuse.splice(refuse, 1);
+      return new Response(r.body, { status: r.status });
+    }
     if (u.includes('accounts:signUp')) return write ? reply({ idToken: 'fake-token', localId: 'fake-uid', refreshToken: 'fake-refresh', expiresIn: '3600' }) : reply({}, 403);
     if (u.includes('securetoken.googleapis.com')) return write ? reply({ id_token: 'fake-token', user_id: 'fake-uid', refresh_token: 'fake-refresh', expires_in: '3600' }) : reply({}, 403);
     if (u.includes(':runQuery')) {
@@ -211,18 +224,21 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
       } } })));
     }
     if (u.includes(':commit')) {
-      if (!write) return reply({}, 403);
+      if (!write) return denied();
       for (const w of JSON.parse(opts.body).writes) {
         const handle = (w.update?.name?.match(/\/handles\/(.+)$/) || [])[1];
         if (handle) {
-          if (w.currentDocument?.exists === false && handle in handles) return reply({}, 409);
+          if (w.currentDocument?.exists === false && handle in handles) return firestoreError(409, 'ALREADY_EXISTS');
           handles[handle] = { uid: w.update.fields.uid.stringValue, room: w.update.fields.room.stringValue };
           continue;
         }
         const code = w.update?.fields?.code?.stringValue;
         if (code) {
+          const id = w.update.name.split('/').pop();
+          const uid = w.update.fields.uid.stringValue;
+          if ((window.__cloudOwners[id] ??= uid) !== uid) return denied();
           window.__cloudSent.push(code);
-          rooms[w.update.name.split('/').pop()] = code;
+          rooms[id] = code;
         }
       }
       return reply({});
@@ -231,7 +247,7 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
     if (handle) {
       const key = decodeURIComponent(handle);
       if ((opts.method || 'GET') === 'DELETE') {
-        if (!write) return reply({}, 403);
+        if (!write) return denied();
         delete handles[key];
         return reply({});
       }
@@ -241,14 +257,14 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
     }
     const id = (u.match(/\/homes\/([0-9A-Za-z]+)/) || [])[1];
     if ((opts.method || 'GET') === 'DELETE') {
-      if (!write) return reply({}, 403);
+      if (!write) return denied();
       delete rooms[id];
       return reply({});
     }
     window.__cloudCalls[id] = (window.__cloudCalls[id] || 0) + 1;
     if (how === 'hold') await new Promise(done => held.push(done));
     if (how === 'missing' || !(id in rooms)) return reply({}, 404);
-    return reply({ fields: { code: { stringValue: rooms[id] } } });
+    return reply({ fields: { uid: { stringValue: window.__cloudOwners[id] || 'smoke-owner' }, code: { stringValue: rooms[id] } } });
   };
   return true;
 }
@@ -989,6 +1005,87 @@ async function walk(page, base) {
   };
   const openIcon = id => page.run(clickTwice, `#icons .desk-icon[data-app="${id}"]`);
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
+  // 서버가 잠깐 거절해도 올린 방 번호와 계정을 잊지 않고, 정말 고칠 수 없게 되었을 때만 잊고 창으로 알린다(src/cloud.js의 forget, known-issues 119).
+  // 공유하기 창을 연 채, 링크가 없고 fakeCloud('write')가 낀 상태에서 부른다. 끝나면 다시 링크가 없는 상태다
+  async function lostRoom() {
+    const saved = () => JSON.parse(localStorage.getItem('agarago.cloud') || '{}');
+    const makeLink = async () => {
+      await page.run(clickText, '#windows .win .btn', '링크 만들기');
+      return until(page, () => !!JSON.parse(localStorage.getItem('agarago.cloud') || '{}').id, 5000);
+    };
+    // 거절을 차례로 걸어 두고 방을 한 번 따라 올린다(syncNow). 올라갔으면 ok, 아니면 CloudError의 reason을 돌려준다
+    const sync = (code, ...refuse) => page.run(async (text, list) => {
+      const cloud = await import(new URL('src/cloud.js', document.baseURI).href);
+      window.__cloudRefuse = list;
+      const result = await cloud.syncNow(() => text).then(() => 'ok', err => err.reason || String(err));
+      return window.__cloudRefuse.length ? `거절이 ${window.__cloudRefuse.length}개 남음(${result})` : result;
+    }, code, refuse);
+    const rooms = () => page.run(() => window.__cloudRooms().length);
+    const google = (code, status, message = 'fake') => JSON.stringify({ error: { code, message, status } });
+    const commit = (status, body) => ({ at: ':commit', status, body });
+    const token = (status, body) => ({ at: 'securetoken', status, body });
+    const block = '<html>차단된 사이트입니다</html>';
+    const lostWin = () => [...document.querySelectorAll('#windows .win')].find(w => w.querySelector('.win-title').textContent === '공유 링크 끊김')?.querySelector('.win-body').textContent || '';
+
+    const lostFits = () => [...document.querySelectorAll('#windows .win-body')].every(b => b.scrollHeight <= b.clientHeight);
+
+    check('링크를 지운 뒤 다시 만들 수 있다', await makeLink());
+    await page.run(() => { // 아이디도 잊지 않는지 본다
+      const st = JSON.parse(localStorage.getItem('agarago.cloud'));
+      localStorage.setItem('agarago.cloud', JSON.stringify({ ...st, handle: '점검' }));
+    });
+    const before = await page.run(saved);
+    const count = await rooms();
+    const keeps = async (what, want, ...refuse) => {
+      const got = await sync(`smoke-${what}`, ...refuse);
+      const now = await page.run(saved);
+      check(`서버가 ${what}(으)로 한 번 거절해도 방 번호와 계정을 잊지 않는다`, got === want
+        && ['id', 'uid', 'refresh', 'handle', 'sent'].every(k => now[k] === before[k]) && !now.lost && (await rooms()) === count, `${got} ${JSON.stringify(now)}`);
+    };
+    await keeps('저장의 401', 'server', commit(401, google(401, 'UNAUTHENTICATED')));
+    await keeps('로그인의 JSON이 아닌 403', 'server', token(403, block)); // 앞의 401로 토큰을 버렸으므로 로그인부터 다시 한다
+    await keeps('로그인의 키 거절 403', 'server', token(403, google(403, 'PERMISSION_DENIED', 'Requests from this referer are blocked.')));
+    await keeps('로그인의 400', 'server', token(400, google(400, 'INVALID_ARGUMENT', 'INVALID_GRANT_TYPE')));
+    await keeps('로그인의 503', 'server', token(503, block));
+    await keeps('저장의 409', 'server', commit(409, google(409, 'ABORTED')));
+    await keeps('저장의 400', 'server', commit(400, google(400, 'INVALID_ARGUMENT')));
+    await keeps('저장의 JSON이 아닌 403', 'server', commit(403, block));
+    await keeps('저장의 JSON이 아닌 200', 'server', commit(200, block));
+    await keeps('저장의 503', 'server', commit(503, block));
+    await keeps('저장의 429', 'busy', commit(429, google(429, 'RESOURCE_EXHAUSTED')));
+    await keeps('내 방에 온 규칙 거절', 'denied', commit(403, google(403, 'PERMISSION_DENIED')));
+    await keeps('주인을 다시 읽지 못한 규칙 거절', 'denied', commit(403, google(403, 'PERMISSION_DENIED')), { at: `/homes/${before.id}?`, status: 403, body: block });
+    check('거절이 지나가면 같은 번호의 방이 고쳐진다', (await sync('smoke-again')) === 'ok' && (await rooms()) === count && (await page.run(saved)).id === before.id
+      && (await page.run(() => window.__cloudSent.at(-1))) === 'smoke-again');
+
+    // 정말 남의 방: 서버의 방을 다른 사용자가 올린 것으로 바꾼다
+    await page.run(id => { window.__cloudOwners[id] = 'other-uid'; }, before.id);
+    check('서버의 방이 다른 사용자의 것이면 방 번호를 잊는다', (await sync('smoke-other')) === 'lost' && !(await page.run(saved)).id && !(await page.run(saved)).handle);
+    const other = await page.run(saved);
+    check('잊은 방 번호와 까닭을 남기고 계정은 그대로 둔다', other.lost?.id === before.id && other.lost.why === 'OTHER_OWNER' && other.lost.handle === '점검' && other.uid === before.uid && other.refresh === before.refresh);
+    check('방 번호를 잊으면 링크와 아이디를 새로 만들라는 창이 뜬다', await until(page, lostWin, 4000)
+      && (await page.run(lostWin)).startsWith('예전 링크와 아이디로는 고친 방을 볼 수 없습니다.공유하기에서 링크와 아이디를 새로 만들어 보내 주세요.'), await page.run(lostWin));
+    await probe('공유 링크 끊김 창');
+    check('공유 링크 끊김 창이 스크롤되지 않는다', await page.run(lostFits));
+    check('번호를 잊은 뒤에 방을 고쳐도 새 방을 만들지 않는다', (await sync('smoke-after')) === 'ok' && (await rooms()) === count && !(await page.run(saved)).id);
+    await page.run(clickText, '#windows .win .btn', '공유하기 열기');
+    check('공유하기 열기를 누르면 안내 창이 닫히고 공유하기에 링크 만들기가 있다', await until(page, () => document.querySelectorAll('#windows .win').length === 1
+      && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기') && JSON.parse(localStorage.getItem('agarago.cloud')).lost.told === true, 3000));
+
+    // 계정이 없어짐: 새 링크를 만든 뒤 인증 서버가 USER_NOT_FOUND라고 답한다(앞의 401로 토큰을 버리게 한다)
+    check('번호를 잊은 뒤 링크 만들기를 누르면 새 번호로 만든다', await makeLink() && (await rooms()) === count + 1 && (await page.run(saved)).id !== before.id);
+    const second = await page.run(saved);
+    await sync('smoke-stale', commit(401, google(401, 'UNAUTHENTICATED')));
+    check('인증 서버가 USER_NOT_FOUND라고 답하면 방 번호를 잊는다', (await sync('smoke-gone', token(400, google(400, 'INVALID_ARGUMENT', 'USER_NOT_FOUND')))) === 'lost' && !(await page.run(saved)).id);
+    check('계정이 없어져도 따라 올리기는 새 방을 만들지 않는다', (await rooms()) === count + 1 && (await page.run(saved)).lost?.id === second.id && (await page.run(saved)).lost.why === 'USER_NOT_FOUND');
+    check('아이디를 정하지 않은 방이면 링크만 새로 만들라는 창이 뜬다', await until(page, lostWin, 4000)
+      && (await page.run(lostWin)).startsWith('예전 링크로는 고친 방을 볼 수 없습니다.공유하기에서 새 링크를 만들어 보내 주세요.'), await page.run(lostWin));
+    await probe('공유 링크 끊김 창(아이디 없음)');
+    check('공유 링크 끊김 창(아이디 없음)이 스크롤되지 않는다', await page.run(lostFits));
+    await page.run(clickText, '#windows .win .btn', '닫기');
+    check('닫기를 누르면 안내 창만 닫힌다', await until(page, () => document.querySelectorAll('#windows .win').length === 1, 3000) && !(await page.run(lostWin)));
+  }
+
   // 바탕화면의 가구를 두 번 눌러 아바타가 걸어가 쓸 때까지 기다린다.
   // ready는 페이지 안에서 돌고 인자를 받지 않으므로 이 파일의 변수(LONG 같은 것)를 쓰지 못한다. 쓰면 ReferenceError로 점검이 그 자리에서 멈춘다
   const use = async (id, ready, what) => {
@@ -1315,6 +1412,7 @@ async function walk(page, base) {
         && [...document.querySelectorAll('#windows .win .btn')].some(b => b.textContent === '링크 만들기')
         && !JSON.parse(localStorage.getItem('agarago.cloud') || '{}').id, 5000));
       check('링크를 지우면 서버와 이 컴퓨터에서 아이디도 지워진다', await page.run(() => !('점검' in window.__handles) && !JSON.parse(localStorage.getItem('agarago.cloud') || '{}').handle));
+      await lostRoom();
     }
     await closeWindows();
   }

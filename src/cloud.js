@@ -7,7 +7,9 @@
 // 규칙은 레포 맨 위의 firestore.rules에 있고, Firebase 콘솔에 게시한 규칙과 같아야 한다(known-issues 59).
 // API_KEY는 Firebase 웹 설정의 값이라 원래 웹페이지에 공개된다. 데이터는 규칙이 지킨다(AGENTS.md의 "공개 레포").
 // 이 컴퓨터에 남기는 것: { uid, refresh: 익명 로그인, id: 올린 방의 번호, sent: 마지막으로 올린 방 글자, handle: 그 방에 단 아이디,
-//   nick: 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임, seen: 주인이 마지막으로 본 쪽지의 시각(밀리초) }
+//   nick: 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임, seen: 주인이 마지막으로 본 쪽지의 시각(밀리초),
+//   lost: 더는 고칠 수 없어 잊은 방 { id, uid, handle, why: 잊은 까닭, at: 잊은 시각, told: 주인이 안내를 닫았는지 } }
+// 방을 고칠 권한은 여기 남긴 익명 로그인뿐이라 잊으면 되찾을 길이 없다. 서버가 잠깐 거절한 것으로는 잊지 않는다(아래 forget, known-issues 119).
 import { STORAGE_CLOUD } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
@@ -36,12 +38,16 @@ const TIMEOUT = 10000;
 const SYNC_DELAY = 3000; // 방을 고친 뒤 이만큼 더 고치지 않으면 서버의 방도 고친다
 
 // 서버에 닿지 못했거나 서버가 거절한 일. reason은 화면에 낼 말을 고르는 데 쓴다.
-//   offline: 연결이 안 되거나 답이 늦음, missing: 그런 문서가 없음, denied: 규칙이 막음, busy: 하루 무료 한도를 다 씀, server: 서버 오류,
-//   taken: 다른 사람이 먼저 정한 아이디(claimHandle)
+//   offline: 연결이 안 되거나 답이 늦음, missing: 그런 문서가 없음, denied: 규칙이 막음(Firestore가 PERMISSION_DENIED라고 답한 것만),
+//   busy: 하루 무료 한도를 다 씀, server: 서버 오류와 그 밖의 거절(토큰이 잠깐 안 맞은 401, 겹쳐 쓴 409, 학교나 백신의 차단 화면. 다시 해 볼 일이다),
+//   taken: 다른 사람이 먼저 정한 아이디(claimHandle), lost: 이 컴퓨터가 올린 방을 더는 고칠 수 없어 번호를 잊음(forget)
+// status는 HTTP 상태(답을 못 받았으면 0), code는 서버의 오류 글자다(Firestore는 error.status, 인증은 error.message의 첫 낱말. 없으면 빈 글자)
 export class CloudError extends Error {
-  constructor(reason, detail) {
+  constructor(reason, detail, { status = 0, code = '' } = {}) {
     super(`${reason}: ${detail}`);
     this.reason = reason;
+    this.status = status;
+    this.code = code;
   }
 }
 
@@ -55,10 +61,15 @@ async function request(url, opts = {}) {
   } catch (err) {
     throw new CloudError('offline', err.message);
   }
+  const { status } = res;
   const body = await res.json().catch(() => null);
-  if (res.ok) return body;
-  const reason = res.status === 404 ? 'missing' : res.status === 429 ? 'busy' : res.status >= 500 ? 'server' : 'denied';
-  throw new CloudError(reason, body?.error?.message || `HTTP ${res.status}`);
+  if (res.ok && body) return body;
+  const firestore = url.startsWith(DOCS);
+  const error = (Array.isArray(body) ? body[0] : body)?.error; // runQuery는 오류도 배열에 담아 답한다
+  const code = String((firestore ? error?.status : error?.message) ?? '').match(/^[A-Z_]+/)?.[0] || '';
+  const reason = status === 404 ? 'missing' : status === 429 ? 'busy' : firestore && status === 403 && code === 'PERMISSION_DENIED' ? 'denied' : 'server';
+  if (status === 401) session = null; // 토큰이 맞지 않는다. 다음에 할 때 토큰을 새로 받는다
+  throw new CloudError(reason, error?.message || `HTTP ${status}`, { status, code });
 }
 
 // ---------- 익명 로그인 ----------
@@ -66,6 +77,8 @@ async function request(url, opts = {}) {
 let session = null; // { token, uid, until }
 let signing = null;
 let kept = true; // 로그인한 계정을 저장소에 남길 수 있었는지. 저장소를 못 쓰는 환경이면 false다
+// 인증 서버가 계정이 정말 없어졌다고 답하는 글자. 이 밖의 실패(차단 화면의 403 같은 것)에서는 계정을 잊지 않고 다음에 다시 한다
+const GONE = ['TOKEN_EXPIRED', 'USER_DISABLED', 'USER_NOT_FOUND', 'INVALID_REFRESH_TOKEN'];
 
 async function signIn() {
   const { refresh } = state();
@@ -79,9 +92,10 @@ async function signIn() {
       remember({ uid: r.user_id, refresh: r.refresh_token });
       return { token: r.id_token, uid: r.user_id, until: Date.now() + (Number(r.expires_in) - 60) * 1000 };
     } catch (err) {
-      if (err.reason !== 'denied') throw err;
+      // 기다리는 사이에 다른 탭이 로그인을 바꿨으면 그것을 지우지 않고 다음에 다시 한다
+      if (!GONE.includes(err.code) || state().refresh !== refresh) throw err;
       // 익명 계정이 지워졌다. 새 계정은 예전 방과 아이디를 고칠 수 없으므로 방 번호와 아이디도 잊는다(다음에 공유하면 새 번호가 생긴다).
-      remember({ uid: null, refresh: null, id: null, sent: null, handle: null });
+      forget(err.code, { uid: null, refresh: null });
     }
   }
   const r = await request(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
@@ -103,6 +117,34 @@ async function auth() {
   session = await signing;
   kept = state().uid === session.uid;
   return session;
+}
+
+// 내 방(번호 id)에 하는 일의 로그인. 로그인하다가 계정이 없어져 번호를 잊었으면(signIn) 새 계정으로 하던 일을 잇지 않고 멈춘다.
+async function authFor(id) {
+  const me = await auth();
+  if (id && state().id !== id) throw new CloudError('lost', id);
+  return me;
+}
+
+// 이 컴퓨터가 올린 방의 번호와 아이디를 잊는다. 주인이 모르는 사이에 예전 링크와 이웃집이 옛 방에 멈추지 않게 알린다
+// (onLost를 받은 src/os.js가 창을 띄운다). 왜 잊었는지는 나중에 찾을 수 있게 lost에 남긴다.
+let tellLost = () => {};
+export const onLost = fn => { tellLost = fn; };
+function forget(why, patch = {}) {
+  const { id, uid, handle } = state();
+  const lost = id ? { lost: { id, uid: uid || null, handle: handle || null, why, at: new Date().toISOString(), told: false } } : {};
+  remember({ ...patch, id: null, sent: null, handle: null, ...lost });
+  if (id) tellLost();
+}
+
+// 잊었지만 주인이 아직 안내를 닫지 않은 방(위의 lost). 없으면 null
+export function lostRoom() {
+  const { lost } = state();
+  return lost && !lost.told ? lost : null;
+}
+export function markLostTold() {
+  const lost = lostRoom();
+  if (lost) remember({ lost: { ...lost, told: true } });
 }
 
 // ---------- 방 ----------
@@ -141,12 +183,20 @@ const queue = job => {
   return run;
 };
 
-// 방 글자를 올린다. 올린 적이 없으면 새 번호로 만들고, 있으면 같은 번호의 방을 고친다. 번호를 돌려준다.
+// 서버의 방을 올린 사용자 번호. 알 수 없으면(방이 없음, 연결 실패) 빈 글자다
+async function roomOwner(id) {
+  const doc = await request(`${DOCS}/${HOMES}/${id}?key=${API_KEY}`).catch(() => null);
+  return doc?.fields?.uid?.stringValue || '';
+}
+
+// 방 글자를 올리고 번호를 돌려준다. 올려 둔 번호가 있으면 같은 번호의 방을 고친다. 없으면 create일 때만 새 번호로 만들고, 아니면 올리지 않고 null을 돌려준다.
+// 새 번호는 주인이 "링크 만들기"를 누를 때만 만든다. 따라 올리다가 만들면 주인이 모르는 사이에 링크가 바뀐다(known-issues 119).
 // 규칙이 updatedAt에 서버 시각만 받으므로 PATCH가 아니라 commit의 updateTransforms(REQUEST_TIME)로 쓴다.
-async function upload(code) {
+async function upload(code, create = false) {
   if (code.length > MAX_CODE) throw new CloudError('denied', `방 글자가 ${MAX_CODE}자를 넘는다`);
-  const me = await auth();
   const old = state().id;
+  if (!old && !create) return null;
+  const me = await authFor(old);
   const id = old || newId();
   try {
     await request(`${DOCS}:commit?key=${API_KEY}`, {
@@ -163,17 +213,19 @@ async function upload(code) {
       }),
     });
   } catch (err) {
-    // 올려 둔 방을 이 사용자가 고칠 수 없다(다른 익명 계정이 올렸거나 지워짐). 번호를 잊어 다음에 새로 만들게 한다.
-    // 그 방에 단 아이디도 이 사용자의 것이 아니므로 잊는다.
-    if (err.reason === 'denied' && old) remember({ id: null, sent: null, handle: null });
-    throw err;
+    // 규칙이 막았어도 바로 잊지 않고 서버의 방을 다시 읽어, 다른 사용자가 올린 방일 때만 번호를 잊는다(그 방에 단 아이디도 이 사용자의 것이 아니다).
+    // 내 방이거나 주인을 알 수 없으면 올린 값이나 규칙의 문제라서 다음에 다시 올린다. 읽는 사이에 다른 탭이 번호를 바꿨으면 그것은 잊지 않는다.
+    const owner = err.reason === 'denied' && old ? await roomOwner(old) : '';
+    if (!owner || owner === me.uid || state().id !== old) throw err;
+    forget('OTHER_OWNER');
+    throw new CloudError('lost', old, err);
   }
   remember({ id, sent: code });
   return id;
 }
 
 // 공유하기 창의 "링크 만들기". 방을 올리고 번호를 돌려준다.
-export const share = code => queue(() => upload(code));
+export const share = code => queue(() => upload(code, true));
 
 // 서버의 방과 그 방에 붙은 쪽지, 방에 단 아이디를 지우고 번호를 잊는다. 이미 보낸 짧은 링크는 더는 열리지 않는다.
 // 아이디를 먼저 지운다. 방만 지우면 아이디가 없는 방을 가리킨 채 남아 다른 사람이 그 아이디를 정하지 못한다.
@@ -183,7 +235,7 @@ export function unshare() {
   return queue(async () => {
     const { id, handle } = state();
     if (!id) return;
-    const me = await auth();
+    const me = await authFor(id);
     if (handle) await deleteHandle(handle, me);
     remember({ handle: null });
     try {
@@ -255,7 +307,7 @@ export const claimHandle = handle => queue(async () => {
   if (!room || !HANDLE_RE.test(handle)) throw new CloudError('denied', '올린 방이 없거나 아이디의 꼴이 틀렸다');
   const old = myHandle();
   if (old === handle) return handle;
-  const me = await auth();
+  const me = await authFor(room);
   const doc = await readHandle(handle);
   if (doc && doc.uid !== me.uid) throw new CloudError('taken', handle);
   if (doc && doc.room !== room) await deleteHandle(handle, me); // 내가 예전 방에 달아 둔 아이디. 규칙이 고치기를 막아서 지우고 다시 만든다
@@ -272,7 +324,8 @@ export const claimHandle = handle => queue(async () => {
         }),
       });
     } catch (err) {
-      const now = err.reason === 'denied' ? await readHandle(handle).catch(() => null) : null;
+      // 남이 먼저 정한 아이디면 규칙이 막거나(denied) 이미 있다는 409(ALREADY_EXISTS)가 온다
+      const now = err.reason === 'denied' || err.status === 409 ? await readHandle(handle).catch(() => null) : null;
       if (now && now.uid !== me.uid) throw new CloudError('taken', handle);
       throw err;
     }
@@ -286,7 +339,7 @@ export const claimHandle = handle => queue(async () => {
 export const dropHandle = () => queue(async () => {
   const handle = myHandle();
   if (!handle) return;
-  const me = await auth();
+  const me = await authFor(sharedId());
   await deleteHandle(handle, me);
   remember({ handle: null });
 });
