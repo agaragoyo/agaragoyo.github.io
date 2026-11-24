@@ -1969,7 +1969,7 @@ body.grabbing .coach-ring, body.grabbing .coach-arrow { visibility: hidden; }
 .book-title.long { -webkit-line-clamp: 4; font-size: 18px; }
 .book-author { -webkit-line-clamp: 2; font-size: 15px; color: #5a4a3c; }
 .shelf-info { display: flex; flex-direction: column; gap: 14px; }
-/* 남긴 말은 120자까지 줄바꿈과 함께 쓴다. 표지 높이(364px)에서 아래 단추 줄을 뺀 만큼만 자라고 그보다 길면 이 칸 안에서 스크롤한다 */
+/* 남긴 말은 줄바꿈과 함께 쓴다(글자 수는 src/likes.js의 LIMIT.bookNote). 표지 높이(364px)에서 아래 단추 줄을 뺀 만큼만 자라고 그보다 길면 이 칸 안에서 스크롤한다 */
 .shelf-note {
   min-height: 180px;
   max-height: 316px;

@@ -14,7 +14,7 @@
 - `src/share.js`, `src/horror.js`: 식탁 의자의 링크 번호와 공포 모드 혼잣말
 - `tools/check.py`: `tabletop`, `base`, `bleed` 값 검사. 윗면 자리를 적은 가구는 앞 꼭짓점을 보지 않음
 - `tools/smoke.mjs`: 침대의 칸 수를 박아 둔 점검이 침대를 줄이자 실패해, 칸 수를 가구 목록에서 읽게 함
-- `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `docs/checklists.md`, `known-issues.md`(117)
+- `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `docs/checklists.md`, `known-issues.md`(118)
 
 ## 정한 것과 이유
 
