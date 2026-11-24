@@ -5,15 +5,15 @@
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 117가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
-// 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 162가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴와 오른쪽 단추 메뉴,
+// 가구 화면과 넣는 칸, 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
 // 모양을 일부러 바꾼 것이라면 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 보는 데 쓴다.
 // 두 번 다 자바스크립트 한 번 안에서 같은 글꼴로 재므로 시계나 알림이 바뀐 것은 세지 않고, 고치지 않은 style.css에서는 0개가 나온다(known-issues 122).
 // 글꼴 선언(@font-face)을 바꾼 것은 화면마다 재지 않고 바뀐 선언을 "글꼴 선언"으로 한 번 적는다.
 // 새 창이나 가구 화면을 만들면 아래 main에 한 줄을 더한다. 이 도구가 열지 않는 화면의 규칙은 0개가 나와도 확인된 것이 아니다.
-// 열지 않는 화면: 실험실, 사진과 이름 바꾸기 창, 오른쪽 단추 메뉴, 라디오의 CD와 곡 목록, 코르크 보드의 쪽지, TV의 검색 결과, 끌기와 움직임.
+// 열지 않는 화면: 라디오의 CD와 곡 목록, 코르크 보드의 쪽지, TV의 검색 결과, 게임기에서 하는 게임, 끌기와 움직임.
 // 누를 단추가 없거나 화면이 열리지 않으면 "(없음)"으로 적고 실패로 센다. 조용히 넘기면 엉뚱한 화면을 재고도 0개가 나온다.
 // 종료 코드: 0 다른 곳 없음, 1 다른 곳이 있거나 열지 못한 것이 있음, 2 도구를 돌리지 못함.
 import { execFileSync } from 'node:child_process';
@@ -160,6 +160,8 @@ async function main() {
   };
   const setNight = on => page.run(async v => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ night: v }); }, on);
   const check = async (where, night = true) => {
+    // 2분 그냥 두면 뜨는 화면 보호기(src/screensaver.js)가 뒤에서 닫으려고 누르는 Esc를 먹지 않게, 화면마다 키를 하나 눌러 시간을 새로 재게 한다
+    await page.run(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' })));
     for (const theme of night ? ['낮', '밤'] : ['낮']) {
       if (night) { await setNight(theme === '밤'); await sleep(120); }
       report(`${where}, ${theme}`, await page.run(compare));
@@ -167,11 +169,22 @@ async function main() {
     }
     if (night) await setNight(false);
   };
-  const clickText = async (sel, text) => {
+  // sel 가운데 글이 text인 것을 누른다. text가 없으면 첫 번째 것이다
+  const clickText = async (sel, text = '') => {
     const found = await page.run((s, t) => { const el = [...document.querySelectorAll(s)].find(b => b.textContent.includes(t)); if (el) el.click(); return !!el; }, sel, text);
-    if (!found) lost(`${sel} "${text}"`);
+    if (!found) lost(text ? `${sel} "${text}"` : sel);
   };
-  const openIcon = id => page.run(i => { const b = document.querySelector(`#icons .desk-icon[data-app="${i}"]`); b.click(); b.click(); }, id);
+  const openIcon = async id => {
+    const opened = await page.run(i => {
+      const wins = () => document.querySelectorAll('#windows .win').length;
+      const before = wins();
+      const b = document.querySelector(`#icons .desk-icon[data-app="${i}"]`);
+      b?.click();
+      b?.click();
+      return wins() > before;
+    }, id);
+    if (!opened) lost(`창 ${id}`);
+  };
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
   const use = async (id, ready) => {
     await page.run(i => { const f = document.querySelector(`#wallpaper .furn[data-id="${i}"]`); f.click(); f.click(); }, id);
@@ -184,6 +197,38 @@ async function main() {
     await page.run(() => { document.activeElement?.blur(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
     await sleep(150);
   };
+  // 마우스를 올렸을 때(:hover), 누르고 있을 때(:active), 초점이 갔을 때(:focus)의 모양은 크롬에 그 상태를 억지로 걸어 견준다.
+  // 화면 없는 크롬은 페이지에 초점이 없어서 초점이 간 요소에도 :focus가 저절로 걸리지 않는다(known-issues 74)
+  await page.send('DOM.enable');
+  await page.send('CSS.enable');
+  const force = async (selector, states, night = true) => {
+    const { root: doc } = await page.send('DOM.getDocument', { depth: 0 });
+    const { nodeId } = await page.send('DOM.querySelector', { nodeId: doc.nodeId, selector });
+    if (!nodeId) return lost(selector);
+    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: states });
+    await check(`${selector}:${states.join(':')}`, night);
+    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
+  };
+  // sel 가운데 보이는 것을 오른쪽 단추로 눌러 메뉴(src/context-menu.js)를 열고 견준다. line은 그 메뉴에 있어야 하는 줄이다
+  const openMenu = async (name, sel, line) => {
+    const opened = await page.run((s, l) => {
+      const el = [...document.querySelectorAll(s)].find(x => x.getClientRects().length);
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+      return !!document.querySelector(`.ctx-menu-item${l}`);
+    }, sel, line);
+    if (!opened) lost(`${name}의 오른쪽 단추 메뉴`);
+    await check(`${name}의 오른쪽 단추 메뉴`);
+  };
+  const closeMenu = async () => {
+    const shown = await page.run(() => {
+      const menu = document.querySelector('.ctx-menu');
+      menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      return !!menu;
+    });
+    if (!shown) lost('오른쪽 단추 메뉴(재는 동안 닫혔다)');
+  };
 
   await open();
   await check('꺼진 화면', false);
@@ -193,6 +238,7 @@ async function main() {
   await check('부팅과 켜는 중', false);
   await sleep(1200);
   await check('로그인(처음 온 사람)', false);
+  await force('.user.new .pic-choice[aria-pressed="false"]', ['hover'], false);
   await page.run(() => { const f = document.querySelector('.user.new'); f.requestSubmit(); });
   await check('빈 닉네임 안내', false);
   await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '점검'; f.requestSubmit(); });
@@ -206,6 +252,8 @@ async function main() {
   await open();
   await page.run(() => document.getElementById('power').click());
   await sleep(900);
+  await force('button.user', ['hover'], false);
+  await force('.reset-link', ['hover'], false);
   await page.run(() => document.querySelector('.reset-link').click());
   await check('로그인(내 사용자, 이웃집, 초기화 확인)', false);
   await page.run(() => document.querySelector('.users .user:not(.neighbor)').click());
@@ -213,20 +261,11 @@ async function main() {
   await check('환영 화면', false);
   await sleep(1200);
   await check('바탕화면');
+  await force('#wallpaper .furn:not(.light) .hit', ['hover']); // 밤의 불빛 가구는 켜진 모양이 올린 모양을 덮는다
+  await force('#wallpaper .room-pet path', ['hover']);
   await page.run(() => document.querySelector('.start-btn').click());
   await check('시작 메뉴');
   await page.run(() => document.querySelector('.start-btn').click());
-  // 마우스를 올리거나 누르고 있을 때의 모양(:hover, :active)은 크롬에 그 상태를 억지로 걸어 견준다
-  await page.send('DOM.enable');
-  await page.send('CSS.enable');
-  const force = async (selector, states) => {
-    const { root: doc } = await page.send('DOM.getDocument', { depth: 0 });
-    const { nodeId } = await page.send('DOM.querySelector', { nodeId: doc.nodeId, selector });
-    if (!nodeId) return lost(selector);
-    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: states });
-    await check(`${selector}:${states.join(':')}`);
-    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
-  };
   for (const id of ['room', 'games', 'share', 'music', 'pet']) {
     await openIcon(id);
     await sleep(500);
@@ -250,8 +289,46 @@ async function main() {
     ['#windows .win-min', ['active']], ['#windows .win-min', ['hover']], ['#windows .win-close', ['active']], ['#windows .win-close', ['hover']],
     ['.start-btn', ['active']], ['.start-btn', ['hover']], ['.start-item', ['hover']], ['.start-item', ['active']],
     ['#tasks .task', ['hover']], ['#tasks .task', ['active']], ['.clock', ['hover']],
+    ['.start-pic', ['hover']], ['.start-name', ['hover']],
   ]) await force(sel, states);
   await page.run(() => document.querySelector('.start-btn').click());
+  await closeWindows();
+
+  // 실험실은 말풍선에 암호를 말해야 아이콘이 생긴다. 설정으로 열고, 재고 나면 창의 단추로 다시 닫는다
+  await page.run(async () => { const { openLabs } = await import(new URL('src/labs.js', document.baseURI).href); openLabs(); });
+  await openIcon('labs');
+  await sleep(300);
+  await check('창 labs');
+  await clickText('.labs-app .btn', '실험실 닫기');
+  // 시작 메뉴 맨 위의 내 사진으로 사진 바꾸기 창을, 그 창의 단추로 이름 바꾸기 창을 연다
+  await page.run(() => document.querySelector('.start-btn').click());
+  await clickText('.start-pic');
+  await sleep(300);
+  await check('사진 바꾸기');
+  await force('.pic-app .pic-choice[aria-pressed="false"]', ['hover']);
+  await page.run(() => { document.querySelector('.pic-app .pic-browse').disabled = true; });
+  await check('사진 바꾸기(그림을 줄이는 중)');
+  await clickText('.pic-app .pic-rename');
+  await sleep(300);
+  await page.run(() => { const f = document.querySelector('.name-app form'); f.querySelector('input').value = ''; f.requestSubmit(); });
+  await check('이름 바꾸기와 오류');
+  await closeWindows();
+  // 오른쪽 단추 메뉴. 펫에는 점을 찍는 줄과 나누는 줄이, 창에는 굵은 줄과 회색 줄이, 새 탭으로 여는 아이콘에는 바깥 화살표가 있다
+  await openMenu('펫', '#wallpaper .room-pet path:not(.shade)', '[aria-checked="true"]');
+  await closeMenu();
+  await openIcon('music');
+  await sleep(300);
+  await openMenu('창', '#windows .win-title', ':disabled');
+  for (const [sel, states] of [
+    ['.ctx-menu', ['focus', 'focus-visible']],
+    ['.ctx-menu-item:not(:disabled)', ['hover']], ['.ctx-menu-item:not(:disabled)', ['focus-visible']], ['.ctx-menu-item:disabled', ['hover']],
+  ]) await force(sel, states);
+  await closeMenu();
+  await closeWindows();
+  await openIcon('games');
+  await sleep(300);
+  await openMenu('새 탭으로 여는 아이콘', '.folder-grid .desk-icon.external', '.external');
+  await closeMenu();
   await closeWindows();
 
   await openIcon('games');
@@ -282,6 +359,9 @@ async function main() {
   await esc(); await esc();
   await use('console', () => !!document.querySelector('.closeup .console-grid'));
   await check('게임기');
+  for (const [sel, states] of [
+    ['.console-pad', ['active']], ['.console-face', ['active']], ['.console-game', ['hover']], ['.console-game', ['focus']], ['.console-star', ['hover']],
+  ]) await force(sel, states);
   await page.run(() => document.querySelector('.closeup .console-game.external')?.click());
   await sleep(200);
   await check('게임기의 새 탭 안내');
