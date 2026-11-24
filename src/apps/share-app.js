@@ -9,7 +9,7 @@ import { SCENES } from '../config.js';
 import { encodeHome } from '../share.js';
 import { withPicture } from '../user-pictures.js';
 import { withRecords } from '../records.js';
-import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE } from '../cloud.js';
+import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE, markLostTold } from '../cloud.js';
 import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
@@ -26,6 +26,29 @@ function saveFile(blob, name) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+// 이 컴퓨터가 올린 방을 더는 고칠 수 없게 되어 번호를 잊었을 때(src/cloud.js의 forget) 주인에게 알리는 창. src/os.js의 tellLost가 띄운다.
+// 예전 링크는 마지막으로 올린 방을 그대로 보여 주므로, 이제 안 되는 일과 할 일만 적는다. 아이디도 옛 방을 가리킨 채 남아 다시 정해야 한다.
+// 어느 단추로 닫든 onClose에서 봤다고 남겨 다시 띄우지 않는다.
+export function openLinkLost(os, app, lost) {
+  return os.wm.open({
+    key: 'link-lost',
+    app,
+    title: '공유 링크 끊김',
+    width: lost.handle ? 460 : 380, // 두 문장이 한 줄씩 들어가는 폭
+    height: 140,
+    onClose: markLostTold,
+    build(body, win) {
+      body.append(
+        h('p', {}, lost.handle ? '예전 링크와 아이디로는 고친 방을 ' : '예전 링크로는 고친 방을 ', nw('볼 수 없습니다.')),
+        h('p', {}, lost.handle ? '공유하기에서 링크와 아이디를 새로 만들어 ' : '공유하기에서 새 링크를 만들어 ', nw('보내 주세요.')),
+        h('div', { className: 'link-row' },
+          h('button', { type: 'button', className: 'btn', onclick: () => { win.close(); os.openApp(app.id); } }, '공유하기 열기'),
+          h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
+      );
+    },
+  });
 }
 
 export function openShareApp(os, app) {
@@ -82,6 +105,12 @@ export function openShareApp(os, app) {
         }
       };
 
+      // 서버 일이 실패한 것을 알린다. 방 번호를 잊은 것(lost)은 따로 뜨는 창(openLinkLost)이 알리므로 겹쳐 알리지 않는다.
+      const failed = (err, text) => {
+        console.warn(err);
+        if (err.reason !== 'lost') os.toast(text, 7000);
+      };
+
       // 링크 만들기: 방을 서버에 올리고 받은 번호로 링크 줄을 보인다. 처음에는 익명 로그인까지 해서 1초쯤 걸린다.
       // 서버가 막힌 날에는 링크 대신 방 그림을 보내는 길이 이 창 아래에 있어서 실패 알림에 같이 적는다.
       const create = async e => {
@@ -93,8 +122,7 @@ export function openShareApp(os, app) {
           await share(code());
           os.toast('링크를 만들었습니다.');
         } catch (err) {
-          console.warn(err);
-          os.toast('링크를 만들지 못했습니다. 잠시 후 다시 누르거나 방 그림을 PNG로 내려받아 보내 주세요.', 7000);
+          failed(err, '링크를 만들지 못했습니다. 잠시 후 다시 누르거나 방 그림을 PNG로 내려받아 보내 주세요.');
         }
         w.refreshLink();
       };
@@ -110,8 +138,7 @@ export function openShareApp(os, app) {
           await unshare();
           os.toast('링크를 지웠습니다.');
         } catch (err) {
-          console.warn(err);
-          os.toast('링크를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+          failed(err, '링크를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.');
         }
         w.refreshLink();
       };
@@ -151,8 +178,7 @@ export function openShareApp(os, app) {
             w.refreshLink();
             return handleFail('이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.');
           }
-          console.warn(err);
-          os.toast('아이디를 정하지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+          failed(err, '아이디를 정하지 못했습니다. 잠시 후 다시 눌러 주세요.');
         }
         w.refreshLink();
       };
@@ -164,8 +190,7 @@ export function openShareApp(os, app) {
           await dropHandle();
           os.toast('아이디를 지웠습니다.');
         } catch (err) {
-          console.warn(err);
-          os.toast('아이디를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+          failed(err, '아이디를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.');
         }
         w.refreshLink();
       };
@@ -265,7 +290,7 @@ export function openShareApp(os, app) {
   // 링크가 있으면 창을 열 때 서버의 방을 지금 방으로 맞춘다(고친 지 3초가 지나기 전에 열었을 수 있다).
   syncNow(code).catch(err => {
     console.warn(err);
-    os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
+    if (err.reason !== 'lost') os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
     win.refreshLink();
   });
   return win;
