@@ -16,7 +16,8 @@
 //
 // 손님 화면에도 뜨는 글이라 화면에는 h()의 자식(글자)으로만 넣고, 주소는 safeLink, safeImage, parseMusic을 거친 것만 쓴다.
 // 그래서 주인이 넣은 글이나 링크(javascript: 주소 같은 것)로 손님 화면에서 스크립트가 돌지 않는다.
-// 공유 링크가 너무 길어지지 않게 가구마다 개수와 글자 수를 LIMIT로 줄여 둔다.
+// 가구마다 개수와 글자 수를 LIMIT로 줄여 둔다. 방은 통째로 서버에 올라가는데, 서버는 방 글자를 src/cloud.js의 MAX_CODE자까지만 받고
+// 넘으면 고친 방이 올라가지 않는다. 그래서 모든 칸을 꽉 채운 방도 그 안에 들어야 한다(node tools/link-fuzz.mjs가 잰다).
 import { APP_BY_ID } from '../data/apps.js';
 
 export const LIMIT = {
@@ -24,9 +25,9 @@ export const LIMIT = {
   gameName: 20,  // 컴퓨터에 넣는 게임 이름
   games: 4,      // 게임기의 추천 게임 수. 게임기 화면의 한 줄(네 칸, style.css의 .console-tiles)에 다 들어가 손님이 스크롤하지 않고 모두 본다
   books: 5,      // 책장의 책 권수
-  bookTitle: 30,
-  bookAuthor: 20,
-  bookNote: 120, // 좋아하는 구절이나 고른 이유
+  bookTitle: 100, // 표지 이름표에는 제목이 네 줄, 작가가 두 줄까지 보이고 더 길면 말줄임표로 끝난다(src/apps/bookshelf-app.js의 cover)
+  bookAuthor: 50,
+  bookNote: 500, // 좋아하는 구절이나 고른 이유. 칸보다 길면 그 칸 안에서 스크롤한다
   bookColors: 8, // 표지 색 가짓수(src/apps/bookshelf-app.js의 BOOK_COLORS와 같아야 한다). TV의 제목 카드도 같은 색을 쓴다
   cds: 6,        // 라디오의 CD 장수
   cdName: 16,    // CD 이름. 펼친 CD 아래 라벨(124px, 13px 글자 두 줄)과 라디오 표시창(194px, 12px 글자 한 줄)에 한글 16자가 다 들어간다

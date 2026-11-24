@@ -50,8 +50,9 @@ const EVIL = {
 
 // 긴 글 점검(known-issues 83)에 쓰는 가장 나쁜 글. 띄어쓰기 없는 한글, 짧은 낱말 뒤의 긴 낱말(띄어쓰기에서만 줄을 바꾸면 줄 수가 늘어난다),
 // 넓은 영문 대문자(W는 한글의 0.83배), 이모지(한글의 1.4배), 영문과 숫자 섞음, 줄바꿈만 있는 글이다.
-// 모든 칸의 한도보다 길게(200자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다. 한도가 바뀌어도 늘 꽉 찬 글이 된다
-const fill = (chars, n = 200) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
+// 모든 칸의 한도(가장 긴 것이 책의 남긴 말 500자)보다 길게(600자) 만들고, 집을 심거나 링크로 만들 때 검사(sanitizeHome)가 칸마다 한도까지 자른다.
+// 한도를 더 늘려 이 글이 짧아지면 긴 글 절의 첫 점검이 알린다
+const fill = (chars, n = 600) => Array.from({ length: n }, (_, i) => chars[i % chars.length]).join('');
 const WORST = {
   ko: fill([...'가나다라마바사아자차카타파하']),
   words: `가나다라 ${fill([...'마바사아자차카타파하거너더러머버서어저'])}`,
@@ -3660,6 +3661,10 @@ async function walk(page, base) {
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
   // 화면마다 재는 probe의 cutText가 글이 상자 밖으로 나갔거나 말없이 잘린 곳, 말줄임표로 끝났는데 마우스를 올려도 전체가 보이지 않는 곳을 센다
   const shut = async () => { await closeWindows(); await press(page, 'Escape'); await until(page, closed, 3000); };
+  check('긴 글(fill)이 가구에 담는 모든 칸의 한도보다 길다', await page.run(async n => {
+    const { LIMIT } = await import(new URL('src/likes.js', document.baseURI).href);
+    return n > Math.max(...Object.values(LIMIT));
+  }, Math.min(...Object.values(WORST).map(t => Array.from(t).length))));
   check('긴 글 집이 검사를 통과한다', (await page.run(plantHome, LONG)) === HOME.scenes.room.length);
   await open();
   await powerOn();
@@ -3674,6 +3679,10 @@ async function walk(page, base) {
     await page.run(n => document.querySelectorAll('.closeup .book-spine:not(.add)')[n].click(), i);
     await probe(`긴 글의 책 ${i + 1}권`);
   }
+  await page.run(clickText, '.closeup .shelf-tools .btn', '고치기');
+  await sleep(200);
+  await probe('긴 글의 책 고치기');
+  await page.run(() => document.activeElement?.blur()); // 쓰던 칸에서 Esc를 누르면 칸만 빠져나온다
   await shut();
   await use('tv', () => !!document.querySelector('.closeup .tv-pick'), '긴 글의 TV가 켜진다');
   for (let i = 1; i < KINDS.length; i++) {

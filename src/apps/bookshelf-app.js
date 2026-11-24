@@ -95,7 +95,7 @@ export function openBookshelfApp(os, app) {
         const old = i >= 0 ? books()[i] : null;
         const title = h('input', { type: 'text', maxLength: LIMIT.bookTitle, value: old?.title || '' });
         const author = h('input', { type: 'text', maxLength: LIMIT.bookAuthor, value: old?.author || '' });
-        const note = h('textarea', { rows: 3, maxLength: LIMIT.bookNote, value: old?.note || '' });
+        const note = h('textarea', { rows: 8, maxLength: LIMIT.bookNote, value: old?.note || '' }); // 한 줄에 한글 31자가 들어가 500자의 절반쯤이 스크롤하지 않고 보인다
         const error = h('p', { className: 'like-error', hidden: true });
         const submit = e => {
           e.preventDefault();
