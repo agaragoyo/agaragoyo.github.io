@@ -1,20 +1,23 @@
 // 공유 링크와 집 검사를 무작위 입력으로 두드리는 점검. 사람이 떠올리지 못한 입력에서 나오는 버그를 찾는다.
 //
-//   node tools/link-fuzz.mjs            세 가지를 2만 번씩 돌린다(3초쯤 걸린다)
+//   node tools/link-fuzz.mjs            앞의 세 가지를 2만 번씩 돌린다(3초쯤 걸린다)
 //   node tools/link-fuzz.mjs --seed=7   다른 씨앗으로 돌린다(같은 씨앗이면 같은 시험이다)
 //
 // 필요한 것: Node 22.7 이상(확장자가 .js인 모듈을 그대로 불러온다). 브라우저와 서버는 쓰지 않는다.
 // `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
-// 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants에도 그 칸을 더해야 그 칸까지 두드린다.
+// 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants, 꽉 채운 방에도 그 칸을 더해야 그 칸까지 두드린다.
+// 담는 개수나 글자 수 한도(src/likes.js의 LIMIT)를 늘릴 때도 돌려 꽉 채운 방에 남은 자리를 본다.
 // 방 꾸밈(decor, 벽지와 바닥), 주인 사진(picture), 게임 기록(records)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
 //
 // 보는 것
 //   1. 왕복: 무작위로 꾸민 집을 검사(sanitizeHome)한 뒤 링크로 만들었다 풀면 같은 집이 나온다. 링크에는 주소에 쓸 수 있는 글자만 있다
 //   2. 망가진 링크: 글자를 바꾸거나 자르거나 아무 글자를 넣어도 멈추지 않고, 열린다면 규칙을 지키는 집이다
 //   3. 아무 값: 저장본 자리에 무엇이 들어 있어도 검사가 멈추지 않고 규칙을 지키는 집을 돌려준다
+//   4. 꽉 채운 방: 담는 칸을 모두 한도까지 채운 방의 글자가 서버 한도(src/cloud.js의 MAX_CODE) 안에 든다
 //   규칙을 지키는 집: 가구가 제 공간에 있고 서로 겹치지 않으며, 이름과 인사말이 길이 안에 있고, 담아 둔 주소가 http(s)다
 // 2026-11-11에 이 점검이 12번째 글자에 걸친 이모지가 반으로 잘리는 버그를 찾았다(known-issues 62).
 // 종료 코드: 0 통과, 1 실패가 있음.
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const load = file => import(new URL(`../${file}`, import.meta.url).href);
@@ -23,7 +26,7 @@ const { canPlace, isWall } = await load('src/rules.js');
 const { FURNITURE, BY_ID } = await load('data/furniture.js');
 const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
-const { APP_BY_ID } = await load('data/apps.js');
+const { APPS, APP_BY_ID } = await load('data/apps.js');
 const { WALL_PATTERNS } = await load('data/wall-patterns.js');
 const { FLOOR_PATTERNS } = await load('data/floor-patterns.js');
 const { USER_PICTURES } = await load('data/user-pictures.js');
@@ -32,7 +35,6 @@ const { RECORD_APPS, MAX_RECORD } = await load('src/records.js');
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
-  const { readFileSync } = await import('node:fs');
   console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').filter(l => l.startsWith('//   node ')).map(l => l.slice(5)).join('\n'));
   process.exit(0);
 }
@@ -234,6 +236,33 @@ for (let i = 0; i < ROUNDS; i++) {
   if (home) invariants(home, '아무 값을 검사한 집');
 }
 
+// 4. 꽉 채운 방: 담는 칸을 모두 한도까지 채우고 가구를 200개(src/share.js의 MAX_ITEMS) 놓은 가장 긴 방.
+// 서버 한도를 넘는 방은 src/cloud.js가 올리지 않아서, 주인이 고쳐도 손님에게는 예전 방이 보인다.
+// 글은 한글로 채운다. 넣는 칸의 maxLength는 UTF-16 단위로 세는데 한글이 한 단위에 가장 많은 3바이트를 쓴다(이모지는 두 단위에 4바이트).
+// 덧붙임 바이트(벽지, 바닥, 사진, 기록)는 무엇이 들었든 가장 긴 255바이트와 그 수를 적는 1바이트로 친다
+const MAX_CODE = Number(readFileSync(new URL('../src/cloud.js', import.meta.url), 'utf8').match(/export const MAX_CODE = (\d+)/)?.[1]);
+let full = 0;
+{
+  const ko = n => '가'.repeat(n);
+  const list = (n, make) => Array.from({ length: n }, (_, i) => make(i));
+  const address = (scheme, i) => `${scheme}://a${i}.kr/`.padEnd(LIMIT.url, 'a'); // http 주소는 줄여 담는 표시가 없어 가장 길다
+  const games = APPS.filter(a => a.folder === 'games').map(a => a.id).sort((a, b) => b.length - a.length);
+  // 한도보다 over만큼 많이, 길게 채운다
+  const fill = over => ({
+    computer: { url: address('http', 0), name: ko(LIMIT.gameName + over) },
+    console: games.slice(0, LIMIT.games + over),
+    bookshelf: list(LIMIT.books + over, i => ({ title: ko(LIMIT.bookTitle + over), author: ko(LIMIT.bookAuthor + over), note: ko(LIMIT.bookNote + over), color: i % LIMIT.bookColors })),
+    radio: list(LIMIT.cds + over, i => ({ url: `https://music.apple.com/kr/playlist/${'a'.repeat(150)}/pl.${String(i).padEnd(64, 'a')}`, name: ko(LIMIT.cdName + over), color: 1 + i % (LIMIT.cdColors - 1) })),
+    tv: list(LIMIT.works + over, i => ({ title: ko(LIMIT.workTitle + over), year: ko(LIMIT.workYear + over), by: ko(LIMIT.workBy + over), link: address('http', i), poster: address('https', i), why: ko(LIMIT.workWhy + over), color: i % LIMIT.bookColors })),
+    'test-paper': list(LIMIT.questions + over, () => ({ question: ko(LIMIT.questionText + over), choices: list(LIMIT.choices + over, () => ko(LIMIT.choiceText + over)), answer: LIMIT.choices - 1 })),
+  });
+  const home = sanitizeHome({ owner: ko(99), greeting: ko(99), likes: fill(3) });
+  if (JSON.stringify(home.likes) !== JSON.stringify(fill(0))) fail('한도를 넘게 채운 방이 한도까지 잘린 방이 되지 않는다(담는 칸이 바뀌었으면 꽉 채운 방도 고친다)', home.likes);
+  home.scenes = Object.fromEntries(SCENES.map(sc => [sc.id, list(200, () => ({ id: FURNITURE[0].id, x: 0, y: 0, r: 0 }))]));
+  full = encodeHome(home).length + Math.ceil(256 * 4 / 3);
+  if (!(full <= MAX_CODE)) fail('꽉 채운 방이 서버 한도(MAX_CODE)를 넘는다. LIMIT를 줄이거나 src/cloud.js와 firestore.rules의 한도를 같이 올리고 규칙을 콘솔에 게시한다', { full, MAX_CODE });
+}
+
 // 정해진 입력 몇 가지: 주소와 글 다듬기, 짧은 링크 번호, 가구 번호
 for (const [input, want] of [
   ['javascript:alert(1)', ''], ['JAVASCRIPT:alert(1)', ''], [' https://a.kr ', 'https://a.kr/'], ['data:text/html,x', ''],
@@ -401,7 +430,7 @@ if (JSON.stringify(decodeHome(OLD_LINK)) !== OLD_HOME) fail('옛 링크가 다�
 const OLD_CONSOLE = 'BA3smJsg6rKM7J6E6riwAAEAeyJHIjoiZmlsZS10ZW4ifQ';
 if (JSON.stringify(decodeHome(OLD_CONSOLE)?.likes) !== '{"console":["file-ten"]}') fail('추천 게임이 하나뿐인 옛 링크가 한 개짜리 목록으로 열리지 않는다', decodeHome(OLD_CONSOLE));
 
-console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자`);
+console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자, 꽉 채운 방 ${full}자(서버 한도 ${MAX_CODE}자)`);
 for (const e of examples) console.log(`실패 ${e}`);
 const total = [...kinds.values()].reduce((a, b) => a + b, 0);
 if (kinds.size) console.log(`  종류별: ${[...kinds].map(([k, n]) => `${k} ${n}번`).join(', ')}`);
