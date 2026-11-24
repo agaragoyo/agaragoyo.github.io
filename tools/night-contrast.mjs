@@ -4,7 +4,7 @@
 //   node tools/night-contrast.mjs --base=<주소>   이미 떠 있는 사이트를 잰다(예: https://agaragoyo.github.io/)
 //   node tools/night-contrast.mjs --all          실패가 아니어도 밤에 4.5:1 아래인 글자를 모두 보여 준다
 //
-// 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
+// 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
 // 크롬을 찾지 못하면 환경 변수 CHROME에, 파이썬을 찾지 못하면 PYTHON에 실행 파일 경로를 넣는다.
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
