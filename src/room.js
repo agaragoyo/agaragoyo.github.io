@@ -147,7 +147,8 @@ function renderShade(container, items) {
   }
   const holes = items.filter(it => BY_ID[it.id].light).map(it => {
     const p = lightPoint(items, it);
-    return `radial-gradient(circle 260px at ${p.x}px ${p.y}px, transparent 0, transparent 22%, #000 100%)`;
+    // 바탕화면의 그늘은 방 상자보다 40px 위에서 시작한다(style.css의 .wallpaper .night-shade)
+    return `radial-gradient(circle 260px at ${p.x}px calc(${p.y}px + var(--shade-up, 0px)), transparent 0, transparent 22%, #000 100%)`;
   });
   const mask = holes.length ? holes.join(', ') : '';
   shade.style.maskImage = mask;

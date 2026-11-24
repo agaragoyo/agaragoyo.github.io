@@ -3,7 +3,7 @@
 //   node tools/smoke.mjs          이 폴더의 사이트를 빈 포트에 띄워 눌러 본다(1분 남짓 걸린다)
 //   node tools/smoke.mjs --all    통과한 항목도 모두 보여 준다
 //
-// 필요한 것: Node 22 이상(전역 WebSocket), 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
+// 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬(tools/serve.py). npm 패키지는 쓰지 않는다.
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/night-contrast.mjs와 같이 쓴다.
 //
 // 하는 일: 화면 없는 크롬으로 전원, 새 사용자 만들기(사진 고르기, 그림 파일 찾아보기), 튜토리얼 건너뛰기를 지나고, 가구와 담아 둔 것이 있는 점검용 집(tools/headless.mjs의 TEST_HOME)을
@@ -1118,6 +1118,15 @@ async function walk(page, base) {
   check('빈 닉네임으로 확인을 누르면 안내가 뜬다', await page.run(() => !document.querySelector('.name-tip').hidden));
   await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '점검'; f.requestSubmit(); });
   check('새 사용자를 만들면 바탕화면이 뜬다', await desktop());
+  const newDecor = JSON.stringify(await page.run(async () => (await import(new URL('src/config.js', document.baseURI).href)).NEW_ROOM_DECOR));
+  check('새로 만든 방은 정해 둔 벽지와 바닥(src/config.js의 NEW_ROOM_DECOR)으로 시작한다', JSON.stringify((await page.run(savedHome)).decor) === newDecor
+    && await page.run(() => [...document.querySelectorAll('.wallpaper .room-bg polygon')].some(p => p.style.fill.includes('url(')) && !!document.querySelector('.wallpaper .room-bg pattern[id^="floor-paint-"]')),
+    JSON.stringify((await page.run(savedHome)).decor));
+  check('방의 현관문이 도트 그림으로 그려지고 그 위를 누르는 판이 덮는다', await page.run(() => {
+    const art = document.querySelector('#wallpaper .door-art')?.getBoundingClientRect();
+    const hit = document.querySelector('#wallpaper .door-hit').getBoundingClientRect();
+    return !!art && ['left', 'right', 'top', 'bottom'].every(k => Math.abs(art[k] - hit[k]) <= 3);
+  }));
   check('새 사용자를 만들면 고른 사진이 저장된다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === firstPic);
   check('새 사용자에게 튜토리얼 안내 카드가 뜬다', await until(page, () => { const c = document.querySelector('.coach-card'); return !!c && !c.hidden; }, 3000));
   await probe('튜토리얼 첫 단계');
@@ -2996,9 +3005,9 @@ async function walk(page, base) {
   const want = mine.scenes.room.map(i => i.id).filter(id => Object.hasOwn(mine.likes || {}, id)).sort().join();
   check('담아 둔 가구(컴퓨터, 게임기, 책장, TV를 포함해 저장된 집에서 담긴 가구)에만 반짝임이 뜬다',
     ['bookshelf', 'computer', 'console', 'tv'].every(id => want.split(',').includes(id)) && (await liked()) === want, `${await liked()} / ${want}`);
-  check('반짝임은 12~20px의 별이고 누르기를 가리지 않고 깜박인다', await page.run(() => {
+  check('반짝임은 22~38px의 별이고 누르기를 가리지 않고 깜박인다', await page.run(() => {
     const s = getComputedStyle(document.querySelector('#wallpaper .furn.has-like'), '::after');
-    return parseFloat(s.width) >= 12 && parseFloat(s.width) <= 20 && s.pointerEvents === 'none' && s.animationName === 'like-sparkle';
+    return parseFloat(s.width) >= 22 && parseFloat(s.width) <= 38 && s.pointerEvents === 'none' && s.animationName === 'like-sparkle';
   }));
   await openIcon('room');
   check('방 꾸미기 창에는 반짝임이 뜨지 않는다', await until(page, () => document.querySelectorAll('#windows .room-app .furn').length > 0, 3000)

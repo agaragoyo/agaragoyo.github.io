@@ -305,17 +305,9 @@ button { font-family: inherit; }
   --wall-cap: #fbf4e3;
   --baseboard: #9a7550;
   --baseboard-dark: #85633f;
-  --door: #b07a4a;
-  --door-frame: #74502f;
-  --door-line: #8c5f38;
-  --door-knob: #f0c75e;
 }
 .room-bg { position: absolute; left: 0; top: 0; }
-/* 방의 현관문(src/iso.js의 doorSVG). 바탕화면에서 .door-hit를 두 번 누르면 이웃집 목록 창이 뜬다 */
-.room-bg .door-frame { fill: var(--door-frame); }
-.room-bg .door-leaf { fill: var(--door); }
-.room-bg .door-panel { fill: none; stroke: var(--door-line); stroke-width: 2; stroke-linejoin: round; }
-.room-bg .door-knob { fill: var(--door-knob); stroke: #6b4a1e; stroke-width: 1.5; }
+/* 방의 현관문(src/iso.js의 doorSVG, 그림과 색은 data/door.js). 바탕화면에서 .door-hit를 두 번 누르면 이웃집 목록 창이 뜬다 */
 .room-bg .door-hit { fill: transparent; pointer-events: none; }
 /* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
 .night-shade {
@@ -456,9 +448,10 @@ button { font-family: inherit; }
 }
 .item.lifted { opacity: 0.2; }
 /* 담긴 가구 반짝임(2026-11-17까지 실험실 like-sparkle). src/os.js의 markLiked가 주인이 무언가 담아 둔 바탕화면 가구에 has-like를 달면,
-   그 가구 위쪽 가운데에서 4px 위에 작은 별이 깜박인다. 별은 가구 상자의 ::after라서 그 가구와 같은 쌓임 맥락의 바로 위에 놓이고(known-issues 7),
+   그 가구 위쪽 가운데에서 4px 위에 별이 깜박인다. 별은 가구 상자의 ::after라서 그 가구와 같은 쌓임 맥락의 바로 위에 놓이고(known-issues 7),
    그림이 늦게 와서 상자를 다시 채워도 지워지지 않는다. 누르기는 가구 그림(.furn-hit)이 그대로 받는다(pointer-events: none).
-   그림은 7칸 × 7칸 별 두 장(큰 별, 작은 별)을 가로로 이은 것이다. 한 칸은 2px 안팎이고, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값이 --sparkle-cell이다(known-issues 67).
+   그림은 13칸 × 13칸 별 두 장(큰 별, 작은 별)을 빈 한 칸씩 띄워 가로로 이은 것이다. 붙여 이으면 화면 배율에 따라 큰 별의 끝이 작은 별 옆에 한 픽셀 비친다. 한 칸은 가구 그림의 한 점과 같은 2px 안팎이고, src/icons.js의 fitPixelIcons가 화면 픽셀 정수 개로 맞춘 값이 --sparkle-cell이다(known-issues 67).
+   별을 키울 때는 칸을 키우지 않고 칸 수를 늘려 다시 그린다(2026-11-24에 7칸에서 13칸으로). 칸을 두 배로 키우면 점이 가구보다 굵어 검은 십자로 보인다.
    노란 속과 어두운 겉선이라 낮과 밤에 다 보인다. 1.6초마다 작은 별 0.4초, 큰 별 0.8초, 작은 별 0.4초로 바뀐다(--twinkle은 별마다 시작을 어긋나게 하는 값).
    움직임 줄이기를 켠 사람에게는 큰 별을 그대로 보여 준다 */
 .wallpaper .item.has-like::after {
@@ -466,18 +459,18 @@ button { font-family: inherit; }
   content: '';
   position: absolute;
   left: 50%;
-  top: calc(var(--cell) * -7 - 4px);
-  width: calc(var(--cell) * 7);
-  height: calc(var(--cell) * 7);
-  margin-left: calc(var(--cell) * -3.5);
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='14' viewBox='0 0 14 7' shape-rendering='crispEdges'%3E%3Cpath fill='%232b2b33' d='M3 0h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM1 2h2v1h-2zM4 2h2v1h-2zM0 3h1v1h-1zM6 3h1v1h-1zM1 4h2v1h-2zM4 4h2v1h-2zM2 5h1v1h-1zM4 5h1v1h-1zM3 6h1v1h-1zM10 1h1v1h-1zM9 2h1v1h-1zM11 2h1v1h-1zM8 3h1v1h-1zM12 3h1v1h-1zM9 4h1v1h-1zM11 4h1v1h-1zM10 5h1v1h-1z'/%3E%3Cpath fill='%23ffe36e' d='M3 1h1v1h-1zM3 2h1v1h-1zM1 3h2v1h-2zM4 3h2v1h-2zM3 4h1v1h-1zM3 5h1v1h-1zM10 2h1v1h-1zM9 3h1v1h-1zM11 3h1v1h-1zM10 4h1v1h-1z'/%3E%3Cpath fill='%23ffffff' d='M3 3h1v1h-1zM10 3h1v1h-1z'/%3E%3C/svg%3E") 0 0 / calc(var(--cell) * 14) calc(var(--cell) * 7) no-repeat;
+  top: calc(var(--cell) * -13 - 4px);
+  width: calc(var(--cell) * 13);
+  height: calc(var(--cell) * 13);
+  margin-left: calc(var(--cell) * -6.5);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='26' viewBox='0 0 28 13' shape-rendering='crispEdges'%3E%3Cpath fill='%232b2b33' d='M6 0h1v1h-1zM5 1h1v1h-1zM7 1h1v1h-1zM5 2h1v1h-1zM7 2h1v1h-1zM4 3h1v1h-1zM8 3h1v1h-1zM3 4h2v1h-2zM8 4h2v1h-2zM1 5h2v1h-2zM10 5h2v1h-2zM0 6h1v1h-1zM12 6h1v1h-1zM1 7h2v1h-2zM10 7h2v1h-2zM3 8h2v1h-2zM8 8h2v1h-2zM4 9h1v1h-1zM8 9h1v1h-1zM5 10h1v1h-1zM7 10h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM6 12h1v1h-1zM20 2h1v1h-1zM19 3h1v1h-1zM21 3h1v1h-1zM19 4h1v1h-1zM21 4h1v1h-1zM17 5h2v1h-2zM22 5h2v1h-2zM16 6h1v1h-1zM24 6h1v1h-1zM17 7h2v1h-2zM22 7h2v1h-2zM19 8h1v1h-1zM21 8h1v1h-1zM19 9h1v1h-1zM21 9h1v1h-1zM20 10h1v1h-1z'/%3E%3Cpath fill='%23ffe36e' d='M6 1h1v1h-1zM6 2h1v1h-1zM5 3h3v1h-3zM5 4h3v1h-3zM3 5h3v1h-3zM7 5h3v1h-3zM1 6h4v1h-4zM8 6h4v1h-4zM3 7h3v1h-3zM7 7h3v1h-3zM5 8h3v1h-3zM5 9h3v1h-3zM6 10h1v1h-1zM6 11h1v1h-1zM20 3h1v1h-1zM20 4h1v1h-1zM19 5h3v1h-3zM17 6h3v1h-3zM21 6h3v1h-3zM19 7h3v1h-3zM20 8h1v1h-1zM20 9h1v1h-1z'/%3E%3Cpath fill='%23ffffff' d='M6 5h1v1h-1zM5 6h3v1h-3zM6 7h1v1h-1zM20 6h1v1h-1z'/%3E%3C/svg%3E") 0 0 / calc(var(--cell) * 28) calc(var(--cell) * 13) no-repeat;
   pointer-events: none;
   animation: like-sparkle 1.6s step-end var(--twinkle, 0s) infinite;
 }
 @keyframes like-sparkle {
-  0% { background-position: calc(var(--cell) * -7) 0; }
+  0% { background-position: calc(var(--cell) * -14) 0; }
   25% { background-position: 0 0; }
-  75% { background-position: calc(var(--cell) * -7) 0; }
+  75% { background-position: calc(var(--cell) * -14) 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .wallpaper .item.has-like::after { animation: none; }
@@ -941,17 +934,9 @@ body.moving-window iframe { pointer-events: none; }
 /* 바탕화면 가구와 방의 현관문은 두 번 누르면 아바타가 가서 쓴다(src/room.js의 renderStatic).
    배경은 클릭을 흘려보내고 가구 그림과 문만 받는다. */
 .wallpaper .item.usable .hit, .wallpaper .room-bg .door-hit { pointer-events: auto; cursor: var(--cur-hand); }
-/* 밤 그늘: 불빛마다 뚫은 구멍이 서로 덮지 않도록 마스크를 교집합으로 합친다 */
-.night-shade {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: none;
-  background: #0b1030c4;
-  pointer-events: none;
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
-}
+/* 밤 그늘(.night-shade, "방" 절)은 바탕화면에서 방 상자 위아래의 40px까지 덮는다. 방 상자(720px)에만 깔면 화면(800px)의 위아래 띠가 더 밝아 줄이 보인다.
+   불빛 구멍의 자리는 그늘의 위 끝에서 재므로 그만큼 내린다(src/room.js의 renderShade) */
+.wallpaper .night-shade { top: -40px; bottom: -40px; --shade-up: 40px; }
 .item.static .hit { pointer-events: none; }
 .icons {
   position: absolute;
