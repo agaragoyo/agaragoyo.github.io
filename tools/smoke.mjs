@@ -2002,6 +2002,14 @@ async function walk(page, base) {
   await page.run(clickText, '.closeup .radio-tools .btn', 'CD 넣기');
   await sleep(200);
   check('다음 CD는 다른 CD가 쓰지 않은 색이 먼저 골라져 있다', await page.run(() => document.querySelector('.closeup .cd-swatch[aria-pressed="true"]')?.dataset.color === '0'));
+  // 넣는 칸은 라디오 앞에 뜬다. 그동안 라디오의 단추는 쉬고, 칸 옆의 빈 곳이나 라디오를 빗나가 눌러도 쓰던 칸이 닫히지 않는다(style.css의 .radio-closeup:has)
+  check('CD를 넣는 칸이 떠 있는 동안 라디오가 보이고 라디오의 단추는 쉰다', await page.run(() => {
+    const keys = [...document.querySelectorAll('.closeup .radio-key')];
+    return !!document.querySelector('.closeup .radio-body').offsetParent && keys.length === 3 && keys.every(k => k.disabled);
+  }));
+  await tap(page, await page.run(() => { const p = document.querySelector('.closeup-panel').getBoundingClientRect(); const c = document.querySelector('.closeup .like-card').getBoundingClientRect(); return { x: (p.left + c.left) / 2, y: c.top + 40 }; }));
+  await tap(page, await page.run(centreOf, '.closeup .radio-slot'));
+  check('넣는 칸 옆의 빈 곳이나 라디오를 눌러도 넣는 칸이 닫히지 않는다', await page.run(() => !!document.querySelector('.closeup form')));
   await probe('두 번째 CD 넣기');
   // 새 유튜브 CD는 넣기 전에 유튜브 oEmbed로 재생할 수 있는지 본다(fakeYouTube가 대신 답한다). 없는 영상은 넣지 않는다
   await page.run(fakeYouTube);
@@ -2248,6 +2256,9 @@ async function walk(page, base) {
   check('단추를 누르거나 쉬게 하는 동안 페이지 오류가 나지 않는다', page.pageErrors.length === errorsBefore, page.pageErrors.slice(errorsBefore).join(' | '));
   await page.run(() => document.querySelector('#windows .radio-player')?.closest('.win')?.querySelector('.win-close')?.click());
   await page.run(() => document.activeElement?.blur());
+  // 라디오는 판 없이 서서 CD 옆의 빈 곳이 바깥이다
+  await tap(page, await page.run(() => { const p = document.querySelector('.closeup-panel').getBoundingClientRect(); const f = document.querySelector('.closeup .radio-fan').getBoundingClientRect(); return { x: (p.left + f.left) / 2, y: f.top + 20 }; }));
+  check('라디오의 CD 옆 빈 곳을 누르면 닫힌다', await page.run(closed));
   await press(page, 'Escape');
 
   await use('corkboard', () => !!document.querySelector('.closeup .cork-card'), '짧은 링크가 없는 코르크 보드는 안내가 열린다');
