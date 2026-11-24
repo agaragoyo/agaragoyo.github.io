@@ -12,10 +12,11 @@
 // 모양을 일부러 바꾼 것이라면 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 보는 데 쓴다.
 // 두 번 다 자바스크립트 한 번 안에서 같은 글꼴로 재므로 시계나 알림이 바뀐 것은 세지 않고, 고치지 않은 style.css에서는 0개가 나온다(known-issues 122).
 // 글꼴 선언(@font-face)을 바꾼 것은 화면마다 재지 않고 바뀐 선언을 "글꼴 선언"으로 한 번 적는다.
-// 새 창이나 가구 화면을 만들면 아래 main에 한 줄을 더한다. 이 도구가 열지 않는 화면의 규칙은 0개가 나와도 확인된 것이 아니다.
-// 열지 않는 화면: 라디오의 CD와 곡 목록, 코르크 보드의 쪽지, TV의 검색 결과, 게임기에서 하는 게임, 끌기와 움직임.
+// 끝에는 고친 선택자(선언을 더하거나 지우거나 바꾸거나 옮긴 선택자) 가운데 재지 못한 것을 "재지 못함"으로 적는다. 여기 나온 것은 0개여도 확인된 것이 아니므로 직접 열어 본다.
+// 연 화면에 맞는 요소가 있었는지만 보고, 다른 규칙에 덮여 효과가 없었는지는 보지 않는다. 움직임 줄이기를 켜고 재므로 움직임을 고친 것은 재지 못한 것에 든다.
+// 열지 않는 화면: 라디오의 CD와 곡 목록, 코르크 보드의 쪽지, TV의 검색 결과, 게임기에서 하는 게임, 끌기와 움직임. 새 창이나 가구 화면을 만들면 아래 main에 한 줄을 더한다.
 // 누를 단추가 없거나 화면이 열리지 않으면 "(없음)"으로 적고 실패로 센다. 조용히 넘기면 엉뚱한 화면을 재고도 0개가 나온다.
-// 종료 코드: 0 다른 곳 없음, 1 다른 곳이 있거나 열지 못한 것이 있음, 2 도구를 돌리지 못함.
+// 종료 코드: 0 다른 곳 없음(재지 못한 것만 있어도 0이다), 1 다른 곳이 있거나 열지 못한 것이 있음, 2 도구를 돌리지 못함.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome } from './headless.mjs';
@@ -53,10 +54,72 @@ async function prepare(oldCss) {
   return [...old.filter(f => !now.includes(f)).map(f => `옛것에만 있다: ${f}`), ...now.filter(f => !old.includes(f)).map(f => `지금 것에만 있다: ${f}`)];
 }
 
-// 페이지 안: 지금 스타일과 옛 스타일에서 모든 요소의 계산된 속성을 견줘 다른 것을 돌려준다.
+// 페이지 안, 한 번: 옛 시트와 지금 시트에서 달라진 선언(더하거나 지우거나 바꾸거나 옮긴 것)의 선택자를 돌려준다.
+// 선택자 하나와 선언 하나씩으로 펴서 견주므로, 주석이나 줄바꿈을 고친 것과 이웃한 규칙을 합치거나 나누기만 한 것은 달라진 것이 아니다.
+// 차례만 바뀐 선언은 옮긴 쪽의 선택자만 센다.
+function changedSelectors() {
+  // 괄호와 따옴표 밖의 sep에서 자른다
+  const split = (text, sep) => {
+    const out = [''];
+    let depth = 0;
+    let quote = '';
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === sep && !depth && !quote) { out.push(''); continue; }
+      out[out.length - 1] += c === '\\' ? c + text[++i] : c;
+      if (quote) { if (c === quote) quote = ''; }
+      else if (c === '"' || c === "'") quote = c;
+      else if (c === '(' || c === '[') depth++;
+      else if (c === ')' || c === ']') depth--;
+    }
+    return out.map(s => s.trim()).filter(Boolean);
+  };
+  // motion: 움직임(애니메이션)을 정하는 선언인지. 움직임을 없애는 선언(animation: none)은 움직임이 아니다.
+  // whole: 요소에 바로 맞춰 볼 수 없어 통째로 한 줄인 것(@keyframes, 다른 @규칙, 중첩한 규칙). 달라졌으면 늘 재지 못한 것으로 적는다
+  const flat = (rules, media = []) => [...rules].flatMap(r => {
+    if (r instanceof CSSMediaRule) return flat(r.cssRules, [...media, r.conditionText]);
+    if (r instanceof CSSStyleRule && !r.cssRules.length) {
+      const decls = split(r.style.cssText, ';').map(decl => ({ decl, motion: decl.startsWith('animation') && r.style.animationName !== 'none' }));
+      return split(r.selectorText, ',').flatMap(sel => decls.map(d => ({ media, sel, ...d })));
+    }
+    return [{ media, sel: r.cssText.split('{')[0].trim(), decl: r.cssText, motion: r instanceof CSSKeyframesRule, whole: true }];
+  });
+  const lines = sheet => flat(sheet.cssRules).filter(l => !l.decl.startsWith('--css-diff')); // prepare가 붙인 표시는 뺀다
+  const key = l => JSON.stringify([l.media, l.sel, l.decl]);
+  const old = lines(document.getElementById('css-diff-old').sheet);
+  const now = lines(document.querySelector('link[rel="stylesheet"]').sheet);
+  const spots = new Map(); // 선언마다 옛 시트에서의 자리들
+  old.forEach((l, i) => { const k = key(l); if (!spots.has(k)) spots.set(k, []); spots.get(k).push(i); });
+  const from = now.map(l => spots.get(key(l))?.shift() ?? -1); // 지금 선언이 옛 시트에서 있던 자리. 없었으면 -1
+  // 옛 자리가 뒤로만 가는 가장 긴 줄이 차례가 그대로인 것이고, 거기 들지 못한 것이 옮긴 것이다
+  const ends = []; // 길이마다 가장 앞에서 끝나는 줄의 끝
+  const before = []; // 그 줄에서 바로 앞의 것
+  from.forEach((p, i) => {
+    if (p < 0) return;
+    const n = ends.findLastIndex(e => from[e] < p) + 1;
+    before[i] = ends[n - 1];
+    ends[n] = i;
+  });
+  const kept = new Set();
+  for (let i = ends.at(-1); i !== undefined; i = before[i]) kept.add(i);
+  const found = new Map();
+  const add = (l, how) => {
+    const k = JSON.stringify([l.media, l.sel]);
+    const it = found.get(k) || { id: found.size, sel: l.sel, media: l.media, how, motion: false, whole: l.whole };
+    if (it.how !== how) it.how = '바꿈';
+    it.motion ||= l.motion;
+    found.set(k, it);
+  };
+  now.forEach((l, i) => { if (from[i] < 0) add(l, '더함'); else if (!kept.has(i)) add(l, '옮김'); });
+  for (const left of spots.values()) for (const i of left) add(old[i], '지움');
+  return [...found.values()];
+}
+
+// 페이지 안: 지금 스타일과 옛 스타일에서 모든 요소의 계산된 속성을 견줘 다른 것(diffs)을 돌려준다.
+// watch에 든 고친 선택자 가운데 지금 잰 요소에 맞는 것의 번호(hit)도 돌려준다.
 // 중간에 기다리지 않는다(await를 쓰지 않는다). 한 작업 안에서는 타이머와 받는 일이 끼어들지 못하고 애니메이션의 시각도 멈춰 있어서,
 // 두 번 재는 사이에 시계의 분이 바뀌거나 아바타가 눈을 깜빡이거나 알림이 사라지지 않는다(known-issues 122).
-function compare() {
+function compare(watch) {
   const nowSheet = document.querySelector('link[rel="stylesheet"]').sheet;
   const oldSheet = document.getElementById('css-diff-old')?.sheet;
   if (!oldSheet) throw new Error('옛 스타일시트를 끼운 페이지가 아니다');
@@ -97,6 +160,16 @@ function compare() {
   const hadEra = document.body.hasAttribute('data-era');
   document.body.setAttribute('data-era', '2005');
   const old = collect('old');
+  // 화면 조건(@media)이 걸려 있고 잰 요소에 맞아야 잰 것이다. ::before와 ::after는 그려졌을 때만, 움직임은 걸려 있을 때만 잰 것이고 다른 가상 요소는 재지 않는다
+  const at = new Map(els.map((el, i) => [el, i]));
+  const hit = watch.filter(({ sel, media, motion }) => {
+    if (!media.every(m => matchMedia(m).matches)) return false;
+    const pseudo = sel.match(/::(before|after)$/)?.[0] || '';
+    const j = ['', '::before', '::after'].indexOf(pseudo);
+    const base = sel.slice(0, sel.length - pseudo.length).replace(/(^|[\s>+~])$/, '$1*');
+    return [...document.querySelectorAll(base)].some(el => at.has(el)
+      && [now, old].some(rows => { const row = rows[at.get(el) * 3 + j]; return row && (!motion || row['animation-name'] !== 'none'); }));
+  }).map(c => c.id);
   if (!hadEra) document.body.removeAttribute('data-era');
   oldSheet.disabled = true;
   nowSheet.disabled = false;
@@ -117,7 +190,7 @@ function compare() {
       }
     });
   });
-  return [...diffs].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k));
+  return { diffs: [...diffs].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)), hit };
 }
 
 async function main() {
@@ -151,12 +224,15 @@ async function main() {
     missing++;
     console.log(`   (없음) ${what}`);
   };
+  let changed = null; // 고친 선택자(changedSelectors)
+  let unseen = []; // 그 가운데 아직 재지 못한 것
   const open = async (hash = '') => {
     await page.send('Page.navigate', { url: 'about:blank' });
     await page.send('Page.navigate', { url: base + hash });
     for (let i = 0; i < 100; i++) { if (await page.run(() => document.readyState === 'complete' && !document.getElementById('page-loader'))) break; await sleep(100); }
     const fonts = await page.run(prepare, OLD);
     if (!fonts.every(f => seen.has(f))) report('글꼴 선언', fonts); // 열 때마다 같으므로 한 번만 적는다
+    if (!changed) unseen = changed = await page.run(changedSelectors);
   };
   const setNight = on => page.run(async v => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ night: v }); }, on);
   const check = async (where, night = true) => {
@@ -164,7 +240,9 @@ async function main() {
     await page.run(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' })));
     for (const theme of night ? ['낮', '밤'] : ['낮']) {
       if (night) { await setNight(theme === '밤'); await sleep(120); }
-      report(`${where}, ${theme}`, await page.run(compare));
+      const { diffs, hit } = await page.run(compare, unseen.filter(c => !c.whole));
+      unseen = unseen.filter(c => !hit.includes(c.id));
+      report(`${where}, ${theme}`, diffs);
       states++;
     }
     if (night) await setNight(false);
@@ -435,7 +513,12 @@ async function main() {
   await clickText('.closeup .exam-tools .btn', '채점하기');
   await check('채점한 시험지(100점 도장)');
   for (const msg of new Set(page.pageErrors)) console.log(`경고 페이지 오류: ${msg}`);
-  console.log(`점검 끝: 견준 화면 ${states}개, ${BASE}와 다른 곳 ${total}개(종류 ${seen.size}개)${missing ? `, 열지 못한 것 ${missing}개` : ''} (${Math.round((Date.now() - t0) / 1000)}초)`);
+  if (unseen.length) {
+    console.log(`재지 못함: 고친 선택자 ${unseen.length}개는 연 화면에 맞는 요소가 없었거나 움직임이다. 다른 곳이 0개여도 확인된 것이 아니다`);
+    for (const c of unseen.slice(0, 40)) console.log(`   ${c.sel}${c.media.map(m => ` @media ${m}`).join('')} (${c.how}${c.motion ? ', 움직임' : ''})`);
+    if (unseen.length > 40) console.log(`   그 밖에 ${unseen.length - 40}개`);
+  }
+  console.log(`점검 끝: 견준 화면 ${states}개, ${BASE}와 다른 곳 ${total}개(종류 ${seen.size}개)${missing ? `, 열지 못한 것 ${missing}개` : ''}${changed.length ? `, 고친 선택자 ${changed.length}개 가운데 재지 못한 것 ${unseen.length}개` : ''} (${Math.round((Date.now() - t0) / 1000)}초)`);
   return total || missing ? 1 : 0;
 }
 await runTool(import.meta.url, main);
