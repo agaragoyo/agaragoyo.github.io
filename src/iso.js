@@ -7,6 +7,7 @@ import { BY_ID } from '../data/furniture.js';
 import { dims, drawnAt } from './rules.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
+import { DOOR } from '../data/door.js';
 
 const SKEW = (Math.atan(TH / TW) * 180) / Math.PI; // 벽의 기울기 (2:1이면 26.565도)
 
@@ -117,19 +118,37 @@ export function sceneSVG(scene, decor = null) {
   return roomSVG(scene.door, decor?.wall, decor?.floor);
 }
 
-// 현관문: 벽에 붙은 문틀과 문짝, 위아래 두 칸 무늬, 손잡이. 가구가 아니라 방 그림의 일부라 늘 같은 자리에 있다(config.js의 SCENES door).
+// 현관문: 정면에서 본 픽셀 그림(data/door.js)을 벽의 기울기(2:1)대로 두 점마다 한 점씩 어긋나게 세워 그린다.
+// 벽지처럼 비틀면(skew) 점이 찌그러지므로, 가구 그림처럼 네모난 점을 계단으로 쌓는다. 가구가 아니라 방 그림의 일부라 늘 같은 자리에 있다(config.js의 SCENES door).
 // .door-hit는 문 전체를 덮는 투명한 판이다. 바탕화면에서 두 번 누르면 아바타가 걸어간 뒤 이웃집 목록 창이 뜬다(room.js의 renderStatic).
 function doorSVG(door) {
   const { wall, x: u, w, h } = door;
   const q = (du, v) => wallPoint(wall, u + du, v);
   const quad = (u0, u1, v0, v1) => pts([q(u0, v0), q(u1, v0), q(u1, v1), q(u0, v1)]);
-  const F = 0.16; // 문틀 두께(칸)
-  const knob = q(w - F - 0.3, h * 0.45);
-  return `<polygon class="door-frame" points="${quad(0, w, 0, h)}" />
-    <polygon class="door-leaf" points="${quad(F, w - F, 0, h - F)}" />
-    <polygon class="door-panel" points="${quad(F + 0.25, w - F - 0.25, h * 0.55, h - F - 0.3)}" />
-    <polygon class="door-panel" points="${quad(F + 0.25, w - F - 0.25, 0.3, h * 0.45 - 0.25)}" />
-    <circle class="door-knob" cx="${knob.x}" cy="${knob.y}" r="3.5" />
+  const { rows, colors, knob } = DOOR;
+  const foot = q(wall === 'L' ? w : 0, 0); // 화면에서 문의 왼쪽 끝 바닥
+  const lift = c => (wall === 'L' ? 1 : -1) * Math.floor(c / 2); // 오른쪽으로 갈수록 왼쪽 벽은 올라가고 오른쪽 벽은 내려간다
+  const dots = (c, y, n, up) => `M${foot.x + c * WALL_PX} ${foot.y + (y - rows.length - up) * WALL_PX}h${WALL_PX}v${n * WALL_PX}h-${WALL_PX}z`;
+  const art = {};
+  const grip = {};
+  let under = ''; // 겉선 안쪽 전체에 문짝 색을 한 번 깔아 점 사이로 벽이 비치지 않게 한다(벽지와 같다)
+  for (let c = 0; c < rows[0].length; c++) {
+    for (let y = 0; y < rows.length;) {
+      const ch = rows[y][c];
+      let n = 1;
+      while (rows[y + n]?.[c] === ch) n++;
+      const d = dots(c, y, n, lift(c));
+      if (ch !== 'k') under += d;
+      if (ch !== 'L') (art[ch] ??= []).push(d);
+      y += n;
+    }
+  }
+  const level = lift(knob.x + Math.floor(knob.rows[0].length / 2)); // 손잡이는 가운데 줄의 높이에 바로 세운다
+  knob.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch !== '.') (grip[ch] ??= []).push(dots(knob.x + x, knob.y + y, 1, level));
+  }));
+  const paint = parts => Object.entries(parts).map(([ch, d]) => `<path fill="${colors[ch]}" d="${d.join('')}" />`).join('');
+  return `<g class="door-art"><path fill="${colors.L}" d="${under}" />${paint(art)}${paint(grip)}</g>
     <polygon class="door-hit" points="${quad(0, w, 0, h)}"><title>두 번 눌러 이웃집 놀러 가기</title></polygon>`;
 }
 

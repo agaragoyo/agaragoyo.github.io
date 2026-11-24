@@ -24,7 +24,7 @@
 | 아이디로 찾아가기(공유하기 창의 아이디 정하기와 지우기, 이웃집 목록 창 아래와 로그인 화면 오른쪽 단의 친구 아이디 칸) | 서버와 아이디 검사는 `src/cloud.js`의 "아이디" 절(`claimHandle`, `findHandle`, `dropHandle`, `HANDLE_RE`), 정하는 화면은 `src/apps/share-app.js`, 아이디로 방을 찾는 칸과 단추와 오류 글은 `src/neighbors.js`의 `handleInput`(두 칸이 같이 쓴다), 이웃집 목록 창의 칸은 `handleForm`, 로그인 화면의 칸은 `src/login.js`의 `handleTile`, 규칙은 `firestore.rules`의 `match /handles/`. 아이디의 글자나 길이를 바꾸면 `HANDLE_RE`와 규칙을 같이 고치고 콘솔에 게시한다(`check_cloud`가 둘이 같은지 본다) |
 | 바탕화면에 공간 바로 가기 두기 | `data/apps.js`에 `scene: '<공간 id>'`. 누르면 창 대신 바탕화면이 그 공간으로 옮겨 간다. 지금 보이는 공간의 바로 가기는 숨긴다(지금은 공간이 하나라 쓰는 앱이 없다) |
 | 최근에 놀러 간 집(로그인 화면 오른쪽 단 맨 위, 짧은 링크나 아이디로 다녀온 방) | 기억하고 고치는 일은 `src/neighbors.js`의 `recentVisits`, `rememberVisit`, `syncVisit`(저장 키는 `src/config.js`의 `STORAGE_RECENT`, 세 집 `MAX_RECENT`), 들어갈 때 적는 곳은 `src/os.js`의 `enter`, 로그인 화면의 칸은 `src/login.js`의 `recentTile`, 칸 모양은 이웃집과 같은 `gridTile`과 `style.css`의 `.friend-tile` |
-| 현관문(두 번 누르면 이웃집 목록 창)과 바탕화면의 공간 옮기기 | `src/os.js`의 `useDoor`, `goScene`, 문 그림은 `src/iso.js`의 `doorSVG` |
+| 현관문(두 번 누르면 이웃집 목록 창)과 바탕화면의 공간 옮기기 | `src/os.js`의 `useDoor`, `goScene`, 문 그림은 `data/door.js`(정면에서 본 글자 격자), 그리는 곳은 `src/iso.js`의 `doorSVG` |
 | 이웃집에 손님으로 들어가기와 돌아오기 | `src/os.js`의 `visit`, `goHome`(손님 바탕화면의 나도 만들기와 내 컴퓨터로) |
 | 바탕화면에서 가구 두 번 누르기(아바타가 다가가 기믹) | `src/room.js`의 `renderStatic`, `src/os.js`의 `useFurniture`, `src/avatar.js`의 `approach` |
 | 기믹이 없는 가구를 두 번 눌렀을 때 아바타의 혼잣말 고치기 | `data/furniture.js`의 그 가구 줄의 `say`. 줄을 꺼내는 곳은 `src/furniture-line.js`의 `furnitureLine`, 말하게 하는 곳은 `src/os.js`의 `openFurniture`. 13자를 넘거나 이름만 되풀이하면 `python tools/check.py`가 알려 준다 |
@@ -39,6 +39,7 @@
 | 방 바닥과 벽 그림 | `src/iso.js`의 `roomSVG`(현관문은 `doorSVG`, 벽지 무늬는 `wallPaint`, 바닥 무늬는 `floorPaint`) |
 | 벽지 그림 고치기와 더하기(방 꾸미기 창 위쪽의 벽지 단추) | `data/wall-patterns.js`. 한 글자가 한 칸(무대 2px)이고 '.'은 바탕 색이다. 가로세로 칸 수는 18의 배수이고, 단추에 보여 줄 14×14칸 자리는 `swatch`다. 새 벽지는 끝에 더한다(공유 링크가 순서 번호를 담는다). 벽을 따라 비스듬히 이어 붙이는 곳은 `src/iso.js`의 `wallPaint`, 단추 그림은 `wallSwatchSVG`, 고르는 단추는 `src/apps/room-app.js` |
 | 바닥 그림 고치기와 더하기(방 꾸미기 창 위쪽의 바닥 단추) | `data/floor-patterns.js`. 위에서 본 바닥 무늬를 한 글자가 한 칸인 격자로 그리고 '.'은 바탕 색이다. 바닥 한 칸의 가장자리가 18칸이라 가로세로 칸 수는 18의 배수이고, 단추에 보여 줄 14×14칸 자리는 `swatch`다. 새 바닥은 끝에 더한다(공유 링크가 순서 번호를 담는다). 바닥 칸의 기울기로 눕혀 까는 곳은 `src/iso.js`의 `floorPaint`, 단추 그림은 `floorSwatchSVG`, 고르는 단추는 `src/apps/room-app.js` |
+| 새로 만든 방의 벽지와 바닥 바꾸기 | `src/config.js`의 `NEW_ROOM_DECOR` |
 | 밤의 어둠과 불빛 | `src/room.js`의 `renderShade`, `style.css`의 "밤 모드" 절 |
 | 코드를 고친 뒤 주요 흐름이 그대로 도는지 기계로 눌러 보기 | `node tools/smoke.mjs`. 새 창이나 가구 화면을 만들면 그 파일의 `walk`에 한 줄을 더한다 |
 | 공유 링크와 집 검사를 고친 뒤 무작위 입력으로 두드려 보기 | `node tools/link-fuzz.mjs`. 가구에 담는 것의 종류를 더하면 그 파일의 `randomHome`과 `invariants`, 꽉 채운 방에도 더한다 |
@@ -188,6 +189,7 @@
 | `data/pets.js` | 내 방의 펫(F30)의 그림과 색. 종류 여덟 가지(강아지, 고양이, 기니피그, 병아리, 비둘기, 코끼리, 코알라, 공룡)와 병아리가 자란 닭마다 24×20칸 글자 격자로 그린 앉은 그림과 걷는 그림 두 장, 숨 쉴 때 빼는 줄, 색 네 가지. 고양이에는 가구 위에서 쓰는 웅크린 그림(`loaf`)도 있다. 비둘기에는 말풍선 암호로 날아올 때 쓰는 나는 그림 두 장(`fly1`, `fly2`)도 있다. 아직 고르지 않았을 때의 펫(`DEFAULT_PET`)도 여기 있다. 종류마다의 성격(`mood`)은 기본값(`DEFAULT_MOOD`)과 다른 값만 적는다(명령을 듣는지, 처음부터 따라오는지, 벽 앞과 가구 옆을 좋아하는지, 쉬는 시간, 걷는 칸 수, 쓰다듬으면 폴짝 뛰는지, 바닥을 쪼는지, 가구에 올라가는지). 칸의 뜻과 자라는 종류(`grow`, `grown`), 성격 값의 뜻은 파일 맨 위에 있다 |
 | `data/wall-patterns.js` | 방 벽지 목록(F13). 맨 앞은 기본 벽이고, 나머지는 팀이 보낸 벽지 그림을 점 격자로 다시 찍은 하트, 구름, 초록 줄무늬, 잔꽃무늬, 민트 줄무늬, 리본. 글자 격자와 바탕 색, 글자마다의 색, 벽지 단추에 보여 줄 자리(`swatch`). 공유 링크가 순서 번호를 담으므로 새 벽지는 끝에 더한다 |
 | `data/floor-patterns.js` | 방 바닥 목록(F13). 맨 앞은 기본 바닥(칸마다 두 색을 번갈아 칠함)이고, 나머지는 팀이 보낸 바닥 그림을 점 격자로 다시 찍은 파랑 체크, 분홍 체크, 빨강 체크, 나무, 분홍 나무, 헤링본. 위에서 본 모양의 글자 격자와 바탕 색, 글자마다의 색, 바닥 단추에 보여 줄 자리(`swatch`). 공유 링크가 순서 번호를 담으므로 새 바닥은 끝에 더한다 |
+| `data/door.js` | 방의 현관문 그림. 정면에서 본 36×72점 글자 격자와 색, 손잡이. 점의 수와 글자는 `python tools/check.py`가 본다 |
 
 ## apps/: 팀원 앱
 

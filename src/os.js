@@ -2,7 +2,7 @@
 //   mode: 'edit'  내 컴퓨터 (방을 꾸미고 저장한다)
 //         'visit' 공유 링크로 들어온 친구 컴퓨터 (가구는 옮기지 못하고, 바탕화면에서 아바타로 걸으며 써 본다)
 // 앱은 src/apps/(기본 앱)와 apps/(팀원 앱, iframe)에 있고, 여기서는 목록대로 열어 주기만 한다.
-import { STORAGE_ROOM, SCENES } from './config.js';
+import { STORAGE_ROOM, SCENES, NEW_ROOM_DECOR } from './config.js';
 import { BY_ID } from '../data/furniture.js';
 import { APPS, APP_BY_ID, hostTip } from '../data/apps.js';
 import { createWM } from './win.js';
@@ -450,7 +450,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 모두 메모리에만 있어서 새로 고침을 하면 저장된 집으로 돌아온다(known-issues 40).
   os.startPractice = () => {
     os.realHome = os.home;
-    os.home = sanitizeHome({ owner: os.home.owner });
+    os.home = sanitizeHome({ owner: os.home.owner, decor: NEW_ROOM_DECOR });
     settings.hold({ night: false });
     os.wm.closeAll();
     showDesktop();

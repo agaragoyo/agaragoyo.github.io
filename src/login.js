@@ -4,7 +4,7 @@
 // 이웃집은 팀원의 방을 미리 넣어 둔 친구 집이라, 아이디로 찾아가는 칸을 그 아래에 두어 친구에게 가는 길을 한 단에 모았다.
 // 격자는 넷플릭스의 프로필 고르기, 윈도우 XP의 사용자 계정 창처럼 사진 아래에 이름 한 줄만 쓴다. 칸마다 같은 설명을 되풀이하지 않고 무리마다 제목을 한 번 둔다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
-import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, NEW_ROOM_DECOR } from './config.js';
 import { APPS } from '../data/apps.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare, myHandle } from './cloud.js';
@@ -197,7 +197,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     } else {
       mine.append(newUserTile((name, picture) => {
         clearHash();
-        const home = sanitizeHome({ owner: name });
+        const home = sanitizeHome({ owner: name, decor: NEW_ROOM_DECOR });
         saveJSON(STORAGE_ROOM, home);
         saveOwnPicture(picture);
         os.tutorial.arm();
