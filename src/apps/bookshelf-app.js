@@ -7,7 +7,11 @@ import { h, clamp, fitText } from '../util.js';
 import { openCloseup } from '../closeup.js';
 import { LIMIT, setLike, isOwner, nextColor } from '../likes.js';
 
-// 표지 색(likes의 color 번호). 가구 그림의 책장(assets/furniture/bookshelf.png)에 꽂힌 책처럼 바랜 색이다. 개수는 LIMIT.bookColors와 같다
+// 책장 틀 그림(style.css의 .shelf-closeup 배경)은 CSS가 받아서, 책장을 처음 여는 순간에야 받으면 틀이 늦게 뜬다. 이 모듈을 읽을 때 미리 받아 둔다
+const FRAME = new Image();
+FRAME.src = 'assets/closeup/shelf-frame.png';
+
+// 표지 색(likes의 color 번호). 바랜 책 색이다. 개수는 LIMIT.bookColors와 같다
 export const BOOK_COLORS = ['#c9766a', '#7f9a6c', '#5d84b8', '#d4a12a', '#8b72b8', '#a07a4a', '#c06c94', '#4f8f86'];
 
 // 책 색을 CSS 변수(--book)로 넣는다. h()의 style은 Object.assign이라 사용자 정의 속성은 setProperty로 따로 넣는다

@@ -1294,37 +1294,59 @@ def check_line_endings():
 
 
 # ---------- 가까이 보기 틀 ----------
-# TV 가까이 보기의 틀 그림(assets/closeup/tv-frame.png)은 점 한 칸이 1픽셀이고, style.css의 TV 절이 그 점 수로 틀의 크기와 화면 구멍의 자리를 적는다.
-# 그림만 고치고 숫자를 안 고치면 화면이 틀에서 어긋나므로, 그림 크기와 .tv-set 크기가 같은지, 화면 구멍이 그림 안에 드는지 본다(known-issues 116).
+# 가까이 보기의 틀 그림(assets/closeup/*.png)은 점 한 칸이 1픽셀이고, style.css의 그 가구 절이 그 점 수로 틀의 크기와 그 위에 올릴 자리를 적는다.
+# 그림만 고치고 숫자를 안 고치면 화면과 글이 틀에서 어긋나므로, 그림 크기와 틀 규칙의 크기가 같은지, 올릴 자리가 그림 안에 드는지 본다(known-issues 116).
+# 틀을 새로 만들면 여기에 한 줄을 더한다: (그림, 틀 규칙, 틀 위에 올리는 규칙들). 책장은 자리를 grid-template의 점 수로 적는다.
+CLOSEUP_FRAMES = [
+    ('tv-frame.png', '.tv-set', ['.tv-screen']),
+    ('shelf-frame.png', '.shelf-closeup', []),
+    ('radio-frame.png', '.radio-body', ['.radio-slot', '.radio-lcd']),
+]
+
+
 def check_closeup_frame():
-    path = ROOT / 'assets/closeup/tv-frame.png'
-    if not path.is_file():
-        err('assets/closeup/tv-frame.png', 'TV 가까이 보기의 틀 그림이 없다')
-        return
-    data = path.read_bytes()
-    if data[:8] != b'\x89PNG\r\n\x1a\n':
-        err('assets/closeup/tv-frame.png', 'PNG 파일이 아니다')
-        return
-    w, h = struct.unpack('>II', data[16:24])
     css = read('style.css')
 
     def rule(sel):
-        m = re.search(re.escape(sel) + r'\s*\{(.*?)\n\}', css, re.S)
+        m = re.search(r'(?m)^' + re.escape(sel) + r'\s*\{(.*?)\n\}', css, re.S)
         return m.group(1) if m else ''
 
     def dots(body, prop):
         m = re.search(r'(?<![\w-])' + prop + r':\s*calc\((\d+) \* var\(--dot\)\)', body)
         return int(m.group(1)) if m else None
 
-    tv_set, screen = rule('.tv-set'), rule('.tv-screen')
-    sw, sh = dots(tv_set, 'width'), dots(tv_set, 'height')
-    if (sw, sh) != (w, h):
-        err('style.css', f'.tv-set 의 크기 {sw}×{sh}점이 틀 그림의 크기 {w}×{h}점과 다르다. 그림을 고쳤으면 TV 절의 숫자도 같이 고친다(known-issues 116)')
-    x, y, cw, ch = (dots(screen, k) for k in ('left', 'top', 'width', 'height'))
-    if None in (x, y, cw, ch):
-        err('style.css', '.tv-screen 의 left, top, width, height 는 calc(점 수 * var(--dot)) 꼴로 적는다(그림의 점 수와 맞추려고)')
-    elif x + cw > w or y + ch > h:
-        err('style.css', f'.tv-screen 이 틀 그림({w}×{h}점) 밖으로 나간다(왼쪽 위 {x}, {y}점, 크기 {cw}×{ch}점)')
+    for name, sel, inner in CLOSEUP_FRAMES:
+        rel = f'assets/closeup/{name}'
+        path = ROOT / rel
+        if not path.is_file():
+            err(rel, f'가까이 보기의 틀 그림이 없다({sel})')
+            continue
+        data = path.read_bytes()
+        if data[:8] != b'\x89PNG\r\n\x1a\n':
+            err(rel, 'PNG 파일이 아니다')
+            continue
+        w, h = struct.unpack('>II', data[16:24])
+        body = rule(sel)
+        sw, sh = dots(body, 'width'), dots(body, 'height')
+        if (sw, sh) != (w, h):
+            err('style.css', f'{sel} 의 크기 {sw}×{sh}점이 틀 그림 {name}의 크기 {w}×{h}점과 다르다. 그림을 고쳤으면 그 절의 숫자도 같이 고친다(known-issues 116)')
+        if f'url("{rel}")' not in body:
+            err('style.css', f'{sel} 의 배경이 {rel} 이 아니다')
+        for child in inner:
+            x, y, cw, ch = (dots(rule(child), k) for k in ('left', 'top', 'width', 'height'))
+            if None in (x, y, cw, ch):
+                err('style.css', f'{child} 의 left, top, width, height 는 calc(점 수 * var(--dot)) 꼴로 적는다(그림의 점 수와 맞추려고)')
+            elif x + cw > w or y + ch > h:
+                err('style.css', f'{child} 이 틀 그림({w}×{h}점) 밖으로 나간다(왼쪽 위 {x}, {y}점, 크기 {cw}×{ch}점)')
+        m = re.search(r'grid-template:([^;]*);', body)
+        if m:
+            rows, cols = ([int(n) for n in re.findall(r'calc\((\d+) \* var\(--dot\)\)', part)] for part in m.group(1).split('/'))
+            if sum(rows) > h or sum(cols) > w:
+                err('style.css', f'{sel} 의 grid-template 이 틀 그림({w}×{h}점) 밖으로 나간다(가로 {sum(cols)}점, 세로 {sum(rows)}점)')
+    known = {name for name, _, _ in CLOSEUP_FRAMES}
+    for path in sorted((ROOT / 'assets/closeup').glob('*.png')):
+        if path.name not in known:
+            err(f'assets/closeup/{path.name}', '크기를 보지 않는 틀 그림이다. tools/check.py의 CLOSEUP_FRAMES에 한 줄을 더한다')
 
 
 # ---------- 파일 지도 ----------
