@@ -67,6 +67,10 @@ export const SCENES = [
   { id: 'room', name: '내 방', kind: 'indoor', door: { wall: 'L', x: 9, w: 2, h: 4 } },
 ];
 
+// 새로 만든 방의 벽지와 바닥(data/wall-patterns.js, data/floor-patterns.js의 id). 새 사용자를 만들 때(src/login.js)와 튜토리얼 다시 보기의 연습 방(src/os.js의 startPractice)이 쓴다.
+// 이미 만든 방은 바뀌지 않는다. 벽지와 바닥을 적지 않은 집은 예전처럼 기본 벽과 기본 바닥(plain)이다
+export const NEW_ROOM_DECOR = { wall: 'stripe', floor: 'wood' };
+
 export const STORAGE_ROOM = 'agarago.home.v3';
 export const STORAGE_ROOM_OLD = 'agarago.room.v2'; // 공간이 하나뿐이던 때의 저장본 (내 방으로 옮겨 온다)
 export const STORAGE_SETTINGS = 'agarago.settings';

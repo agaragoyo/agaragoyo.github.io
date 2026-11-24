@@ -776,6 +776,37 @@ def check_pattern_list(where, const, word, plain, unit, swatch):
             err(where, f"{wid}: colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
 
 
+def check_door():
+    """data/door.js 의 현관문 그림이 colors 에 있는 글자만 쓰고, 점의 수가 src/config.js 의 SCENES door 자리(벽 w칸 × h줄)와 맞는지 본다.
+    벽 한 칸(한 줄)은 그림 18점이다(WH ÷ src/iso.js 의 WALL_PX). 어긋나면 문 그림과 누르는 자리(door-hit)가 달라진다.
+    손잡이(knob)가 문 밖으로 나가지 않는지도 본다."""
+    where = 'data/door.js'
+    text, iso, config = read(where), read('src/iso.js'), read('src/config.js')
+    spot = re.search(r"id: 'room'[^\n]*door: \{[^}]*\bw: (\d+), h: (\d+)", config)
+    px = re.search(r'^const WALL_PX = (\d+);', iso, re.M)
+    wh = re.search(r'^export const WH = (\d+);', config, re.M)
+    colors_text = re.search(r'^  colors: \{(.*?)\},', text, re.S | re.M)
+    rows_text = re.search(r'^  rows: \[\n(.*?)^  \],', text, re.S | re.M)
+    knob_text = re.search(r'^  knob: \{ x: (\d+), y: (\d+), rows: \[([^\]]*)\] \},', text, re.M)
+    if not (spot and px and wh and colors_text and rows_text and knob_text):
+        err(where, '현관문 그림(colors, rows, knob)이나 문 자리(src/config.js 의 SCENES door), 점 크기를 읽지 못했다(모양이 바뀌었으면 tools/check.py 의 check_door 도 고친다)')
+        return
+    unit = int(wh.group(1)) // int(px.group(1))
+    cols, lines = int(spot.group(1)) * unit, int(spot.group(2)) * unit
+    colors = set(re.findall(r"(\w): '#[0-9a-fA-F]{6}'", colors_text.group(1)))
+    rows = re.findall(r"'([^']*)'", rows_text.group(1))
+    if len(rows) != lines or {len(r) for r in rows} != {cols}:
+        err(where, f'문 그림은 가로 {cols}점, 세로 {lines}점이다(지금 {len(rows)}줄, 점 수 {sorted({len(r) for r in rows})})')
+    knob = re.findall(r"'([^']*)'", knob_text.group(3))
+    if int(knob_text.group(1)) + max(map(len, knob), default=0) > cols or int(knob_text.group(2)) + len(knob) > lines:
+        err(where, '손잡이(knob)가 문 그림 밖으로 나간다')
+    extra = (set(''.join(rows)) | set(''.join(knob)) - {'.'}) - colors
+    if extra:
+        err(where, f"colors 에 없는 글자 {''.join(sorted(extra))} 가 있다")
+    if not {'k', 'L'} <= colors:
+        err(where, 'colors 에 겉선 k와 문짝 L이 있어야 한다(src/iso.js 의 doorSVG가 겉선 안쪽에 문짝 색을 먼저 깐다)')
+
+
 # ---------- 저장소 키 ----------
 def check_pets():
     """data/pets.js 의 펫 그림이 24×20칸이고 정해진 글자만 쓰는지, 색표가 빠짐없는지 본다(글자로 그린 그림은 한 칸만 밀려도 모양이 깨진다).
@@ -1423,6 +1454,7 @@ def main():
     check_avatars()
     check_user_pictures()
     check_decor_patterns()
+    check_door()
     check_pets()
     check_feature_numbers()
     check_known_issues()
