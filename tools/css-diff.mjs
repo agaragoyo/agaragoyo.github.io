@@ -1,16 +1,17 @@
 // 모양 비교. style.css를 고친 뒤, 고치기 전과 화면의 모양이 어디가 달라졌는지 기계로 견준다.
 //
-//   node tools/css-diff.mjs               지금 style.css를 마지막 커밋(HEAD)의 것과 견준다(5분쯤 걸린다)
+//   node tools/css-diff.mjs               지금 style.css를 마지막 커밋(HEAD)의 것과 견준다(4분쯤 걸린다)
 //   node tools/css-diff.mjs --base=main   main의 style.css와 견준다(아무 커밋이나 브랜치 이름을 줄 수 있다)
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 98가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 97가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
 // 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
 // 모양을 일부러 바꾼 것이라면 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 보는 데 쓴다.
-// 작업 표시줄 시계의 분이 재는 도중에 바뀌면 시계와 그 옆 칸의 폭이 다르다고 나올 수 있다(다시 돌리면 없어진다).
+// 두 번 다 자바스크립트 한 번 안에서 같은 글꼴로 재므로 시계나 알림이 바뀐 것은 세지 않고, 고치지 않은 style.css에서는 0개가 나온다(known-issues 122).
+// 글꼴 선언(@font-face)을 바꾼 것은 화면마다 재지 않고 바뀐 선언을 "글꼴 선언"으로 한 번 적는다.
 // 종료 코드: 0 다른 곳 없음, 1 다른 곳이 있음, 2 도구를 돌리지 못함.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -19,39 +20,84 @@ import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome }
 const root = fileURLToPath(new URL('..', import.meta.url));
 const BASE = process.argv.slice(2).find(a => a.startsWith('--base='))?.slice(7) || 'HEAD';
 
-// 페이지 안: 지금 스타일과 옛 스타일에서 모든 요소의 계산된 속성을 견줘 다른 것을 돌려준다
-async function compare(oldCss) {
-  const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const link = document.querySelector('link[rel="stylesheet"]');
+// 페이지 안, 페이지를 열 때마다 한 번: 옛 스타일시트를 끈 채로 끼워 두고, 글꼴 선언(@font-face)은 두 시트에서 빼 따로 둔다.
+// 글꼴 선언이 든 시트를 켜거나 끄면 크롬이 글꼴을 버리고 다시 받는데, 그동안은 글자를 기본 글꼴로 앉혀 폭과 높이가 달라진다(known-issues 122).
+// 글꼴은 두 번 다 지금 것으로 재고, 한쪽 시트에만 있는 글꼴 선언을 돌려준다.
+async function prepare(oldCss) {
+  const add = css => {
+    const el = document.createElement('style');
+    el.textContent = css;
+    document.head.append(el);
+    return el;
+  };
+  const takeFonts = sheet => {
+    const fonts = [];
+    for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+      if (!(sheet.cssRules[i] instanceof CSSFontFaceRule)) continue;
+      fonts.unshift(sheet.cssRules[i].cssText);
+      sheet.deleteRule(i);
+    }
+    return fonts;
+  };
+  const oldEl = add(`${oldCss}\nhead { --css-diff: old; }`); // 끝의 규칙은 compare가 정말 옛것으로 쟀는지 보는 표시다(head는 견주지 않는다)
+  oldEl.id = 'css-diff-old';
+  oldEl.sheet.disabled = true;
+  const old = takeFonts(oldEl.sheet);
+  const now = takeFonts(document.querySelector('link[rel="stylesheet"]').sheet);
+  add(now.join('\n'));
+  document.body.getBoundingClientRect(); // 글자를 다시 앉혀 글꼴을 받기 시작하게 한다
+  await document.fonts.ready;
+  return [...old.filter(f => !now.includes(f)).map(f => `옛것에만 있다: ${f}`), ...now.filter(f => !old.includes(f)).map(f => `지금 것에만 있다: ${f}`)];
+}
+
+// 페이지 안: 지금 스타일과 옛 스타일에서 모든 요소의 계산된 속성을 견줘 다른 것을 돌려준다.
+// 중간에 기다리지 않는다(await를 쓰지 않는다). 한 작업 안에서는 타이머와 받는 일이 끼어들지 못하고 애니메이션의 시각도 멈춰 있어서,
+// 두 번 재는 사이에 시계의 분이 바뀌거나 아바타가 눈을 깜빡이거나 알림이 사라지지 않는다(known-issues 122).
+function compare() {
+  const nowSheet = document.querySelector('link[rel="stylesheet"]').sheet;
+  const oldSheet = document.getElementById('css-diff-old')?.sheet;
+  if (!oldSheet) throw new Error('옛 스타일시트를 끼운 페이지가 아니다');
   const els = [document.documentElement, document.body, ...document.querySelectorAll('.viewport, .viewport *, #page-loader, #page-loader *')];
-  const collect = () => {
-    for (const a of document.getAnimations()) { try { a.pause(); a.currentTime = 0; } catch { /* 끝난 것 */ } }
+  const times = new Map(); // 애니메이션마다 재기 전의 시각
+  // 애니메이션은 첫 장면을, 전환(transition)은 다 바뀐 모습을 잰다.
+  // 바꿔 끼우면 다른 곳마다 전환이 시작되는데, 그 첫 장면은 바꿔 끼우기 전의 값이라 다른 곳이 가려진다
+  const still = () => {
+    for (let i = 0; i < 5; i++) {
+      const moving = document.getAnimations().filter(a => a instanceof CSSTransition);
+      if (!moving.length) break;
+      for (const a of moving) a.finish();
+    }
+    for (const a of document.getAnimations()) {
+      if (!times.has(a)) times.set(a, a.currentTime);
+      a.currentTime = 0;
+    }
+  };
+  const collect = mark => {
+    if (getComputedStyle(document.head).getPropertyValue('--css-diff') !== mark) throw new Error(`스타일시트를 ${mark ? '옛것으로 바꿔 끼우지' : '지금 것으로 두지'} 못했다`);
+    still();
     const out = [];
     for (const el of els) {
       for (const pseudo of [null, '::before', '::after']) {
         const cs = getComputedStyle(el, pseudo);
         if (pseudo && (cs.content === 'none' || cs.content === 'normal')) { out.push(null); continue; }
         const row = {};
-        for (let i = 0; i < cs.length; i++) row[cs[i]] = cs.getPropertyValue(cs[i]);
+        for (const p of [...cs]) row[p] = cs.getPropertyValue(p);
         out.push(row);
       }
     }
     return out;
   };
-  const now = collect();
-  const style = document.createElement('style');
-  style.textContent = oldCss;
-  link.disabled = true;
-  document.head.append(style);
+  const now = collect('');
+  nowSheet.disabled = true;
+  oldSheet.disabled = false;
   // 2026-11-11 전의 style.css는 body의 data-era="2005"에 기대고 있었다. 그때의 것과 견줄 수 있게 옛것을 잴 때만 달아 준다
   const hadEra = document.body.hasAttribute('data-era');
   document.body.setAttribute('data-era', '2005');
-  await frame();
-  const old = collect();
+  const old = collect('old');
   if (!hadEra) document.body.removeAttribute('data-era');
-  style.remove();
-  link.disabled = false;
-  await frame();
+  oldSheet.disabled = true;
+  nowSheet.disabled = false;
+  for (const [a, t] of times) { if (a.playState !== 'idle') a.currentTime = t; } // 첫 장면으로 돌렸던 애니메이션을 제자리로
   const diffs = new Map();
   els.forEach((el, i) => {
     [null, '::before', '::after'].forEach((pseudo, j) => {
@@ -85,26 +131,30 @@ async function main() {
   await page.send('Runtime.enable');
   await page.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  let total = 0;
+  let states = 0;
+  const seen = new Set();
+  const report = (where, diffs) => {
+    const fresh = diffs.filter(d => !seen.has(d));
+    fresh.forEach(d => seen.add(d));
+    total += diffs.length;
+    if (diffs.length) console.log(`다름 [${where}] ${diffs.length}개(앞 화면에 없던 것 ${fresh.length}개)`);
+    for (const d of fresh.slice(0, 25)) console.log(`   ${d}`);
+    if (fresh.length > 25) console.log(`   그 밖에 ${fresh.length - 25}개`);
+  };
   const open = async () => {
     await page.send('Page.navigate', { url: 'about:blank' });
     await page.send('Page.navigate', { url: base });
     for (let i = 0; i < 100; i++) { if (await page.run(() => document.readyState === 'complete' && !document.getElementById('page-loader'))) break; await sleep(100); }
+    const fonts = await page.run(prepare, OLD);
+    if (!fonts.every(f => seen.has(f))) report('글꼴 선언', fonts); // 열 때마다 같으므로 한 번만 적는다
   };
-  let total = 0;
-  let states = 0;
-  const seen = new Set();
   const setNight = on => page.run(async v => { const { settings } = await import(new URL('src/settings.js', document.baseURI).href); settings.set({ night: v }); }, on);
   const check = async (where, night = true) => {
     for (const theme of night ? ['낮', '밤'] : ['낮']) {
       if (night) { await setNight(theme === '밤'); await sleep(120); }
-      const diffs = await page.run(compare, OLD);
+      report(`${where}, ${theme}`, await page.run(compare));
       states++;
-      const fresh = diffs.filter(d => !seen.has(d));
-      fresh.forEach(d => seen.add(d));
-      total += diffs.length;
-      if (diffs.length) console.log(`다름 [${where}, ${theme}] ${diffs.length}개(앞 화면에 없던 것 ${fresh.length}개)`);
-      for (const d of fresh.slice(0, 25)) console.log(`   ${d}`);
-      if (fresh.length > 25) console.log(`   그 밖에 ${fresh.length - 25}개`);
     }
     if (night) await setNight(false);
   };

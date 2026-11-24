@@ -13,7 +13,7 @@
 - `src/config.js`의 `NEW_ROOM_DECOR`, `src/login.js`(새 사용자), `src/os.js`(연습 방)
 - `src/room.js`의 `renderShade`: 그늘이 40px 위에서 시작하는 만큼 불빛 구멍을 내린다
 - `tools/check.py`의 `check_door`, `tools/smoke.mjs`(별의 크기, 새 방의 벽지와 바닥, 현관문 그림)
-- `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `known-issues.md`(67번에 한 줄, 122번)
+- `docs/requirements.md`, `docs/tasks.md`, `docs/guide.md`, `docs/file-map.md`, `known-issues.md`(67번에 한 줄, 124번)
 
 ## 정한 것과 이유
 - 별은 칸을 키우지 않고 칸 수를 늘렸다. 7칸 그림을 두 배(칸 4px, 28px)로 늘려 같은 방에 얹어 보니 점이 가구(한 점 2px)보다 두 배 굵고 겉선이 검은 십자처럼 보였다.
