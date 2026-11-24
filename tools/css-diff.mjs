@@ -1,18 +1,21 @@
 // 모양 비교. style.css를 고친 뒤, 고치기 전과 화면의 모양이 어디가 달라졌는지 기계로 견준다.
 //
-//   node tools/css-diff.mjs               지금 style.css를 마지막 커밋(HEAD)의 것과 견준다(4분쯤 걸린다)
+//   node tools/css-diff.mjs               지금 style.css를 마지막 커밋(HEAD)의 것과 견준다(5분쯤 걸린다)
 //   node tools/css-diff.mjs --base=main   main의 style.css와 견준다(아무 커밋이나 브랜치 이름을 줄 수 있다)
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 97가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 117가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴, 가구 화면과 넣는 칸,
 // 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
 // 모양을 일부러 바꾼 것이라면 바뀐 요소와 속성의 목록이 나오므로, 뜻한 곳만 바뀌었는지 보는 데 쓴다.
 // 두 번 다 자바스크립트 한 번 안에서 같은 글꼴로 재므로 시계나 알림이 바뀐 것은 세지 않고, 고치지 않은 style.css에서는 0개가 나온다(known-issues 122).
 // 글꼴 선언(@font-face)을 바꾼 것은 화면마다 재지 않고 바뀐 선언을 "글꼴 선언"으로 한 번 적는다.
-// 종료 코드: 0 다른 곳 없음, 1 다른 곳이 있음, 2 도구를 돌리지 못함.
+// 새 창이나 가구 화면을 만들면 아래 main에 한 줄을 더한다. 이 도구가 열지 않는 화면의 규칙은 0개가 나와도 확인된 것이 아니다.
+// 열지 않는 화면: 실험실, 사진과 이름 바꾸기 창, 오른쪽 단추 메뉴, 라디오의 CD와 곡 목록, 코르크 보드의 쪽지, TV의 검색 결과, 끌기와 움직임.
+// 누를 단추가 없거나 화면이 열리지 않으면 "(없음)"으로 적고 실패로 센다. 조용히 넘기면 엉뚱한 화면을 재고도 0개가 나온다.
+// 종료 코드: 0 다른 곳 없음, 1 다른 곳이 있거나 열지 못한 것이 있음, 2 도구를 돌리지 못함.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome } from './headless.mjs';
@@ -142,9 +145,15 @@ async function main() {
     for (const d of fresh.slice(0, 25)) console.log(`   ${d}`);
     if (fresh.length > 25) console.log(`   그 밖에 ${fresh.length - 25}개`);
   };
-  const open = async () => {
+  // 누를 단추가 없거나 열리지 않은 화면을 센다
+  let missing = 0;
+  const lost = what => {
+    missing++;
+    console.log(`   (없음) ${what}`);
+  };
+  const open = async (hash = '') => {
     await page.send('Page.navigate', { url: 'about:blank' });
-    await page.send('Page.navigate', { url: base });
+    await page.send('Page.navigate', { url: base + hash });
     for (let i = 0; i < 100; i++) { if (await page.run(() => document.readyState === 'complete' && !document.getElementById('page-loader'))) break; await sleep(100); }
     const fonts = await page.run(prepare, OLD);
     if (!fonts.every(f => seen.has(f))) report('글꼴 선언', fonts); // 열 때마다 같으므로 한 번만 적는다
@@ -158,12 +167,17 @@ async function main() {
     }
     if (night) await setNight(false);
   };
-  const clickText = (sel, text) => page.run((s, t) => { const el = [...document.querySelectorAll(s)].find(b => b.textContent.includes(t)); if (el) el.click(); return !!el; }, sel, text);
+  const clickText = async (sel, text) => {
+    const found = await page.run((s, t) => { const el = [...document.querySelectorAll(s)].find(b => b.textContent.includes(t)); if (el) el.click(); return !!el; }, sel, text);
+    if (!found) lost(`${sel} "${text}"`);
+  };
   const openIcon = id => page.run(i => { const b = document.querySelector(`#icons .desk-icon[data-app="${i}"]`); b.click(); b.click(); }, id);
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
   const use = async (id, ready) => {
     await page.run(i => { const f = document.querySelector(`#wallpaper .furn[data-id="${i}"]`); f.click(); f.click(); }, id);
-    for (let i = 0; i < 100; i++) { if (await page.run(ready)) break; await sleep(150); }
+    let opened = false;
+    for (let i = 0; i < 100 && !opened; i++) { opened = await page.run(ready); if (!opened) await sleep(150); }
+    if (!opened) lost(`가구 화면 ${id}`);
     await sleep(300);
   };
   const esc = async () => {
@@ -202,24 +216,30 @@ async function main() {
   await page.run(() => document.querySelector('.start-btn').click());
   await check('시작 메뉴');
   await page.run(() => document.querySelector('.start-btn').click());
-  for (const id of ['room', 'games', 'share', 'music']) {
-    await openIcon(id);
-    await sleep(500);
-    await check(`창 ${id}`);
-    if (id === 'room') { await page.run(() => document.querySelector('#windows .win-max').click()); await sleep(200); await check('창 room(최대화를 푼 것)', false); }
-    await closeWindows();
-  }
   // 마우스를 올리거나 누르고 있을 때의 모양(:hover, :active)은 크롬에 그 상태를 억지로 걸어 견준다
   await page.send('DOM.enable');
   await page.send('CSS.enable');
   const force = async (selector, states) => {
     const { root: doc } = await page.send('DOM.getDocument', { depth: 0 });
     const { nodeId } = await page.send('DOM.querySelector', { nodeId: doc.nodeId, selector });
-    if (!nodeId) { console.log(`   (없음) ${selector}`); return; }
+    if (!nodeId) return lost(selector);
     await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: states });
     await check(`${selector}:${states.join(':')}`);
     await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
   };
+  for (const id of ['room', 'games', 'share', 'music', 'pet']) {
+    await openIcon(id);
+    await sleep(500);
+    await check(`창 ${id}`);
+    if (id === 'room') { await page.run(() => document.querySelector('#windows .win-max').click()); await sleep(200); await check('창 room(최대화를 푼 것)', false); }
+    if (id === 'pet') {
+      await force('.pet-choice', ['hover']);
+      await clickText('.pet-choice', '없음');
+      await check('창 pet(펫 없음)');
+      await clickText('.pet-choice', '고양이'); // 뒤의 화면에도 방에 펫이 있게 되돌린다
+    }
+    await closeWindows();
+  }
   await openIcon('share');
   await sleep(500);
   await page.run(() => document.querySelector('.start-btn').click());
@@ -273,6 +293,12 @@ async function main() {
   await use('corkboard', () => !!document.querySelector('.closeup .cork-card'));
   await check('코르크 보드');
   await esc();
+  await use('test-paper', () => !!document.querySelector('.closeup .exam-paper.key'));
+  await check('시험지(정답지)');
+  await clickText('.closeup .exam-tools .btn', '고치기');
+  await sleep(200);
+  await check('시험지 문제 고치기');
+  await esc(); await esc();
   await use('computer', () => !!document.querySelector('#windows .computer-app'));
   await check('컴퓨터 창');
   await page.run(() => document.querySelector('#windows .like-edit').click());
@@ -299,8 +325,37 @@ async function main() {
   await check('끄는 중', false);
   await sleep(700);
   await check('꺼진 뒤', false);
+
+  // 시험지를 푸는 손님. 점검용 집을 예전 긴 링크(#r=)로 열면 서버 없이 친구 집에 들어간다
+  const quiz = TEST_HOME.likes['test-paper'];
+  const friend = await page.run(async home => {
+    const { sanitizeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+    return encodeHome(sanitizeHome(home));
+  }, { ...TEST_HOME, owner: '친구' });
+  await open(`#r=${friend}`);
+  await page.run(() => document.getElementById('power').click());
+  await sleep(900);
+  await clickText('.users .user', '손님으로 구경하기');
+  await sleep(1500);
+  const solving = () => !!document.querySelector('.closeup .exam-paper.solve');
+  const choose = picks => page.run(list => { list.forEach((pick, i) => document.querySelectorAll('.closeup .exam-q')[i].querySelectorAll('.exam-choice')[pick].click()); }, picks);
+  await use('test-paper', solving);
+  await choose([quiz[0].answer]);
+  await clickText('.closeup .exam-tools .btn', '채점하기'); // 한 문제만 고르고 채점하면 오류가 뜬다
+  await check('손님의 시험지(고른 보기와 오류)');
+  await force('.closeup .exam-q:last-child button.exam-choice', ['hover']);
+  await force('.closeup .exam-q:last-child button.exam-choice', ['focus-visible']);
+  await choose([quiz[0].answer, quiz[1].answer ? 0 : 1]);
+  await clickText('.closeup .exam-tools .btn', '채점하기');
+  await check('채점한 시험지(맞은 문제와 틀린 문제)');
+  await esc();
+  await page.run(() => localStorage.removeItem('agarago.quiz')); // 채점한 것을 잊게 해 다시 푼다
+  await use('test-paper', solving);
+  await choose(quiz.map(q => q.answer));
+  await clickText('.closeup .exam-tools .btn', '채점하기');
+  await check('채점한 시험지(100점 도장)');
   for (const msg of new Set(page.pageErrors)) console.log(`경고 페이지 오류: ${msg}`);
-  console.log(`점검 끝: 견준 화면 ${states}개, ${BASE}와 다른 곳 ${total}개(종류 ${seen.size}개) (${Math.round((Date.now() - t0) / 1000)}초)`);
-  return total ? 1 : 0;
+  console.log(`점검 끝: 견준 화면 ${states}개, ${BASE}와 다른 곳 ${total}개(종류 ${seen.size}개)${missing ? `, 열지 못한 것 ${missing}개` : ''} (${Math.round((Date.now() - t0) / 1000)}초)`);
+  return total || missing ? 1 : 0;
 }
 await runTool(import.meta.url, main);
