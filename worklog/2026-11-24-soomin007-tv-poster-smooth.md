@@ -23,3 +23,6 @@ TV 화면의 포스터 사진이 도트처럼 거칠게 줄어들던 것을 고�
 
 - 포스터는 주인이 그림 주소를 붙여 넣은 작품에만 뜬다. 이름으로 찾아 넣으면 이름, 연도, 감독, 링크만 채워지고 제목 카드가 걸린다(2026-11-10에 저작권 때문에 그림은 가져오지 않기로 정함).
 - 사진 아이콘(`.app-icon.picture img`)과 CD 표지(`.cd-art`)도 `object-fit: cover`다. CD 표지는 정사각형이라 잘리지 않고, 사진 아이콘은 이번에 보지 않았다.
+- 확인: `python tools/check.py` 오류 0개, `node tools/smoke.mjs` 1003개 가운데 실패 0개, `node tools/night-contrast.mjs` 실패 0개.
+  `node tools/css-diff.mjs --base=origin/main`에서 다른 것은 TV 화면들의 `image-rendering`뿐이다(78곳).
+  시험 그림으로 옆으로 넓은 그림, 아주 긴 그림, 비율이 같은 그림, 투명한 그림, 받지 못한 그림을 보았다. 넷은 카드를 꽉 채우고 가운데에 오며, 받지 못한 그림은 제목 카드가 남는다.
