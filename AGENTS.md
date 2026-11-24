@@ -67,7 +67,7 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 | `src/`, `data/`, `style.css`, `index.html` | `node tools/smoke.mjs` (눌러 보기, 1분쯤) |
 | `src/share.js`, `src/likes.js`, `src/rules.js`, 가구에 담는 것(likes)의 칸 | `node tools/link-fuzz.mjs` (링크 무작위, 3초쯤) |
 | `style.css`의 색이나 창 화면 | `node tools/night-contrast.mjs` (밤 대비, 15초쯤) |
-| `style.css`의 규칙을 합치거나 옮기거나 지우는 정리 | `node tools/css-diff.mjs` (모양 비교, 5분쯤. 모양이 그대로여야 하면 "다른 곳 0개") |
+| `style.css`의 규칙을 합치거나 옮기거나 지우는 정리 | `node tools/css-diff.mjs` (모양 비교, 4분쯤. 모양이 그대로여야 하면 "다른 곳 0개") |
 
 - 배포: PR이 main에 합쳐지면 `.github/workflows/pages.yml`이 Pages로 올린다. 1~2분 뒤 반영
 
