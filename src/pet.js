@@ -349,7 +349,7 @@ export function mountPet(host) {
   let species = null;   // 지금 종류(data/pets.js). 성격(mood)도 여기서 읽는다
   let mode = 'free';    // 할 일. 'free' 혼자 놀기, 'follow' 따라오기, 'stay' 기다리기
   let told = false;     // 지금 할 일이 메뉴로 시킨 일인지. 시키지 않았으면 종류가 바뀔 때(병아리가 닭이 되면) 새 종류가 처음 하는 일로 바뀐다
-  let cell = null;      // 앉은 칸(걷는 중에는 들어가는 칸). 가구 위에서는 발끝이 든 가구 칸이다. 방에 없으면 null
+  let cell = null;      // 앉은 칸(걷는 중에는 들어가는 칸). 가구 위에서는 앉은 자리의 가구 칸이다. 방에 없으면 null
   let from = null;      // 걷는 중이면 나오는 칸(가구에 뛰어오르거나 내리는 중이면 뛰기 전 칸)
   let perch = null;     // 가구 위에 올라가 있으면 그 자리 { item, x, y, h }. item은 앉은 가구의 { id, x, y, r }(놓인 자리를 적어 둔 것),
                         // x와 y는 발끝 자리(방의 칸 좌표, 소수), h는 윗면 높이(무대 px)다. 바닥에 있으면 null
@@ -425,7 +425,7 @@ export function mountPet(host) {
   const rectOf = q => ({ l: q.x - (size * PET_COLS) / 2, t: q.y - size * PET_ROWS, r: q.x + (size * PET_COLS) / 2, b: q.y });
   // 칸 c에 선 그림의 네모. 발끝은 칸 가운데다
   const rectAt = c => rectOf(tile(c.x + 0.5, c.y + 0.5));
-  const floorOf = s => ({ x: Math.floor(s.x), y: Math.floor(s.y) }); // 가구 위 자리 s의 발끝이 든 칸
+  const floorOf = s => s.cell; // 가구 위 자리 s의 칸(src/rules.js의 perchesOf)
   // 가구 위 자리 p에 앉은 발끝 자리(무대 px). 바닥의 그 자리보다 윗면 높이만큼 위다
   const perchPoint = p => { const q = tile(p.x, p.y); return { x: q.x, y: q.y - p.h }; };
   // 가구 위 자리 p가 그 가구의 자리인지. it은 방의 가구나 적어 둔 { id, x, y, r }이다
@@ -659,7 +659,7 @@ export function mountPet(host) {
     for (const it of items) {
       for (const s of perchesOf(items, it)) {
         const c = floorOf(s);
-        if (!crowded(c.x, c.y)) out.push({ item: { id: it.id, x: it.x, y: it.y, r: it.r }, x: s.x, y: s.y, h: s.h });
+        if (!crowded(c.x, c.y)) out.push({ item: { id: it.id, x: it.x, y: it.y, r: it.r }, ...s });
       }
     }
     return out;
@@ -741,7 +741,7 @@ export function mountPet(host) {
   }
 
   // 발끝 자리 a에서 b까지(무대 px) 폴짝 뛰어 가구에 오르거나 내린다. 곧은 줄보다 (높이 차의 절반 + LEAP_ARC)만큼 솟는 활 모양으로 LEAP_MS 동안 뛴다.
-  // c0과 c1은 뛰기 전과 뒤의 칸(가구 위면 발끝이 든 가구 칸)이다. 앞뒤 순서는 반을 뛸 때까지 za, 그 뒤로 zb가 정한다. 둘 다 뛰는 동안 그림이 지나는
+  // c0과 c1은 뛰기 전과 뒤의 칸(가구 위면 앉은 자리의 가구 칸)이다. 앞뒤 순서는 반을 뛸 때까지 za, 그 뒤로 zb가 정한다. 둘 다 뛰는 동안 그림이 지나는
   // 네모를 받아 뛰기 전 자리와 내려앉을 자리의 순서를 돌려준다. 다 뛰면 then을 부른다. 움직임 줄이기를 켠 사람에게는 부르지 않는다
   function leap(a, b, c0, c1, za, zb, then) {
     cancelAnimationFrame(raf);

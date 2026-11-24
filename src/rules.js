@@ -35,13 +35,51 @@ export function supportOf(items, item) {
 export const onSurface = (items, item) =>
   !isWall(item) && items.some(s => s !== item && !isWall(s) && BY_ID[s.id].surface && inside(item, s));
 
-export function elevOf(items, item) {
-  const s = supportOf(items, item);
-  return s ? BY_ID[s.id].height : 0;
+// surface 가구 s의 윗면 그림이 차지하는 칸 범위(data/furniture.js의 tabletop)를 방의 칸 좌표 [x0, y0, x1, y1]로. 적지 않은 가구는 칸 전부다.
+// 돌려 놓은 가구(r: 1)는 그림이 좌우로 뒤집혀 가로와 세로가 바뀐다.
+function topOf(s) {
+  const { size: [w, d], tabletop } = BY_ID[s.id];
+  const [x0, y0, x1, y1] = tabletop || [0, 0, w, d];
+  return s.r ? [s.x + y0, s.y + x0, s.x + y1, s.y + x1] : [s.x + x0, s.y + y0, s.x + x1, s.y + y1];
 }
 
-// 바닥 가구 item 위에 펫(고양이)이 올라가 앉을 수 있는 자리들(data/furniture.js의 perch, perchAt). 자리마다 { x, y, h }이고,
-// x와 y는 발끝이 놓이는 방의 칸 좌표(소수), h는 윗면 높이(무대 px)다. 앉는 자리를 적지 않은 가구는 칸마다 가운데에 앉고,
+// 가구 s의 칸 위의 점(방의 칸 좌표)을 윗면 그림 안의 자리로 모은다. 칸 전부를 윗면 크기로 고르게 줄이고,
+// 그 점에 놓이는 것의 밑면 [가로 칸, 세로 칸]이 윗면 밖으로 나가지 않게 가장자리에서 반 폭만큼 들여놓는다. 밑면이 윗면보다 크면 윗면 한가운데다.
+const BASE = [0.7, 0.7];
+const within = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
+function toTop(s, x, y, [bw, bd] = BASE) {
+  if (!BY_ID[s.id].tabletop) return { x, y };
+  const [x0, y0, x1, y1] = topOf(s);
+  const [w, d] = dims(s);
+  return {
+    x: within(x0 + ((x - s.x) / w) * (x1 - x0), x0 + bw / 2, x1 - bw / 2),
+    y: within(y0 + ((y - s.y) / d) * (y1 - y0), y0 + bd / 2, y1 - bd / 2),
+  };
+}
+
+// 윗면 높이로 본 점(방의 칸 좌표)이 가구 s의 윗면 그림 위면 그 점에 해당하는 칸 위의 점(toTop의 거꾸로), 아니면 null.
+// 가장자리에서 edge칸 벗어난 점까지 윗면으로 본다. 책상 위로 끌어 온 물건이 놓일 칸을 정할 때 쓴다(src/room.js의 beginDrag)
+export function fromTop(s, x, y, edge = 0.3) {
+  const [x0, y0, x1, y1] = topOf(s);
+  if (x < x0 - edge || x > x1 + edge || y < y0 - edge || y > y1 + edge) return null;
+  const [w, d] = dims(s);
+  return { x: s.x + ((x - x0) / (x1 - x0)) * w, y: s.y + ((y - y0) / (y1 - y0)) * d };
+}
+
+// 가구가 그려지는 자리 { x, y, elev }. x와 y는 방의 칸 좌표(소수일 수 있다), elev는 바닥에서 떠 있는 높이(무대 px)다.
+// 놓인 칸 그대로이고, 책상이나 식탁 위의 물건만 그 가구의 윗면 그림 안에 모은다. 윗면이 칸보다 작게 그려져도 물건이 윗면 밖에 뜨지 않는다.
+export function drawnAt(items, item) {
+  const s = supportOf(items, item);
+  if (!s) return { x: item.x, y: item.y, elev: 0 };
+  const [w, d] = dims(item);
+  const base = BY_ID[item.id].base || BASE;
+  const c = toTop(s, item.x + w / 2, item.y + d / 2, item.r ? [base[1], base[0]] : base);
+  return { x: c.x - w / 2, y: c.y - d / 2, elev: BY_ID[s.id].height };
+}
+
+// 바닥 가구 item 위에 펫(고양이)이 올라가 앉을 수 있는 자리들(data/furniture.js의 perch, perchAt). 자리마다 { x, y, h, cell }이고,
+// x와 y는 발끝이 놓이는 방의 칸 좌표(소수), h는 윗면 높이(무대 px), cell은 그 자리의 칸이다. 앉는 자리를 적지 않은 가구는 칸마다 가운데에 앉고
+// (윗면이 칸보다 작은 책상과 식탁에서는 물건처럼 윗면 안에 모이므로 발끝이 cell 밖에 놓이기도 한다),
 // 그 칸에 올라앉은 물건(supportOf가 이 가구를 돌려주는 'top' 가구)이 있으면 뺀다. 돌려 놓은 가구(r: 1)는 그림이 좌우로 뒤집혀
 // 가로와 세로가 바뀌므로 적어 둔 자리도 바꾼다. 펫(src/pet.js)이 쓴다
 export function perchesOf(items, item) {
@@ -53,11 +91,12 @@ export function perchesOf(items, item) {
   else for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < d; dy++) spots.push([dx + 0.5, dy + 0.5]);
   const held = items.filter(t => supportOf(items, t) === item);
   return spots
-    .map(([dx, dy]) => ({ x: item.x + dx, y: item.y + dy, h: def.perch }))
+    .map(([dx, dy]) => ({ x: item.x + dx, y: item.y + dy }))
     .filter(s => !held.some(t => {
       const [tw, td] = dims(t);
       return s.x >= t.x && s.x < t.x + tw && s.y >= t.y && s.y < t.y + td;
-    }));
+    }))
+    .map(s => ({ ...(def.perchAt ? s : toTop(item, s.x, s.y)), h: def.perch, cell: { x: Math.floor(s.x), y: Math.floor(s.y) } }));
 }
 
 // 벽 가구 item이 그 공간의 현관문(config.js의 SCENES door) 자리를 가리는지. scene: SCENES 한 줄.

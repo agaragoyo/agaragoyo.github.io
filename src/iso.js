@@ -4,7 +4,7 @@
 //         u는 두 벽이 만나는 모서리에서 벽을 따라간 칸, v는 바닥에서 올라간 줄이다.
 import { N, TW, TH, WALL_ROWS, WH, ORIGIN as O } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { dims } from './rules.js';
+import { dims, drawnAt } from './rules.js';
 import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
 
@@ -32,11 +32,11 @@ export function fromWall(px, py) {
 }
 
 // 가구 그림 한 장이 차지하는 상자 크기 (px). 아트 팀이 PNG를 그릴 때도 이 크기를 쓴다.
-// r: 돌려 놓았으면 1 (가로와 세로 칸 수가 바뀐다)
+// r: 돌려 놓았으면 1 (가로와 세로 칸 수가 바뀐다). 칸보다 넓은 그림(data/furniture.js의 bleed)은 상자를 좌우로 그만큼 넓힌다
 export function boxSize(def, r = 0) {
   if (def.zone === 'wall') return { w: (def.size[0] * TW) / 2, h: def.size[1] * WH };
   const [w, d] = r ? [def.size[1], def.size[0]] : def.size;
-  return { w: ((w + d) * TW) / 2, h: ((w + d) * TH) / 2 + def.height };
+  return { w: ((w + d) * TW) / 2 + 2 * (def.bleed || 0), h: ((w + d) * TH) / 2 + def.height };
 }
 
 // 바닥 쪽 가구가 그려지는 순서. 앞(화면 아래)에 있을수록 크다.
@@ -46,8 +46,8 @@ export const depthOf = item => {
 };
 
 // 가구 한 개가 놓이는 자리: 가구 상자의 왼쪽 위(무대 px)와, 벽 가구를 벽에 눕히는 기울기(skewY 도, 바닥 가구는 0).
-// elev: 책상 위에 올라가 있으면 책상 높이. 방 그림을 파일로 만들 때(room-image.js)도 이 값으로 그린다.
-export function placementOf(item, elev = 0) {
+// items: 같은 방의 가구들. 책상 위의 물건은 책상 윗면으로 올려 그린다(rules.js의 drawnAt). 방 그림을 파일로 만들 때(room-image.js)도 이 값으로 그린다.
+export function placementOf(items, item) {
   const def = BY_ID[item.id];
   if (def.zone === 'wall') {
     const [w, h] = def.size;
@@ -55,13 +55,16 @@ export function placementOf(item, elev = 0) {
     const p = wallPoint(item.wall, left, item.y + h);
     return { left: p.x, top: p.y, skew: item.wall === 'R' ? SKEW : -SKEW };
   }
-  const p = tile(item.x, item.y);
-  return { left: p.x - (dims(item)[1] * TW) / 2, top: p.y - def.height - elev, skew: 0 };
+  const at = drawnAt(items, item);
+  const p = tile(at.x, at.y);
+  // 윗면에 모은 물건의 자리는 소수로 떨어진다. 그림의 한 점(무대 2px)에 맞춰 다른 가구와 점의 줄을 맞춘다
+  const snap = at.elev ? v => Math.round(v / 2) * 2 : v => v;
+  return { left: snap(p.x - (dims(item)[1] * TW) / 2 - (def.bleed || 0)), top: snap(p.y - def.height - at.elev), skew: 0 };
 }
 
-// el(가구 그림)을 방 안 제자리에 놓는다. elev: 책상 위에 올라가 있으면 책상 높이.
-export function placeEl(el, item, elev = 0) {
-  const { left, top, skew } = placementOf(item, elev);
+// el(가구 그림)을 방 안 제자리에 놓는다. items: 같은 방의 가구들
+export function placeEl(el, items, item) {
+  const { left, top, skew } = placementOf(items, item);
   el.style.left = left + 'px';
   el.style.top = top + 'px';
   el.style.transform = skew ? `skewY(${skew}deg)` : '';
@@ -103,12 +106,9 @@ export function placeholderSVG(def, r = 0) {
 }
 
 // 불빛이 퍼져 나오는 점 (무대 px). 가구 그림 윗면의 가운데다.
-export function lightPoint(item, elev = 0) {
-  const def = BY_ID[item.id];
-  const p = tile(item.x, item.y);
-  const left = p.x - (dims(item)[1] * TW) / 2;
-  const top = p.y - def.height - elev;
-  return { x: left + boxSize(def, item.r).w / 2, y: top + TH / 2 };
+export function lightPoint(items, item) {
+  const { left, top } = placementOf(items, item);
+  return { x: left + boxSize(BY_ID[item.id], item.r).w / 2, y: top + TH / 2 };
 }
 
 // 공간 배경: 벽과 바닥과 현관문(door). scene: config.js의 SCENES 한 줄.

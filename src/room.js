@@ -1,7 +1,7 @@
 // 방 그리기와 가구 옮기기(끌어 놓기, 눌러서 집고 놓기).
 import { N, WALL_ROWS, ROOM_H, DRAG_THRESHOLD, DOUBLE_CLICK_MS } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { canPlace, coversDoor, dims, supportOf, elevOf, isWall } from './rules.js';
+import { canPlace, coversDoor, dims, supportOf, drawnAt, fromTop, isWall } from './rules.js';
 import { toTile, fromWall, boxSize, placeEl, placeholderSVG, depthOf, sceneSVG, lightPoint } from './iso.js';
 import { clamp, doubleClick } from './util.js';
 import { play } from './sound.js';
@@ -146,7 +146,7 @@ function renderShade(container, items) {
     container.append(shade);
   }
   const holes = items.filter(it => BY_ID[it.id].light).map(it => {
-    const p = lightPoint(it, elevOf(items, it));
+    const p = lightPoint(items, it);
     return `radial-gradient(circle 260px at ${p.x}px ${p.y}px, transparent 0, transparent 22%, #000 100%)`;
   });
   const mask = holes.length ? holes.join(', ') : '';
@@ -177,7 +177,7 @@ export function renderStatic(container, items, scene, on = {}, decor = null) {
     el.classList.add('item', 'static', 'usable');
     if (def.light) el.classList.add('light');
     el.addEventListener('click', onTwice(item, () => on.use?.(item, el)));
-    placeEl(el, item, elevOf(items, item));
+    placeEl(el, items, item);
     el.style.zIndex = zOf(items, item);
     container.append(el);
   }
@@ -192,7 +192,7 @@ export function renderItems(app) {
     const el = furnitureEl(item.id, item.r);
     el.classList.add('item');
     if (BY_ID[item.id].light) el.classList.add('light');
-    placeEl(el, item, elevOf(items, item));
+    placeEl(el, items, item);
     el.style.zIndex = zOf(items, item);
     el.addEventListener('pointerdown', e => onItemDown(app, item, e));
     app.itemEls.set(item, el);
@@ -216,8 +216,9 @@ function grabOf(app, item, p) {
     const f = fromWall(p.x, p.y);
     return { u: f.u - item.x, v: f.v - item.y };
   }
-  const t = toTile(p.x, p.y, elevOf(app.room.items, item));
-  return { x: t.x - item.x, y: t.y - item.y, elev: 0 };
+  const at = drawnAt(app.room.items, item);
+  const t = toTile(p.x, p.y, at.elev);
+  return { x: t.x - at.x, y: t.y - at.y, elev: 0 };
 }
 
 // 누르고 조금만 움직이면 끌기, 움직이지 않고 떼면 집기(beginDrag의 carry). 끌기를 정확히 하기 어려운 사람도 옮기도록
@@ -311,9 +312,11 @@ export function beginDrag(app, { id, item = null, grab, ev, carry = false, card 
       for (const s of surfaces) {
         const [sw, sd] = dims(s); // 돌려 놓은 책상은 가로와 세로가 바뀐다
         const t = toTile(p.x, p.y, BY_ID[s.id].height + grab.elev);
-        if (t.x < s.x - 0.3 || t.x > s.x + sw + 0.3 || t.y < s.y - 0.3 || t.y > s.y + sd + 0.3) continue;
-        x = clamp(Math.round(t.x - grab.x), s.x, s.x + sw - w);
-        y = clamp(Math.round(t.y - grab.y), s.y, s.y + sd - d);
+        if (!fromTop(s, t.x, t.y)) continue;
+        // 물건의 가운데가 놓일 칸. 윗면이 칸보다 작게 그려진 책상은 윗면 그림 위의 자리를 칸으로 바꾼다(rules.js의 fromTop)
+        const c = fromTop(s, t.x - grab.x + w / 2, t.y - grab.y + d / 2, Infinity);
+        x = clamp(Math.round(c.x - w / 2), s.x, s.x + sw - w);
+        y = clamp(Math.round(c.y - d / 2), s.y, s.y + sd - d);
         placed = true;
         break;
       }
@@ -343,7 +346,7 @@ export function beginDrag(app, { id, item = null, grab, ev, carry = false, card 
     const moved = candidate(p);
     const ok = valid(others, moved);
     const all = [...others, ...moved];
-    moved.forEach((m, i) => placeEl(ghostEls[i], m, elevOf(all, m)));
+    moved.forEach((m, i) => placeEl(ghostEls[i], all, m));
     ghost.dataset.state = ok ? 'ok' : 'bad';
     result = ok ? { action: 'place', moved } : null;
   };

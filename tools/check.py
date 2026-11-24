@@ -224,6 +224,25 @@ def check_furniture(app_ids):
                 err(where, 'perchAt(앉는 자리)은 perch(윗면 높이)와 함께 둔다')
             elif not at or not size or not (0 < float(at.group(1)) < int(size.group(1)) and 0 < float(at.group(2)) < int(size.group(2))):
                 err(where, 'perchAt 은 [가로 칸, 세로 칸]이고 가구의 칸 안이다(0보다 크고 size보다 작은 수)')
+        # 윗면 그림이 차지하는 칸 범위(src/rules.js의 topOf). 윗면이 칸 밖으로 크게 나가면 위에 올린 물건이 옆 가구 위에 그려진다
+        if 'tabletop' in f:
+            top = re.fullmatch(r'\[(-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\]', f['tabletop'])
+            size = re.fullmatch(r'\[(\d+), (\d+)\]', f.get('size', ''))
+            if f.get('surface') != 'true':
+                err(where, 'tabletop(윗면이 차지하는 칸)은 위에 물건을 올리는 가구(surface: true)에만 둔다')
+            elif not top or not size:
+                err(where, 'tabletop 은 [x0, y0, x1, y1] 네 수다(뒤쪽 꼭짓점에서 잰 칸 수)')
+            else:
+                x0, y0, x1, y1 = (float(v) for v in top.groups())
+                sw, sd = (int(v) for v in size.groups())
+                if not (-0.3 <= x0 < x1 <= sw + 0.3 and -0.3 <= y0 < y1 <= sd + 0.3):
+                    err(where, 'tabletop 의 윗면이 가구의 칸(size)에서 0.3칸 넘게 벗어나거나 앞뒤가 바뀌었다')
+        if 'base' in f:
+            nums = re.fullmatch(r'\[(\d+(?:\.\d+)?), (\d+(?:\.\d+)?)\]', f['base'])
+            if f.get('zone') != 'top' or not nums or not all(0 < float(v) <= 1.5 for v in nums.groups()):
+                err(where, 'base 는 책상 위 물건(zone: top)의 밑면이 차지하는 칸 [가로, 세로]이고 0보다 크고 1.5 이하인 수다')
+        if 'bleed' in f and (f.get('zone') == 'wall' or not f['bleed'].isdigit() or not 1 <= int(f['bleed']) <= 12):
+            err(where, 'bleed(상자를 좌우로 넓히는 폭)는 바닥 가구와 책상 위 물건에만 두는 1~12의 정수다(무대 px). 더 넓으면 칸 수를 늘린다')
         g = f.get('gimmick')
         if g:
             if g.startswith('app:') and g[4:] not in app_ids:
@@ -440,7 +459,8 @@ def fit_floor(f, w, d, iw, ih, low, tw, th):
     height = int(f['height'])
     bw = (w + d) * tw / 2  # 상자 크기. src/iso.js 의 boxSize 와 같다
     bh = (w + d) * th / 2 + height
-    s = min(bw / iw, bh / ih)  # 그림이 상자에 맞춰 줄고 아래 가운데에 붙는다(style.css 의 .furn img)
+    bleed = int(f['bleed']) if f.get('bleed', '').isdigit() else 0  # 칸보다 넓은 그림은 상자를 좌우로 이만큼 넓힌다
+    s = min((bw + 2 * bleed) / iw, bh / ih)  # 그림이 상자에 맞춰 줄고 아래 가운데에 붙는다(style.css 의 .furn img)
     ox, oy = (bw - iw * s) / 2, bh - ih * s
     front = w * tw / 2  # 바닥 변의 앞 꼭짓점(가장 아래)의 x
     xs = [x for x, y in enumerate(low) if y >= 0]
@@ -458,7 +478,8 @@ def fit_floor(f, w, d, iw, ih, low, tw, th):
     stick = max(by(low[x]) - edge(bx(x)) for x in xs)
     if stick > FIT_STICK_OUT:
         out.append(f'바닥 변보다 {fit_num(stick, FIT_STICK_OUT)}px 튀어나온다')
-    if w + d >= 3:  # 1×1 같은 작은 물건은 칸 가운데에 두기도 해서 앞 꼭짓점을 보지 않는다
+    # 1×1 같은 작은 물건은 칸 가운데에 두기도 하고, 윗면 자리(tabletop)를 적은 가구는 벽 쪽이나 칸 한가운데에 두어서 앞 꼭짓점을 보지 않는다
+    if w + d >= 3 and 'tabletop' not in f:
         bottom = by(max(low))
         tip = [bx(x) for x in xs if by(low[x]) >= bottom - 1]  # 가장 아래 점 둘레(1px 이내)의 열들
         gap = sum(tip) / len(tip) - front

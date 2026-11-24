@@ -33,6 +33,7 @@ export const LINES = {
   // 방 바닥
   desk: '서랍이 왜 열려 있지?',
   'dining-table': '의자가 하나 더 있었나?',
+  'dining-chair': '의자가 혼자 움직였어.',
   bed: '침대 밑은 안 볼래.',
   sofa: '소파가 아직 따뜻해.',
   bookshelf: '책 한 권이 떨어졌어.',

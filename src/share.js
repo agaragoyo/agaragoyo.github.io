@@ -94,6 +94,7 @@ export const LINK_CODES = [
   'big-plant', 'computer', 'tv', 'console', 'camera', 'diary', 'desk-lamp', 'desk-lamp-2', 'mug', 'plant',
   'books', 'clock', 'radio', 'fishbowl', 'window', 'wide-window', 'beads-window', 'wide-beads-window', 'frame', 'poster',
   'wall-clock', 'sandbox', 'slide', 'swing', 'seesaw', 'bench', 'tree', 'streetlight', 'corkboard', 'test-paper',
+  'dining-chair',
 ];
 const CODE = new Map(LINK_CODES.map((id, i) => [id, i]));
 const ESCAPE = 127; // LINK_CODES에 없는 가구: 이 번호 뒤에 id의 바이트 수와 id 글자를 넣는다
