@@ -84,9 +84,9 @@ export function openBookshelfApp(os, app) {
           spines.push(h('button', { type: 'button', className: 'book-spine add', title: '책 넣기', 'aria-label': '책 넣기', onclick: () => form(-1) }, '+'));
         }
         const row = h('div', { className: 'shelf-row' },
-          h('button', { type: 'button', className: 'shelf-arrow', 'aria-label': '앞 책', disabled: at <= 0, onclick: () => go(at - 1) }, '◀'),
+          h('button', { type: 'button', className: 'book-arrow', 'aria-label': '앞 책', disabled: at <= 0, onclick: () => go(at - 1) }, '◀'),
           h('div', { className: 'shelf-board' }, ...spines),
-          h('button', { type: 'button', className: 'shelf-arrow', 'aria-label': '다음 책', disabled: at >= list.length - 1, onclick: () => go(at + 1) }, '▶'));
+          h('button', { type: 'button', className: 'book-arrow', 'aria-label': '다음 책', disabled: at >= list.length - 1, onclick: () => go(at + 1) }, '▶'));
         const count = list.length > 1 ? h('p', { className: 'shelf-count' }, h('b', {}, `${at + 1} / ${list.length}`), '방향키로 넘겨 보세요.') : null;
         panel.replaceChildren(...[main, count, row].filter(Boolean)); // replaceChildren은 null을 "null" 글자로 넣는다(책이 한 권이면 count가 없다)
         // 화면에 붙은 뒤에야 줄 수를 잴 수 있다
