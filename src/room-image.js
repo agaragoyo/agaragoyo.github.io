@@ -8,7 +8,6 @@
 // 아바타도 화면과 같은 그림과 자리, 가구와의 앞뒤 순서로 넣는다(src/avatar.js의 avatarStill).
 import { ROOM_W, ROOM_H } from './config.js';
 import { BY_ID } from '../data/furniture.js';
-import { elevOf } from './rules.js';
 import { boxSize, placementOf, placeholderSVG, sceneSVG } from './iso.js';
 import { imageFor, zOf } from './room.js';
 import { avatarStill } from './avatar.js';
@@ -225,7 +224,7 @@ export async function renderRoomImage(items, scene, avatar = null, decor = null)
       if (sprites[k]) drawAvatar(g, a, sprites[k]);
       return;
     }
-    const { left, top, skew } = placementOf(item, elevOf(items, item));
+    const { left, top, skew } = placementOf(items, item);
     g.save();
     g.translate(left, top);
     if (skew) g.transform(1, Math.tan((skew * Math.PI) / 180), 0, 1, 0, 0); // skewY, 벽 가구

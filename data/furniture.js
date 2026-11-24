@@ -9,6 +9,12 @@
 //       'top'   바닥에 놓거나 surface 가구 위에 올린다. size, height는 floor와 같다
 //       'top'이던 가구를 'floor'로 바꾸면 src/share.js의 WAS_TOP에도 적는다. 그래야 예전 저장본과 링크에서 책상 위에 있던 것이 빈 바닥으로 내려온다(TV)
 // surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
+// tabletop: surface 가구의 윗면 그림이 차지하는 칸 범위 [x0, y0, x1, y1]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)다.
+//          윗면이 칸보다 작게 그려진 책상과 식탁에서 위에 올린 물건과 고양이를 이 안에 모아 그린다(src/rules.js의 drawnAt). 없으면 윗면이 칸 전부다.
+//          이 줄이 있는 가구는 그림을 칸의 앞 꼭짓점에 맞추지 않는다. 벽에 붙여 쓰는 책상은 뒤(벽 쪽)에 붙이고 식탁은 칸 한가운데에 둔다
+// base:    책상 위 물건의 밑면 그림이 차지하는 칸 [가로, 세로](소수). 적지 않으면 0.7칸 네모로 본다. tabletop이 있는 책상과 식탁 위에서 밑면이 윗면 밖으로
+//          나가지 않게 안으로 들여 그릴 때 쓰고(src/rules.js의 toTop), 놓이는 칸에는 영향이 없다. 자판까지 그린 컴퓨터와 칸을 다 덮는 시험지 상자가 크다
+// bleed:   그림이 칸보다 넓어서 가구 상자를 좌우로 넓히는 폭(무대 px, 한쪽). 문을 연 옷장처럼 칸보다 1픽셀 넓은 그림은 그림판을 양옆으로 똑같이 넓히고 그 폭을 적는다
 // perch:   고양이처럼 가구에 올라가는 펫(data/pets.js의 mood.perch)이 앉는 윗면의 높이(무대 px). 바닥 가구에만 두고, 없으면 올라가지 않는다.
 //          가구 그림에서 잰 값이라 그림을 바꾸면 다시 잰다(침대는 이불 위, 1인 소파는 방석 위다). 한 번에 뛰어오를 수 있게 75px 이하로 둔다
 // perchAt: 앉는 자리 [가로 칸, 세로 칸]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)이고 펫의 발끝이 놓인다.
@@ -25,33 +31,34 @@
 //          줄을 꺼내는 곳은 src/furniture-line.js의 furnitureLine(def). 옷장, 디카, 다이어리, 냉장고, 화분, 포스터는 인터랙션이 생기기 전까지 쓰는 임시 줄이다
 export const FURNITURE = [
   // 내 방: 바닥
-  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 62, surface: true, perch: 62, color: '#ede8da', say: '숙제는 내일 해야지.' },
-  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 70, surface: true, perch: 70, color: '#efe7cf', say: '슬슬 밥 먹을까.' },
-  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [3, 4], height: 68, perch: 30, perchAt: [1.5, 3], color: '#c4b094', say: '눕자마자 잠들겠다.' },
-  { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 44, color: '#c9766a', say: '푹 파묻히고 싶다.' },
-  { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 120, color: '#685447', gimmick: 'app:bookshelf' },
-  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 102, night: true, open: true, color: '#e0d9a1', say: '입을 옷이 없네.' },
-  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 71, perch: 30, perchAt: [1, 1], color: '#cdc39e', say: '여긴 내 지정석이야.' },
-  { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [2, 1], height: 129, color: '#eddfd0', say: '출출한데 뭐 있나.' },
-  { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 120, color: '#d1be9a', light: true, gimmick: 'night' },
+  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 38, surface: true, tabletop: [0.48, -0.08, 2.29, 1.12], perch: 38, color: '#ede8da', say: '숙제는 내일 해야지.' },
+  { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 32, surface: true, tabletop: [0.19, 0.39, 1.83, 1.67], perch: 32, perchAt: [1.4, 1.3], color: '#efe7cf', say: '슬슬 밥 먹을까.' },
+  { id: 'dining-chair', scene: 'room', name: '식탁 의자', zone: 'floor', size: [1, 1], height: 44, color: '#e5b487', say: '잠깐 앉았다 갈까.' },
+  { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [2, 3], height: 54, perch: 22, perchAt: [0.75, 1.5], color: '#c4b094', say: '눕자마자 잠들겠다.' },
+  { id: 'sofa',      scene: 'room', name: '소파',     zone: 'floor', size: [3, 2], height: 32, perch: 28, perchAt: [1.64, 1.66], color: '#c9766a', say: '푹 파묻히고 싶다.' },
+  { id: 'bookshelf', scene: 'room', name: '책장',     zone: 'floor', size: [2, 1], height: 98, color: '#685447', gimmick: 'app:bookshelf' },
+  { id: 'wardrobe',  scene: 'room', name: '옷장',     zone: 'floor', size: [2, 1], height: 100, bleed: 2, night: true, open: true, color: '#e0d9a1', say: '입을 옷이 없네.' },
+  { id: 'armchair',  scene: 'room', name: '1인 소파', zone: 'floor', size: [2, 2], height: 34, perch: 24, perchAt: [1.46, 1.65], color: '#cdc39e', say: '여긴 내 지정석이야.' },
+  { id: 'fridge',    scene: 'room', name: '냉장고',   zone: 'floor', size: [1, 1], height: 88, color: '#eddfd0', say: '출출한데 뭐 있나.' },
+  { id: 'lamp',      scene: 'room', name: '스탠드',   zone: 'floor', size: [1, 1], height: 78, color: '#d1be9a', light: true, gimmick: 'night' },
   { id: 'audio',     scene: 'room', name: '오디오',   zone: 'floor', size: [1, 1], height: 96, color: '#5b5b66', say: '노래 듣고 싶은데.' },
-  { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 84, color: '#5c643b', say: '물을 자주 줘야겠다.' },
+  { id: 'big-plant', scene: 'room', name: '큰 화분',  zone: 'floor', size: [1, 1], height: 70, color: '#5c643b', say: '물을 자주 줘야겠다.' },
   { id: 'tv',        scene: 'room', name: 'TV',       zone: 'floor', size: [2, 1], height: 46, color: '#939d8a', gimmick: 'app:tv' },
   // 내 방: 책상이나 식탁 위 (바닥에도 놓을 수 있다)
-  { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 48, color: '#d7d3c8', gimmick: 'app:computer' },
+  { id: 'computer',  scene: 'room', name: '컴퓨터',   zone: 'top', size: [1, 1], height: 44, base: [1, 1.3], color: '#d7d3c8', gimmick: 'app:computer' },
   { id: 'console',   scene: 'room', name: '게임기',   zone: 'top', size: [1, 1], height: 4, color: '#9895a4', gimmick: 'app:console' },
   { id: 'camera',    scene: 'room', name: '디카',     zone: 'top', size: [1, 1], height: 12, color: '#b6b6b2', say: '메모리 카드 남았나.' },
   { id: 'diary',     scene: 'room', name: '다이어리', zone: 'top', size: [1, 1], height: 4, color: '#af7570', say: '오늘은 뭘 적지.' },
   { id: 'desk-lamp', scene: 'room', name: '초록 탁상 조명', zone: 'top', size: [1, 1], height: 29, color: '#6d825f', light: true, gimmick: 'night' },
   { id: 'desk-lamp-2', scene: 'room', name: '빨간 탁상 조명', zone: 'top', size: [1, 1], height: 32, color: '#b84d32', light: true, gimmick: 'night' },
   { id: 'mug',       scene: 'room', name: '머그컵',   zone: 'top', size: [1, 1], height: 22, color: '#f2f0ea', say: '따뜻한 차가 당기네.' },
-  { id: 'plant',     scene: 'room', name: '작은 화분', zone: 'top', size: [1, 1], height: 34, color: '#8cc084', say: '조그만 게 야무지네.' },
+  { id: 'plant',     scene: 'room', name: '작은 화분', zone: 'top', size: [1, 1], height: 60, color: '#8cc084', say: '꽃이 활짝 피었네.' },
   { id: 'books',     scene: 'room', name: '책 더미',  zone: 'top', size: [1, 1], height: 11, color: '#b4b8a1', say: '언제 다 읽지.' },
-  { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 30, color: '#e07a5f', say: '벌써 {시각}이네.' },
-  { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [2, 1], height: 30, color: '#e0dacc', gimmick: 'app:radio' },
-  { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 36, color: '#9fd8e8', say: '멍하니 보게 된다.' },
+  { id: 'clock',     scene: 'room', name: '탁상시계', zone: 'top', size: [1, 1], height: 22, color: '#e07a5f', say: '벌써 {시각}이네.' },
+  { id: 'radio',     scene: 'room', name: '라디오',   zone: 'top', size: [1, 1], height: 24, color: '#e0dacc', gimmick: 'app:radio' },
+  { id: 'fishbowl',  scene: 'room', name: '어항',     zone: 'top', size: [1, 1], height: 32, color: '#9fd8e8', say: '멍하니 보게 된다.' },
   // 시험지: 주인이 낸 객관식 문제를 손님이 풀고 점수를 받는다(src/apps/test-paper-app.js). 그림이 오기 전까지는 종이색 상자로 보인다
-  { id: 'test-paper', scene: 'room', name: '시험지', zone: 'top', size: [1, 1], height: 4, color: '#f3eedd', gimmick: 'app:test-paper' },
+  { id: 'test-paper', scene: 'room', name: '시험지', zone: 'top', size: [1, 1], height: 4, base: [1, 1], color: '#f3eedd', gimmick: 'app:test-paper' },
   // 내 방: 벽
   { id: 'window',    scene: 'room', name: '창문',     zone: 'wall', size: [3, 3], color: '#c2cec8', say: '바깥 날씨는 어떨까.' },
   { id: 'wide-window', scene: 'room', name: '넓은 창문', zone: 'wall', size: [4, 3], color: '#cdd6d1', say: '탁 트여서 시원하다.' },

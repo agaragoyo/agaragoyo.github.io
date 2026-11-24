@@ -8,7 +8,7 @@
 // 내 방에는 펫이 걸어 다닌다(src/pet.js). 주인 아바타와 펫은 host.others로 아바타와 칸과 앞뒤를 맞춘다.
 import { N, DRAG_THRESHOLD, STORAGE_SAID } from './config.js';
 import { tile, toTile, placementOf, boxSize } from './iso.js';
-import { dims, isWall, supportOf, elevOf } from './rules.js';
+import { dims, isWall, supportOf } from './rules.js';
 import { zOf } from './room.js';
 import { AVATARS, AVATAR_BY_ID, SHEET_SCALE } from '../data/avatars.js';
 import { BY_ID } from '../data/furniture.js';
@@ -120,7 +120,7 @@ export const overlaps = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a
 
 // 가구 그림 상자가 화면에서 차지하는 네모(무대 px). room.js가 놓는 자리(placementOf)와 크기(boxSize) 그대로다.
 function furnRect(items, it) {
-  const { left, top } = placementOf(it, elevOf(items, it));
+  const { left, top } = placementOf(items, it);
   const { w, h } = boxSize(BY_ID[it.id], it.r);
   return { l: left, t: top, r: left + w, b: top + h };
 }

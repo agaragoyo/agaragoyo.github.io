@@ -3115,8 +3115,9 @@ async function walk(page, base) {
     return desktop();
   };
   const onBed = ms => until(page, () => !!document.querySelector('#wallpaper .room-pet[data-perch="bed"]'), ms);
-  // 침대(점검용 집의 (0, 3)에 놓인 3×4칸) 둘레의 바닥 칸인지(모서리의 대각선 칸은 빼고)
-  const besideBed = c => !!c && Math.max(0 - c.x, 0, c.x - 2) + Math.max(3 - c.y, 0, c.y - 6) === 1;
+  // 침대(점검용 집의 (0, 3)에 놓임) 둘레의 바닥 칸인지(모서리의 대각선 칸은 빼고). 침대의 칸 수는 가구 목록에서 읽는다
+  const [bedW, bedD] = await page.run(async () => (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.bed.size);
+  const besideBed = c => !!c && Math.max(0 - c.x, 0, c.x - (bedW - 1)) + Math.max(3 - c.y, 0, c.y - (bedD + 2)) === 1;
   await enterOnBed();
   const startUp = (await onBed(3000)) && await page.run(perchScene);
   check('방에 처음 나올 때 고양이가 침대 위에 웅크린 채 시작할 수 있다(발끝이 침대 그림 안이고 침대보다 위에 그려진다)', !!startUp && startUp.inside && startUp.above
