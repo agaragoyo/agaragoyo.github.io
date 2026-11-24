@@ -13,6 +13,8 @@
 // 링크는 주인이 자기 브라우저에서 만들어야 한다. 다른 사람이 주인의 방으로 만든 링크는 만든 사람의 것이라 주인이 방을 고쳐도 바뀌지 않는다.
 // name은 링크를 만든 사용자의 닉네임(서버의 방 주인 이름)과 같게 적는다. 방을 받기 전과 받은 뒤에 같은 이름이 보이게 하려는 것이다.
 // 넣은 뒤에 주인이 이름 바꾸기(F28)로 닉네임을 바꾸면 로그인 화면과 이웃집 목록 창에도 새 이름이 보인다. name은 다음에 이 파일을 고칠 때 맞춰 둔다.
+// 주인이 옛 방을 고치지 못하게 되어(링크를 만든 브라우저의 저장소를 잃었을 때 등) 새 방의 링크를 보내 오면, 목록의 자리와 id는 그대로 두고 name과 link만 새 방의 것으로 바꾼다.
+// 옛 방과 거기 붙은 쪽지는 서버에 그대로 남는다. 쪽지는 방 번호 아래에 있어서 새 방의 코르크 보드로 따라오지 않는다.
 // 서버에 그 방이 없으면(주인이 링크를 지웠으면) keep이 없는 이웃집은 로그인 화면과 이웃집 목록 창에서 빠진다.
 // 고정: keep이 있는 줄은 서버에 방이 없거나 서버에 닿지 못하거나 받은 방이 깨졌을 때 복사본으로 대신 열어서, 그 이웃집이 로그인 화면과 이웃집 목록 창에서 사라지지 않는다.
 // 서버에 방이 있으면 평소처럼 서버의 방을 따라 바뀐다. 고정된 방을 올린 브라우저에서는 서버의 방을 지우는 이 컴퓨터 초기화와 공유하기의 링크 지우기를 쓸 수 없다(src/neighbors.js의 pinnedHere).
@@ -26,7 +28,7 @@
 //
 // 팀원 방은 받은 차례대로 목록 끝에 더한다.
 export const NEIGHBORS = [
-  { id: 'kirby-cute', name: '커비큐트', link: 'o0z9BsNf' },
+  { id: 'kirby-cute', name: '뉴커비큐트', link: 'TtmnvwJD' },
   { id: 'soomin007', name: 'soomin007', link: 'ZUMveoKX', keep: 'BQlzb29taW4wMDcFTk1JWFgCAwYCGAICCACYgwQgBUAGp4d6gKEBqgoICbAbQxwTpkSdA54kC7IMYA2zDrEUMRC0D6MWOw0fkiCYIhEksCQAJUAlcCETIzskKyRbJQslu3siQyI6eyJ1Ijoifmhzb29taW4wMDcuZ2l0aHViLmlvLyJ9LCJHIjoib3V0bGV0LXZpbGxhaW5zIiwiQiI6W3sidCI6IuuvuOyggeu2hO2VmSAxIiwiYSI6Iuq5gO2ZjeyihSIsImMiOjB9LHsidCI6Iuq4sOy0iCDsiqTtjpjsnbjslrQgMSIsImEiOiLshpDsp4DsnYAsIOyYpOuvvOyasSwg7KCV7JuQ7ISdLCDtmansp4DtnawiLCJjIjozfSx7InQiOiLsib3qsowg67Cw7Jqw64qUIOyekOujjOq1rOyhsCB3aXRoIOyekOuwlCIsImEiOiLrrLjrs5HroZwiLCJjIjoyfV0sIlIiOlt7InUiOiJ-cFBMSkd1cFp2cVFIQXRyYTJmRlRHVm1RV2g4WnZGcjV1SEciLCJtIjoiTk1JWFggTS9WIn0seyJ1IjoifnBPTEFLNXV5X21vcmo5Y0xkME1iMHhyOVM0R2RJSVhNZi1uc2ZtbFc1YyIsIm0iOiJCbHVlIFZhbGVudGluZSIsImMiOjJ9XSwiVCI6W3sidCI6Iuu4jOugiOydtO2CuSDrsLDrk5wiLCJ5IjoiMjAwOH4yMDEzIiwiYiI6Iuu5iOyKpCDquLjrpqzqsbQsIOyVhOuLtCDrsojsiqTtg4DsnbgiLCJsIjoifnfruIzroIjsnbTtgrlf67Cw65OcIiwidyI6IuyyqyDtmZTrp4wg64SY6ri064uk66m0Li4uIiwiYyI6MH0seyJ0Ijoi67Kg7YSwIOy9nCDsgqzsmrgiLCJ5IjoiMjAxNX4yMDIyIiwiYiI6IuyVpOuTnOujqCDsiqTtg6DthLQiLCJsIjoifnfrsqDthLBf7L2cX-yCrOyauCIsImMiOjN9LHsidCI6Iu2UjOujqOumrOu2gOyKpDog7ZaJ67O17J2YIOyLnOuMgCIsInkiOiIyMDI1IiwibCI6In53JUVEJTk0JThDJUVCJUEzJUE4JUVCJUE2JUFDJUVCJUI2JTgwJUVDJThBJUE0JTNBXyVFRCU5NiU4OSVFQiVCMyVCNSVFQyU5RCU5OF8lRUMlOEIlOUMlRUIlOEMlODAiLCJ3IjoiYWkg7Iuc64yA7JeQIOunnuuKlCDssLjsi6DtlZwg67mE7JygIiwiYyI6NH1dfQ' },
   { id: 'didi', name: 'didi', link: 'nhfak6ID' },
   { id: 'kung-kwang-kong', name: '쿵쾅콩', link: 'ySwDX9jk' },
