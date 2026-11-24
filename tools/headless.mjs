@@ -181,7 +181,7 @@ export const TEST_HOME = {
   owner: '점검',
   scenes: {
     room: [
-      { id: 'lamp', x: 0, y: 0 }, { id: 'desk', x: 3, y: 0 }, { id: 'computer', x: 3, y: 0 }, { id: 'radio', x: 4, y: 1 },
+      { id: 'lamp', x: 0, y: 0 }, { id: 'study-desk', x: 3, y: 0 }, { id: 'computer', x: 3, y: 0 }, { id: 'radio', x: 4, y: 0 },
       { id: 'bookshelf', x: 7, y: 0 }, { id: 'bed', x: 0, y: 3 }, { id: 'tv', x: 8, y: 3 }, { id: 'console', x: 10, y: 3 },
       { id: 'corkboard', wall: 'R', x: 0, y: 4 }, { id: 'test-paper', x: 5, y: 0 },
     ],

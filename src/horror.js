@@ -31,7 +31,7 @@ const BEAT = 250; // 단계 시계가 방이 보이는지 보고 시간을 세�
 // 심심할 때 혼잣말(src/idle-talk.js)에서만 나온다. 불빛 가구의 줄은 불을 켜면 풀린다는 것을 귀띔한다
 export const LINES = {
   // 방 바닥
-  desk: '서랍이 왜 열려 있지?',
+  'study-desk': '서랍이 왜 열려 있지?',
   'dining-table': '의자가 하나 더 있었나?',
   'dining-chair': '의자가 혼자 움직였어.',
   bed: '침대 밑은 안 볼래.',

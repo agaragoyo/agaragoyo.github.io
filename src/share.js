@@ -11,7 +11,7 @@ import { WALL_PATTERNS } from '../data/wall-patterns.js';
 import { FLOOR_PATTERNS } from '../data/floor-patterns.js';
 import { USER_PICTURES } from '../data/user-pictures.js';
 import { customBytes, customFromBytes } from './custom-picture.js';
-import { canPlace, nearestSpot, onSurface } from './rules.js';
+import { canPlace, insideBox, nearestSpot, onSurface } from './rules.js';
 import { sanitizeLikes, line } from './likes.js';
 import { RECORD_APPS, sanitizeRecords } from './records.js';
 
@@ -24,22 +24,65 @@ const MAX_GREETING = 30; // 화면 보호기 인사말(src/screensaver.js)
 // TV는 2026-11-23에 받침까지 그린 그림으로 바꾸며 바닥 가구가 됐다
 const WAS_TOP = new Set(['tv']);
 
+// 책상은 2026-11-24에 3×2칸에서 그림 크기인 2×1칸으로 줄었다. 칸만 줄이면 저장본과 링크에 적힌 자리만 보고는 예전 책상 위에 있던 물건과
+// 새 책상 앞 바닥에 놓은 물건을 가를 수 없다. 그래서 새 책상에 새 id(now)를 주고, 옛 id는 불러올 때만 알아보고 새 책상으로 바꾼다(shrinkDesks).
+// size는 옛 책상의 칸이다. 옛 id는 가구 목록(data/furniture.js)에 다시 쓰지 않는다(tools/check.py가 본다)
+const OLD_DESK = { id: 'desk', now: 'study-desk', size: [3, 2] };
+
+// 저장본과 링크에 든 가구 id의 목록 줄. 옛 책상은 새 책상의 줄로 보고, 모르는 가구면 undefined다
+const defOf = id => BY_ID[id === OLD_DESK.id ? OLD_DESK.now : id];
+
+// 옛 책상을 같은 자리, 같은 방향의 새 책상으로 바꾸고 그 위에 있던 물건을 나눈다. 새 책상에는 긴 쪽 칸 수만큼(두 개) 남긴다.
+// 남길 것은 앱이 열리는 물건, 불빛, 나머지 차례로 고르고 같은 차례면 긴 쪽 자리 순서다. 남은 것은 긴 쪽 순서대로 한 칸씩 놓고, 하나뿐이면 가까운 칸에 놓는다.
+// 돌려주는 것: list 바꾼 목록(내릴 물건은 뺐다), down 바닥으로 내릴 물건, boxes 옛 책상들이 차지하던 칸.
+// 새 책상의 칸 밖에 있던 물건(stay)은 그 칸이 바닥이 되므로 있던 자리에 그대로 내려앉는다. 다른 물건이 그 칸을 먼저 차지하지 않게 down의 앞에 담는다
+function shrinkDesks(all) {
+  const boxOf = (s, [w, d]) => (s.r ? { x: s.x, y: s.y, w: d, d: w } : { x: s.x, y: s.y, w, d });
+  const first = ({ gimmick, light }) => (gimmick?.startsWith('app:') ? 0 : light ? 1 : 2);
+  const { size } = BY_ID[OLD_DESK.now];
+  const moved = new Map(); // 옛 책상 위의 물건 → 새 책상 위의 물건. 바닥으로 내릴 물건은 null
+  const boxes = [];
+  const stay = [];
+  const move = [];
+  for (const s of all.filter(it => it.id === OLD_DESK.id)) {
+    const box = boxOf(s, OLD_DESK.size);
+    boxes.push(box);
+    const [along, across] = s.r ? ['y', 'x'] : ['x', 'y'];
+    const held = all.filter(t => defOf(t.id).zone === 'top' && !moved.has(t) && insideBox(t, box))
+      .sort((a, b) => first(BY_ID[a.id]) - first(BY_ID[b.id]) || a[along] - b[along] || a[across] - b[across]);
+    const kept = held.slice(0, size[0]).sort((a, b) => a[along] - b[along]);
+    kept.forEach((t, i) => {
+      const cell = kept.length > 1 ? i : Math.min(t[along] - s[along], size[0] - 1);
+      moved.set(t, { ...t, [along]: s[along] + cell, [across]: s[across] });
+    });
+    for (const t of held.slice(size[0])) {
+      moved.set(t, null);
+      (insideBox(t, boxOf(s, size)) ? move : stay).push(t);
+    }
+  }
+  const list = all.map(it => (it.id === OLD_DESK.id ? { ...it, id: OLD_DESK.now } : moved.has(it) ? moved.get(it) : it)).filter(Boolean);
+  return { list, down: [...stay, ...move], boxes };
+}
+
 // 한 공간의 가구 목록 검사. 모르는 가구, 다른 공간의 가구, 정수가 아닌 좌표, 규칙에 어긋나는 배치는 버린다.
 function sanitizeItems(list, sceneId) {
   // 'top' 가구는 받쳐 줄 책상이 먼저 놓여 있어야 검사를 통과한다.
   const rank = it => (BY_ID[it.id].zone === 'top' ? 1 : 0);
-  const all = (Array.isArray(list) ? list.slice(0, MAX_ITEMS) : [])
-    .filter(it => it && BY_ID[it.id] && BY_ID[it.id].scene === sceneId && Number.isInteger(it.x) && Number.isInteger(it.y))
-    .map(it => (BY_ID[it.id].zone === 'wall'
+  const { list: all, down, boxes } = shrinkDesks((Array.isArray(list) ? list.slice(0, MAX_ITEMS) : [])
+    .filter(it => it && defOf(it.id)?.scene === sceneId && Number.isInteger(it.x) && Number.isInteger(it.y))
+    .map(it => (defOf(it.id).zone === 'wall'
       ? { id: it.id, wall: it.wall, x: it.x, y: it.y }
-      : { id: it.id, x: it.x, y: it.y, ...(it.r === 1 ? { r: 1 } : {}) }));
-  const lifted = all.filter(it => WAS_TOP.has(it.id) && onSurface(all, it));
+      : { id: it.id, x: it.x, y: it.y, ...(it.r === 1 ? { r: 1 } : {}) })));
+  const lifted = all.filter(it => WAS_TOP.has(it.id) && (onSurface(all, it) || boxes.some(box => insideBox(it, box))));
   const items = [];
   all.filter(it => !lifted.includes(it))
     .sort((a, b) => rank(a) - rank(b))
     .forEach(it => { if (canPlace(items, it)) items.push(it); });
-  for (const it of lifted) {
-    const spot = nearestSpot(items, it);
+  // 옛 책상에서 내려오는 것은 옛 책상이 비운 칸부터 본다. 여섯 칸이 두 칸으로 줄어 늘 자리가 있고, 책상 앞이라 보인다(뒤로 내리면 책상에 가려 사라진 것 같다).
+  // 두 칸을 차지하는 TV부터 내려야 꽉 찬 방에서도 자리가 난다
+  for (const it of [...lifted, ...down]) {
+    const box = boxes.find(b => insideBox(it, b));
+    const spot = (box && nearestSpot(items, it, box)) || nearestSpot(items, it);
     if (spot) items.push(spot);
   }
   // 내린 가구도 바닥 가구 자리로 정렬해 두어, 다시 검사해도 같은 목록이 나온다
@@ -89,12 +132,13 @@ export function sanitizeHome(raw) {
 // 짧은 형식에서 가구를 가리키는 번호(배열 순서). 순서를 바꾸거나 중간에 끼우면 이미 보낸 링크의 가구가 다른 가구로 열리므로
 // 새 가구는 끝에만 더한다. 여기 없는 가구도 링크에 담기지만 id 글자를 그대로 넣어 조금 길어진다(tools/check.py가 알린다).
 // 'sandbox'부터 'streetlight'까지 일곱 개는 2026-11-17에 뺀 놀이터의 가구다. 자리를 지키려고 남겨 두었고, 예전 링크에 든 이 가구는 풀 때 버린다.
+// 'desk'는 칸을 줄이기 전의 책상이다(OLD_DESK). 이것도 자리를 지키고, 예전 링크에 든 것은 풀 때 새 책상(study-desk)으로 바꾼다.
 export const LINK_CODES = [
   'desk', 'dining-table', 'bed', 'sofa', 'bookshelf', 'wardrobe', 'armchair', 'fridge', 'lamp', 'audio',
   'big-plant', 'computer', 'tv', 'console', 'camera', 'diary', 'desk-lamp', 'desk-lamp-2', 'mug', 'plant',
   'books', 'clock', 'radio', 'fishbowl', 'window', 'wide-window', 'beads-window', 'wide-beads-window', 'frame', 'poster',
   'wall-clock', 'sandbox', 'slide', 'swing', 'seesaw', 'bench', 'tree', 'streetlight', 'corkboard', 'test-paper',
-  'dining-chair',
+  'dining-chair', 'study-desk',
 ];
 const CODE = new Map(LINK_CODES.map((id, i) => [id, i]));
 const ESCAPE = 127; // LINK_CODES에 없는 가구: 이 번호 뒤에 id의 바이트 수와 id 글자를 넣는다
@@ -283,7 +327,7 @@ function decodeShort(b) {
       const head = byte();
       const id = (head & 0x7f) === ESCAPE ? fromUtf8(bytes(byte())) : LINK_CODES[head & 0x7f];
       const xy = byte();
-      const def = BY_ID[id];
+      const def = defOf(id);
       if (!def) continue; // 모르는 가구는 버린다(sanitizeHome도 버린다)
       const mark = (head & 0x80) !== 0;
       items.push(def.zone === 'wall'

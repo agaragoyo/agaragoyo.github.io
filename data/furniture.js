@@ -8,13 +8,17 @@
 //       'floor' 바닥에 놓는다. size: [오른쪽 아래 방향 칸 수, 왼쪽 아래 방향 칸 수], height: 화면 높이(px)
 //       'top'   바닥에 놓거나 surface 가구 위에 올린다. size, height는 floor와 같다
 //       'top'이던 가구를 'floor'로 바꾸면 src/share.js의 WAS_TOP에도 적는다. 그래야 예전 저장본과 링크에서 책상 위에 있던 것이 빈 바닥으로 내려온다(TV)
-// surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다)
+// surface: true 이면 위에 'top' 가구를 올릴 수 있다 (올라간 가구는 height만큼 떠 있다).
+//          칸(size)을 줄이면 예전 방에서 위에 있던 물건과 앞 바닥에 놓은 물건을 자리만 보고 가를 수 없다. 그때는 id를 새로 짓고 src/share.js의 OLD_DESK처럼
+//          옛 id를 새 가구로 바꾸며 물건을 옮긴다. 책상은 3×2칸에서 2×1칸으로 줄며 id가 desk에서 study-desk로 바뀌었다(2026-11-24)
 // tabletop: surface 가구의 윗면 그림이 차지하는 칸 범위 [x0, y0, x1, y1]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)다.
-//          윗면이 칸보다 작게 그려진 책상과 식탁에서 위에 올린 물건과 고양이를 이 안에 모아 그린다(src/rules.js의 drawnAt). 없으면 윗면이 칸 전부다.
-//          이 줄이 있는 가구는 그림을 칸의 앞 꼭짓점에 맞추지 않는다. 벽에 붙여 쓰는 책상은 뒤(벽 쪽)에 붙이고 식탁은 칸 한가운데에 둔다
+//          윗면이 칸과 다르게 그려진 책상과 식탁에서 위에 올린 물건과 고양이를 이 안에 모아 그린다(src/rules.js의 drawnAt). 없으면 윗면이 칸 전부다.
+//          이 줄이 있는 가구는 그림을 칸의 앞 꼭짓점에 맞추지 않는다. 벽에 붙여 쓰는 책상은 뒤(벽 쪽)에 붙이고 식탁은 칸 한가운데에 둔다.
+//          윗면은 칸 밖으로 0.3칸까지 나갈 수 있고, 앞으로 나간 만큼은 다리도 칸 밖에 선다(방의 각도보다 조금 돌려 그려진 책상은 앞으로 0.12칸 나간다)
 // base:    책상 위 물건의 밑면 그림이 차지하는 칸 [가로, 세로](소수). 적지 않으면 0.7칸 네모로 본다. tabletop이 있는 책상과 식탁 위에서 밑면이 윗면 밖으로
 //          나가지 않게 안으로 들여 그릴 때 쓰고(src/rules.js의 toTop), 놓이는 칸에는 영향이 없다. 자판까지 그린 컴퓨터와 칸을 다 덮는 시험지 상자가 크다
-// bleed:   그림이 칸보다 넓어서 가구 상자를 좌우로 넓히는 폭(무대 px, 한쪽). 문을 연 옷장처럼 칸보다 1픽셀 넓은 그림은 그림판을 양옆으로 똑같이 넓히고 그 폭을 적는다
+// bleed:   그림이 칸보다 넓어서 가구 상자를 좌우로 넓히는 폭(무대 px, 한쪽). 문을 연 옷장(1픽셀)과 책상(3픽셀)처럼 칸보다 조금 넓은 그림은
+//          그림판을 양옆으로 똑같이 넓히고 그 폭을 적는다
 // perch:   고양이처럼 가구에 올라가는 펫(data/pets.js의 mood.perch)이 앉는 윗면의 높이(무대 px). 바닥 가구에만 두고, 없으면 올라가지 않는다.
 //          가구 그림에서 잰 값이라 그림을 바꾸면 다시 잰다(침대는 이불 위, 1인 소파는 방석 위다). 한 번에 뛰어오를 수 있게 75px 이하로 둔다
 // perchAt: 앉는 자리 [가로 칸, 세로 칸]. 돌리지 않은 가구의 뒤쪽 꼭짓점(화면에서 가장 위의 바닥 모서리)에서 잰 칸 수(소수)이고 펫의 발끝이 놓인다.
@@ -31,7 +35,7 @@
 //          줄을 꺼내는 곳은 src/furniture-line.js의 furnitureLine(def). 옷장, 디카, 다이어리, 냉장고, 화분, 포스터는 인터랙션이 생기기 전까지 쓰는 임시 줄이다
 export const FURNITURE = [
   // 내 방: 바닥
-  { id: 'desk',      scene: 'room', name: '책상',     zone: 'floor', size: [3, 2], height: 38, surface: true, tabletop: [0.48, -0.08, 2.29, 1.12], perch: 38, color: '#ede8da', say: '숙제는 내일 해야지.' },
+  { id: 'study-desk', scene: 'room', name: '책상',    zone: 'floor', size: [2, 1], height: 38, bleed: 4, surface: true, tabletop: [0.15, -0.08, 1.96, 1.12], perch: 38, color: '#ede8da', say: '숙제는 내일 해야지.' },
   { id: 'dining-table', scene: 'room', name: '식탁', zone: 'floor', size: [2, 2], height: 32, surface: true, tabletop: [0.19, 0.39, 1.83, 1.67], perch: 32, perchAt: [1.4, 1.3], color: '#efe7cf', say: '슬슬 밥 먹을까.' },
   { id: 'dining-chair', scene: 'room', name: '식탁 의자', zone: 'floor', size: [1, 1], height: 44, color: '#e5b487', say: '잠깐 앉았다 갈까.' },
   { id: 'bed',       scene: 'room', name: '침대',     zone: 'floor', size: [2, 3], height: 54, perch: 22, perchAt: [0.75, 1.5], color: '#c4b094', say: '눕자마자 잠들겠다.' },

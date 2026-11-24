@@ -14,7 +14,8 @@
 // 아바타 머리 위의 말하기 표시(튜토리얼 카드가 떠 있을 때는 숨고, 처음 말하기 전까지 내 집과 손님 화면에 뜨는지), 손님으로 들어가기(예전 긴 링크, 링크에 담긴 주인 사진),
 // 이웃집(서버에서 받는 link 이웃집, 현관문으로 여는 목록 창에서 놀러 가기, 그 집의 코르크 보드에 쪽지 남기기, 이 브라우저가 올린 방은 이웃집 칸에서 빠지는 것, 복사본으로 고정한 이웃집과 그 방을 올린 브라우저에서 초기화와 링크 지우기가 막히는 것),
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
-// 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸을 줄이기 전의 책상이 든 집의 주인 화면과 손님 화면과 꽉 찬 책상에 물건 올리기,
+// 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -38,7 +39,7 @@ const NOT_IMAGE = fileURLToPath(new URL('../README.md', import.meta.url));
 // 손님 화면에서 스크립트가 돌지 않는지 볼 집. 이름과 글에 HTML을, 주소에 javascript:를 넣는다
 const EVIL = {
   owner: '<img src=x>',
-  scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] },
+  scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'study-desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] },
   likes: {
     bookshelf: [{ title: '<b>굵게</b><script>window.__xss=1</script>', note: '<img src=x onerror="window.__xss=1">' }],
     computer: { url: 'javascript:alert(1)' },
@@ -3015,7 +3016,7 @@ async function walk(page, base) {
   await closeWindows();
   check('새로 고침해도 반짝임이 그대로 뜬다', (await enterMine()) && await until(page, n => document.querySelectorAll('#wallpaper .furn.has-like').length === n, 3000, want.split(',').length));
   // 친구 집: 가구는 있지만 아무것도 담지 않은 집에는 하나도 뜨지 않는다
-  const bare = await page.run(linkOf, { scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] } }, '빈집');
+  const bare = await page.run(linkOf, { scenes: { room: [{ id: 'bookshelf', x: 2, y: 2 }, { id: 'study-desk', x: 5, y: 2 }, { id: 'radio', x: 5, y: 2 }] } }, '빈집');
   await open(`#r=${bare}`);
   await powerOn();
   await page.run(clickText, '.users .user', '손님으로 구경하기');
@@ -3121,7 +3122,7 @@ async function walk(page, base) {
   const tune = (rest, extra = {}) => page.run(async (rest, extra) => {
     Object.assign((await import(new URL('src/config.js', document.baseURI).href)).PERCH, extra);
     (await import(new URL('data/pets.js', document.baseURI).href)).PET_SPECIES.find(s => s.id === 'cat').mood.rest = rest;
-    (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.desk.perch = 0;
+    (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID['study-desk'].perch = 0;
   }, rest, extra);
   // 고양이가 침대 위에서 시작하게 들어간다(로그인 화면에서 시작 몫을 1로 두고 책상의 윗면을 뺀다)
   const enterOnBed = async () => {
@@ -3129,7 +3130,7 @@ async function walk(page, base) {
     await powerOn();
     await page.run(async () => {
       (await import(new URL('src/config.js', document.baseURI).href)).PERCH.start = 1;
-      (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID.desk.perch = 0;
+      (await import(new URL('data/furniture.js', document.baseURI).href)).BY_ID['study-desk'].perch = 0;
     });
     await page.run(clickOnce, '.users .user:not(.neighbor)');
     return desktop();
@@ -3775,6 +3776,93 @@ async function walk(page, base) {
   await powerOn();
   check('친구 링크로 오면 최근에 놀러 간 집도 이웃집처럼 빠지고 오른쪽 단은 격자를 쓰지 않는다', await until(page, () => !!document.querySelector('.users-friends .user:not([disabled])'), 3000)
     && await page.run(() => !document.querySelector('.users-friends .user.recent, .users-friends .friend-head, .users-friends.friend-grid')));
+
+  // ---------- 옛 책상 ----------
+  // 칸을 줄이기 전(2026-11-24)의 책상('desk', 3×2칸)이 든 저장본과 링크를 연다. 새 책상(study-desk, 2×1칸) 위에는 물건이 두 개까지 남고 나머지는 바닥에 내려앉는다.
+  // 옮기는 셈(src/share.js의 shrinkDesks)은 tools/link-fuzz.mjs가 본다. 여기서는 주인과 손님이 같은 방을 보는지, 방을 고쳐 저장하고 다시 열어도 그대로인지,
+  // 물건이 둘 놓인 책상에는 셋째가 올라가지 않고 한 칸을 비우면 올라가는지를 본다
+  const OLD_ROOM = [
+    { id: 'desk', x: 4, y: 3 }, { id: 'diary', x: 4, y: 3 }, { id: 'desk-lamp', x: 6, y: 3 }, { id: 'computer', x: 4, y: 4 }, { id: 'radio', x: 6, y: 4 }, { id: 'bed', x: 0, y: 7 },
+  ];
+  // 앱이 열리는 컴퓨터와 라디오가 남고, 새 책상의 칸 밖에 있던 탁상 조명은 그 칸에, 새 책상의 칸에 있던 다이어리는 책상 앞 칸에 내려앉는다
+  const NEW_ROOM = [
+    { id: 'study-desk', x: 4, y: 3 }, { id: 'bed', x: 0, y: 7 }, { id: 'computer', x: 4, y: 3 }, { id: 'radio', x: 5, y: 3 }, { id: 'desk-lamp', x: 6, y: 3 }, { id: 'diary', x: 4, y: 4 },
+  ];
+  // 방에 그려진 가구들과, 그 가구 목록이면 그려져야 하는 자리(무대 px)
+  const drawnRoom = () => [...document.querySelectorAll('#wallpaper .furn')].map(e => `${e.dataset.id}:${e.style.left},${e.style.top}`).sort().join(' ');
+  const wantRoom = items => page.run(async items => {
+    const { placementOf } = await import(new URL('src/iso.js', document.baseURI).href);
+    return items.map(i => { const { left, top } = placementOf(items, i); return `${i.id}:${left}px,${top}px`; }).sort().join(' ');
+  }, items);
+  const toOldDesk = async () => {
+    await open();
+    await powerOn();
+    await page.run(clickOnce, '.users .user:not(.neighbor)');
+    await desktop();
+    return until(page, () => document.querySelectorAll('#wallpaper .furn').length > 0, 3000);
+  };
+  await page.run(room => localStorage.setItem('agarago.home.v3', JSON.stringify({ v: 3, owner: '옛 책상', scenes: { room }, likes: {}, greeting: '' })), OLD_ROOM);
+  await toOldDesk();
+  const deskWant = await wantRoom(NEW_ROOM);
+  check('옛 책상이 든 저장본을 열면 새 책상 위에 앱이 열리는 물건 둘이 남고 나머지는 바닥에 내려앉으며 사라지는 가구가 없다', (await page.run(drawnRoom)) === deskWant, await page.run(drawnRoom));
+  check('옛 책상 자리에 새 책상 그림이 뜬다', await until(page, () => !!document.querySelector('#wallpaper .furn[data-id="study-desk"] img[src$="study-desk.png"]'), 5000));
+  // 검사를 거치지 않고 링크로 만들면 옛 책상의 번호가 그대로 담겨 예전 페이지가 만든 링크와 같다
+  const oldDeskLink = await page.run(async room => {
+    const { encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+    return encodeHome({ owner: '옛 책상 친구', greeting: '', scenes: { room }, likes: {} });
+  }, OLD_ROOM);
+  await open(`#r=${oldDeskLink}`);
+  await powerOn();
+  await page.run(clickText, '.users .user', '손님으로 구경하기');
+  await desktop();
+  await until(page, () => document.querySelectorAll('#wallpaper .furn').length > 0, 3000);
+  check('옛 책상이 든 링크로 온 손님도 같은 방을 본다', (await page.run(drawnRoom)) === deskWant, await page.run(drawnRoom));
+  await toOldDesk();
+  await openIcon('room');
+  await until(page, () => !!document.querySelector('.room-app .items .furn[data-id="desk-lamp"] .hit'), 5000);
+  await sleep(600);
+  // 물건 id를 칸 to로 끈다. 지금 그려진 자리와 그 칸에 그려질 자리의 차이만큼 포인터를 옮기고, 놓기 직전의 끄는 그림 상태(ok, bad)와 놓은 뒤 저장된 칸을 돌려준다
+  const dragTo = async (id, to) => {
+    const plan = await page.run(async (id, to) => {
+      const load = p => import(new URL(p, document.baseURI).href);
+      const [{ sanitizeHome }, { drawnAt }, { tile }] = [await load('src/share.js'), await load('src/rules.js'), await load('src/iso.js')];
+      const items = sanitizeHome(JSON.parse(localStorage.getItem('agarago.home.v3'))).scenes.room;
+      const item = items.find(i => i.id === id);
+      const rest = items.filter(i => i !== item);
+      const point = it => { const a = drawnAt([...rest, it], it); const p = tile(a.x, a.y); return { x: p.x, y: p.y - a.elev }; };
+      const [a, b] = [point(item), point({ ...item, ...to })];
+      const room = document.querySelector('.room-app .room');
+      const k = room.getBoundingClientRect().width / room.offsetWidth;
+      const r = document.querySelector(`.room-app .items .furn[data-id="${id}"] .hit`).getBoundingClientRect();
+      const start = { x: r.left + r.width / 2, y: r.top + r.height * 0.6 };
+      return { start, end: { x: start.x + (b.x - a.x) * k, y: start.y + (b.y - a.y) * k } };
+    }, id, to);
+    await mouse(page, 'mousePressed', plan.start);
+    await mouse(page, 'mouseMoved', { x: plan.start.x + 4, y: plan.start.y + 3 });
+    await mouse(page, 'mouseMoved', { x: plan.start.x + 9, y: plan.start.y + 5 });
+    await mouse(page, 'mouseMoved', plan.end);
+    await sleep(80);
+    const state = await page.run(() => document.querySelector('.ghost')?.dataset.state || '');
+    await mouse(page, 'mouseReleased', plan.end);
+    await sleep(250);
+    const { x, y } = (await page.run(savedHome)).scenes.room.find(i => i.id === id);
+    return `${state} ${x},${y}`;
+  };
+  const third = await dragTo('desk-lamp', { x: 5, y: 3 });
+  check('물건이 둘 놓인 책상에 셋째를 끌어 놓으면 빨갛게 표시되고 제자리로 돌아간다', third === 'bad 6,3', third);
+  const off = await dragTo('radio', { x: 7, y: 5 });
+  check('책상 위 물건을 바닥으로 끌어 내린다', off === 'ok 7,5', off);
+  const placed = await dragTo('desk-lamp', { x: 5, y: 3 });
+  check('한 칸을 비우면 책상의 그 칸에 올라간다', placed === 'ok 5,3', placed);
+  const left1 = await dragTo('computer', { x: 8, y: 8 });
+  const left2 = await dragTo('diary', { x: 4, y: 3 });
+  check('책상의 나머지 칸에도 올라간다', left1 === 'ok 8,8' && left2 === 'ok 4,3', `${left1} / ${left2}`);
+  await closeWindows();
+  const deskSaved = (await page.run(savedHome)).scenes.room;
+  check('방을 고치면 저장본의 책상도 새 책상이 된다', deskSaved.some(i => i.id === 'study-desk' && i.x === 4 && i.y === 3) && !deskSaved.some(i => i.id === 'desk') && deskSaved.length === OLD_ROOM.length, JSON.stringify(deskSaved));
+  const deskAfter = await page.run(drawnRoom);
+  await toOldDesk();
+  check('다시 열어도 바닥의 물건이 책상으로 올라가지 않고 그대로다', (await page.run(drawnRoom)) === deskAfter && deskAfter === await wantRoom(deskSaved), await page.run(drawnRoom));
 
   // ---------- 긴 글(known-issues 83) ----------
   // 주인과 손님이 쓰는 글을 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)을 내 집으로 심고, 그 글이 나오는 화면을 차례로 연다.
