@@ -17,11 +17,16 @@ function overlaps(a, b) {
   return a.x < b.x + bw && b.x < a.x + aw && a.y < b.y + bd && b.y < a.y + ad;
 }
 
+// a의 바닥 면이 칸 네모 box { x, y, w, d } 안에 완전히 들어가는지
+export function insideBox(a, box) {
+  const [w, d] = dims(a);
+  return a.x >= box.x && a.y >= box.y && a.x + w <= box.x + box.w && a.y + d <= box.y + box.d;
+}
+
 // a의 바닥 면이 s의 바닥 면 안에 완전히 들어가는지
 function inside(a, s) {
-  const [aw, ad] = dims(a);
-  const [sw, sd] = dims(s);
-  return a.x >= s.x && a.y >= s.y && a.x + aw <= s.x + sw && a.y + ad <= s.y + sd;
+  const [w, d] = dims(s);
+  return insideBox(a, { x: s.x, y: s.y, w, d });
 }
 
 // 'top' 가구가 올라앉은 surface 가구. 바닥에 있거나 'top'이 아니면 null.
@@ -67,7 +72,7 @@ export function fromTop(s, x, y, edge = 0.3) {
 }
 
 // 가구가 그려지는 자리 { x, y, elev }. x와 y는 방의 칸 좌표(소수일 수 있다), elev는 바닥에서 떠 있는 높이(무대 px)다.
-// 놓인 칸 그대로이고, 책상이나 식탁 위의 물건만 그 가구의 윗면 그림 안에 모은다. 윗면이 칸보다 작게 그려져도 물건이 윗면 밖에 뜨지 않는다.
+// 놓인 칸 그대로이고, 책상이나 식탁 위의 물건만 그 가구의 윗면 그림 안에 모은다. 윗면이 칸과 다르게 그려져도 물건이 윗면 밖에 뜨지 않는다.
 export function drawnAt(items, item) {
   const s = supportOf(items, item);
   if (!s) return { x: item.x, y: item.y, elev: 0 };
@@ -79,7 +84,7 @@ export function drawnAt(items, item) {
 
 // 바닥 가구 item 위에 펫(고양이)이 올라가 앉을 수 있는 자리들(data/furniture.js의 perch, perchAt). 자리마다 { x, y, h, cell }이고,
 // x와 y는 발끝이 놓이는 방의 칸 좌표(소수), h는 윗면 높이(무대 px), cell은 그 자리의 칸이다. 앉는 자리를 적지 않은 가구는 칸마다 가운데에 앉고
-// (윗면이 칸보다 작은 책상과 식탁에서는 물건처럼 윗면 안에 모이므로 발끝이 cell 밖에 놓이기도 한다),
+// (윗면이 칸과 다른 책상과 식탁에서는 물건처럼 윗면 안에 모이므로 발끝이 cell 밖에 놓이기도 한다),
 // 그 칸에 올라앉은 물건(supportOf가 이 가구를 돌려주는 'top' 가구)이 있으면 뺀다. 돌려 놓은 가구(r: 1)는 그림이 좌우로 뒤집혀
 // 가로와 세로가 바뀌므로 적어 둔 자리도 바꾼다. 펫(src/pet.js)이 쓴다
 export function perchesOf(items, item) {
@@ -129,16 +134,16 @@ export function canPlace(others, item) {
   });
 }
 
-// 바닥 쪽 가구 item을 others 사이에 놓을 수 있는 가장 가까운 자리. 같은 방향으로 놓을 곳이 없을 때만 돌려 놓고, 그래도 없으면 null.
-// 예전 저장본과 링크에서 지금 규칙으로는 그 자리에 둘 수 없게 된 가구를 옮길 때 쓴다(src/share.js의 sanitizeItems)
-export function nearestSpot(others, item) {
+// 바닥 쪽 가구 item을 others 사이에 놓을 수 있는 가장 가까운 자리. box(칸 네모)를 주면 그 안에서만 찾는다. 같은 방향으로 놓을 곳이 없을 때만 돌려 놓고,
+// 그래도 없으면 null. 예전 저장본과 링크에서 지금 규칙으로는 그 자리에 둘 수 없게 된 가구를 옮길 때 쓴다(src/share.js의 sanitizeItems)
+export function nearestSpot(others, item, box = null) {
   for (const r of item.r ? [1, 0] : [0, 1]) {
     let best = null;
     for (let y = 0; y < N; y++) {
       for (let x = 0; x < N; x++) {
         const spot = { id: item.id, x, y, ...(r ? { r: 1 } : {}) };
         const d = (x - item.x) ** 2 + (y - item.y) ** 2;
-        if ((!best || d < best.d) && canPlace(others, spot)) best = { d, spot };
+        if ((!best || d < best.d) && (!box || insideBox(spot, box)) && canPlace(others, spot)) best = { d, spot };
       }
     }
     if (best) return best.spot;

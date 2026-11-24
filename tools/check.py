@@ -284,6 +284,18 @@ def check_furniture(app_ids):
     for f in items:
         if codes and f['id'] not in codes:
             warn(f"data/furniture.js '{f['id']}'", "src/share.js 의 LINK_CODES 에 없다. 공유 링크가 조금 길어지니 LINK_CODES 끝에 더한다(중간에 끼우지 않는다)")
+    # 칸을 줄이며 id를 바꾼 책상(src/share.js의 OLD_DESK). 옛 id는 예전 저장본과 링크에서만 알아보는 이름이다
+    old = re.search(r"const OLD_DESK = \{ id: '([^']+)', now: '([^']+)', size: \[\d+, \d+\] \};", read('src/share.js'))
+    if not old:
+        err('src/share.js', 'OLD_DESK(옛 책상의 id와 칸)를 찾지 못했다. 모양을 바꿨다면 tools/check.py 의 check_furniture 도 고친다')
+    else:
+        was, now = old.groups()
+        if was in ids:
+            err(f"data/furniture.js '{was}'", f"옛 책상의 id 라 새 가구에 쓰지 않는다. 불러올 때 '{now}' 로 바뀐다(src/share.js 의 OLD_DESK)")
+        if by_id.get(now, {}).get('surface') != 'true':
+            err('src/share.js', f"OLD_DESK 의 '{now}' 가 data/furniture.js 에 없거나 위에 물건을 올리는 가구(surface: true)가 아니다")
+        if codes and was not in codes:
+            err('src/share.js', f"LINK_CODES 에서 옛 책상 '{was}' 를 뺐다. 자리를 지켜야 이미 보낸 링크의 가구 번호가 맞는다")
 
 
 # ---------- 가구의 혼잣말(say) ----------
@@ -464,6 +476,10 @@ def fit_floor(f, w, d, iw, ih, low, tw, th):
     ox, oy = (bw - iw * s) / 2, bh - ih * s
     front = w * tw / 2  # 바닥 변의 앞 꼭짓점(가장 아래)의 x
     xs = [x for x, y in enumerate(low) if y >= 0]
+    # 윗면 자리(tabletop)를 적은 가구는 윗면이 칸 앞으로 나간 만큼 다리도 칸 밖에 선다(방의 각도보다 조금 돌려 그려진 책상).
+    # 그런 그림은 줄이거나 다시 그리지 않고, 바닥 변을 윗면의 앞쪽 끝까지 내려서 잰다. 나가는 폭은 check_furniture 가 0.3칸까지로 막는다
+    top = [float(v) for v in re.findall(r'-?\d+(?:\.\d+)?', f.get('tabletop', ''))]
+    ow, od = (max(w, top[2]), max(d, top[3])) if len(top) == 4 else (w, d)
 
     def bx(x):  # 그림의 점을 상자 좌표로
         return ox + (x + 0.5) * s
@@ -471,8 +487,9 @@ def fit_floor(f, w, d, iw, ih, low, tw, th):
     def by(y):
         return oy + (y + 0.5) * s
 
-    def edge(x):  # 바닥 변이 x에서 지나는 높이. 왼쪽 꼭짓점에서 앞 꼭짓점까지 내려가고 오른쪽 꼭짓점까지 올라간다
-        return d * th / 2 + height + x * th / tw if x <= front else bh - (x - front) * th / tw
+    def edge(x):  # 바닥 변이 x에서 지나는 높이. 왼쪽 꼭짓점에서 앞 꼭짓점까지 내려가고(왼쪽 앞 변) 오른쪽 꼭짓점까지 올라간다(오른쪽 앞 변)
+        dx = x - d * tw / 2  # 뒤 꼭짓점에서 잰 가로
+        return height + min(od * th + dx * th / tw, ow * th - dx * th / tw)
 
     out = []
     stick = max(by(low[x]) - edge(bx(x)) for x in xs)

@@ -14,6 +14,7 @@
 //   2. 망가진 링크: 글자를 바꾸거나 자르거나 아무 글자를 넣어도 멈추지 않고, 열린다면 규칙을 지키는 집이다
 //   3. 아무 값: 저장본 자리에 무엇이 들어 있어도 검사가 멈추지 않고 규칙을 지키는 집을 돌려준다
 //   4. 꽉 채운 방: 담는 칸을 모두 한도까지 채운 방의 글자가 서버 한도(src/cloud.js의 MAX_CODE) 안에 든다
+//   5. 옛 책상: 칸을 줄이기 전의 책상('desk', 3×2칸)이 든 방을 옮겨도 사라지는 가구가 없고, 저장본과 링크가 모두 같은 방이 되며, 다시 검사해도 그대로다
 //   규칙을 지키는 집: 가구가 제 공간에 있고 서로 겹치지 않으며, 이름과 인사말이 길이 안에 있고, 담아 둔 주소가 http(s)다
 // 2026-11-11에 이 점검이 12번째 글자에 걸친 이모지가 반으로 잘리는 버그를 찾았다(known-issues 62).
 // 종료 코드: 0 통과, 1 실패가 있음.
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const load = file => import(new URL(`../${file}`, import.meta.url).href);
 const { sanitizeHome, encodeHome, decodeHome, linkCode, linkId, LINK_CODES } = await load('src/share.js');
-const { canPlace, isWall } = await load('src/rules.js');
+const { canPlace, isWall, supportOf } = await load('src/rules.js');
 const { FURNITURE, BY_ID } = await load('data/furniture.js');
 const { SCENES, N, WALL_ROWS } = await load('src/config.js');
 const { safeLink, parseMusic, line, para, LIMIT } = await load('src/likes.js');
@@ -60,6 +61,8 @@ function randomHome() {
   for (const sc of SCENES) {
     const defs = FURNITURE.filter(f => f.scene === sc.id);
     scenes[sc.id] = Array.from({ length: 40 }, () => {
+      // 칸을 줄이기 전의 책상도 섞는다. 가구 목록에 없는 이름이라 따로 넣는다
+      if (rnd() < 0.06) return { id: 'desk', x: int(N), y: int(N), ...(rnd() < 0.3 ? { r: 1 } : {}) };
       const def = pick(defs);
       return def.zone === 'wall'
         ? { id: def.id, wall: pick(['L', 'R']), x: int(N), y: int(WALL_ROWS) }
@@ -200,8 +203,10 @@ for (let i = 0; i < ROUNDS; i++) {
   if (!home.owner) { // 이름이 띄어쓰기뿐이면 검사한 뒤 비고, 주인 이름이 없는 링크는 열지 않는다
     if (back) fail('주인 이름이 없는 링크가 열렸다', back);
   } else if (!back) fail('만든 링크가 열리지 않는다', home);
-  // 검사는 책상 위 물건을 목록 뒤로 보내므로, 한 번 더 검사한 집과 견준다
+  // 이름이나 글은 다시 검사하면 더 다듬어질 수 있어서 한 번 더 검사한 집과 견준다
   else if (JSON.stringify(back) !== JSON.stringify(sanitizeHome(home))) fail('링크를 풀면 다른 집이 된다', { home, back });
+  // 가구는 다시 검사해도 같은 목록이어야 한다. 옛 책상을 옮긴 방이 열 때마다 또 바뀌면 안 된다
+  if (JSON.stringify(sanitizeHome(home).scenes) !== JSON.stringify(home.scenes)) fail('두 번 검사하면 가구 목록이 달라진다', home.scenes);
 }
 
 // 2. 망가진 링크
@@ -261,6 +266,123 @@ let full = 0;
   home.scenes = Object.fromEntries(SCENES.map(sc => [sc.id, list(200, () => ({ id: FURNITURE[0].id, x: 0, y: 0, r: 0 }))]));
   full = encodeHome(home).length + Math.ceil(256 * 4 / 3);
   if (!(full <= MAX_CODE)) fail('꽉 채운 방이 서버 한도(MAX_CODE)를 넘는다. LIMIT를 줄이거나 src/cloud.js와 firestore.rules의 한도를 같이 올리고 규칙을 콘솔에 게시한다', { full, MAX_CODE });
+}
+
+// 5. 옛 책상: 칸을 줄이기 전(2026-11-24)의 책상('desk', 3×2칸)이 든 방은 같은 자리, 같은 방향의 새 책상(study-desk, 2×1칸)이 든 방이 된다(src/share.js의 shrinkDesks).
+// 위에 있던 물건은 두 개까지 남고 나머지는 옛 책상이 비운 칸의 바닥에 내려앉는다. 책상 위에 없던 것은 하나도 움직이지 않는다.
+// 옛 규칙으로 꾸민 방을 만들 때만 가구 목록에 옛 책상을 잠깐 되살린다
+const DESK = 'study-desk';
+const oldRules = fn => {
+  BY_ID.desk = { ...BY_ID[DESK], id: 'desk', size: [3, 2] };
+  try { return fn(); } finally { delete BY_ID.desk; }
+};
+const spot = ({ id, wall, x, y, r }) => `${id}@${wall || ''}${x},${y}${r ? 'r' : ''}`;
+const tally = items => JSON.stringify(Object.entries(items.reduce((m, { id }) => ({ ...m, [id]: (m[id] || 0) + 1 }), {})).sort());
+const asNew = it => (it.id === 'desk' ? { ...it, id: DESK } : it);
+const deskLinks = room => [
+  encodeHome({ owner: '옛 책상', greeting: '', scenes: { room }, likes: {} }),
+  Buffer.from(JSON.stringify({ v: 3, o: '옛 책상', s: { room: room.map(({ id, x, y, wall, r }) => (wall ? [id, x, y, wall] : r ? [id, x, y, 1] : [id, x, y])) } })).toString('base64url'),
+];
+// 옛 방 하나를 옮겨 보고 새 방의 가구 목록을 돌려준다. tv: 책상 위에 TV를 올릴 수 있던 때(2026-11-23 전)의 방이라 TV가 움직인다
+function moveDesks(room, where, tv = false) {
+  const held = new Map(oldRules(() => room.filter(s => s.id === 'desk').map(s => [s, room.filter(t => supportOf(room, t) === s)])));
+  const home = sanitizeHome({ owner: '옛 책상', scenes: { room } });
+  const now = home.scenes.room;
+  const bad = what => fail(`${where}: ${what}`, { room: room.map(spot), now: now.map(spot) });
+  invariants(home, where);
+  if (tally(now) !== tally(room.map(asNew))) bad('사라지거나 늘어난 가구가 있다');
+  if (JSON.stringify(sanitizeHome(home)) !== JSON.stringify(home)) bad('다시 검사하면 달라진다');
+  for (const code of deskLinks(room)) if (JSON.stringify(decodeHome(code)?.scenes.room) !== JSON.stringify(now)) bad('저장본과 링크가 다른 방이 된다');
+  if (tv) return now;
+  const onDesk = new Set([...held.values()].flat());
+  const spots = new Set(now.map(spot));
+  if (room.some(it => !onDesk.has(it) && !spots.has(spot(asNew(it))))) bad('책상 위에 없던 가구가 움직였다');
+  const first = t => (String(BY_ID[t.id].gimmick || '').startsWith('app:') ? 0 : BY_ID[t.id].light ? 1 : 2);
+  for (const [s, list] of held) {
+    const desk = now.find(n => spot(n) === spot(asNew(s)));
+    const [along, across] = s.r ? ['y', 'x'] : ['x', 'y'];
+    const on = now.filter(t => supportOf(now, t) === desk).sort((a, b) => a[along] - b[along]);
+    if (on.length !== Math.min(list.length, 2)) { bad('책상에 남은 물건의 수가 다르다'); continue; }
+    // 남은 것은 앱이 열리는 물건, 불빛, 나머지 차례의 앞 둘이다
+    const want = list.map(t => first(t)).sort().slice(0, 2);
+    if (JSON.stringify(on.map(first).sort()) !== JSON.stringify(want)) bad('남길 차례가 틀렸다');
+    if (on.length === 2 && (on[0][along] !== s[along] || on[1][along] !== s[along] + 1)) bad('남은 둘이 두 칸에 하나씩 놓이지 않았다');
+    if (list.length === 1 && on[0][along] !== s[along] + Math.min(list[0][along] - s[along], 1)) bad('하나뿐인 물건이 가까운 칸에 놓이지 않았다');
+    // 내린 것은 옛 책상이 차지하던 칸의 바닥에 있고, 새 책상의 칸 밖에 있던 것은 그 칸 그대로다. 책상에 남은 것과 같은 가구는 어느 것이 내려왔는지 몰라 건너뛴다
+    const rest = list.filter(t => !on.some(o => o.id === t.id));
+    for (const t of rest) {
+      const here = now.filter(n => n.id === t.id && !supportOf(now, n) && n[along] >= s[along] && n[along] < s[along] + 3 && n[across] >= s[across] && n[across] < s[across] + 2);
+      if (!here.length) bad('내린 물건이 옛 책상 자리의 바닥에 없다');
+      else if ((t[across] > s[across] || t[along] > s[along] + 1) && !here.some(n => n.x === t.x && n.y === t.y)) bad('새 책상의 칸 밖에 있던 물건이 자리를 옮겼다');
+    }
+  }
+  return now;
+}
+// 정해진 방: 옛 책상 위에 물건이 0, 1, 2, 3, 6개일 때, 돌린 책상, 책상 두 개, 빈 바닥이 없는 방. want는 새 방의 가구(책상은 빼고)다
+const at = (id, x, y, r) => ({ id, x, y, ...(r ? { r: 1 } : {}) });
+const deskOnly = room => room.filter(i => i.id !== DESK).map(spot).sort().join(' ');
+for (const [where, room, want] of [
+  ['물건 없는 책상', [at('desk', 4, 4)], ''],
+  ['물건 하나(왼쪽)', [at('desk', 4, 4), at('mug', 4, 5)], 'mug@4,4'],
+  ['물건 하나(가운데)', [at('desk', 4, 4), at('mug', 5, 5)], 'mug@5,4'],
+  ['물건 하나(오른쪽)', [at('desk', 4, 4), at('mug', 6, 5, 1)], 'mug@5,4r'],
+  ['물건 둘', [at('desk', 4, 4), at('mug', 6, 4), at('books', 4, 5)], 'books@4,4 mug@5,4'],
+  ['물건 셋(앱이 먼저, 나머지는 그 칸 그대로)', [at('desk', 4, 4), at('desk-lamp', 4, 4), at('radio', 6, 4), at('books', 5, 5)], 'books@5,5 desk-lamp@4,4 radio@5,4'],
+  ['물건 셋(새 책상 칸에 있던 것은 앞으로)', [at('desk', 4, 4), at('books', 4, 4), at('desk-lamp', 5, 4), at('radio', 6, 5)], 'books@4,5 desk-lamp@4,4 radio@5,4'],
+  ['물건 여섯', [at('desk', 4, 4), at('diary', 4, 4), at('camera', 5, 4), at('books', 6, 4), at('console', 4, 5), at('clock', 5, 5), at('computer', 6, 5)],
+    'books@6,4 camera@6,5 clock@5,5 computer@5,4 console@4,4 diary@4,5'],
+  ['돌린 책상 위에 넷', [at('desk', 4, 4, 1), at('camera', 5, 4), at('computer', 5, 5), at('console', 5, 6), at('diary', 4, 6)], 'camera@5,4 computer@4,4 console@4,5 diary@4,6'],
+  ['책상 두 개', [at('desk', 2, 2), at('desk', 5, 2), at('mug', 2, 2), at('books', 3, 2), at('clock', 4, 2), at('mug', 5, 2), at('books', 6, 3), at('radio', 7, 3)],
+    'books@3,2 books@6,3 clock@4,2 mug@2,2 mug@5,2 radio@6,2'],
+]) {
+  const now = moveDesks(room, where);
+  const got = deskOnly(now);
+  if (got !== want) fail(`${where}: 옮긴 자리가 다르다`, { got, want });
+  const shuffled = moveDesks([...room].reverse(), `${where}(거꾸로 적은 목록)`);
+  if (deskOnly(shuffled) !== got) fail(`${where}: 목록의 순서에 따라 다른 방이 된다`, { got, shuffled: deskOnly(shuffled) });
+}
+// 빈 바닥이 없는 방: 책상 두 개에 물건을 여섯 개씩 올리고 남은 칸을 모두 화분으로 채운다. 옛 책상이 비운 네 칸에 네 개가 내려앉아 하나도 사라지지 않는다
+{
+  const things = ['diary', 'camera', 'books', 'console', 'clock', 'computer'];
+  const room = [at('desk', 4, 4), at('desk', 8, 1, 1), ...things.map((id, i) => at(id, 4 + (i % 3), 4 + Math.floor(i / 3))), ...things.map((id, i) => at(id, 8 + (i % 2), 1 + Math.floor(i / 2)))];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) oldRules(() => { if (canPlace(room, at('big-plant', x, y))) room.push(at('big-plant', x, y)); });
+  if (room.filter(i => i.id === 'big-plant').length !== N * N - 12) fail('빈 바닥이 없는 방을 채우지 못했다', room.length);
+  moveDesks(room, '빈 바닥이 없는 방');
+  // 책상 위에 TV를 올릴 수 있던 때의 방도 TV와 물건이 모두 남는다
+  const withTv = room.filter(i => !(i.x >= 4 && i.x < 6 && i.y === 4 && i.id !== 'desk'));
+  withTv.push(at('tv', 4, 4));
+  moveDesks(withTv, '빈 바닥이 없는 방의 책상 위 TV', true);
+}
+// 옛 규칙으로 무작위로 꾸민 방. 책상을 한 개에서 네 개 놓고 물건은 책상 위에 많이 올린다
+for (let i = 0; i < ROUNDS / 10; i++) {
+  const room = [];
+  const tv = rnd() < 0.2;
+  const zone = BY_ID.tv.zone;
+  if (tv) BY_ID.tv.zone = 'top';
+  oldRules(() => {
+    const put = it => { if (canPlace(room, it)) room.push(it); };
+    const turn = () => (rnd() < 0.4 ? { r: 1 } : {});
+    for (let n = 1 + int(4); n > 0; n--) put({ id: 'desk', x: int(N), y: int(N), ...turn() });
+    const tops = FURNITURE.filter(f => f.zone === 'top');
+    const floors = FURNITURE.filter(f => f.zone === 'floor' && f.id !== DESK && f.id !== 'tv');
+    for (const s of room.filter(r => r.id === 'desk')) for (let n = int(10); n > 0; n--) put({ id: pick(tops).id, x: s.x + int(3), y: s.y + int(3), ...turn() });
+    for (let n = int(60); n > 0; n--) put({ id: pick(rnd() < 0.5 ? tops : floors).id, x: int(N), y: int(N), ...turn() });
+    // 여섯에 하나는 남은 칸을 모두 채워 바닥을 없앤다
+    if (rnd() < 0.16) for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) put({ id: 'big-plant', x, y });
+  });
+  BY_ID.tv.zone = zone;
+  // TV는 두 칸이라 바닥이 꽉 차면 내릴 자리가 없을 수 있다. 그런 방은 세지 않는다
+  if (tv && room.length > 100) continue;
+  const now = moveDesks(room, '무작위로 꾸민 옛 방', tv);
+  if (tv) continue;
+  const order = room.map(it => [rnd(), it]).sort((a, b) => a[0] - b[0]).map(([, it]) => it);
+  const other = sanitizeHome({ owner: '옛 책상', scenes: { room: order } }).scenes.room;
+  if (other.map(spot).sort().join() !== now.map(spot).sort().join()) fail('무작위로 꾸민 옛 방: 목록의 순서에 따라 다른 방이 된다', { room: room.map(spot) });
+}
+// 새 책상 앞 바닥에 놓은 물건은 다시 열어도 책상으로 올라가지 않는다
+for (const room of [[at(DESK, 4, 4), at('mug', 4, 5), at('books', 6, 4)], [at(DESK, 4, 4, 1), at('mug', 5, 4), at('books', 4, 6)]]) {
+  const home = sanitizeHome({ owner: '새 책상', scenes: { room } });
+  if (JSON.stringify(home.scenes.room) !== JSON.stringify(room) || JSON.stringify(decodeHome(encodeHome(home)).scenes.room) !== JSON.stringify(room)) fail('새 책상 앞 바닥의 물건이 움직였다', home.scenes.room);
 }
 
 // 정해진 입력 몇 가지: 주소와 글 다듬기, 짧은 링크 번호, 가구 번호
@@ -426,11 +548,18 @@ if (JSON.stringify(decodeHome(OLD_LINK)) !== OLD_HOME) fail('옛 링크가 다�
   if (code('bench') < 0 || code('tree') < 0) fail('LINK_CODES에서 놀이터 가구의 옛 번호가 빠졌다(자리를 지켜야 옛 링크의 뒤 가구 번호가 맞는다)', LINK_CODES);
   else if (JSON.stringify(home?.scenes) !== want || home?.owner !== '놀이터 주인') fail('놀이터 가구가 든 옛 링크가 내 방만으로 열리지 않는다', home);
 }
+// 책상이 3×2칸이던 때(2026-11-24 전)의 코드가 만든 링크. 책상 두 개(하나는 돌림) 위에 물건이 네 개와 한 개, 바닥에 침대와 디카가 있다. 짧은 형식과 예전 JSON 형식이 같은 방으로 열린다
+const OLD_DESK_LINKS = [
+  'BArsmJsg7LGF7IOBAAEJACCAhAIFEiALQA8xECGWlg4A',
+  'eyJ2IjozLCJvIjoi7JibIOyxheyDgSIsInMiOnsicm9vbSI6W1siZGVzayIsMiwwXSxbImRlc2siLDgsNCwxXSxbImJlZCIsMCw1XSxbIm11ZyIsMiwwXSxbImNvbXB1dGVyIiw0LDBdLFsiZGlhcnkiLDMsMV0sWyJkZXNrLWxhbXAiLDIsMV0sWyJyYWRpbyIsOSw2LDFdLFsiY2FtZXJhIiwwLDBdXX19',
+];
+const OLD_DESK_ROOM = '[{"id":"study-desk","x":2,"y":0},{"id":"study-desk","x":8,"y":4,"r":1},{"id":"bed","x":0,"y":5},{"id":"computer","x":3,"y":0},{"id":"desk-lamp","x":2,"y":0},{"id":"radio","x":8,"y":5,"r":1},{"id":"camera","x":0,"y":0},{"id":"diary","x":3,"y":1},{"id":"mug","x":2,"y":1}]';
+for (const link of OLD_DESK_LINKS) if (JSON.stringify(decodeHome(link)?.scenes.room) !== OLD_DESK_ROOM) fail('책상이 3×2칸이던 때의 링크가 다른 방으로 열린다', decodeHome(link)?.scenes.room);
 // 추천 게임을 하나만 고르던 때(2026-11-18 전)의 링크: 게임기에 파일 정리 10 하나를 글로 담았다({"G":"file-ten"}). 한 개짜리 목록으로 열린다
 const OLD_CONSOLE = 'BA3smJsg6rKM7J6E6riwAAEAeyJHIjoiZmlsZS10ZW4ifQ';
 if (JSON.stringify(decodeHome(OLD_CONSOLE)?.likes) !== '{"console":["file-ten"]}') fail('추천 게임이 하나뿐인 옛 링크가 한 개짜리 목록으로 열리지 않는다', decodeHome(OLD_CONSOLE));
 
-console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 가장 긴 링크 ${longest}자, 꽉 채운 방 ${full}자(서버 한도 ${MAX_CODE}자)`);
+console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 옛 책상이 든 방 ${ROUNDS / 10}개, 가장 긴 링크 ${longest}자, 꽉 채운 방 ${full}자(서버 한도 ${MAX_CODE}자)`);
 for (const e of examples) console.log(`실패 ${e}`);
 const total = [...kinds.values()].reduce((a, b) => a + b, 0);
 if (kinds.size) console.log(`  종류별: ${[...kinds].map(([k, n]) => `${k} ${n}번`).join(', ')}`);
