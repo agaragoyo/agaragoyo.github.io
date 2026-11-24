@@ -120,6 +120,8 @@ function poster(w) {
   if (w.poster) {
     const img = h('img', { alt: '', referrerPolicy: 'no-referrer' });
     img.addEventListener('error', () => img.remove());
+    // 카드보다 옆으로 넓은 그림은 높이에 맞춘다(style.css의 .tv-poster img). 크기는 받은 뒤에야 안다
+    img.addEventListener('load', () => img.classList.toggle('wide', img.naturalWidth * card.offsetHeight > img.naturalHeight * card.offsetWidth));
     img.src = w.poster;
     card.append(img);
   }
