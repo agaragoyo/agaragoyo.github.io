@@ -60,14 +60,14 @@ AI 코딩 도구(Claude Code, Codex, Cursor, Copilot 등)가 이 레포에서 �
 - 고친 뒤에는 로컬 서버에서 직접 열어 확인한다
   - 확인은 크롬 계열로 한다. 사파리와 파이어폭스는 `docs/checklists.md`의 "사파리와 파이어폭스에서도 볼 때"에 드는 변경일 때만 보고, 그 밖에는 일지와 PR 설명에 두 브라우저를 보지 못했다고 적지 않는다
 - 고친 곳에 맞는 점검 도구를 커밋 전에 돌린다(Node 22 이상, 크롬이나 엣지 필요). 무엇을 보는지와 결과 읽는 법은 도구 파일 맨 위 주석에 있다
-  - 새 창이나 가구 화면을 만들면 `tools/smoke.mjs`의 `walk`와 `tools/night-contrast.mjs`의 `OPEN`, `SCREENS`에 한 줄씩 더한다
+  - 새 창이나 가구 화면을 만들면 `tools/smoke.mjs`의 `walk`, `tools/night-contrast.mjs`의 `OPEN`과 `SCREENS`, `tools/css-diff.mjs`의 `main`에 한 줄씩 더한다
 
 | 고친 곳 | 돌릴 도구 |
 | --- | --- |
 | `src/`, `data/`, `style.css`, `index.html` | `node tools/smoke.mjs` (눌러 보기, 1분쯤) |
 | `src/share.js`, `src/likes.js`, `src/rules.js`, 가구에 담는 것(likes)의 칸 | `node tools/link-fuzz.mjs` (링크 무작위, 3초쯤) |
 | `style.css`의 색이나 창 화면 | `node tools/night-contrast.mjs` (밤 대비, 15초쯤) |
-| `style.css`의 규칙을 합치거나 옮기거나 지우는 정리 | `node tools/css-diff.mjs` (모양 비교, 4분쯤. 모양이 그대로여야 하면 "다른 곳 0개") |
+| `style.css`의 규칙을 합치거나 옮기거나 지우는 정리 | `node tools/css-diff.mjs` (모양 비교, 5분쯤. 모양이 그대로여야 하면 "다른 곳 0개") |
 
 - 배포: PR이 main에 합쳐지면 `.github/workflows/pages.yml`이 Pages로 올린다. 1~2분 뒤 반영
 
