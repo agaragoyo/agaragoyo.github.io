@@ -1005,7 +1005,7 @@ async function walk(page, base) {
   };
   const openIcon = id => page.run(clickTwice, `#icons .desk-icon[data-app="${id}"]`);
   const closeWindows = () => page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
-  // 서버가 잠깐 거절해도 올린 방 번호와 계정을 잊지 않고, 정말 고칠 수 없게 되었을 때만 잊고 창으로 알린다(src/cloud.js의 forget, known-issues 118).
+  // 서버가 잠깐 거절해도 올린 방 번호와 계정을 잊지 않고, 정말 고칠 수 없게 되었을 때만 잊고 창으로 알린다(src/cloud.js의 forget, known-issues 119).
   // 공유하기 창을 연 채, 링크가 없고 fakeCloud('write')가 낀 상태에서 부른다. 끝나면 다시 링크가 없는 상태다
   async function lostRoom() {
     const saved = () => JSON.parse(localStorage.getItem('agarago.cloud') || '{}');

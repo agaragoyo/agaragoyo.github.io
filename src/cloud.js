@@ -9,7 +9,7 @@
 // 이 컴퓨터에 남기는 것: { uid, refresh: 익명 로그인, id: 올린 방의 번호, sent: 마지막으로 올린 방 글자, handle: 그 방에 단 아이디,
 //   nick: 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임, seen: 주인이 마지막으로 본 쪽지의 시각(밀리초),
 //   lost: 더는 고칠 수 없어 잊은 방 { id, uid, handle, why: 잊은 까닭, at: 잊은 시각, told: 주인이 안내를 닫았는지 } }
-// 방을 고칠 권한은 여기 남긴 익명 로그인뿐이라 잊으면 되찾을 길이 없다. 서버가 잠깐 거절한 것으로는 잊지 않는다(아래 forget, known-issues 118).
+// 방을 고칠 권한은 여기 남긴 익명 로그인뿐이라 잊으면 되찾을 길이 없다. 서버가 잠깐 거절한 것으로는 잊지 않는다(아래 forget, known-issues 119).
 import { STORAGE_CLOUD } from './config.js';
 import { loadJSON, saveJSON } from './util.js';
 
@@ -190,7 +190,7 @@ async function roomOwner(id) {
 }
 
 // 방 글자를 올리고 번호를 돌려준다. 올려 둔 번호가 있으면 같은 번호의 방을 고친다. 없으면 create일 때만 새 번호로 만들고, 아니면 올리지 않고 null을 돌려준다.
-// 새 번호는 주인이 "링크 만들기"를 누를 때만 만든다. 따라 올리다가 만들면 주인이 모르는 사이에 링크가 바뀐다(known-issues 118).
+// 새 번호는 주인이 "링크 만들기"를 누를 때만 만든다. 따라 올리다가 만들면 주인이 모르는 사이에 링크가 바뀐다(known-issues 119).
 // 규칙이 updatedAt에 서버 시각만 받으므로 PATCH가 아니라 commit의 updateTransforms(REQUEST_TIME)로 쓴다.
 async function upload(code, create = false) {
   if (code.length > MAX_CODE) throw new CloudError('denied', `방 글자가 ${MAX_CODE}자를 넘는다`);

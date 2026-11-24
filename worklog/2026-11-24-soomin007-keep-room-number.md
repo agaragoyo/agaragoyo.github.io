@@ -10,7 +10,7 @@
 - `src/apps/share-app.js`: 공유 링크 끊김 창(`openLinkLost`). 이 창이 알리는 실패는 알림을 겹쳐 띄우지 않음
 - `src/os.js`: 창을 띄우는 때(`tellLost`)
 - `tools/smoke.mjs`: 가짜 서버에 거절을 넣는 길(`__cloudRefuse`), 방의 주인(`__cloudOwners`)과 점검. `tools/night-contrast.mjs`: 새 창
-- `known-issues.md` 118번, `docs/guide.md`의 "저장과 공유", `docs/file-map.md`
+- `known-issues.md` 119번(118번은 같은 날 나란히 연 PR이 씀), `docs/guide.md`의 "저장과 공유", `docs/file-map.md`
 
 ## 정한 것과 이유
 - 알림(토스트) 대신 창으로 알린다. 한 번뿐인 일이고 할 일(새 링크 보내기)이 있어 7초 뒤 사라지면 놓친다.
