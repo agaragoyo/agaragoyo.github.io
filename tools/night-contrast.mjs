@@ -14,7 +14,7 @@
 // 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
-// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
+// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)을 재고 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
 // 마지막으로 오른쪽 단추 메뉴 두 가지를 잰다. 방의 펫을 눌러 뜨는 할 일 메뉴(openPetMenu)와 창 제목 줄을 눌러 뜨는 창 메뉴(openWindowMenu, 회색 줄이 있다)다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
@@ -417,13 +417,18 @@ async function main() {
       results.push({ ...judge(era, r), label: `${era} ${label}` });
     };
     await page.run(plantHome, TEST_HOME);
+    // 올린 방을 잊은 기록을 심으면 내 바탕화면에 들어갈 때 공유 링크 끊김 창이 저절로 뜬다(src/os.js의 tellLost)
+    await page.run(() => localStorage.setItem('agarago.cloud', JSON.stringify({ lost: { id: 'Lost1234', handle: null, why: 'OTHER_OWNER', told: false } })));
     await page.send('Page.navigate', { url: 'about:blank' });
     await page.send('Page.navigate', { url: base });
     await until(page, s => s.ready, `${base} 주소가 다시 뜨지 않았다`);
     await powerOn();
     if (!(await page.run(ownUser))) throw new Stop('로그인 화면에 점검용 집의 사용자가 없다.');
     await until(page, s => s.desktop, '점검용 집으로 들어가도 바탕화면이 뜨지 않았다');
+    await until(page, s => s.windows >= 1, '올린 방을 잊은 기록이 있는데 공유 링크 끊김 창이 뜨지 않았다', 5000);
     await sleep(500);
+    await measure('공유 링크 끊김 창');
+    await page.run(() => document.querySelector('#windows .win .win-close').click());
     for (const [name, id, ready, more] of SCREENS) {
       if (!(await page.run(useFurniture, id))) throw new Stop(`바탕화면의 방에 ${id} 가구가 없다. tools/headless.mjs의 TEST_HOME에 놓는다.`);
       const t2 = Date.now();
