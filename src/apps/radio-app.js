@@ -8,7 +8,7 @@
 // 일부 공식 뮤직비디오처럼 다른 사이트에서 재생을 막아 둔 영상은 플레이어가 오류를 알린다(IFrame Player API의 onError). 그러면 아래 안내 줄에 할 일을 쓴다.
 // 유튜브 재생목록 CD는 곡을 넘길 방법이 없다는 제보(2026-11-15)에 따라 플레이어 바로 아래에 "이전 곡", "다음 곡" 단추를 둔다(IFrame Player API의
 // previousVideo, nextVideo). 자리는 음악 창이다. 음악 창은 라디오를 내려놓은 뒤에도 남고 친구 집 배경음악이 저절로 연 창에도 쓰이지만, 라디오 화면은 그렇지 않다.
-// 라디오 그림의 가운데 줄은 폭이 220px이고 ▶ ■ ⏏ 세 개가 168px을 차지해 .btn 둘(각 85px쯤)이 들어갈 자리가 없고, 그 아래 줄(.radio-tools)은 주인이 CD를 넣고 고치는 줄이다.
+// 라디오 윗면에는 ▶ ■ ⏏가 있고 앞면의 CD 창과 표시창 둘레에는 .btn 둘(각 85px쯤)이 들어갈 자리가 없으며, 그 아래 줄(.radio-tools)은 주인이 CD를 넣고 고치는 줄이다.
 // 단추는 iframe 밖의 줄이라 플레이어 위에는 겹치지 않는다. 영상 하나와 스포티파이, 애플 뮤직의 플레이어는 곡 목록이 플레이어 안에 있어 단추를 두지 않는다.
 // 앨범처럼 이전 곡과 다음 곡이 무엇인지, 목록 전체를 보고 싶다는 요청(2026-11-15)에 따라 단추 줄 아래에 두 곡의 이름을 한 줄씩 보이고,
 // 단추 줄의 "목록 보기"가 곡 목록을 따로 연 창에 띄운다. 곡 정보는 src/apps/radio-tracks.js가 맡는다(곡이 저절로 넘어가도 따라 바뀐다).
@@ -33,6 +33,10 @@ import { LIMIT, parseMusic, setLike, isOwner, line } from '../likes.js';
 import { createTracks, hasTracks } from './radio-tracks.js';
 import { APP_BY_ID } from '../../data/apps.js';
 import { BY_ID } from '../../data/furniture.js';
+
+// 라디오 틀 그림(style.css의 .radio-body 배경)은 CSS가 받아서, 라디오를 처음 여는 순간에야 받으면 틀이 늦게 뜬다. 이 모듈을 읽을 때 미리 받아 둔다
+const FRAME = new Image();
+FRAME.src = 'assets/closeup/radio-frame.png';
 
 const KIND = {
   spotify: { album: '스포티파이 앨범', playlist: '스포티파이 플레이리스트' },
@@ -341,17 +345,14 @@ export function openRadioApp(os, app) {
 
       const slot = h('div', { className: 'radio-slot' });
       const lcd = h('div', { className: 'radio-lcd' });
-      const playKey = h('button', { type: 'button', className: 'radio-key', 'aria-label': '재생', title: '재생', onclick: () => current && play(current) }, '▶');
-      const stopKey = h('button', { type: 'button', className: 'radio-key', 'aria-label': '멈춤', title: '멈춤', onclick: () => player?.win.close() }, '■');
+      const playKey = h('button', { type: 'button', className: 'radio-key play', 'aria-label': '재생', title: '재생', onclick: () => current && play(current) }, '▶');
+      const stopKey = h('button', { type: 'button', className: 'radio-key stop', 'aria-label': '멈춤', title: '멈춤', onclick: () => player?.win.close() }, '■');
       const ejectKey = h('button', { type: 'button', className: 'radio-key eject', 'aria-label': '꺼내기', title: '꺼내기', onclick: () => eject() }, h('i', { className: 'radio-eject', 'aria-hidden': 'true' }));
-      const speaker = () => h('div', { className: 'radio-speaker' }, h('i'));
       const fan = h('div', { className: 'radio-fan' });
       const tools = h('div', { className: 'radio-tools' });
-      const radio = h('div', { className: 'radio-body' },
-        h('div', { className: 'radio-handle' }),
-        speaker(),
-        h('div', { className: 'radio-middle' }, slot, lcd, h('div', { className: 'radio-keys' }, playKey, stopKey, ejectKey)),
-        speaker());
+      // 몸통과 손잡이, 안테나, 스피커는 틀 그림에 있고, 그 위에 CD 창과 표시창, 단추만 올린다
+      const radio = h('div', { className: 'radio-body' }, slot, lcd, h('div', { className: 'radio-keys' }, playKey, stopKey, ejectKey));
+      const restKeys = rest => [playKey, stopKey, ejectKey].forEach(k => { k.disabled = rest; });
 
       // CD 한 장의 그림. 원판은 주인이 고른 색이고(style.css의 .cd[data-color]), 표지가 오면 가운데 둥근 그림으로 깐다
       const disc = (m, spin) => {
@@ -381,7 +382,7 @@ export function openRadioApp(os, app) {
         fan.replaceChildren(...list.map((m, i) => {
           const name = h('span', { className: 'cd-name' });
           nameOf(m, name);
-          // 여섯 장을 7도씩 펼치면 양 끝 CD가 라디오 판(820px) 밖으로 나가서 4도씩 펼친다
+          // 여섯 장을 7도씩 펼치면 양 끝 CD가 라디오 화면의 폭(820px) 밖으로 나가서 4도씩 펼친다
           const tilt = (i - (list.length - 1) / 2) * (list.length > 5 ? 4 : 7);
           // 라디오에 든 CD의 제자리는 점선 동그라미로 남고 누를 수 없다(꺼내기 단추로 돌려놓는다)
           const inside = current?.link === m.link;
@@ -404,6 +405,7 @@ export function openRadioApp(os, app) {
           inRadio ? h('button', { type: 'button', className: 'btn', onclick: () => form(current) }, '이 CD 고치기') : null,
           inRadio ? h('button', { type: 'button', className: 'btn', onclick: remove }, '이 CD 지우기') : null,
         ].filter(Boolean) : []));
+        restKeys(false);
         panel.replaceChildren(fan, radio, tools);
         fan.querySelectorAll('.cd-name').forEach(fitName); // 화면에 붙은 뒤에야 줄 수를 잴 수 있다
         showSlot();
@@ -541,7 +543,9 @@ export function openRadioApp(os, app) {
           h('div', { className: 'link-row' },
             h('button', { className: 'btn', type: 'submit' }, old ? '고치기' : '넣기'),
             h('button', { className: 'btn', type: 'button', onclick: () => (cds().length ? render() : cu.close()) }, '취소')));
-        panel.replaceChildren(card);
+        // 넣는 칸은 라디오 앞에 뜬다. 그동안 라디오의 단추는 쉰다(꺼내기가 판을 다시 그리면 쓰던 글이 사라진다)
+        restKeys(true);
+        panel.replaceChildren(card, radio);
         setTimeout(() => (old ? name : url).focus(), 50);
       }
 
