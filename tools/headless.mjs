@@ -213,7 +213,9 @@ export async function runTool(fileUrl, main) {
     process.exit(0);
   }
   let code = 2;
-  const cleanup = async () => { for (const f of cleanups.splice(0).reverse()) await f(); };
+  // Ctrl+C로 정리를 시작하면 크롬이 꺼지며 main도 멈춰 정리를 또 부른다. 같은 정리를 기다리게 해야 다 치우기 전에 끝나지 않는다
+  let cleaning = null;
+  const cleanup = () => (cleaning ??= (async () => { for (const f of cleanups.splice(0).reverse()) await f(); })());
   process.once('SIGINT', async () => { await cleanup(); process.exit(130); });
   try {
     if (Number(process.versions.node.split('.')[0]) < 22) throw new Stop(`Node ${process.versions.node}은 오래됐다. Node 22 이상으로 돌린다.`);
