@@ -4,9 +4,11 @@
 // 그 뒤에는 방을 고칠 때마다 서버의 방도 따라 고치므로(os.saveHome) 같은 링크가 늘 지금 방을 보여 준다.
 // 방을 통째로 주소에 담던 긴 링크(#r=)는 2026-11-14에 이 창에서 뺐다. 이미 보낸 긴 링크는 로그인 화면이 그대로 연다(src/share.js).
 // 링크를 만든 뒤에는 방에 아이디를 달 수 있다. 친구는 이웃집 목록 창에서 아이디를 쳐서 링크 없이 찾아온다(src/cloud.js의 "아이디", src/neighbors.js).
+// 아이디를 정한 사람에게는 비밀번호를 만들기를 한 줄 권한다. 만들면 다른 브라우저에서 그 아이디로 로그인한다(F36, src/user-account.js).
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
-import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE, markLostTold } from '../cloud.js';
+import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE, markLostTold, hasPassword } from '../cloud.js';
+import { openAccountWindow } from '../user-account.js';
 import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
 import { renderRoomImage, IMAGE_W, IMAGE_H } from '../room-image.js';
@@ -58,7 +60,7 @@ export function openShareApp(os, app) {
     app,
     title: '공유하기',
     width: 540,
-    height: 530, // 링크와 아이디 줄이 있을 때 맨 아래 단추 밑에 30px쯤 남고, 아이디 칸 아래에 오류가 한 줄 떠도 스크롤되지 않는다(known-issues 73)
+    height: 568, // 링크와 아이디 줄, 비밀번호 줄이 있을 때 맨 아래 단추 밑에 30px쯤 남고, 아이디 칸 아래에 오류가 한 줄 떠도 스크롤되지 않는다(known-issues 73)
 
     build(body, w) {
       const intro = h('p', {});
@@ -102,10 +104,12 @@ export function openShareApp(os, app) {
         }
       };
 
-      // 서버 일이 실패한 것을 알린다. 방 번호를 잊은 것(lost)은 따로 뜨는 창(openLinkLost)이 알리므로 겹쳐 알리지 않는다.
+      // 서버 일이 실패한 것을 알린다. 방 번호를 잊은 것(lost)은 따로 뜨는 창(openLinkLost)이, 사용자가 바뀐 것(moved)은 로그인 화면이 알리므로 겹쳐 알리지 않는다.
+      // 로그인이 풀린 것(signedout)은 알림 대신 다시 로그인하는 창을 연다
       const failed = (err, text) => {
+        if (err.reason === 'signedout') return openAccountWindow(os);
         console.warn(err);
-        if (err.reason !== 'lost') os.toast(text, 7000);
+        if (!['lost', 'moved'].includes(err.reason)) os.toast(text, 7000);
       };
 
       // 링크 만들기: 방을 서버에 올리고 받은 번호로 링크 줄을 보인다. 처음에는 익명 로그인까지 해서 1초쯤 걸린다.
@@ -139,8 +143,10 @@ export function openShareApp(os, app) {
         }
         w.refreshLink();
       };
+      // 비밀번호가 있으면 링크나 아이디를 지운 뒤에는 다른 브라우저에서 로그인할 길이 없다는 것도 알린다(F36)
+      const noLogin = () => (hasPassword() ? [' ', nw('다른 브라우저에서 로그인할 수 없게 됩니다.')] : []);
       const askRemove = () => {
-        cloudTip.replaceChildren(myHandle() ? '서버에서 방과 쪽지, 아이디를 지웁니다. ' : '서버에서 방과 쪽지를 지웁니다. ', nw('이 링크는 더는 열리지 않습니다.'));
+        cloudTip.replaceChildren(myHandle() ? '서버에서 방과 쪽지, 아이디를 지웁니다. ' : '서버에서 방과 쪽지를 지웁니다. ', nw('이 링크는 더는 열리지 않습니다.'), ...noLogin());
         cloudRow.replaceChildren(button('지우기', remove), button('그대로 두기', () => w.refreshLink()));
       };
 
@@ -192,9 +198,13 @@ export function openShareApp(os, app) {
         w.refreshLink();
       };
       const askDrop = () => {
-        handleTip.replaceChildren('지운 아이디는 다른 사람이 정할 수 있습니다.');
+        handleTip.replaceChildren('지운 아이디는 다른 사람이 정할 수 있습니다.', ...noLogin());
         handleRow.replaceChildren(button('지우기', drop), button('그대로 두기', () => w.refreshLink()));
       };
+      // 아이디를 정한 뒤의 비밀번호 줄. 없으면 만들기를 권하고 단추로 아이디와 비밀번호 창을 연다. 있으면 무엇으로 로그인하는지 보인다. 연습 방에서는 보이지 않는다
+      const passwordLine = () => (hasPassword()
+        ? [h('p', { className: 'share-password' }, '다른 브라우저에서는 이 아이디와 비밀번호로 로그인합니다.')]
+        : [h('div', { className: 'share-password' }, h('p', {}, '비밀번호를 만들면 다른 브라우저에서도 ', nw('로그인할 수 있습니다.')), button('비밀번호 만들기', () => openAccountWindow(os)))]);
       const handleSlot = h('div', {});
       let shownHandle = null; // 아이디 칸을 마지막으로 그린 때의 아이디(정하기 전이면 ''). 정하기 전 그대로면 사용자가 친 글자를 남긴다
       const refreshHandle = id => {
@@ -216,7 +226,7 @@ export function openShareApp(os, app) {
         }
         if (shownHandle !== handle) handleError.hidden = true;
         shownHandle = handle;
-        handleSlot.replaceChildren(handleTip, handleRow, handleError);
+        handleSlot.replaceChildren(handleTip, handleRow, handleError, ...(handle && !os.realHome ? passwordLine() : []));
       };
 
       // 링크 줄과 안내를 지금 상태로 맞춘다. 창을 다시 부를 때, 링크를 만들거나 지운 뒤, 복사할 때 부른다(다른 탭에서 만들거나 지웠을 수 있다).
@@ -285,9 +295,9 @@ export function openShareApp(os, app) {
   });
   win.refreshLink();
   // 링크가 있으면 창을 열 때 서버의 방을 지금 방으로 맞춘다(고친 지 3초가 지나기 전에 열었을 수 있다).
-  // 서버의 방이 다른 브라우저에서 바뀌었거나(changed) 지워졌으면(removed) src/home-sync.js가 따로 알린다
+  // 서버의 방이 다른 브라우저에서 바뀌었거나(changed) 지워졌으면(removed) src/home-sync.js가, 로그인이 풀렸거나(signedout) 사용자가 바뀌었으면(moved) src/os.js가 따로 알린다
   syncNow(code).catch(err => {
-    if (!['lost', 'changed', 'removed'].includes(err.reason)) {
+    if (!['lost', 'changed', 'removed', 'signedout', 'moved'].includes(err.reason)) {
       console.warn(err);
       os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
     }

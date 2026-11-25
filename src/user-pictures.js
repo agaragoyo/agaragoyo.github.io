@@ -4,8 +4,9 @@
 // 사진은 이 컴퓨터의 사용자 것이라 집(os.home)과 따로 STORAGE_PICTURE에 사진 값만 저장한다. 그래서 튜토리얼 연습 방이 집을 바꿔 끼워도
 // 그대로이며(known-issues 40), 이 컴퓨터 초기화가 다른 agarago. 키와 함께 지운다. 공유 링크에는 만들 때 withPicture로 붙여 담는다.
 import { STORAGE_PICTURE } from './config.js';
-import { USER_PICTURES } from '../data/user-pictures.js';
+import { USER_PICTURES, KEY_PICTURE } from '../data/user-pictures.js';
 import { isCustom, readCustom, makeCustom } from './custom-picture.js';
+import { moved } from './seat.js';
 import { h, loadJSON, saveJSON } from './util.js';
 import { openNameWindow } from './user-name.js';
 
@@ -51,8 +52,9 @@ export function ownPicture(name = '') {
   return USER_PICTURES[n % USER_PICTURES.length].id;
 }
 
+// 다른 탭에서 사용자가 바뀌었으면(src/seat.js) 그 사용자의 사진을 덮지 않게 저장하지 않는다
 export function saveOwnPicture(v) {
-  if (isPicture(v)) saveJSON(STORAGE_PICTURE, v);
+  if (isPicture(v) && !moved()) saveJSON(STORAGE_PICTURE, v);
 }
 
 // 공유 링크의 방에 담을 집. 내 집에 내 사진을 붙인다. 서버에 방을 올리는 곳(공유하기 창, 고친 방을 따라 올리는 os.js)은 모두 이걸 거친다.
@@ -79,7 +81,11 @@ const svgs = new Map();
 function pictureSvg(id) {
   if (svgs.has(id)) return svgs.get(id);
   const custom = readCustom(id);
-  const { bg, colors, rows } = custom ? asRows(custom) : BY_ID[id];
+  const svg = svgOf(custom ? asRows(custom) : BY_ID[id]);
+  svgs.set(id, svg);
+  return svg;
+}
+function svgOf({ bg, colors, rows }) {
   const paths = {};
   rows.forEach((row, y) => {
     for (let x = 0; x < GRID;) {
@@ -90,9 +96,7 @@ function pictureSvg(id) {
     }
   });
   const fills = Object.entries(paths).map(([c, d]) => `<path fill="${colors[c]}" d="${d.join('')}"/>`).join('');
-  const svg = `<svg viewBox="0 0 ${GRID} ${GRID}" aria-hidden="true"><rect width="${GRID}" height="${GRID}" fill="${bg}"/>${fills}</svg>`;
-  svgs.set(id, svg);
-  return svg;
+  return `<svg viewBox="0 0 ${GRID} ${GRID}" aria-hidden="true"><rect width="${GRID}" height="${GRID}" fill="${bg}"/>${fills}</svg>`;
 }
 
 // 사진 요소 하나. id: 사진 값(풀 수 없는 값이면 첫 사진), slot: 자리 크기(48, 36).
@@ -101,6 +105,13 @@ export function pictureEl(id, slot = 48) {
   const pic = isPicture(id) ? id : USER_PICTURES[0].id;
   const box = h('span', { className: 'user-pic', dataset: { slot, pic: isCustom(pic) ? 'my' : pic } });
   box.innerHTML = pictureSvg(pic);
+  return box;
+}
+
+// 로그인 칸(src/sign-in.js)의 열쇠 그림. 고르는 사진이 아니라서 목록에는 없고, 내 사용자의 사진과 같은 크기로 그린다
+export function keyPicture() {
+  const box = h('span', { className: 'user-pic', dataset: { slot: 48, pic: 'key' } });
+  box.innerHTML = svgOf(KEY_PICTURE);
   return box;
 }
 

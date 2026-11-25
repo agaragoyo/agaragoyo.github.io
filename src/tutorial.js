@@ -14,6 +14,7 @@
 //
 // 가구는 data/furniture.js의 TUTORIAL_FURNITURE 한곳에서 바꾼다. 안내 카드는 무대에 붙고 클릭을 흘려보낸다(카드의 단추만 받는다).
 import { STORAGE_TUTORIAL } from './config.js';
+import { hasPassword } from './cloud.js';
 import { BY_ID, TUTORIAL_FURNITURE } from '../data/furniture.js';
 import { batchim, h, loadJSON, saveJSON } from './util.js';
 
@@ -130,11 +131,13 @@ export function createTutorial(os) {
       target: () => inWallpaper('.door-hit'),
     },
   ];
-  // 끝 카드에는 말하는 법을 다시 적지 않는다(말하기 단계가 아바타 누르기와 Enter를 함께 알렸다)
+  // 끝 카드에는 말하는 법을 다시 적지 않는다(말하기 단계가 아바타 누르기와 Enter를 함께 알렸다).
+  // 비밀번호가 없는 사용자에게는 비밀번호를 만드는 곳을 한 줄 알린다(F36). 잃을 방이 생긴 뒤에 권하려고 새 사용자를 만들 때는 묻지 않는다
+  const again = () => `\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.${hasPassword() ? '' : '\n다른 브라우저에서도 고치려면\n시작 메뉴에서 비밀번호를 만드세요.'}`;
   const END = {
     id: 'end',
     title: '튜토리얼 끝',
-    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.${os.realHome ? '' : '\n이 안내는 시작 메뉴에서\n다시 볼 수 있습니다.'}`,
+    text: () => `튜토리얼을 마쳤습니다.\n바닥을 누르거나 방향키를 누르면\n아바타가 걷습니다.${os.realHome ? '' : again()}`,
     target: () => null,
   };
 
@@ -307,6 +310,11 @@ export function createTutorial(os) {
     // 새 사용자를 만들 때 부른다. 기존 사용자는 여기를 지나지 않으므로 튜토리얼이 저절로 나오지 않는다.
     arm() {
       state = newState(true);
+      save();
+    },
+    // 아이디로 로그인한 사용자는 튜토리얼을 다 본 것으로 둔다(src/sign-in.js). 앞 사용자가 하다 만 것이 메모리에 남아 있을 수 있다
+    disarm() {
+      state = newState(false);
       save();
     },
     // 내 컴퓨터의 바탕화면에 들어올 때 부른다. 하던 중이면 이어서 보여 준다(손님은 부르지 않는다).

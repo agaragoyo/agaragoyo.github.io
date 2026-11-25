@@ -265,3 +265,35 @@ export const USER_PICTURES = [
     ],
   },
 ];
+
+// 로그인 칸(src/sign-in.js)의 열쇠 그림. 고르는 사진이 아니라서 위 목록에 넣지 않는다(목록의 순서가 공유 링크에 담긴다)
+export const KEY_PICTURE = {
+  bg: '#fff3cf',
+  colors: { k: '#6b3f0e', y: '#ffd968', Y: '#f0ab1e' },
+  rows: [
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '.....kkkkkk.............',
+    '....kyyyyyyk............',
+    '...kyyyyyyyyk...........',
+    '..kyyyyyyyyyyk..........',
+    '.kyyyyyyyyyyyyk.........',
+    '.kyyyyyyyyyyyykkkkkkkk..',
+    '.kYYY....YYYYYYYYYYYYYk.',
+    '.kYYY....YYYYYYYYYYYYYk.',
+    '.kYYY....YYYYYYYYYYYYYk.',
+    '.kYYYYYYYYYYYYkkkYYkYYk.',
+    '..kYYYYYYYYYYk..kYYkYYk.',
+    '...kYYYYYYYYk...kYYkYYk.',
+    '....kYYYYYYk.....kk.kk..',
+    '.....kkkkkk.............',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+  ],
+};

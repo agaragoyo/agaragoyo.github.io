@@ -1,13 +1,16 @@
 // 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓는다.
-// 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 이 컴퓨터 초기화를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
+// 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 이 컴퓨터 초기화(비밀번호가 있으면 이 컴퓨터에서 빼기)를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
+// 그 아래 글자 단추("내 아이디로 로그인", "다른 아이디로 로그인")를 누르면 왼쪽 단이 아이디와 비밀번호를 치는 로그인 칸으로 바뀐다(F36, src/sign-in.js).
 // 오른쪽 단(.users-friends)은 친구 집이다. 링크로 온 친구 집이나, 최근에 놀러 간 집과 이웃집의 사진 칸 격자와 그 아래 친구 아이디 칸(handleTile)을 둔다.
 // 이웃집은 팀원의 방을 미리 넣어 둔 친구 집이라, 아이디로 찾아가는 칸을 그 아래에 두어 친구에게 가는 길을 한 단에 모았다.
 // 격자는 넷플릭스의 프로필 고르기, 윈도우 XP의 사용자 계정 창처럼 사진 아래에 이름 한 줄만 쓴다. 칸마다 같은 설명을 되풀이하지 않고 무리마다 제목을 한 번 둔다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
-import { STORAGE_ROOM, STORAGE_ROOM_OLD, STORAGE_SETTINGS, NEW_ROOM_DECOR } from './config.js';
-import { APPS } from '../data/apps.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, NEW_ROOM_DECOR } from './config.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
-import { fetchHome, sharedId, unshare, myHandle } from './cloud.js';
+import { fetchHome, sharedId, unshare, myHandle, hasPassword, standUp } from './cloud.js';
+import { moved, reseat } from './seat.js';
+import { wipeUser } from './home-store.js';
+import { createSignIn } from './sign-in.js';
 import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere, handleInput, brLines, recentVisits, syncVisit } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
 import { preloadFurniture } from './room.js';
@@ -18,10 +21,11 @@ import { play } from './sound.js';
 // os: 창 닫기(os.wm), 모드 비우기(os.mode), 새 사용자의 튜토리얼 켜기(os.tutorial)에 쓴다. el: 화면 요소들(여기서는 el.login만 쓴다)
 // show(...names): 보일 화면 고르기. enter(mode, home, my, boardId): 고른 집으로 들어가기. toast(msg, ms): 알림. clearHash(): 주소의 방 링크 지우기
 // nextRun(): 새 실행 번호 받기(전원을 끄거나 로그아웃하면 번호가 바뀐다). isCurrent(my): my가 아직 지금 실행인지
+// takeSeat(): 저장된 사용자를 새로 읽는다고 알리기(src/seat.js). forgetSync(): 서버의 방과 맞추던 일 버리기(src/home-sync.js)
 // 돌려주는 것: 부팅할 때 미리 받기(loginHomes, cloudHome), 내 집(ownHome), 로그인 화면(showLogin), 시작 메뉴의 사용자 그림(avatar)
 // 이 컴퓨터의 내 사용자에는 고른 사진(src/user-pictures.js)이 보이고, 링크로 온 친구 집, 최근에 놀러 간 집, 이웃집에는 링크에 담긴 주인 사진이 보인다.
 // 사진을 넣기 전에 만든 링크와, 그림 파일로 만든 사진(내 그림)을 쓰는 주인의 긴 링크는 사진이 없으므로 이름의 첫 글자가 보인다.
-export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, isCurrent }) {
+export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, nextRun, isCurrent, forgetSync }) {
   // 이 컴퓨터에 저장된 내 집. 없거나 이름이 없으면 null이다.
   function ownHome() {
     const own = sanitizeHome(loadJSON(STORAGE_ROOM) || loadJSON(STORAGE_ROOM_OLD));
@@ -155,11 +159,20 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     return tile;
   }
 
+  // 다른 탭에서 사용자가 바뀌었으면(src/seat.js) 이 화면의 내 사용자는 앞 사용자다. 하려던 일을 하지 않고 지금 사용자로 다시 그린 뒤 알린다. 바뀌었으면 참이다
+  function staleLogin() {
+    if (!moved()) return false;
+    showLogin();
+    toast('다른 탭에서 사용자가 바뀌었습니다.', 7000);
+    return true;
+  }
+
   function showLogin() {
     const my = nextRun();
     os.wm.closeAll();
     os.mode = null;
     show('login');
+    takeSeat();
     el.login.classList.remove('entering'); // 서버의 방을 기다리던 환영 화면(src/os.js의 enter)에서 전원을 껐다 켜 왔으면 걷는다
     const mine = el.login.querySelector('.users-own');
     const friends = el.login.querySelector('.users-friends');
@@ -190,20 +203,32 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
         handleTile(my));
       for (const tile of friends.querySelectorAll('.friend-tile')) fitName(tile);
     }
-    if (own) {
-      mine.append(userTile(own.owner, m || sid ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
+    const showMine = () => (own ? showOwn() : showNew());
+    showMine();
+
+    // 내 사용자. 그 아래에 다른 아이디로 로그인과, 이 컴퓨터 초기화나 이 컴퓨터에서 빼기를 글자 단추로 둔다
+    function showOwn() {
+      mine.replaceChildren(userTile(own.owner, m || sid ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
+        if (staleLogin()) return;
         clearHash();
         enter('edit', own, my);
-      }, '', ownPicture(own.owner)), resetButton());
-    } else {
-      mine.append(newUserTile((name, picture) => {
+      }, '', ownPicture(own.owner)), ownLinks(openForm));
+    }
+    function showNew() {
+      mine.replaceChildren(newUserTile((name, picture) => {
+        if (staleLogin()) return;
         clearHash();
         const home = sanitizeHome({ owner: name, decor: NEW_ROOM_DECOR });
         saveJSON(STORAGE_ROOM, home);
         saveOwnPicture(picture);
         os.tutorial.arm();
         enter('edit', home, my);
-      }));
+      }), linkButton('내 아이디로 로그인', openForm));
+    }
+    // 로그인 칸(src/sign-in.js). 그 아래 글자 단추로 돌아간다
+    function openForm() {
+      mine.replaceChildren(signIn.form({ my, box: mine, title: own ? '다른 아이디로 로그인' : '내 아이디로 로그인' }),
+        linkButton(own ? '내 사용자로 돌아가기' : '새 사용자 만들기', showMine));
     }
   }
 
@@ -244,44 +269,47 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
         hint));
   }
 
-  // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 이 컴퓨터의 설정(밤, 소리, 배경음악)은 남긴다.
+  // 로그인 화면 왼쪽 단의 글자 단추. 로그인 칸을 열거나 거기서 돌아온다
+  const linkButton = (label, onclick) => h('button', { type: 'button', className: 'own-link', onclick }, label);
+
+  // 내 사용자 아래의 작은 글자 단추들: 다른 아이디로 로그인, 이 컴퓨터 초기화(비밀번호가 있고 서버에 방이 있으면 이 컴퓨터에서 빼기).
+  // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 이 컴퓨터의 설정(밤, 소리, 배경음악)은 남긴다(src/home-store.js의 wipeUser).
   // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다.
-  // 배포 주소에 따라 다른 사이트와 저장소를 같이 쓸 수 있으므로, 우리 키만 골라 지운다.
-  // 우리 키: 'agarago.'로 시작하는 것과, apps/ 안 앱이 자기 id로 시작하게 만든 것('tidy-up.best').
-  const ownApps = APPS.filter(a => a.src?.startsWith('apps/')).map(a => a.id + '.');
-  const ownKey = key => key.startsWith('agarago.') || ownApps.some(p => key.startsWith(p));
+  // 이 컴퓨터에서 빼기: 서버의 방을 남겨 두고 이 컴퓨터의 것만 지운다(F36, src/sign-in.js의 askTakeOut).
   // 되돌릴 수 없는 일이라 바로 지우지 않고, 지울 것을 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
-  // 짧은 링크로 서버에 올린 방(src/cloud.js)도 같이 지운다. 서버가 늦으면 3초까지만 기다리고 이 컴퓨터의 것은 지운다.
+  // 초기화는 짧은 링크로 서버에 올린 방(src/cloud.js)도 같이 지운다. 서버가 늦으면 3초까지만 기다리고 이 컴퓨터의 것은 지운다.
   // 이웃집에 고정한 방(data/neighbors.js의 keep)을 올린 브라우저에서는 초기화를 내놓지 않고 이유만 보인다.
-  // 서버의 방이 지워지면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고, 이 컴퓨터의 방도 사라지기 때문이다.
-  function resetButton() {
+  // 서버의 방이 지워지면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고, 이 컴퓨터의 방도 사라지기 때문이다. 서버의 방을 남기는 빼기는 막지 않는다.
+  function ownLinks(openForm) {
     const box = h('div', { className: 'reset-box' });
-    if (pinnedHere()) {
-      box.append(h('p', {}, '내 방이 이웃집에 고정되어 있어 초기화할 수 없습니다.'));
-      return box;
-    }
+    const link = (label, onclick) => h('button', { type: 'button', className: 'reset-link', onclick }, label);
+    const ask = (lines, yes) => box.replaceChildren(
+      ...lines.map(text => h('p', {}, text)),
+      h('div', { className: 'reset-row' }, yes, h('button', { type: 'button', className: 'btn', onclick: idle }, '그대로 두기')));
     const wipe = async () => {
       if (pinnedHere()) return showLogin(); // 확인 창을 띄워 둔 사이에 다른 탭에서 방이 고정되었을 수 있다
       if (sharedId()) await Promise.race([unshare().catch(err => console.warn('서버의 방을 지우지 못했다', err)), wait(3000)]);
-      try {
-        for (const key of Object.keys(localStorage)) if (ownKey(key) && key !== STORAGE_SETTINGS) localStorage.removeItem(key);
-      } catch { /* 저장소를 못 쓰는 환경 */ }
+      if (staleLogin()) return; // 누르기 전이나 기다리는 사이에 다른 탭에서 사용자가 바뀌었다. 서버의 방은 unshare가 지우지 않는다(src/cloud.js의 queueMine)
+      reseat();
+      wipeUser();
+      standUp();
+      forgetSync();
       showLogin();
     };
-    const ask = () => box.replaceChildren(
-      h('p', {}, sharedId()
-        ? `이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지${myHandle() ? ', 아이디' : ''}를 지웁니다. 되돌릴 수 없습니다.`
-        : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'),
-      h('div', { className: 'reset-row' },
-        h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'),
-        h('button', { type: 'button', className: 'btn', onclick: idle }, '그대로 두기')),
-    );
-    const idle = () => box.replaceChildren(h('button', { type: 'button', className: 'reset-link', onclick: ask }, '이 컴퓨터 초기화'));
+    const askReset = () => ask([sharedId()
+      ? `이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지${myHandle() ? ', 아이디' : ''}를 지웁니다. 되돌릴 수 없습니다.`
+      : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'],
+    h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'));
+    const last = () => {
+      if (hasPassword() && sharedId()) return link('이 컴퓨터에서 빼기', () => signIn.askTakeOut(box, idle));
+      return pinnedHere() ? h('p', {}, '내 방이 이웃집에 고정되어 있어 초기화할 수 없습니다.') : link('이 컴퓨터 초기화', askReset);
+    };
+    const idle = () => box.replaceChildren(link('다른 아이디로 로그인', openForm), last());
     idle();
     return box;
   }
 
-  // 로그인 화면의 칸(닉네임, 친구 아이디)에 글자를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드").
+  // 로그인 화면의 칸(닉네임, 친구 아이디, 로그인 칸)에 글자를 칠 때 한 글자마다 키보드 소리(사운드 정리표의 "ID 입력 사운드").
   // 누르고 있어 되풀이되는 키와 Enter, 조합 키는 빼고, 한글 입력 중(Process)도 소리를 낸다.
   const keySound = input => input.addEventListener('keydown', e => {
     if (!e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || ['Backspace', 'Delete', 'Process'].includes(e.key))) play('key');
@@ -339,6 +367,8 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     setTimeout(() => input.focus(), 50);
     return form;
   }
+
+  const signIn = createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast, clearHash, isCurrent, forgetSync, keySound });
 
   return { ownHome, loginHomes, cloudHome, showLogin, avatar };
 }

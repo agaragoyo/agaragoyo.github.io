@@ -9,18 +9,19 @@
 // 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있고 tools/smoke.mjs와 같이 쓴다.
 //
 // 하는 일: tools/serve.py를 띄우고 화면 없는 크롬을 CDP로 몰아 전원, 새 사용자 만들기, 바탕화면까지 들어간다.
-// 사용자를 만들기 전에 로그인 화면에서 친구 아이디 칸의 오류 풍선을 띄워 밤 설정을 끄고 켜며 한 번 잰다(밤은 바탕화면에만 든다, known-issues 38).
+// 사용자를 만들기 전에 로그인 화면에서 친구 아이디 칸의 오류 풍선을 띄워 밤 설정을 끄고 켜며 한 번 재고, 로그인 칸(F36)의 오류 풍선을 띄워 한 번 더 잰다
+// (밤은 바탕화면에만 든다, known-issues 38).
 // 창 일곱 개(미니게임, 방 꾸미기, 공유하기, 배경음악, 실험실, 새 탭 확인 창, 펫)와 사진 바꾸기 창과 이름 바꾸기 창(시작 메뉴 맨 위의 내 사진과 이름으로 연다),
-// 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
+// 아이디와 비밀번호 창(시작 메뉴 줄), 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
-// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)과 두 곳에서 고친 방 창(openTwoRoomsWindow)을 재고
-// 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
+// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)과 두 곳에서 고친 방 창(openTwoRoomsWindow),
+// 공유하기 창의 비밀번호 줄과 다시 로그인하는 창(plantCloud)을 재고 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
 // 마지막으로 오른쪽 단추 메뉴 두 가지를 잰다. 방의 펫을 눌러 뜨는 메뉴(openPetMenu, 굵은 쓰다듬기 한 줄)와 창 제목 줄을 눌러 뜨는 창 메뉴(openWindowMenu, 회색 줄이 있다)다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
-import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, openTwoRoomsWindow } from './headless.mjs';
+import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, plantCloud, openTwoRoomsWindow } from './headless.mjs';
 
 const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
 // 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다. 지금은 결과 줄의 이름표로만 쓴다(화면에는 시대를 가리는 속성이 없다).
@@ -154,14 +155,31 @@ function openWindowMenu() {
   return !!document.querySelector('.ctx-menu .ctx-menu-item:disabled');
 }
 
-// 시작 메뉴를 열어 맨 위의 내 사진(sel이 .start-pic)이나 내 이름(.start-name)을 누른다.
-// 사진 바꾸기 창(src/user-pictures.js)이나 이름 바꾸기 창(src/user-name.js)이 열리고 시작 메뉴는 닫힌다
-function openUserWindow(sel) {
+// 시작 메뉴를 열어 맨 위의 내 사진(sel이 .start-pic)이나 내 이름(.start-name), 글자가 text인 줄을 누른다.
+// 사진 바꾸기 창(src/user-pictures.js)이나 이름 바꾸기 창(src/user-name.js), 아이디와 비밀번호 창(src/user-account.js)이 열리고 시작 메뉴는 닫힌다
+function openUserWindow(sel, text = null) {
   if (document.getElementById('start-menu').hidden) document.querySelector('#taskbar .start-btn').click();
-  const btn = document.querySelector(`#start-menu ${sel}`);
+  const btn = [...document.querySelectorAll(`#start-menu ${sel}`)].find(b => text === null || b.textContent === text);
   if (!btn) return false;
   btn.click();
   return true;
+}
+
+// 빈 채로 보내 오류 줄을 띄운다(아이디와 비밀번호 창). 빈 칸은 서버에 묻지 않는다
+function showAccountError() {
+  const form = document.querySelector('#windows .account-app form');
+  if (!form) return false;
+  form.requestSubmit();
+  return !form.querySelector('.like-error').hidden;
+}
+
+// 로그인 화면 왼쪽 단을 로그인 칸(src/sign-in.js)으로 바꾸고 빈 채로 보내 풍선을 띄운다. 이미 로그인 칸이면 새 사용자 만들기로 돌아간다
+function toggleSignIn() {
+  document.querySelector('.own-link').click();
+  const form = document.querySelector('.sign-in');
+  if (!form) return false;
+  form.requestSubmit();
+  return !!form.querySelector('.name-tip:not([hidden])');
 }
 
 // 로그인 화면 오른쪽 단의 친구 아이디 칸(src/login.js의 handleTile)을 빈 채로 보내 노란 풍선(.name-tip)을 띄운다. 빈 칸은 서버에 묻지 않는다
@@ -374,6 +392,9 @@ async function main() {
   if (!(await page.run(showLoginHandleError))) throw new Stop('로그인 화면에 친구 아이디 칸(.user.by-handle)이 없거나 빈 칸을 보내도 풍선이 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showLoginHandleError도 고친다.');
   const login = await page.run(dayAndNight, EXCEPTIONS.filter(e => e.era === ERAS[0]).map(e => e.selector));
   if (login.night.length < 10) throw new Stop(`로그인 화면에서 글자를 ${login.night.length}개밖에 찾지 못했다.`);
+  if (!(await page.run(toggleSignIn))) throw new Stop('로그인 화면에 로그인 칸으로 바꾸는 글자 단추(.own-link)가 없거나 빈 칸을 보내도 풍선이 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 toggleSignIn도 고친다.');
+  const signIn = await page.run(dayAndNight, EXCEPTIONS.filter(e => e.era === ERAS[0]).map(e => e.selector));
+  await page.run(toggleSignIn);
   await page.run(setDay);
   if (!(await page.run(newUser, '밤점검'))) throw new Stop('로그인 화면에 새 사용자 만들기 칸이 없다(저장된 집이 있는 사용자 폴더로 열렸다).');
   await until(page, s => s.desktop, '새 사용자를 만들어도 바탕화면이 뜨지 않았다');
@@ -389,12 +410,15 @@ async function main() {
   await until(page, s => s.windows >= OPEN.length + 1, '사진 바꾸기 창이 열리지 않았다', 5000);
   if (!(await page.run(openUserWindow, '.start-name'))) throw new Stop('시작 메뉴 맨 위에 내 이름 단추(.start-name)가 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
   await until(page, s => s.windows >= OPEN.length + 2, '이름 바꾸기 창이 열리지 않았다', 5000);
+  if (!(await page.run(openUserWindow, '.start-item', '아이디와 비밀번호'))) throw new Stop('시작 메뉴에 아이디와 비밀번호 줄이 없다. 바뀌었으면 tools/night-contrast.mjs의 openUserWindow도 고친다.');
+  await until(page, s => s.windows >= OPEN.length + 3, '아이디와 비밀번호 창이 열리지 않았다', 5000);
+  if (!(await page.run(showAccountError))) throw new Stop('아이디와 비밀번호 창을 빈 채로 보내도 오류가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showAccountError도 고친다.');
   if (!(await page.run(openNeighborList))) throw new Stop('방의 현관문(.door-hit)이 없다. 바뀌었으면 tools/night-contrast.mjs의 openNeighborList도 고친다.');
-  await until(page, s => s.windows >= OPEN.length + 3, '이웃집 목록 창이 열리지 않았다', 10000);
+  await until(page, s => s.windows >= OPEN.length + 4, '이웃집 목록 창이 열리지 않았다', 10000);
   await sleep(1500); // 서버에서 이웃집을 받는 중이던 줄이 바뀔 틈
   if (!(await page.run(showHandleError))) throw new Stop('이웃집 목록 창에 아이디 칸(.handle-form)이 없거나 빈 칸을 보내도 오류가 뜨지 않았다. 바뀌었으면 tools/night-contrast.mjs의 showHandleError도 고친다.');
 
-  const results = [{ ...judge(ERAS[0], login), label: `${ERAS[0]} 로그인 화면` }];
+  const results = [{ ...judge(ERAS[0], login), label: `${ERAS[0]} 로그인 화면` }, { ...judge(ERAS[0], signIn), label: `${ERAS[0]} 로그인 칸` }];
   for (const era of ERAS) {
     await page.run(setDay);
     await sleep(600); // 낮으로 돌린 뒤 아이콘과 창을 다시 그리는 것이 끝나기를 기다린다
@@ -433,6 +457,14 @@ async function main() {
     if (!(await page.run(openTwoRoomsWindow))) throw new Stop('두 곳에서 고친 방 창이 열리지 않았다. 창이 바뀌었으면 tools/headless.mjs의 openTwoRoomsWindow도 고친다.');
     await sleep(500);
     await measure('두 곳에서 고친 방 창');
+    await page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
+    // 비밀번호가 있고 로그인이 풀린 사용자(F36). 공유하기 창을 열면 올리려다 알게 되어 다시 로그인하는 창이 저절로 뜬다
+    await page.run(plantCloud, { uid: 'contrast', refresh: 'contrast', id: 'Contrst1', handle: '점검', sent: 'contrast', pw: true, out: true });
+    if (!(await page.run(openIcon, 'share'))) throw new Stop('바탕화면에서 share 아이콘을 찾지 못했다.');
+    await until(page, s => s.windows >= 2, '로그인이 풀렸는데 다시 로그인하는 창이 뜨지 않았다', 5000);
+    await sleep(300);
+    await measure('공유하기의 비밀번호 줄과 다시 로그인하는 창');
+    await page.run(plantCloud, null);
     await page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
     for (const [name, id, ready, more] of SCREENS) {
       if (!(await page.run(useFurniture, id))) throw new Stop(`바탕화면의 방에 ${id} 가구가 없다. tools/headless.mjs의 TEST_HOME에 놓는다.`);

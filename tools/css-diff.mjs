@@ -5,7 +5,7 @@
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 166가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴와 오른쪽 단추 메뉴,
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 174가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴와 오른쪽 단추 메뉴,
 // 가구 화면과 넣는 칸, 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
@@ -19,7 +19,7 @@
 // 종료 코드: 0 다른 곳 없음(재지 못한 것만 있어도 0이다), 1 다른 곳이 있거나 열지 못한 것이 있음, 2 도구를 돌리지 못함.
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, openTwoRoomsWindow } from './headless.mjs';
+import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, plantCloud, openTwoRoomsWindow } from './headless.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const BASE = process.argv.slice(2).find(a => a.startsWith('--base='))?.slice(7) || 'HEAD';
@@ -319,6 +319,12 @@ async function main() {
   await force('.user.new .pic-choice[aria-pressed="false"]', ['hover'], false);
   await page.run(() => { const f = document.querySelector('.user.new'); f.requestSubmit(); });
   await check('빈 닉네임 안내', false);
+  await clickText('.own-link', '내 아이디로 로그인');
+  await page.run(() => { const f = document.querySelector('.sign-in'); f.querySelector('input').value = ''; f.requestSubmit(); });
+  await check('로그인 칸과 빈 아이디 안내', false);
+  await page.run(() => { const f = document.querySelector('.sign-in'); f.querySelector('input').value = '점검'; f.requestSubmit(); });
+  await check('로그인 칸과 빈 비밀번호 안내', false);
+  await clickText('.own-link', '새 사용자 만들기');
   await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '점검'; f.requestSubmit(); });
   await sleep(1200);
   await check('새 사용자의 바탕화면과 튜토리얼 카드');
@@ -332,8 +338,9 @@ async function main() {
   await sleep(900);
   await force('button.user', ['hover'], false);
   await force('.reset-link', ['hover'], false);
-  await page.run(() => document.querySelector('.reset-link').click());
+  await clickText('.reset-link', '이 컴퓨터 초기화');
   await check('로그인(내 사용자, 이웃집, 초기화 확인)', false);
+  await clickText('.reset-row .btn', '그대로 두기');
   await page.run(() => document.querySelector('.users .user:not(.neighbor)').click());
   await sleep(300);
   await check('환영 화면', false);
@@ -396,6 +403,23 @@ async function main() {
   await check('두 곳에서 고친 방');
   await force('#windows .two-rooms-card .btn', ['hover']);
   await closeWindows();
+  // 아이디와 비밀번호(F36): 만들기 창과 오류, 공유하기 창의 비밀번호 줄 두 가지, 로그인이 풀려 저절로 뜨는 창
+  await page.run(plantCloud, null);
+  await page.run(() => document.querySelector('.start-btn').click());
+  await clickText('.start-item', '아이디와 비밀번호');
+  await sleep(300);
+  await page.run(() => document.querySelector('.account-app form').requestSubmit());
+  await check('아이디와 비밀번호와 오류');
+  await closeWindows();
+  for (const [name, more] of [['비밀번호 권유', {}], ['비밀번호 있음', { pw: true, out: true }]]) {
+    await page.run(plantCloud, { uid: 'css-diff', refresh: 'css-diff', id: 'CssDiff1', handle: '점검', sent: 'css-diff', ...more });
+    await openIcon('share');
+    await sleep(600);
+    if (!(await page.run(() => !!document.querySelector('#windows .share-password')))) lost(`공유하기의 비밀번호 줄(${name})`);
+    await check(`창 share(${name})`);
+    await closeWindows();
+  }
+  await page.run(plantCloud, null);
   // 오른쪽 단추 메뉴. 펫에는 굵은 줄이, 창에는 굵은 줄과 회색 줄과 나누는 줄이, 새 탭으로 여는 아이콘에는 바깥 화살표가 있다
   await openMenu('펫', '#wallpaper .room-pet path:not(.shade)', '.main');
   await closeMenu();

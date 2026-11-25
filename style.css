@@ -718,6 +718,10 @@ button { font-family: inherit; }
 .win-body .share-save-tip { margin-top: 14px; }
 /* 공유하기의 아이디 칸 아래 오류(src/apps/share-app.js의 handleFail). 칸에 붙여 어느 칸의 오류인지 보이게 한다 */
 .win-body .share-error { margin: 6px 0 0; }
+/* 공유하기의 비밀번호 줄(src/apps/share-app.js의 passwordLine). 아이디 칸 아래에 붙인다. 만들기 전에는 글 오른쪽에 단추를 둔다 */
+.win-body p.share-password { margin: 8px 0 0; }
+div.share-password { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.win-body div.share-password p { flex: 1; margin: 0; }
 .share-save { flex-wrap: wrap; }
 .link-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .link-row a.btn { display: inline-block; text-decoration: none; }
@@ -1228,6 +1232,10 @@ form.user { cursor: var(--cur-arrow); }
 .name-tip::before, .name-tip::after { content: ""; position: absolute; border: solid transparent; border-top-width: 0; }
 .name-tip::before { top: -10px; left: 20px; border-width: 0 10px 10px; border-bottom-color: #2b2b33; }
 .name-tip::after { top: -7px; left: 22px; border-width: 0 8px 8px; border-bottom-color: #ffffe1; }
+/* 로그인 칸의 비밀번호 줄(src/sign-in.js)은 260px이고 오류 한 줄은 320px까지 가서, 풍선을 왼쪽으로 64px 밀어 오른쪽 끝을 줄 안에 둔다. 꼬리는 칸을 가리키게 같은 만큼 옮긴다 */
+.sign-in .new-row + .new-row .name-tip { left: -64px; }
+.sign-in .new-row + .new-row .name-tip::before { left: 84px; }
+.sign-in .new-row + .new-row .name-tip::after { left: 86px; }
 .welcome {
   position: absolute;
   inset: 0;
@@ -1265,6 +1273,9 @@ form.user { cursor: var(--cur-arrow); }
    한 줄에 사진 여덟 장을 놓으면 큰 사진이 무대 왼쪽 끝에 붙어 오른쪽 단의 격자(376px)와 무게가 어긋났다. 사진 바꾸기 창과 친구 아이디 칸은 그대로 둔다 */
 .users-own .pic-picker { display: grid; grid-template-columns: repeat(4, auto); justify-content: start; }
 .users-own .new-row { width: 260px; }
+/* 왼쪽 단의 글자 단추(내 아이디로 로그인, 새 사용자 만들기). 그림 파일 찾아보기(.pic-browse)와 같은 밑줄 글자이고, 오른쪽 끝을 위 칸의 안쪽 여백(18px)에 맞춘다.
+   위 여백 32px은 칸 아래에 뜨는 오류 풍선(.name-tip, 두 줄까지)이 이 단추를 가리지 않는 값이다 */
+.own-link { margin: 32px 18px 0 0; padding: 2px 4px; border: 0; background: none; font-size: 15px; text-decoration: underline; color: inherit; cursor: var(--cur-hand); }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
@@ -1278,7 +1289,7 @@ form.user { cursor: var(--cur-arrow); }
 .pic-app-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 18px; }
 .pic-app-head b { min-width: 0; overflow-wrap: anywhere; }
 .pic-app-head .pic-rename { flex: none; margin-left: auto; } /* 사진 바꾸기 창의 이름 옆 "이름 바꾸기" 단추 */
-.pic-app .avatar.has-pic, .name-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
+.pic-app .avatar.has-pic, .name-app .avatar.has-pic, .account-app .avatar.has-pic { box-shadow: 0 0 0 1px #0004; }
 .pic-app .pic-choice:hover { border-color: #316ac580; }
 .pic-app .pic-choice[aria-pressed="true"] { border-color: #316ac5; }
 .pic-app .pic-browse { margin-top: 4px; color: #1f4fae; }
@@ -1287,6 +1298,9 @@ form.user { cursor: var(--cur-arrow); }
 .name-app { display: flex; flex-direction: column; }
 .name-app .like-form { flex: 1; }
 .name-app .link-row { margin-top: auto; }
+/* 아이디와 비밀번호 창(src/user-account.js). 위에 내 사진과 이름을 두는 것은 이름 바꾸기 창과 같다. 칸 이름 열은 "비밀번호 확인"이 한 줄에 드는 104px이다.
+   창 높이는 내용에 맞춘다(fit) */
+.account-app .like-field { grid-template-columns: 104px 1fr; }
 /* 두 곳에서 고친 방 창(src/apps/two-rooms-app.js). 두 방의 그림을 나란히 두고 그 아래에 고친 시각과 가구 수, 남기기 단추를 둔다.
    그림 폭(PIC_W, 298px)에 테두리 2px을 더한 상자 두 개와 사이 14px이 창 안쪽 폭 614px에 꼭 들고, 그림이 만들어지기 전에는 같은 크기의 방 바깥 색 상자다 */
 .two-rooms { display: flex; flex-direction: column; }
@@ -2628,7 +2642,7 @@ button.exam-choice:focus-visible { outline: 2px dashed #2b2620; outline-offset: 
   cursor: var(--cur-hand);
 }
 .reset-link:hover { opacity: 1; }
-/* 초기화를 누르면 같은 자리에 지울 것과 결과를 말하는 단추가 나온다 */
+/* 초기화나 빼기를 누르면 같은 자리에 지울 것과 결과를 말하는 단추가 나온다. 다른 아이디로 로그인하기 전의 확인(src/sign-in.js의 ask)도 같다 */
 .reset-box { display: contents; }
 .reset-box p { margin: 6px 0 0; font-size: 13px; }
 .reset-row { display: flex; gap: 8px; }
