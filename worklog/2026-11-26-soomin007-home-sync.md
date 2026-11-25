@@ -31,4 +31,8 @@
   `rev`가 없어도 처음 올리거나 들어올 때 서버를 읽어 맞춘다. 계정이 없어졌을 때(`GONE`) `pw`를 어떻게 할지는 다음 PR이 정한다.
 - 진짜 서버에는 쓰지 않았다. 확인은 `tools/smoke.mjs`의 가짜 서버로 했다. 진짜 서버의 `updateTime` 조건이 거절되는 모양(400 `FAILED_PRECONDITION`)은 Firestore 문서대로 흉내 냈다.
 - 같은 브라우저의 탭 두 개가 서로 덮는 것은 전과 같고 이번 범위가 아니다. `firestore.rules`는 고치지 않았다.
-- 확인: (아래 줄은 마지막 점검 뒤에 적는다)
+- 확인: `python tools/check.py` 오류 0개, `node tools/smoke.mjs` 1068개 가운데 실패 0개(새 절 `homeSync`는 59개), `node tools/link-fuzz.mjs` 실패 0개,
+  `node tools/night-contrast.mjs` 실패 0개, `node tools/css-diff.mjs --base=origin/main`은 다른 곳이 새 창뿐이고 재지 못한 것 0개.
+  코드를 한 군데씩 망가뜨린 30가지를 새 점검으로 돌려 모두 실패로 잡히는 것을 보았다. 처음에 살아남은 다섯 가지(멈추기, 판을 모를 때 읽기, Firestore가 아닌 404,
+  낡은 읽기, 차례만 다른 방)는 점검을 더해 잡았다.
+- 이 PC의 크롬은 `node tools/smoke.mjs` 전체가 11분쯤 걸린다. 서버 맞추기만 볼 때는 `homeSync`만 부르는 사본을 만들어 3분에 돌렸다.

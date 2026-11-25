@@ -1200,8 +1200,9 @@ async function walk(page, base) {
 
     // 저장소를 심고 페이지를 다시 연 뒤 가짜 서버를 끼우고 내 컴퓨터로 들어간다.
     // local: 이 컴퓨터의 방, sent: 마지막에 올린 글자(바탕), server: 서버의 처음 글자(비우면 sent), other: 그 뒤에 다른 브라우저가 올린 글자, gone: 다른 브라우저가 지움,
-    // pw: 비밀번호가 있는 사용자인지, known: 이 컴퓨터가 서버의 판(rev)을 아는지, how: 서버의 상태, hold: 방 읽기를 멈춤, settings와 records와 cloud: 저장소에 더 심을 것
-    async function enterWith({ local = HOME, sent, server = sent, other = null, gone = false, pw = true, known = true, how = 'write', hold = false, settings = {}, records = {}, cloud = {}, welcome = false }) {
+    // pw: 비밀번호가 있는 사용자인지, known: 이 컴퓨터가 서버의 판(rev)을 아는지, how: 서버의 상태, hold: 방 읽기를 멈춤, refuse: 다음 요청 하나를 거절할 것들,
+    // during: 내 사용자를 누른 직후(환영 화면에서) 페이지 안에서 돌릴 함수, settings와 records와 cloud: 저장소에 더 심을 것
+    async function enterWith({ local = HOME, sent, server = sent, other = null, gone = false, pw = true, known = true, how = 'write', hold = false, refuse = [], during = null, settings = {}, records = {}, cloud = {} }) {
       const extra = { local, sent, pw, settings, records, cloud };
       await open();
       await page.run(async (d, id) => {
@@ -1224,12 +1225,14 @@ async function walk(page, base) {
         if (o.other) window.__otherEdits(id, o.other);
         if (o.gone) window.__otherDeletes(id);
         window.__cloudHoldReads = !!o.hold;
+        window.__cloudRefuse = o.refuse;
         window.__cloudLog.length = 0;
-      }, SYNC_ID, { pw, known, other, gone, hold });
+      }, SYNC_ID, { pw, known, other, gone, hold, refuse });
       await powerOn();
       await until(page, () => !!document.querySelector('.users-own .user:not(.new)'), 8000);
       const t0 = Date.now();
       await clickOwn();
+      if (during) await page.run(during.fn, ...during.args);
       const ok = await desktop();
       return { ok, ms: Date.now() - t0 };
     }
@@ -1278,6 +1281,11 @@ async function walk(page, base) {
     await rename('고친이름');
     check('방을 고치면 고친 시각이 남고 새 판을 걸어 다시 올린다', await until(page, () => window.__cloudSent.length === 2, 6000)
       && (await commits()).at(-1).currentDocument.updateTime === after.rev && Date.now() - (await cloudState()).edited < 60000);
+
+    // 가구를 놓은 차례만 다른 방은 같은 방이라 올리지 않는다. 그러지 않으면 두 브라우저가 같은 방을 서로 다른 글자로 번갈아 올린다
+    await enterWith({ local: { ...HOME, scenes: { room: [...HOME.scenes.room].reverse() } }, sent: base });
+    await sleep(3800);
+    check('가구 차례만 다른 방은 같은 방이라 다시 올리지 않는다', (await commits()).length === 0 && ids(await page.run(savedHome)) === ids(HOME), JSON.stringify(await commits()));
 
     // --- 서버만 바뀜: 묻지 않고 서버의 방으로 바꾼다. 기록은 큰 쪽, 펫은 서버의 것 ---
     const theirsFull = await codeOf({ ...THEIRS, owner: '저쪽' }, { picture: 'cat', records: { 'tidy-up': 500, 'file-ten': 40 }, pet: { id: 'dog/brown', pats: 7 } });
@@ -1407,6 +1415,23 @@ async function walk(page, base) {
     await until(page, () => window.__cloudSent.length === 3 && !!JSON.parse(localStorage.getItem('agarago.cloud')).trying, 6000);
     check('답을 잃은 채 다시 들어오면 내 올리기로 알아보고 묻지 않는다', await leave() && await until(page, () => !JSON.parse(localStorage.getItem('agarago.cloud')).trying, 6000)
       && !(await page.run(winTitle, '두 곳에서 고친 방')) && (await decoded((await cloudState()).sent)).owner === '또잃음', JSON.stringify(await cloudState()));
+
+    // 환영 화면에서 기다리는 사이에 이 컴퓨터가 방을 올렸으면 그 전에 읽은 서버의 방은 낡은 값이다. 그것으로 방을 되돌리면 방금 올린 고침을 잃는다
+    const raced = await enterWith({
+      local: MINE, sent: base,
+      during: { fn: async code => { await (await import(new URL('src/cloud.js', document.baseURI).href)).syncNow(() => code); }, args: [mineCode] },
+    });
+    check('읽은 뒤에 이 컴퓨터가 올렸으면 낡은 값으로 방을 되돌리지 않는다', raced.ok && ids(await page.run(savedHome)) === ids(MINE) && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === mineCode
+      && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify([await page.run(savedHome).then(ids), await cloudState()]));
+
+    // Firestore가 아니라 중간의 차단 화면이 답한 404로는 방 번호를 잊지 않는다(known-issues 119)
+    const blockPage = { status: 404, body: '<html>차단된 사이트입니다</html>' };
+    await enterWith({ sent: base, refuse: [{ at: `/homes/${SYNC_ID}?`, ...blockPage }] });
+    check('들어올 때 차단 화면의 404가 와도 방 번호를 잊지 않는다', (await cloudState()).id === SYNC_ID && !(await page.run(winTitle, '공유 링크 끊김')) && ids(await page.run(savedHome)) === ids(HOME), JSON.stringify(await cloudState()));
+    await page.run(list => { window.__cloudRefuse = list; }, [{ at: ':commit', ...blockPage }]);
+    await rename('차단됨');
+    await sleep(3800);
+    check('올릴 때 차단 화면의 404가 와도 방 번호를 잊지 않는다', (await cloudState()).id === SYNC_ID && (await cloudState()).pw === true, JSON.stringify(await cloudState()));
 
     // --- 서버의 방이 지워짐 ---
     await enterWith({ sent: base, cloud: { handle: '점검' } });
