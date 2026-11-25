@@ -4,6 +4,8 @@
 // picture는 링크로 연 친구 집에만 있다(F25). 내 사진은 집과 따로 저장하고, 링크를 만들 때 withPicture(src/user-pictures.js)로 붙인다.
 // picture는 목록 사진의 id이거나, 그림 파일로 만든 내 그림('my:'로 시작하는 글, src/custom-picture.js, F26)이다.
 // records는 주인이 미니게임에서 낸 최고 기록 { 앱 id: 점수 }다(F34). picture처럼 링크로 연 친구 집에만 있고, 링크를 만들 때 withRecords(src/records.js)로 붙인다.
+// pet은 주인이 고른 펫 { id: '<종류>/<색>'이나 'none', pats: 쓰다듬은 횟수 }다. picture처럼 링크로 연 집에만 있고, 링크를 만들 때 withPet(src/pet-link.js)으로 붙인다.
+// 친구 집에는 보이지 않고, 같은 사용자가 다른 브라우저에서 로그인할 때 이어진다(F36).
 // likes의 칸과 검사는 src/likes.js에 있다.
 import { SCENES } from './config.js';
 import { BY_ID } from '../data/furniture.js';
@@ -14,6 +16,7 @@ import { customBytes, customFromBytes } from './custom-picture.js';
 import { canPlace, insideBox, nearestSpot, onSurface } from './rules.js';
 import { sanitizeLikes, line } from './likes.js';
 import { RECORD_APPS, sanitizeRecords } from './records.js';
+import { PET_CODES, sanitizePet } from './pet-link.js';
 
 const MAX_ITEMS = 200;
 const MAX_NAME = 12;
@@ -117,9 +120,10 @@ export function sanitizeHome(raw) {
   const decor = sanitizeDecor(raw.decor);
   const picture = sanitizePicture(raw.picture);
   const records = sanitizeRecords(raw.records);
+  const pet = sanitizePet(raw.pet);
   return {
     v: 3, owner, scenes, likes: sanitizeLikes(raw.likes), greeting: line(raw.greeting, MAX_GREETING),
-    ...(decor && { decor }), ...(picture && { picture }), ...(records && { records }),
+    ...(decor && { decor }), ...(picture && { picture }), ...(records && { records }), ...(pet && { pet }),
   };
 }
 
@@ -224,6 +228,8 @@ function grow(v) {
 //   기록은 RECORD_APPS(src/records.js)의 순서이고 0은 그 게임의 기록이 없다는 뜻이다. 기록이 있으면 사진이 없어도 사진 자리에 0을 둔다.
 //   바닥(F13)은 기록 뒤에 [바닥 번호(data/floor-patterns.js의 순서)] 한 바이트로 붙는다. 기본 바닥이면 담지 않고,
 //   바닥을 담을 때는 사진 자리와 기록 수 자리를 비워 두지 않는다(사진이 없으면 0, 기록이 없으면 기록 수 0). 바닥을 넣기 전의 페이지는 기록 뒤를 건너뛰어 기본 바닥으로 연다.
+//   고른 펫(F36)은 바닥 뒤에 [펫 번호(src/pet-link.js의 PET_CODES 순서)] [쓰다듬은 횟수 2바이트, 큰 자리 먼저]로 맨 끝에 붙는다(petBytes). 고르지 않은 집은 담지 않는다.
+//   펫을 담을 때는 바닥 자리도 비워 두지 않는다(기본 바닥이면 0). 펫을 넣기 전의 페이지는 바닥 뒤를 건너뛰어 펫 없이 연다.
 //   푸는 쪽은 아는 바이트만 읽고 나머지는 건너뛴다. 그래서 사진을 넣기 전의 페이지도 사진이 든 링크를 사진 없이 열고,
 //   내 그림을 넣기 전의 페이지는 255를 모르는 사진 번호로 읽어 사진 없이 연다. 덧붙임 바이트는 모두 255개까지라 내 그림은 240바이트까지다.
 //   벽지도 사진도 없는 집은 벽지를 넣기 전과 같은 형식 4로 만든다(그 전의 페이지로 열어도 열린다).
@@ -247,15 +253,24 @@ function readRecords(d, at) {
   return out;
 }
 
+// 고른 펫을 덧붙임 바이트로. 고르지 않았거나 목록에 없는 펫이면 빈 배열이다
+function petBytes(pet) {
+  const clean = sanitizePet(pet);
+  return clean ? [PET_CODES.indexOf(clean.id), clean.pats >> 8, clean.pats & 255] : [];
+}
+// 덧붙임 바이트의 at 자리부터 펫을 읽는다. 모르는 번호이거나 바이트가 끊겼으면 undefined(펫 없음)다
+const readPet = (d, at) => (at + 2 < d.length && PET_CODES[d[at]] ? { id: PET_CODES[d[at]], pats: d[at + 1] * 256 + d[at + 2] } : undefined);
+
 function encodeShort(home) {
   const wall = WALL_PATTERNS.findIndex(w => w.id === home.decor?.wall);
   const floor = FLOOR_PATTERNS.findIndex(f => f.id === home.decor?.floor);
   const pic = USER_PICTURES.findIndex(p => p.id === home.picture);
   const mine = customBytes(home.picture);
   const records = recordBytes(home.records);
+  const pet = petBytes(home.pet);
   const extra = mine ? [Math.max(wall, 0), MY_PICTURE, mine.length, ...mine, ...records]
-    : pic >= 0 || records.length || floor > 0 ? [Math.max(wall, 0), pic + 1, ...records] : wall > 0 ? [wall] : [];
-  if (floor > 0) extra.push(...(records.length ? [] : [0]), floor);
+    : pic >= 0 || records.length || floor > 0 || pet.length ? [Math.max(wall, 0), pic + 1, ...records] : wall > 0 ? [wall] : [];
+  if (floor > 0 || pet.length) extra.push(...(records.length ? [] : [0]), Math.max(floor, 0), ...pet);
   const out = [extra.length ? 5 : 4];
   const text = str => {
     const b = utf8(str || '');
@@ -304,7 +319,7 @@ function decodeShort(b) {
   const owner = text();
   const greeting = text();
   const decor = {};
-  let picture, records;
+  let picture, records, pet;
   if (b[0] === 5) {
     const d = bytes(byte());
     if (d.length) decor.wall = WALL_PATTERNS[d[0]]?.id; // 모르는 번호면 기본 벽(sanitizeHome이 지운다)
@@ -318,6 +333,7 @@ function decodeShort(b) {
     records = readRecords(d, at);
     const end = at < d.length ? at + 1 + 2 * d[at] : d.length; // 기록 뒤. 바닥 번호가 여기 있다
     if (end < d.length) decor.floor = FLOOR_PATTERNS[d[end]]?.id; // 모르는 번호면 기본 바닥(sanitizeHome이 지운다)
+    pet = readPet(d, end + 1); // 바닥 뒤
   }
   const count = byte();
   const scenes = {};
@@ -337,10 +353,10 @@ function decodeShort(b) {
     if (SCENES[s]) scenes[SCENES[s].id] = items;
   }
   const rest = p < b.length ? fromUtf8(b.subarray(p)) : '';
-  return { owner, greeting, scenes, likes: rest ? grow(JSON.parse(rest)) : undefined, decor, picture, records };
+  return { owner, greeting, scenes, likes: rest ? grow(JSON.parse(rest)) : undefined, decor, picture, records, pet };
 }
 
-// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말, d: decor, p: 주인 사진 값, b: 게임 기록 }
+// 예전 형식(3): { v: 3, o: 이름, s: { 공간: [[id, x, y], [벽 가구 id, x, y, 'L'|'R'], [돌린 가구 id, x, y, 1], ...] }, l: likes, g: 인사말, d: decor, p: 주인 사진 값, b: 게임 기록, a: 펫 }
 const pack = items => items.map(it => (it.wall ? [it.id, it.x, it.y, it.wall] : it.r ? [it.id, it.x, it.y, 1] : [it.id, it.x, it.y]));
 const unpack = list => (Array.isArray(list)
   ? list.filter(Array.isArray).map(([id, x, y, extra]) => (typeof extra === 'string' ? { id, x, y, wall: extra } : { id, x, y, r: extra === 1 ? 1 : 0 }))
@@ -349,7 +365,7 @@ function encodeJson(home) {
   const s = {};
   for (const [id, items] of Object.entries(home.scenes)) if (items.length) s[id] = pack(items);
   const l = home.likes && Object.keys(home.likes).length ? home.likes : undefined;
-  return toB64(utf8(JSON.stringify({ v: 3, o: home.owner, s, l, g: home.greeting || undefined, d: home.decor, p: home.picture, b: sanitizeRecords(home.records) || undefined })));
+  return toB64(utf8(JSON.stringify({ v: 3, o: home.owner, s, l, g: home.greeting || undefined, d: home.decor, p: home.picture, b: sanitizeRecords(home.records) || undefined, a: sanitizePet(home.pet) || undefined })));
 }
 
 // 링크의 #r= 뒤에 붙일 글자. 짧은 형식으로 만들고, 담을 수 없으면 예전 형식으로 만든다.
@@ -374,7 +390,7 @@ export function decodeHome(str) {
       if (c?.v === 3 && c.s && typeof c.s === 'object') {
         const scenes = {};
         for (const [id, list] of Object.entries(c.s)) scenes[id] = unpack(list);
-        raw = { owner: c.o, scenes, likes: c.l, greeting: c.g, decor: c.d, picture: c.p, records: c.b };
+        raw = { owner: c.o, scenes, likes: c.l, greeting: c.g, decor: c.d, picture: c.p, records: c.b, pet: c.a };
       } else if (c?.v === 2) {
         raw = { owner: c.o, items: unpack(c.i) }; // 공간이 하나뿐이던 때의 링크
       }
