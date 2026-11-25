@@ -7,6 +7,7 @@
 //   const page = await launchChrome();     { send(CDP 명령, 값), run(페이지 안에서 돌릴 함수, ...넘길 값), pageErrors, consoleErrors }
 //   await runTool(import.meta.url, main);  main이 돌려준 종료 코드로 끝낸다. 끝나거나 멈추면 크롬과 서버를 끈다
 //   await page.run(plantHome, TEST_HOME);  가구와 담아 둔 것이 있는 점검용 집을 내 집으로 심는다(다시 열면 그 집의 사용자가 나온다)
+//   await page.run(openTwoRoomsWindow);    두 곳에서 고친 방 창을 띄운다(심어 둔 집이 있을 때)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -201,6 +202,20 @@ export async function plantHome(home) {
   const clean = sanitizeHome(home);
   localStorage.setItem('agarago.home.v3', JSON.stringify(clean));
   return Object.values(clean.scenes).flat().length;
+}
+
+// 페이지 안에서 도는 함수(page.run(openTwoRoomsWindow)). 두 곳에서 고친 방 창(src/apps/two-rooms-app.js)을 띄우고 떴는지 돌려준다.
+// 서버의 방이 이 컴퓨터의 방과 다를 때만 저절로 뜨는 창이라, 창 관리자를 하나 더 만들어 심어 둔 점검용 집과 가구 하나를 뺀 집으로 직접 띄운다
+export async function openTwoRoomsWindow() {
+  const at = file => new URL(file, document.baseURI).href;
+  const { createWM } = await import(at('src/win.js'));
+  const { openTwoRooms } = await import(at('src/apps/two-rooms-app.js'));
+  const { sanitizeHome } = await import(at('src/share.js'));
+  const home = sanitizeHome(JSON.parse(localStorage.getItem('agarago.home.v3')));
+  const less = { ...home, scenes: { room: home.scenes.room.filter(it => it.id !== 'tv') } };
+  const wm = createWM({ layer: document.getElementById('windows'), tasks: document.getElementById('tasks'), toLocal: (x, y) => ({ x, y }) });
+  openTwoRooms({ wm }, { mine: { home, at: Date.now() }, theirs: { home: less, at: Date.now() - 3600000 }, pick() {} });
+  return document.querySelectorAll('#windows .two-rooms-card').length === 2;
 }
 
 // 도구 하나를 돌린다. main은 종료 코드를 돌려준다(0 통과, 1 실패가 있음). 도구를 돌리지 못하면 2로 끝낸다.

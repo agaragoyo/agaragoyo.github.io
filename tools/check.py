@@ -974,6 +974,63 @@ def check_pet_moods(where, text, blocks):
             err(where, f'{kid}: 가구에 올라가는 펫(perch)은 가구 위에서 쓰는 웅크린 그림(loaf)이 있어야 한다')
 
 
+# ---------- 링크에 담기는 순서 목록 ----------
+# 방 글자에는 목록의 순서 번호가 담긴다(가구 LINK_CODES, 게임 기록 RECORD_APPS, 펫 PET_CODES, 주인 사진, 벽지, 바닥).
+# 순서를 바꾸거나 중간에 끼우면 이미 올린 방과 보낸 링크가 다른 것으로 열리므로 새 줄은 끝에만 더한다.
+# main에 있던 목록이 지금 목록의 앞부분과 같은지 본다. 기록을 얕게 받은 곳(PR의 점검)에서는 main을 구할 수 없어 이 부분만 건너뛴다.
+LINK_ORDERS = (
+    ('src/share.js', 'LINK_CODES', r'export const LINK_CODES = \[(.*?)\];', r"'([^']+)'"),
+    ('src/records.js', 'RECORD_APPS', r'export const RECORD_APPS = \[(.*?)\];', r"'([^']+)'"),
+    ('src/pet-link.js', 'PET_CODES', r'export const PET_CODES = \[(.*?)\];', r"'([^']+)'"),
+    ('data/user-pictures.js', 'USER_PICTURES', r'export const USER_PICTURES = \[(.*)', r"^    id: '([^']+)',"),
+    ('data/wall-patterns.js', 'WALL_PATTERNS', r'export const WALL_PATTERNS = \[(.*)', r"\bid: '([^']+)'"),
+    ('data/floor-patterns.js', 'FLOOR_PATTERNS', r'export const FLOOR_PATTERNS = \[(.*)', r"\bid: '([^']+)'"),
+)
+
+
+def order_list(text, block, item):
+    m = re.search(block, text, re.S)
+    return re.findall(item, m.group(1), re.M) if m else []
+
+
+def check_link_orders():
+    base = eol_base()
+    for where, name, block, item in LINK_ORDERS:
+        now = order_list(read(where), block, item)
+        if not now:
+            err(where, f'{name} 을 찾지 못했다(모양이 바뀌었으면 tools/check.py 의 LINK_ORDERS 도 고친다)')
+            continue
+        if not base:
+            continue
+        raw = git('cat-file', 'blob', f'{base}:{where}')
+        if raw is None:
+            continue  # 새로 만든 파일이다
+        was = order_list(raw.decode('utf-8').replace('\r\n', '\n'), block, item)
+        for i, code in enumerate(was):
+            if i >= len(now) or now[i] != code:
+                err(where, f"{name} 의 {i}번 자리가 '{code}' 에서 {repr(now[i]) if i < len(now) else '없음'} 으로 바뀌었다. 이미 올린 방과 보낸 링크의 번호가 틀어지니 새 줄은 끝에만 더한다")
+                break
+
+
+def check_pet_codes():
+    """src/pet-link.js 의 PET_CODES(방 글자에 담기는 펫의 번호 차례)가 '없음'부터 시작하고 겹치지 않으며,
+    data/pets.js 의 종류와 색이 빠짐없이 들어 있는지 본다. 차례는 check_link_orders 가 지킨다."""
+    where = 'src/pet-link.js'
+    codes = order_list(read(where), LINK_ORDERS[2][2], LINK_ORDERS[2][3])
+    if not codes or codes[0] != 'none':
+        err(where, "PET_CODES 의 맨 앞은 '없음'을 고른 것(none)이다")
+    for c in sorted({c for c in codes if codes.count(c) > 1}):
+        err(where, f"PET_CODES 에 '{c}' 가 두 번 있다")
+    if len(codes) > 255:
+        err(where, 'PET_CODES 는 255개까지다(번호를 1바이트로 담는다)')
+    pets = set()
+    for body in re.findall(r'^  \{\n(.*?)^  \},', read('data/pets.js'), re.S | re.M):
+        kid = re.search(r"^    id: '([^']*)',", body, re.M)
+        pets |= {f'{kid.group(1)}/{c}' for c in re.findall(r"^      \{ id: '([^']*)'", body, re.M)} if kid else set()
+    for pet in sorted(pets - set(codes)):
+        err(where, f"data/pets.js 의 '{pet}' 가 PET_CODES 에 없다. 로그인한 다른 브라우저에 그 펫이 따라오지 않으니 PET_CODES 끝에 더한다")
+
+
 def check_storage_keys():
     for p in sorted(ROOT.glob('apps/*/**/*')):
         if p.suffix not in ('.html', '.js') or p.name.startswith('_') or p.parts[-2].startswith('_'):
@@ -1488,6 +1545,8 @@ def main():
     check_decor_patterns()
     check_door()
     check_pets()
+    check_pet_codes()
+    check_link_orders()
     check_feature_numbers()
     check_known_issues()
     check_line_endings()

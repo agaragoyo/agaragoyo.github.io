@@ -21,12 +21,14 @@ import { labsOpen } from './labs.js';
 import { trySecret } from './secrets.js';
 import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
-import { sharedId, syncLater, latestNoteAt, notesSeenAt, lostRoom, onLost } from './cloud.js';
+import { sharedId, syncLater, latestNoteAt, notesSeenAt, lostRoom, onLost, markEdited } from './cloud.js';
 import { createTutorial } from './tutorial.js';
 import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
 import { ownPicture, withPicture, openPictureWindow } from './user-pictures.js';
 import { withRecords } from './records.js';
+import { withPet } from './pet-link.js';
+import { createHomeSync } from './home-sync.js';
 import { openNameWindow } from './user-name.js';
 import { h, wait, reduceMotion, saveJSON, doubleClick, isField } from './util.js';
 import { furnitureLine } from './furniture-line.js';
@@ -131,6 +133,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     const sid = linkId(location.hash);
     if (sid) cloudHome(sid).then(home => home && preloadFurniture([home])); // 짧은 링크의 방은 부팅하는 동안 서버에서 받아 온다
     prefetchNeighbors(home => preloadFurniture([home])); // link 이웃집의 방도 같다(로그인 화면과 이웃집 목록 창이 받은 값을 같이 쓴다)
+    sync.prefetch(); // 비밀번호가 있는 사용자는 다른 브라우저에서 고친 내 방도 서버에서 미리 읽는다(F36)
     el.boot.querySelector('.boot-logo').hidden = reduceMotion;
     if (!reduceMotion) await wait(2000);
     if (my === run) showLogin();
@@ -159,8 +162,20 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 이 컴퓨터에 사는 사람의 닉네임. 손님으로 쪽지를 붙일 때 닉네임 칸에 미리 넣는다(src/apps/corkboard-app.js)
   os.ownName = () => ownHome()?.owner || '';
 
-  // 서버의 방에 올리는 글자. 내 사진(F25)과 미니게임 최고 기록(F34)을 붙여 담는다(공유하기 창도 같다, src/apps/share-app.js)
-  const roomCode = home => encodeHome(withRecords(withPicture(home)));
+  // 서버의 방에 올리는 글자. 내 사진(F25)과 미니게임 최고 기록(F34), 고른 펫(F36)을 붙여 담는다(공유하기 창도 같다, src/apps/share-app.js)
+  const petNow = () => {
+    const v = settings.get('pet');
+    return { id: v && v !== NO_PET ? petChoice(v).value : v, pats: settings.get('petPats') };
+  };
+  const roomCode = os.roomCode = home => encodeHome(withPet(withRecords(withPicture(home)), petNow()));
+  // 이 집을 서버에 따라 올린다. 링크가 없거나 연습 방과 친구 집이면 하지 않는다
+  const upHome = () => {
+    if (os.mode !== 'edit' || os.realHome) return;
+    const home = os.home;
+    syncLater(() => roomCode(home));
+  };
+  // 펫은 설정에 있어 saveHome을 지나지 않으므로, 펫을 바꾸거나 쓰다듬으면 여기서 따라 올린다(F36). 비밀번호가 있는지는 상관없다
+  settings.subscribe(patch => { if ('pet' in patch || 'petPats' in patch) upHome(); });
   // 이 집의 코르크 보드(방에 건 가구). 없으면 undefined
   const corkboardOf = home => Object.values(home.scenes).flat().find(it => BY_ID[it.id]?.gimmick === 'app:corkboard');
 
@@ -172,10 +187,17 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     os.home = home;
     os.hasOwnHome = mode === 'edit' || !!ownHome();
     os.boardId = mode === 'visit' ? boardId : null;
-    if (mode === 'edit') syncLater(() => roomCode(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침(친구 집에서 세운 게임 기록 포함)이 있으면 올린다(src/cloud.js)
+    // 비밀번호가 있는 사용자는 서버의 방을 읽어 어느 방으로 들어갈지 정한다(F36, 환영 화면에서 최대 4초). 그 밖의 사용자는 null이다
+    const reading = mode === 'edit' ? sync.read() : null;
+    if (mode === 'edit' && !reading) syncLater(() => roomCode(home)); // 지난번에 탭을 닫느라 서버에 못 올린 고침(친구 집에서 세운 게임 기록 포함)이 있으면 올린다(src/cloud.js)
     el.login.querySelector('.welcome').textContent = '환영합니다';
     el.login.classList.add('entering');
     if (!reduceMotion) await wait(700);
+    if (reading) {
+      const got = await reading;
+      if (my !== run) return; // 기다리는 사이에 전원을 끄거나 로그아웃했다. 환영 화면은 새 로그인 화면이 걷는다(src/login.js의 showLogin)
+      os.home = sync.enter(got, home);
+    }
     el.login.classList.remove('entering');
     if (my !== run) return;
     // 짧은 링크나 아이디로 들어간 서버의 방은 로그인 화면의 "최근에 놀러 간 집"으로 기억한다. 이웃집과 내가 올린 방은 거기서 거른다(src/neighbors.js)
@@ -184,6 +206,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     if (mode !== 'edit') return;
     checkNotes(my);
     tellLost(my);
+    if (reading) sync.arrived(my); // 다르게 고친 방이 있으면 묻고, 없으면 지금 방을 올린다
   }
 
   // 이 컴퓨터가 올린 방을 더는 고칠 수 없게 되어 번호를 잊었으면(src/cloud.js의 forget) 내 바탕화면에 안내 창을 띄운다(src/apps/share-app.js의 openLinkLost).
@@ -195,13 +218,30 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     clearTimeout(lostTimer);
     const lost = lostRoom();
     if (!lost || my !== run || os.mode !== 'edit') return;
-    if (el.desktop.hidden || os.realHome || os.closeup || os.saver.showing() || walker?.typing() || document.activeElement?.tagName === 'IFRAME') {
-      lostTimer = setTimeout(() => tellLost(my), 1000);
-    } else {
-      openLinkLost(os, APP_BY_ID.share, lost);
-    }
+    if (busy()) lostTimer = setTimeout(() => tellLost(my), 1000);
+    else openLinkLost(os, APP_BY_ID.share, lost);
   }
   onLost(() => tellLost(run));
+  // 저절로 뜨는 창(공유 링크 끊김, 두 곳에서 고친 방)이 끼어들면 안 되는 때
+  const busy = () => el.desktop.hidden || !!os.realHome || !!os.closeup || os.saver.showing() || !!walker?.typing() || document.activeElement?.tagName === 'IFRAME';
+
+  // 서버의 방과 맞추기(F36, src/home-sync.js). 비밀번호가 있는 사용자만 해당한다
+  const sync = createHomeSync({
+    os, settings, roomCode, busy, notice,
+    runOf: () => run,
+    isCurrent: my => my === run,
+    redraw() { // 방이 바뀌었으면 예전 방을 보던 창을 닫고 바탕화면 방을 다시 그린다. 게임 같은 다른 창은 둔다
+      for (const key of ['room', 'share', 'user-name', 'user-picture']) os.wm.get(key)?.close();
+      renderWallpaper();
+      for (const w of os.wm.all()) w.refreshOwner?.();
+    },
+  });
+  // 저절로 생긴 일을 알린다. 다른 알림이 떠 있으면 그것이 사라진 뒤에 띄우고, 바탕화면이 아직 뜨지 않았으면 기다린다
+  function notice(text, my = run) {
+    if (my !== run || os.mode !== 'edit') return;
+    if (el.desktop.hidden) setTimeout(() => notice(text, my), 500);
+    else setTimeout(() => { if (my === run && !el.desktop.hidden) toast(text, 5000); }, Math.max(0, toastEnds - Date.now()));
+  }
 
   // 주인이 내 컴퓨터로 들어오면 코르크 보드에 새 쪽지가 붙었는지 본다. 서버에서 가장 최근 쪽지 한 장만 읽는다(src/cloud.js의 latestNoteAt).
   // 짧은 링크가 있고 보드를 방에 걸어 두었을 때만 묻는다. 걷는 법 안내가 떠 있으면 그 안내가 사라진 뒤에 알리고,
@@ -688,8 +728,8 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   os.saveHome = (redraw = true) => {
     if (os.mode === 'edit' && !os.realHome) {
       saveJSON(STORAGE_ROOM, os.home);
-      const home = os.home;
-      syncLater(() => roomCode(home));
+      markEdited(); // 두 곳에서 고친 방 창이 보일 시각(F36). 비밀번호가 있는 사용자만 남는다
+      upHome();
     }
     if (redraw) renderWallpaper();
     else markLiked(); // 담아 둔 것만 바뀌었으면 방은 그대로 두고 반짝임만 고친다
@@ -698,11 +738,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 내 컴퓨터의 미니게임이 최고 기록을 새로 남겼다(src/sdk-host.js의 saved). 기록은 링크에 담기므로(F34) 짧은 링크를 만든 방이면
   // 서버의 방도 따라 고친다. 판이 이어지는 동안 기록이 계속 바뀌어도 syncLater가 3초 동안 바뀌지 않을 때 한 번만 올린다.
   // 친구 집에서 세운 내 기록은 내 컴퓨터로 돌아올 때 올린다(enter). 연습 방에서는 올리지 않는다(known-issues 40)
-  os.recordChanged = () => {
-    if (os.mode !== 'edit' || os.realHome) return;
-    const home = os.home;
-    syncLater(() => roomCode(home));
-  };
+  os.recordChanged = upHome;
 
   // 손님이 이 집의 코르크 보드에 쪽지를 남길 수 있는지. 서버에 있는 방(boardId)이고 주인이 보드를 방에 걸어 두었을 때다
   os.canNote = () => os.mode === 'visit' && !!os.boardId && !!corkboardOf(os.home);

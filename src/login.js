@@ -160,6 +160,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, nextRun, is
     os.wm.closeAll();
     os.mode = null;
     show('login');
+    el.login.classList.remove('entering'); // 서버의 방을 기다리던 환영 화면(src/os.js의 enter)에서 전원을 껐다 켜 왔으면 걷는다
     const mine = el.login.querySelector('.users-own');
     const friends = el.login.querySelector('.users-friends');
     mine.replaceChildren();

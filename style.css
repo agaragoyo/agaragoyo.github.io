@@ -1287,6 +1287,14 @@ form.user { cursor: var(--cur-arrow); }
 .name-app { display: flex; flex-direction: column; }
 .name-app .like-form { flex: 1; }
 .name-app .link-row { margin-top: auto; }
+/* 두 곳에서 고친 방 창(src/apps/two-rooms-app.js). 두 방의 그림을 나란히 두고 그 아래에 고친 시각과 가구 수, 남기기 단추를 둔다.
+   그림 폭(PIC_W, 298px)에 테두리 2px을 더한 상자 두 개와 사이 14px이 창 안쪽 폭 614px에 꼭 들고, 그림이 만들어지기 전에는 같은 크기의 방 바깥 색 상자다 */
+.two-rooms { display: flex; flex-direction: column; }
+.two-rooms-row { display: flex; justify-content: space-between; gap: 14px; }
+.two-rooms-card { display: grid; justify-items: center; gap: 6px; }
+.two-rooms-card b { font-size: 16px; }
+.two-rooms-pic { box-sizing: content-box; display: block; width: 298px; height: 168px; border: 1px solid #0003; background: #b5d3da; }
+.win-body .two-rooms-note { margin-top: auto; }
 
 .toast {
   position: absolute;

@@ -1,13 +1,13 @@
 // 공유 링크와 집 검사를 무작위 입력으로 두드리는 점검. 사람이 떠올리지 못한 입력에서 나오는 버그를 찾는다.
 //
-//   node tools/link-fuzz.mjs            앞의 세 가지를 2만 번씩 돌린다(3초쯤 걸린다)
+//   node tools/link-fuzz.mjs            앞의 세 가지를 2만 번씩 돌린다(1분쯤 걸린다)
 //   node tools/link-fuzz.mjs --seed=7   다른 씨앗으로 돌린다(같은 씨앗이면 같은 시험이다)
 //
 // 필요한 것: Node 22.7 이상(확장자가 .js인 모듈을 그대로 불러온다). 브라우저와 서버는 쓰지 않는다.
-// `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
+// `src/share.js`, `src/likes.js`, `src/rules.js`, `src/custom-picture.js`, `src/pet-link.js`, `src/room-merge.js`를 고치거나 가구에 담는 것(likes)의 칸을 더했으면 돌린다.
 // 가구에 담는 것의 종류를 더하면 아래 randomHome의 likes와 invariants, 꽉 채운 방에도 그 칸을 더해야 그 칸까지 두드린다.
 // 담는 개수나 글자 수 한도(src/likes.js의 LIMIT)를 늘릴 때도 돌려 꽉 채운 방에 남은 자리를 본다.
-// 방 꾸밈(decor, 벽지와 바닥), 주인 사진(picture), 게임 기록(records)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
+// 방 꾸밈(decor, 벽지와 바닥), 주인 사진(picture), 게임 기록(records), 펫(pet)처럼 집 상태에 칸을 더할 때도 randomHome과 invariants에 더한다.
 //
 // 보는 것
 //   1. 왕복: 무작위로 꾸민 집을 검사(sanitizeHome)한 뒤 링크로 만들었다 풀면 같은 집이 나온다. 링크에는 주소에 쓸 수 있는 글자만 있다
@@ -15,6 +15,7 @@
 //   3. 아무 값: 저장본 자리에 무엇이 들어 있어도 검사가 멈추지 않고 규칙을 지키는 집을 돌려준다
 //   4. 꽉 채운 방: 담는 칸을 모두 한도까지 채운 방의 글자가 서버 한도(src/cloud.js의 MAX_CODE) 안에 든다
 //   5. 옛 책상: 칸을 줄이기 전의 책상('desk', 3×2칸)이 든 방을 옮겨도 사라지는 가구가 없고, 저장본과 링크가 모두 같은 방이 되며, 다시 검사해도 그대로다
+//   6. 세 갈래 비교(src/room-merge.js, F36): 바탕과 이 컴퓨터의 방과 서버의 방을 견준 결론이 어느 쪽만 바뀌었는지에 맞고, 가구 차례만 다른 방은 같은 방이며, 기록은 늘 큰 쪽이다
 //   규칙을 지키는 집: 가구가 제 공간에 있고 서로 겹치지 않으며, 이름과 인사말이 길이 안에 있고, 담아 둔 주소가 http(s)다
 // 2026-11-11에 이 점검이 12번째 글자에 걸친 이모지가 반으로 잘리는 버그를 찾았다(known-issues 62).
 // 종료 코드: 0 통과, 1 실패가 있음.
@@ -33,6 +34,8 @@ const { FLOOR_PATTERNS } = await load('data/floor-patterns.js');
 const { USER_PICTURES } = await load('data/user-pictures.js');
 const { customValue, customBytes, customFromBytes, readCustom, MAX_BYTES } = await load('src/custom-picture.js');
 const { RECORD_APPS, MAX_RECORD } = await load('src/records.js');
+const { PET_CODES, MAX_PATS } = await load('src/pet-link.js');
+const { mergeRooms, decide, sameCode } = await load('src/room-merge.js');
 
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
@@ -116,7 +119,9 @@ function randomHome() {
   // 게임 기록: 겨루는 게임의 점수와 받지 않는 값(0, 음수, 소수, 글, 2바이트를 넘는 수, 모르는 게임)을 섞는다(받지 않는 값은 검사가 그 칸을 지운다)
   const score = () => pick([int(3000) + 1, int(MAX_RECORD) + 1, MAX_RECORD, MAX_RECORD + 1 + int(9), 0, -3, 1.5, '12', null]);
   const records = rnd() < 0.6 ? { records: Object.fromEntries([...RECORD_APPS, 'nope', '__proto__'].filter(() => rnd() < 0.6).map(id => [id, score()])) } : {};
-  return { owner: text(4) || '주인', scenes, likes, greeting: text(8), ...decor, ...picture, ...records };
+  // 펫: 목록의 펫과 "없음", 받지 않는 값(모르는 종류, 색이 없는 종류, 숫자, 횟수가 아닌 값)을 섞는다(받지 않는 값은 검사가 펫째 지우거나 횟수를 0으로 만든다)
+  const pet = rnd() < 0.6 ? { pet: { id: pick([...PET_CODES, 'nope', 'cat', '__proto__', 3, null]), pats: pick([0, 1, 9, int(MAX_PATS) + 1, MAX_PATS, MAX_PATS + 1 + int(9), -3, 1.5, '3', null]) } } : {};
+  return { owner: text(4) || '주인', scenes, likes, greeting: text(8), ...decor, ...picture, ...records, ...pet };
 }
 
 // 무작위 내 그림. 칸 576개를 1~16색으로 칠한다. 이웃한 칸과 같은 색이 적으면 240바이트를 넘어 null이 나오는데, 그 값도 검사가 걸러 내야 한다
@@ -179,6 +184,9 @@ function invariants(home, where) {
     && !(readCustom(home.picture) && customBytes(home.picture).length <= MAX_BYTES && customFromBytes(customBytes(home.picture)) === home.picture)) fail(`${where}: 주인 사진`, String(home.picture).slice(0, 60));
   if (l.tv && (l.tv.length > LIMIT.works || l.tv.some(w => !w.title || (w.link && !/^https?:\/\//.test(w.link)) || (w.poster && !w.poster.startsWith('https://'))))) fail(`${where}: 작품`, l.tv);
   // 게임 기록은 있으면 비지 않고, 겨루는 게임의 1부터 MAX_RECORD까지의 정수만 있다
+  // 펫은 있으면 목록에 있는 종류이고 횟수는 0부터 MAX_PATS까지의 정수이며("없음"이면 0) 칸은 둘뿐이다
+  const p = home.pet;
+  if ('pet' in home && (!PET_CODES.includes(p.id) || !Number.isInteger(p.pats) || p.pats < 0 || p.pats > MAX_PATS || (p.id === 'none' && p.pats) || Object.keys(p).length !== 2)) fail(`${where}: 펫`, p);
   const r = home.records;
   if ('records' in home && (!r || !Object.keys(r).length || Object.entries(r).some(([id, v]) => !RECORD_APPS.includes(id) || !Number.isInteger(v) || v < 1 || v > MAX_RECORD))) fail(`${where}: 게임 기록`, r);
   // 시험지: 문제는 1~3개이고, 문제마다 빈 글이 아닌 문제와 보기 2~4개(빈 보기 없음), 보기 안을 가리키는 정수 정답 번호의 세 칸뿐이다
@@ -232,7 +240,7 @@ const junk = () => pick([null, undefined, 0, -1, 1.5, 1e9, NaN, '', 'x', [], {},
 for (let i = 0; i < ROUNDS; i++) {
   const raw = pick([
     junk(),
-    { owner: junk(), scenes: junk(), likes: junk(), greeting: junk(), decor: pick([junk(), { wall: junk() }]), picture: pick([junk(), brokenCustom()]), records: pick([junk(), { [pick(RECORD_APPS)]: junk() }]) },
+    { owner: junk(), scenes: junk(), likes: junk(), greeting: junk(), decor: pick([junk(), { wall: junk() }]), picture: pick([junk(), brokenCustom()]), records: pick([junk(), { [pick(RECORD_APPS)]: junk() }]), pet: pick([junk(), { id: junk(), pats: junk() }, { id: pick(PET_CODES), pats: junk() }]) },
     { owner: 'a', scenes: { room: Array.from({ length: int(6) }, junk), playground: junk() }, likes: { computer: junk(), console: junk(), bookshelf: [junk(), junk()], radio: junk(), tv: [junk()], 'test-paper': [junk(), { question: junk(), choices: [junk(), junk(), junk()], answer: junk() }] } },
     { owner: 'a', items: [junk(), { id: pick(FURNITURE).id, x: int(14) - 1, y: int(14) - 1, wall: junk(), r: junk() }] },
   ]);
@@ -266,6 +274,78 @@ let full = 0;
   home.scenes = Object.fromEntries(SCENES.map(sc => [sc.id, list(200, () => ({ id: FURNITURE[0].id, x: 0, y: 0, r: 0 }))]));
   full = encodeHome(home).length + Math.ceil(256 * 4 / 3);
   if (!(full <= MAX_CODE)) fail('꽉 채운 방이 서버 한도(MAX_CODE)를 넘는다. LIMIT를 줄이거나 src/cloud.js와 firestore.rules의 한도를 같이 올리고 규칙을 콘솔에 게시한다', { full, MAX_CODE });
+}
+
+// 6. 세 갈래 비교(src/room-merge.js): 바탕, 이 컴퓨터, 서버의 방 글자를 무작위로 만들어 견준다. 방이 어느 쪽에서 바뀌었는지는 만들면서 정해 두고 결론과 맞춘다.
+// 방이 같으면 'same', 한쪽만 바뀌었으면 그쪽, 양쪽이 다르게 바뀌었으면 'ask'다. 가구를 놓은 차례, 기록, 펫이 달라도 방의 결론은 바뀌지 않는다
+let asked = 0;
+{
+  const code = home => encodeHome(sanitizeHome({ ...home, owner: home.owner || '방' }));
+  const shuffle = list => list.map(v => [rnd(), v]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+  const roomOf = c => {
+    const { records, pet, ...rest } = decodeHome(c) || {};
+    return JSON.stringify({ ...rest, scenes: Object.fromEntries(Object.entries(rest.scenes || {}).map(([k, items]) => [k, items.map(i => JSON.stringify([i.id, i.wall, i.x, i.y, i.r || 0])).sort()])) });
+  };
+  const games = () => Object.fromEntries(RECORD_APPS.filter(() => rnd() < 0.7).map(id => [id, int(2000) + 1]));
+  const petOf = () => (rnd() < 0.2 ? null : { id: pick(PET_CODES.slice(1)), pats: int(50) });
+  const part = (home, records, pet) => code({ ...home, records, ...(pet ? { pet } : {}) });
+  const mk = () => sanitizeHome({ ...randomHome(), owner: '방', records: undefined, pet: undefined, picture: undefined });
+  const say = p => JSON.stringify(p || null);
+  for (let i = 0; i < ROUNDS / 20; i++) {
+    const [x, y, z] = [mk(), mk(), mk()];
+    const [rb, rm, rt] = [games(), games(), games()];
+    const [pb, pm, pt] = [petOf(), petOf(), petOf()];
+    const kind = int(5); // 0 같음, 1 이 컴퓨터만, 2 서버만, 3 둘 다 다르게, 4 둘 다 같게
+    const mineHome = kind === 1 || kind === 3 ? y : kind === 4 ? z : x;
+    const theirsHome = kind === 2 ? y : kind === 3 || kind === 4 ? z : x;
+    const base = part(x, rb, pb);
+    const mine = part(mineHome, rm, pm);
+    const theirs = part(theirsHome, rt, pt);
+    const got = mergeRooms({ base, mine, theirs });
+    const [B, M, T] = [base, mine, theirs].map(roomOf);
+    const want = M === T ? 'same' : M === B ? 'theirs' : T === B ? 'mine' : 'ask';
+    if (got.room !== want) {
+      fail('세 갈래 비교의 방 결론이 다르다', { kind, want, got: got.room });
+      continue;
+    }
+    if (want === 'ask') asked++;
+    const records = Object.fromEntries(RECORD_APPS.map(id => [id, Math.max(rm[id] || 0, rt[id] || 0)]).filter(([, v]) => v));
+    if (JSON.stringify(got.records || {}) !== JSON.stringify(records)) fail('세 갈래 비교의 기록이 양쪽의 큰 쪽이 아니다', { rm, rt, got: got.records });
+    // 펫: 물을 때는 고른 방의 펫이고, 그 밖에는 한쪽만 바뀌었으면 바뀐 쪽, 같은 펫을 두 곳에서 쓰다듬었으면 많은 쪽이다
+    const pet = decide(got).pet;
+    if (want === 'ask') {
+      if (say(pm) !== say(pt) && say(decide(got, 'theirs').pet) !== say(pt)) fail('묻는 방에서 서버의 방을 고르면 서버의 펫이 아니다', { pm, pt });
+      if (decide(got, 'mine').pet) fail('묻는 방에서 이 컴퓨터의 방을 고르면 서버의 펫이 적용된다', decide(got, 'mine').pet);
+      if (decide(got, 'mine').room !== 'mine' || decide(got, 'theirs').room !== 'theirs') fail('고른 방이 결론에 남지 않는다', { pm, pt });
+    } else if (say(pm) === say(pt)) {
+      if (pet) fail('같은 펫인데 서버의 펫을 적용한다', { pm, pt, pet });
+    } else if (!pt || (pm && say(pt) === say(pb))) {
+      if (pet) fail('바뀐 적 없는 펫을 적용한다', { pb, pm, pt, pet });
+    } else if (!pm || say(pm) === say(pb)) {
+      if (say(pet) !== say(pt)) fail('서버만 바꾼 펫을 적용하지 않는다', { pb, pm, pt, pet });
+    } else if (pm.id === pt.id) {
+      if (pm.pats >= pt.pats ? pet : say(pet) !== say(pt)) fail('같은 펫을 두 곳에서 쓰다듬었을 때 많은 쪽이 아니다', { pm, pt, pet });
+    } else if (say(pet) !== say(want === 'theirs' ? pt : null)) fail('둘 다 바꾼 펫이 바뀐 방을 따르지 않는다', { want, pm, pt, pet });
+    // 가구를 놓은 차례가 다른 방은 같은 방이다. 차례를 섞은 가구 목록은 겹칠 수 있어 풀어서 다시 검사하면 줄 수 있으므로 검사한 집에서 섞는다
+    const reordered = code({ ...mineHome, scenes: Object.fromEntries(Object.entries(mineHome.scenes).map(([k, items]) => [k, shuffle(items)])), records: rm, ...(pm ? { pet: pm } : {}) });
+    if (roomOf(reordered) === M && mergeRooms({ base, mine: reordered, theirs }).room !== want) fail('가구 차례만 바꾼 방을 다른 방으로 본다', { want });
+    if (roomOf(reordered) === M && !sameCode(mine, reordered)) fail('가구 차례만 다른 글자가 같은 방이 아니다', { mine: mine.slice(0, 40) });
+  }
+  if (!asked) fail('양쪽이 다르게 바뀐 경우를 한 번도 만들지 못했다(점검이 낡았다)', asked);
+  const one = code({ owner: '방' });
+  for (const broken of ['', 'zzzz', '!!', encodeHome(sanitizeHome({ owner: '' }))]) {
+    const got = mergeRooms({ base: one, mine: one, theirs: broken });
+    if (got.room !== 'unreadable') fail('풀 수 없는 서버의 방을 읽었다고 본다', { broken: broken.slice(0, 20), got: got.room });
+  }
+  if (mergeRooms({ base: null, mine: one, theirs: code({ owner: '다른 방' }) }).room !== 'ask') fail('바탕을 모르는데 묻지 않는다', '');
+  if (mergeRooms({ base: null, mine: one, theirs: one }).room !== 'same') fail('바탕을 몰라도 같은 방은 같은 방이어야 한다', '');
+  // 사이트가 바뀌어 글자 형식이 달라져도 같은 방은 같은 방이다(예전 JSON 형식과 지금 형식, 옛 책상이 든 글자)
+  const json = Buffer.from(JSON.stringify({ v: 3, o: '방', s: { room: [['lamp', 0, 0]] } })).toString('base64url');
+  const short = code({ owner: '방', scenes: { room: [{ id: 'lamp', x: 0, y: 0 }] } });
+  if (mergeRooms({ base: json, mine: short, theirs: json }).room !== 'same' || !sameCode(json, short)) fail('형식만 다른 같은 방을 다르다고 본다', { json, short });
+  const oldDesk = Buffer.from(JSON.stringify({ v: 3, o: '방', s: { room: [['desk', 2, 0]] } })).toString('base64url');
+  const newDesk = code({ owner: '방', scenes: { room: [{ id: 'desk', x: 2, y: 0 }] } });
+  if (mergeRooms({ base: oldDesk, mine: newDesk, theirs: oldDesk }).room !== 'same') fail('옛 책상이 든 글자와 새 책상이 된 글자를 다른 방으로 본다', { oldDesk, newDesk });
 }
 
 // 5. 옛 책상: 칸을 줄이기 전(2026-11-24)의 책상('desk', 3×2칸)이 든 방은 같은 자리, 같은 방향의 새 책상(study-desk, 2×1칸)이 든 방이 된다(src/share.js의 shrinkDesks).
@@ -531,6 +611,52 @@ for (const input of ['http://youtu.be/dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXc
   if (JSON.stringify(decodeHome(json)?.decor) !== JSON.stringify({ wall: 'heart', floor })) fail('예전 형식 링크의 바닥이 열리지 않는다', decodeHome(json));
 }
 
+// 펫(F36): 짧은 형식 5의 덧붙임 바이트에서 바닥 뒤에 [펫 번호(PET_CODES의 순서)] [쓰다듬은 횟수 2바이트]로 맨 끝에 담긴다. 고르지 않은 집은 담지 않는다.
+// 펫만 고른 집은 [0, 0, 0, 0, 펫 번호, 횟수 2바이트](벽지, 사진 자리, 기록 수, 바닥)다. 펫 바이트를 빼면 펫만 빠진 같은 집이 열리고(펫을 넣기 전의 페이지가 여는 모습),
+// 모르는 펫 번호와 끊긴 바이트는 펫 없이 열린다. 뒤에 바이트가 늘어도 같은 집으로 열리고, 예전 형식(JSON)의 a 칸도 열린다
+{
+  const extraAt = bytes => 3 + bytes[1] + bytes[2 + bytes[1]];
+  const b64 = list => Buffer.from(list).toString('base64url');
+  const no = PET_CODES.indexOf('cat/gray');
+  if (PET_CODES[0] !== 'none' || no < 1) fail('펫 번호 목록의 맨 앞이 없음이 아니거나 회색 고양이가 없다', PET_CODES);
+  const only = sanitizeHome({ owner: '펫', pet: { id: 'cat/gray', pats: 300 } });
+  const bytes = Buffer.from(encodeHome(only), 'base64url');
+  const at = extraAt(bytes);
+  const want = [0, 0, 0, 0, no, 1, 44];
+  if (bytes[0] !== 5 || bytes[at] !== want.length || want.some((v, i) => bytes[at + 1 + i] !== v)) fail('펫만 고른 집이 짧은 형식 5의 덧붙임 바이트로 만들어지지 않는다', [...bytes.subarray(at, at + 9)]);
+  if (Buffer.from(encodeHome(sanitizeHome({ owner: '펫' })), 'base64url')[0] !== 4 || encodeHome(sanitizeHome({ owner: '펫' })) !== encodeHome({ ...sanitizeHome({ owner: '펫' }), pet: null })) fail('펫을 고르지 않은 집의 글자가 전과 다르다', '');
+  if (decodeHome(encodeHome(sanitizeHome({ owner: '펫', pet: { id: 'none', pats: 9 } })))?.pet?.pats !== 0) fail('없음에 쓰다듬은 횟수가 남는다', '');
+  if (sanitizeHome({ owner: '펫', pet: { id: 'cat/gray', pats: 70000 } }).pet.pats !== MAX_PATS) fail('2바이트를 넘는 횟수가 MAX_PATS로 줄지 않는다', '');
+  const [tidy] = RECORD_APPS;
+  const floor = FLOOR_PATTERNS.at(-1).id;
+  const cells = Uint8Array.from({ length: 576 }, (_, i) => (Math.floor(i / 24) + (i % 24 > 11 ? 1 : 0)) % 5);
+  const mine = customValue([0xf00, 0x0f0, 0x00f, 0xff0, 0x0ff], cells);
+  for (const extra of [{}, { decor: { wall: 'ribbon' } }, { decor: { floor } }, { picture: USER_PICTURES[1].id }, { picture: mine }, { records: { [tidy]: 300 } }, { picture: mine, records: { [tidy]: 300 }, decor: { wall: 'cloud', floor } }]) {
+    for (const pet of [{ id: 'cat/gray', pats: 7 }, { id: 'none', pats: 0 }, { id: PET_CODES.at(-1), pats: MAX_PATS }]) {
+      const home = sanitizeHome({ owner: '펫', pet, ...extra });
+      const code = encodeHome(home);
+      if (JSON.stringify(decodeHome(code)) !== JSON.stringify(home)) fail('펫이 든 링크가 다른 집으로 열린다', [home, decodeHome(code)]);
+      const b = Buffer.from(code, 'base64url');
+      const a = extraAt(b);
+      const cut = Buffer.from([...b.subarray(0, a), b[a] - 3, ...b.subarray(a + 1, a + 1 + b[a] - 3), ...b.subarray(a + 1 + b[a])]);
+      const rest = { ...home };
+      delete rest.pet;
+      if (JSON.stringify(decodeHome(b64(cut))) !== JSON.stringify(rest)) fail('펫 바이트를 뺀 링크가 펫만 빠진 같은 집으로 열리지 않는다', decodeHome(b64(cut)));
+      const more = Buffer.from([...b.subarray(0, a), b[a] + 1, ...b.subarray(a + 1, a + 1 + b[a]), 9, ...b.subarray(a + 1 + b[a])]);
+      if (JSON.stringify(decodeHome(b64(more))) !== JSON.stringify(home)) fail('펫 뒤에 덧붙임 바이트가 늘어난 링크가 같은 집으로 열리지 않는다', [...more.subarray(0, 14)]);
+      const short = Buffer.from([...b.subarray(0, a), b[a] - 1, ...b.subarray(a + 1, a + b[a]), ...b.subarray(a + 1 + b[a])]);
+      const opened = decodeHome(b64(short));
+      if (!opened || 'pet' in opened) fail('펫 바이트가 끊긴 링크가 펫만 빼고 열리지 않는다', opened);
+      const unknown = Buffer.from(b);
+      unknown[a + b[a] - 2] = 250;
+      const other = decodeHome(b64(unknown));
+      if (!other || 'pet' in other) fail('모르는 펫 번호가 든 링크가 펫만 빼고 열리지 않는다', other);
+    }
+  }
+  const json = Buffer.from(JSON.stringify({ v: 3, o: '펫', s: {}, a: { id: 'dino/green', pats: 5 } })).toString('base64url');
+  if (JSON.stringify(decodeHome(json)?.pet) !== JSON.stringify({ id: 'dino/green', pats: 5 })) fail('예전 형식 링크의 펫이 열리지 않는다', decodeHome(json));
+}
+
 // 옛 링크: 유튜브 CD를 넣기 전(2026-11-14, ~p 표시를 더하기 전)의 코드가 만든 링크가 같은 집으로 열린다.
 // 라디오 CD 두 장(이름과 색이 없는 것, 있는 것)과 유튜브 영상, 재생목록 주소를 담은 TV 작품 두 편이다(재생목록 주소는 ~h로 담겨 있다)
 const OLD_LINK = 'BArsmJsg66eB7YGsBuyViOuFlQIAAHsiUiI6W3sidSI6In5zYWxidW0vNVY4bjZmcXlBUHh2RlRpYlBoUVZjcCJ9LHsidSI6In5ha3IvcGxheWxpc3QveC9wbC51LWFiY2RlZmdoIiwibSI6Iuy2nOq3vOq4uCIsImMiOjJ9XSwiVCI6W3sidCI6IuyYgeyDgSIsImwiOiJ-eWRRdzR3OVdnWGNRIiwiYyI6MH0seyJ0Ijoi66qp66GdIiwibCI6In5od3d3LnlvdXR1YmUuY29tL3BsYXlsaXN0P2xpc3Q9UExCQjIzMTIxMUE0RjYyMTQzIiwiYyI6MH1dfQ';
@@ -559,7 +685,7 @@ for (const link of OLD_DESK_LINKS) if (JSON.stringify(decodeHome(link)?.scenes.r
 const OLD_CONSOLE = 'BA3smJsg6rKM7J6E6riwAAEAeyJHIjoiZmlsZS10ZW4ifQ';
 if (JSON.stringify(decodeHome(OLD_CONSOLE)?.likes) !== '{"console":["file-ten"]}') fail('추천 게임이 하나뿐인 옛 링크가 한 개짜리 목록으로 열리지 않는다', decodeHome(OLD_CONSOLE));
 
-console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 옛 책상이 든 방 ${ROUNDS / 10}개, 가장 긴 링크 ${longest}자, 꽉 채운 방 ${full}자(서버 한도 ${MAX_CODE}자)`);
+console.log(`공유 링크 무작위 점검: 왕복 ${ROUNDS}번, 망가진 링크 ${ROUNDS}번(그 가운데 ${opened}번은 집으로 열림), 아무 값 ${ROUNDS}번, 옛 책상이 든 방 ${ROUNDS / 10}개, 세 갈래 비교 ${ROUNDS / 20}번(그 가운데 ${asked}번은 물음), 가장 긴 링크 ${longest}자, 꽉 채운 방 ${full}자(서버 한도 ${MAX_CODE}자)`);
 for (const e of examples) console.log(`실패 ${e}`);
 const total = [...kinds.values()].reduce((a, b) => a + b, 0);
 if (kinds.size) console.log(`  종류별: ${[...kinds].map(([k, n]) => `${k} ${n}번`).join(', ')}`);

@@ -8,9 +8,12 @@
 // API_KEY는 Firebase 웹 설정의 값이라 원래 웹페이지에 공개된다. 데이터는 규칙이 지킨다(AGENTS.md의 "공개 레포").
 // 이 컴퓨터에 남기는 것: { uid, refresh: 익명 로그인, id: 올린 방의 번호, sent: 마지막으로 올린 방 글자, handle: 그 방에 단 아이디,
 //   nick: 손님으로 쪽지를 붙일 때 마지막으로 쓴 닉네임, seen: 주인이 마지막으로 본 쪽지의 시각(밀리초),
-//   lost: 더는 고칠 수 없어 잊은 방 { id, uid, handle, why: 잊은 까닭, at: 잊은 시각, told: 주인이 안내를 닫았는지 } }
+//   lost: 더는 고칠 수 없어 잊은 방 { id, uid, handle, why: 잊은 까닭, at: 잊은 시각, told: 주인이 안내를 닫았는지 },
+//   pw: 비밀번호가 있는 사용자인지(F36). 켜는 일은 아이디와 비밀번호 창이 한다. 아래 세 칸은 pw가 참일 때만 남긴다(아래 "겹쳐 쓰기 막기"),
+//   rev: 서버 방 문서의 마지막 updateTime, edited: 이 브라우저에서 방을 마지막으로 고친 시각(밀리초), trying: 올리는 중인 방 글자 }
 // 방을 고칠 권한은 여기 남긴 익명 로그인뿐이라 잊으면 되찾을 길이 없다. 서버가 잠깐 거절한 것으로는 잊지 않는다(아래 forget, known-issues 119).
 import { STORAGE_CLOUD } from './config.js';
+import { sameCode } from './room-merge.js';
 import { loadJSON, saveJSON } from './util.js';
 
 const PROJECT = 'agaragoyo-86036';
@@ -40,7 +43,8 @@ const SYNC_DELAY = 3000; // 방을 고친 뒤 이만큼 더 고치지 않으면 
 // 서버에 닿지 못했거나 서버가 거절한 일. reason은 화면에 낼 말을 고르는 데 쓴다.
 //   offline: 연결이 안 되거나 답이 늦음, missing: 그런 문서가 없음, denied: 규칙이 막음(Firestore가 PERMISSION_DENIED라고 답한 것만),
 //   busy: 하루 무료 한도를 다 씀, server: 서버 오류와 그 밖의 거절(토큰이 잠깐 안 맞은 401, 겹쳐 쓴 409, 학교나 백신의 차단 화면. 다시 해 볼 일이다),
-//   taken: 다른 사람이 먼저 정한 아이디(claimHandle), lost: 이 컴퓨터가 올린 방을 더는 고칠 수 없어 번호를 잊음(forget)
+//   taken: 다른 사람이 먼저 정한 아이디(claimHandle), lost: 이 컴퓨터가 올린 방을 더는 고칠 수 없어 번호를 잊음(forget),
+//   changed: 서버의 방이 다른 브라우저에서 바뀌어 올리지 않음, removed: 다른 브라우저에서 링크를 지움(둘 다 아래 "겹쳐 쓰기 막기"가 따로 알린다)
 // status는 HTTP 상태(답을 못 받았으면 0), code는 서버의 오류 글자다(Firestore는 error.status, 인증은 error.message의 첫 낱말. 없으면 빈 글자)
 export class CloudError extends Error {
   constructor(reason, detail, { status = 0, code = '' } = {}) {
@@ -133,9 +137,11 @@ export const onLost = fn => { tellLost = fn; };
 function forget(why, patch = {}) {
   const { id, uid, handle } = state();
   const lost = id ? { lost: { id, uid: uid || null, handle: handle || null, why, at: new Date().toISOString(), told: false } } : {};
-  remember({ ...patch, id: null, sent: null, handle: null, ...lost });
+  remember({ ...patch, ...noRoom(), handle: null, ...lost });
   if (id) tellLost();
 }
+// 올린 방을 잊을 때 비울 칸. 비밀번호가 있는 사용자의 칸(rev, trying)은 그 사용자에게만 있다
+const noRoom = () => ({ id: null, sent: null, ...(state().pw ? { rev: null, trying: null } : {}) });
 
 // 잊었지만 주인이 아직 안내를 닫지 않은 방(위의 lost). 없으면 null
 export function lostRoom() {
@@ -191,37 +197,172 @@ async function roomOwner(id) {
 
 // 방 글자를 올리고 번호를 돌려준다. 올려 둔 번호가 있으면 같은 번호의 방을 고친다. 없으면 create일 때만 새 번호로 만들고, 아니면 올리지 않고 null을 돌려준다.
 // 새 번호는 주인이 "링크 만들기"를 누를 때만 만든다. 따라 올리다가 만들면 주인이 모르는 사이에 링크가 바뀐다(known-issues 119).
-// 규칙이 updatedAt에 서버 시각만 받으므로 PATCH가 아니라 commit의 updateTransforms(REQUEST_TIME)로 쓴다.
-async function upload(code, create = false) {
+// stamp: 방 글자를 만든 때의 판(아래 epoch). 그 뒤에 이 컴퓨터의 방이 바뀌었으면(acceptServer) 예전 글자를 올리지 않는다.
+async function upload(code, create = false, stamp = epoch) {
   if (code.length > MAX_CODE) throw new CloudError('denied', `방 글자가 ${MAX_CODE}자를 넘는다`);
   const old = state().id;
   if (!old && !create) return null;
   const me = await authFor(old);
+  if (old && hasPassword()) return uploadGuarded(old, code, me, stamp);
   const id = old || newId();
+  let res;
   try {
-    await request(`${DOCS}:commit?key=${API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${me.token}` },
-      body: JSON.stringify({
-        writes: [{
-          update: {
-            name: `${PATH}/${HOMES}/${id}`,
-            fields: { uid: { stringValue: me.uid }, code: { stringValue: code } },
-          },
-          updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
-        }],
-      }),
-    });
+    res = await writeHome(id, code, me);
   } catch (err) {
-    // 규칙이 막았어도 바로 잊지 않고 서버의 방을 다시 읽어, 다른 사용자가 올린 방일 때만 번호를 잊는다(그 방에 단 아이디도 이 사용자의 것이 아니다).
-    // 내 방이거나 주인을 알 수 없으면 올린 값이나 규칙의 문제라서 다음에 다시 올린다. 읽는 사이에 다른 탭이 번호를 바꿨으면 그것은 잊지 않는다.
-    const owner = err.reason === 'denied' && old ? await roomOwner(old) : '';
-    if (!owner || owner === me.uid || state().id !== old) throw err;
-    forget('OTHER_OWNER');
-    throw new CloudError('lost', old, err);
+    throw await blame(err, old, me);
   }
-  remember({ id, sent: code });
+  remember({ id, sent: code, ...(hasPassword() ? { rev: revOf(res), trying: null } : {}) });
   return id;
+}
+
+// 방 글자를 서버에 쓴다. 규칙이 updatedAt에 서버 시각만 받으므로 PATCH가 아니라 commit의 updateTransforms(REQUEST_TIME)로 쓴다.
+// rev를 주면 서버의 방이 그 판 그대로일 때만 쓴다(아래 "겹쳐 쓰기 막기").
+const writeHome = (id, code, me, rev = null) => request(`${DOCS}:commit?key=${API_KEY}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${me.token}` },
+  body: JSON.stringify({
+    writes: [{
+      update: {
+        name: `${PATH}/${HOMES}/${id}`,
+        fields: { uid: { stringValue: me.uid }, code: { stringValue: code } },
+      },
+      updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      ...(rev ? { currentDocument: { updateTime: rev } } : {}),
+    }],
+  }),
+});
+
+// 올리기가 실패한 까닭을 고른다. 규칙이 막았어도 바로 잊지 않고 서버의 방을 다시 읽어, 다른 사용자가 올린 방일 때만 번호를 잊는다(그 방에 단 아이디도 이 사용자의 것이 아니다).
+// 내 방이거나 주인을 알 수 없으면 올린 값이나 규칙의 문제라서 다음에 다시 올린다. 읽는 사이에 다른 탭이 번호를 바꿨으면 그것은 잊지 않는다.
+async function blame(err, old, me) {
+  const owner = err.reason === 'denied' && old ? await roomOwner(old) : '';
+  if (!owner || owner === me.uid || state().id !== old) return err;
+  forget('OTHER_OWNER');
+  return new CloudError('lost', old, err);
+}
+
+// ---------- 겹쳐 쓰기 막기(F36) ----------
+// 같은 사용자의 방을 두 브라우저에서 고치면 나중에 올린 쪽이 먼저 올린 것을 조용히 덮는다. 비밀번호가 있는 사용자(pw)는 여러 브라우저에서 로그인하므로,
+// 서버의 방이 마지막으로 본 판(rev, 문서의 updateTime) 그대로일 때만 올린다(commit의 currentDocument). 비밀번호가 없는 사용자는 보내는 요청이 전과 같다.
+// 거절되면 서버의 방을 다시 읽어 가린다.
+//   서버의 글자가 올리던 글자(trying)와 같다: 답을 잃었을 뿐 이미 올라간 내 올리기다. sent와 rev를 맞추고 이어서 올린다
+//   서버의 방이 마지막에 올린 방(sent)과 같다: 누가 같은 방을 다시 올렸을 뿐이다. rev만 맞춘다
+//   문서가 없다: 다른 브라우저에서 링크를 지웠다. 같은 번호로 다시 만들지 않고 방 번호를 잊는다(removed)
+//   그 밖: 다른 브라우저에서 고쳤다. 올리기를 멈추고 세 갈래 비교(src/room-merge.js)로 넘긴다(changed, src/home-sync.js)
+export const hasPassword = () => state().pw === true;
+
+// 이 브라우저에서 방을 마지막으로 고친 시각(밀리초). 모르면 0이다
+export const lastEdited = () => Number(state().edited) || 0;
+// 방을 고쳤다고 남긴다(src/os.js의 saveHome). 두 곳에서 고친 방 창이 보인다
+export const markEdited = () => {
+  if (hasPassword()) remember({ edited: Date.now() });
+};
+
+export const sentCode = () => state().sent || '';
+const currentRev = () => state().rev || null;
+const revOf = res => res?.writeResults?.[0]?.updateTime || null;
+
+const TRIES = 4; // 서버의 방을 읽는 것과 쓰는 것을 합쳐 해 보는 횟수(거절되면 읽고 다시 쓴다)
+let paused = false; // 주인이 어느 방을 남길지 아직 고르지 않았거나 서버의 방을 풀 수 없어 올리기를 멈췄는지
+let epoch = 0; // 이 컴퓨터의 방을 서버의 방으로 바꾼 횟수. 그 전에 만든 방 글자는 올리지 않는다
+let tellServer = () => {}; // 서버의 방이 다르다고 알리는 곳
+let tellRemoved = () => {}; // 다른 브라우저에서 링크를 지웠다고 알리는 곳
+export const onServerRoom = fn => { tellServer = fn; };
+export const onRemoved = fn => { tellRemoved = fn; };
+// 올리기를 멈추거나(true) 다시 한다(false). 멈춘 동안의 고침은 고른 뒤나 내 컴퓨터로 다시 들어올 때 올린다
+export function pauseSync(on) {
+  paused = on;
+  if (!on) return;
+  pending = null;
+  clearTimeout(timer);
+}
+
+// 올리기가 "서버의 방이 달라졌다"로 거절되었는지. 문서가 없을 때의 404는 Firestore가 답한 것만 본다(학교 차단 화면의 404는 아니다, known-issues 119)
+const refused = err => err.code === 'FAILED_PRECONDITION' || (err.status === 404 && err.code === 'NOT_FOUND');
+
+// 서버에 있는 내 방 문서 { code, rev }. 문서가 없으면 null, 닿지 못하거나 이 사용자의 방이 아니면 CloudError를 던진다. 읽기는 로그인 없이 한다
+async function fetchMine() {
+  const { id, uid } = state();
+  if (!id) return null;
+  let doc;
+  try {
+    doc = await request(`${DOCS}/${HOMES}/${id}?key=${API_KEY}`);
+  } catch (err) {
+    if (err.status === 404 && err.code === 'NOT_FOUND') return null;
+    throw err;
+  }
+  if (doc?.fields?.uid?.stringValue !== uid) throw new CloudError('denied', `${id}는 이 사용자의 방이 아니다`);
+  return { code: doc.fields.code?.stringValue || '', rev: doc.updateTime || null };
+}
+// 내 방을 서버에서 읽는다(부팅할 때, 내 컴퓨터로 들어올 때). 올리던 일이 있으면 그 뒤에 읽는다.
+// 돌려주는 것: { id: 읽은 방 번호, theirs: 서버의 방(문서가 없으면 null), seen: 읽은 때 알던 판 }. 그 뒤에 이 컴퓨터가 방을 올렸으면 낡은 값이다(isFresh)
+export const readMine = () => queue(async () => ({ id: sharedId(), theirs: await fetchMine(), seen: currentRev() }));
+export const isFresh = got => got.id === sharedId() && got.seen === currentRev();
+// 서버의 방이 이 컴퓨터가 마지막으로 본 판 그대로인지
+export const isKnown = theirs => !!theirs.rev && theirs.rev === currentRev();
+
+// 서버의 방이 답을 잃었던 내 올리기면 sent와 rev를 맞춘다. 올라간 것이 맞으면 true다
+export function landed(theirs) {
+  const { trying } = state();
+  if (!trying || theirs.code !== trying) return false;
+  remember({ sent: theirs.code, rev: theirs.rev, trying: null });
+  return true;
+}
+
+// 서버의 방을 이 컴퓨터의 바탕으로 삼는다(비교가 끝났다). 올리던 예전 글자는 버린다. 방을 서버의 방으로 바꿨으면(adopted) 고친 시각을 모른다고 본다
+export function acceptServer(theirs, adopted = false) {
+  epoch++;
+  pending = null;
+  clearTimeout(timer);
+  paused = false;
+  remember({ sent: theirs.code, rev: theirs.rev, trying: null, ...(adopted ? { edited: null } : {}) });
+}
+
+// 다른 브라우저에서 링크를 지운 방의 번호를 잊는다. 아이디도 그쪽에서 지웠다. 계정과 비밀번호는 그대로다.
+// 이 컴퓨터가 올린 방을 더는 고칠 수 없게 된 것(forget)이 아니라서 "공유 링크 끊김" 창은 띄우지 않는다
+export function forgetRemoved() {
+  remember({ ...noRoom(), handle: null });
+  tellRemoved();
+}
+
+async function uploadGuarded(id, code, me, stamp) {
+  for (let i = 0; i < TRIES; i++) {
+    if (paused || stamp !== epoch) throw new CloudError('changed', '서버의 방과 다시 견줘야 한다');
+    const { trying, sent, rev } = state();
+    // 앞의 올리기의 답을 잃었거나(trying) 서버의 방을 본 적이 없으면(rev) 먼저 읽는다
+    if (trying || !rev) {
+      let theirs;
+      try {
+        theirs = await fetchMine();
+      } catch (err) {
+        throw await blame(err, id, me); // 남의 방이면(denied) 번호를 잊는다
+      }
+      if (!theirs) {
+        forgetRemoved();
+        throw new CloudError('removed', id);
+      }
+      if (landed(theirs)) {
+        if (theirs.code === code) return id;
+      } else if (sameCode(theirs.code, sent)) {
+        remember({ sent: theirs.code, rev: theirs.rev, trying: null });
+      } else {
+        remember({ trying: null });
+        paused = true;
+        tellServer(theirs);
+        throw new CloudError('changed', id);
+      }
+      continue; // 맞춘 rev로 다시 올린다
+    }
+    remember({ trying: code });
+    try {
+      const res = await writeHome(id, code, me, rev);
+      remember({ sent: code, rev: revOf(res), trying: null });
+      return id;
+    } catch (err) {
+      if (!refused(err)) throw await blame(err, id, me); // trying은 남긴다(답을 잃었을 수 있다)
+    }
+  }
+  throw new CloudError('server', '서버의 방이 계속 바뀐다');
 }
 
 // 공유하기 창의 "링크 만들기". 방을 올리고 번호를 돌려준다.
@@ -244,7 +385,7 @@ export function unshare() {
     } catch (err) {
       if (err.reason !== 'denied') throw err; // denied: 이미 없거나 이 사용자의 방이 아니다. 어느 쪽이든 번호만 잊는다
     }
-    remember({ id: null, sent: null });
+    remember(noRoom());
   });
 }
 
@@ -478,23 +619,31 @@ function flush() {
   clearTimeout(timer);
   const make = pending;
   pending = null;
-  if (!make || !sharedId()) return Promise.resolve();
+  if (!make || !sharedId() || paused) return Promise.resolve();
   const code = make();
-  if (code === state().sent) return Promise.resolve();
-  return queue(() => upload(code));
+  // 비밀번호가 있는 사용자는 가구 차례만 다른 글자도 같은 방으로 본다. 그러지 않으면 두 브라우저가 같은 방을 서로 다른 글자로 번갈아 올린다
+  if (code === state().sent || (hasPassword() && sameCode(code, state().sent))) return Promise.resolve();
+  const stamp = epoch;
+  return queue(() => upload(code, false, stamp));
 }
+
+// 서버의 방이 달라진 것과 지워진 것은 따로 알리므로(onServerRoom, onRemoved) 콘솔에도 적지 않는다
+const told = err => err.reason === 'changed' || err.reason === 'removed';
 
 // make는 올릴 때 부르므로 그사이에 더 고친 것까지 담긴다. 짧은 링크가 없으면 아무것도 하지 않는다(처음 올리기는 주인이 공유하기 창에서 고른다).
+// 올리기를 멈춘 동안(paused)에는 기다리지 않는다
 export function syncLater(make) {
-  if (!sharedId()) return;
+  if (!sharedId() || paused) return;
   pending = make;
   clearTimeout(timer);
-  timer = setTimeout(() => flush().catch(err => console.warn('서버의 방을 고치지 못했다', err)), SYNC_DELAY);
+  timer = setTimeout(() => flush().catch(err => {
+    if (!told(err)) console.warn('서버의 방을 고치지 못했다', err);
+  }), SYNC_DELAY);
 }
 
-// 지금 바로 올린다(공유하기 창을 열 때). 실패하면 CloudError를 던진다.
+// 지금 바로 올린다(공유하기 창을 열 때, 두 곳에서 고친 방을 고른 뒤). 실패하면 CloudError를 던진다.
 export function syncNow(make) {
-  if (!sharedId()) return Promise.resolve();
+  if (!sharedId() || paused) return Promise.resolve();
   pending = make;
   return flush();
 }

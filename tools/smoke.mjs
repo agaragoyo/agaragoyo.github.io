@@ -16,6 +16,8 @@
 // 보여 줄 이웃이 없거나 서버에 닿지 못할 때의 목록 창,
 // 깨진 링크와 HTML이 든 링크, 짧은 링크(#s=)의 방, 칸을 줄이기 전의 책상이 든 집의 주인 화면과 손님 화면과 꽉 찬 책상에 물건 올리기,
 // 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
+// 비밀번호가 있는 사용자의 방을 서버와 맞추기(비밀번호가 없는 사용자의 요청이 그대로인지, 서버만, 이 컴퓨터만, 양쪽이 바뀜, 앉아 있는 동안 거절됨, 답을 잃은 올리기,
+// 지워진 링크, 닿지 못하는 서버, 연습 방, 펫과 기록 합치기, 두 곳에서 고친 방 창),
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -190,6 +192,10 @@ async function linkOf(home, owner) {
 // 거절: window.__cloudRefuse에 { at: 주소에 든 글자, status, body: 답할 글자 }를 넣으면 그 주소로 온 다음 요청 하나에 그렇게 답한다.
 //   window.__cloudOwners는 방마다 올린 사용자 번호다. 로그인한 사용자(fake-uid)와 다른 방을 고치면 서버의 규칙처럼 PERMISSION_DENIED로 막는다.
 //   서버에 있는 방 번호들은 window.__cloudRooms()로 본다
+// 판(F36): 방 문서마다 updateTime(window.__cloudRevs[번호])이 있고 고칠 때마다 바뀐다. 쓸 때 currentDocument.updateTime을 걸면 서버처럼 판이 다르면 400
+//   FAILED_PRECONDITION, 문서가 없으면 404 NOT_FOUND로 거절한다. 다른 브라우저가 고치거나 지운 것은 window.__otherEdits(번호, 글자), window.__otherDeletes(번호)로 흉내 낸다.
+//   window.__cloudLose에 숫자를 넣으면 다음 쓰기들은 서버에 들어가되 답을 잃는다(연결이 끊긴 것처럼). 모든 방 읽기를 멈추게 하려면 window.__cloudHoldReads에 참을 넣고
+//   window.__cloudAnswer()로 푼다. 방에 온 요청은 차례로 window.__cloudLog에 { method, at, writes }로 남는다(쓴 것은 본문의 writes)
 function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   const real = window.fetch;
   const held = [];
@@ -200,7 +206,23 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   window.__handleCalls = {};
   window.__cloudRefuse = [];
   window.__cloudOwners = {};
+  window.__cloudLog = [];
+  window.__cloudLose = 0;
+  window.__cloudHoldReads = false;
+  window.__cloudRevs = {};
+  let tick = 0; // 판마다 다른 시각(마이크로초 자리를 하나씩 올린다)
+  const bump = id => (window.__cloudRevs[id] = new Date(1790000000000 + tick * 1000).toISOString().replace('.000Z', `.${String(++tick).padStart(6, '0')}Z`));
+  for (const id of Object.keys(rooms)) bump(id);
   window.__cloudRooms = () => Object.keys(rooms);
+  window.__cloudRoom = id => rooms[id];
+  window.__otherEdits = (id, code) => {
+    rooms[id] = code;
+    return bump(id);
+  };
+  window.__otherDeletes = id => {
+    delete rooms[id];
+    delete window.__cloudRevs[id];
+  };
   window.__cloudAnswer = () => held.splice(0).forEach(done => done());
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
   const firestoreError = (status, code) => reply({ error: { code: status, message: 'fake', status: code } }, status);
@@ -208,6 +230,9 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   window.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (!u.includes('googleapis.com')) return real(url, opts);
+    if (u.includes('firestore.googleapis.com')) {
+      window.__cloudLog.push({ method: opts.method || 'GET', at: u.replace(/^.*\/documents/, '').replace(/\?.*$/, ''), writes: opts.body && u.includes(':commit') ? JSON.parse(opts.body).writes : null });
+    }
     if (how === 'offline') throw new TypeError('Failed to fetch');
     const write = how === 'write';
     const refuse = window.__cloudRefuse.findIndex(r => u.includes(r.at));
@@ -237,12 +262,21 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
         if (code) {
           const id = w.update.name.split('/').pop();
           const uid = w.update.fields.uid.stringValue;
+          const at = w.currentDocument?.updateTime;
+          if (at && !(id in rooms)) return firestoreError(404, 'NOT_FOUND');
+          if (at && at !== window.__cloudRevs[id]) return firestoreError(400, 'FAILED_PRECONDITION');
           if ((window.__cloudOwners[id] ??= uid) !== uid) return denied();
           window.__cloudSent.push(code);
           rooms[id] = code;
+          bump(id);
         }
       }
-      return reply({});
+      if (window.__cloudLose > 0) {
+        window.__cloudLose -= 1;
+        throw new TypeError('Failed to fetch'); // 서버에는 들어갔는데 답을 잃었다
+      }
+      const last = JSON.parse(opts.body).writes.at(-1)?.update?.name?.split('/').pop();
+      return reply({ writeResults: [{ updateTime: window.__cloudRevs[last] }], commitTime: new Date().toISOString() });
     }
     const handle = (u.match(/\/handles\/([^?/:]+)/) || [])[1];
     if (handle) {
@@ -263,9 +297,9 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
       return reply({});
     }
     window.__cloudCalls[id] = (window.__cloudCalls[id] || 0) + 1;
-    if (how === 'hold') await new Promise(done => held.push(done));
-    if (how === 'missing' || !(id in rooms)) return reply({}, 404);
-    return reply({ fields: { uid: { stringValue: window.__cloudOwners[id] || 'smoke-owner' }, code: { stringValue: rooms[id] } } });
+    if (how === 'hold' || window.__cloudHoldReads) await new Promise(done => held.push(done));
+    if (how === 'missing' || !(id in rooms)) return firestoreError(404, 'NOT_FOUND');
+    return reply({ fields: { uid: { stringValue: window.__cloudOwners[id] || 'smoke-owner' }, code: { stringValue: rooms[id] } }, updateTime: window.__cloudRevs[id] });
   };
   return true;
 }
@@ -1136,6 +1170,333 @@ async function walk(page, base) {
     check('공유 링크 끊김 창(아이디 없음)이 스크롤되지 않는다', await page.run(lostFits));
     await page.run(clickText, '#windows .win .btn', '닫기');
     check('닫기를 누르면 안내 창만 닫힌다', await until(page, () => document.querySelectorAll('#windows .win').length === 1, 3000) && !(await page.run(lostWin)));
+  }
+
+  // 비밀번호가 있는 사용자(F36)의 방을 서버와 맞추는지 본다(src/home-sync.js, src/cloud.js의 uploadGuarded, src/room-merge.js, src/apps/two-rooms-app.js).
+  // 서버 대신 fakeCloud('write')가 답한다. 방 번호는 SYNC_ID 하나이고, 바탕(base)과 두 곳에서 고친 방(MINE, THEIRS)은 점검용 집(HOME)에서 가구를 뺀 것이다.
+  // 끝나면 저장소를 원래대로 되돌린다
+  async function homeSync() {
+    const SYNC_ID = 'Sync0001';
+    const without = (...ids) => ({ ...HOME, scenes: { room: HOME.scenes.room.filter(it => !ids.includes(it.id)) } });
+    const MINE = without('console');       // 가구 9개
+    const THEIRS = without('tv', 'bed');   // 가구 8개
+    const count = home => home.scenes.room.length;
+    const cloudState = () => page.run(() => JSON.parse(localStorage.getItem('agarago.cloud') || '{}'));
+    const kept = await page.run(() => ({ ...localStorage }));
+
+    // 방 글자를 만든다. 이 컴퓨터의 방 글자(src/os.js의 roomCode)처럼 사진(duck)과 펫, 기록을 붙인다
+    const codeOf = (home, extra = {}) => page.run(async (h, x) => {
+      const { sanitizeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      return encodeHome(sanitizeHome({ ...h, picture: 'duck', ...x }));
+    }, home, extra);
+    const decoded = code => page.run(async c => (await import(new URL('src/share.js', document.baseURI).href)).decodeHome(c), code);
+    const sendBack = () => page.run(() => window.__cloudSent.length);
+    const commits = () => page.run(id => window.__cloudLog.filter(l => l.writes?.some(w => w.update?.name?.endsWith(`/homes/${id}`))).map(l => l.writes[0]), SYNC_ID);
+    const reads = () => page.run(id => window.__cloudLog.filter(l => l.method === 'GET' && l.at === `/homes/${id}`).length, SYNC_ID);
+    const clickOwn = () => page.run(() => document.querySelector('.users-own .user:not(.new)').click());
+    const winTitle = t => [...document.querySelectorAll('#windows .win')].some(w => w.querySelector('.win-title')?.textContent === t);
+    const toastText = () => document.getElementById('toast').classList.contains('show') ? document.getElementById('toast').textContent : '';
+    const ids = home => [...home.scenes.room].map(i => i.id).sort().join();
+
+    // 저장소를 심고 페이지를 다시 연 뒤 가짜 서버를 끼우고 내 컴퓨터로 들어간다.
+    // local: 이 컴퓨터의 방, sent: 마지막에 올린 글자(바탕), server: 서버의 처음 글자(비우면 sent), other: 그 뒤에 다른 브라우저가 올린 글자, gone: 다른 브라우저가 지움,
+    // pw: 비밀번호가 있는 사용자인지, known: 이 컴퓨터가 서버의 판(rev)을 아는지, how: 서버의 상태, hold: 방 읽기를 멈춤, refuse: 다음 요청 하나를 거절할 것들,
+    // during: 내 사용자를 누른 직후(환영 화면에서) 페이지 안에서 돌릴 함수, settings와 records와 cloud: 저장소에 더 심을 것
+    async function enterWith({ local = HOME, sent, server = sent, other = null, gone = false, pw = true, known = true, how = 'write', hold = false, refuse = [], during = null, settings = {}, records = {}, cloud = {} }) {
+      const extra = { local, sent, pw, settings, records, cloud };
+      await open();
+      await page.run(async (d, id) => {
+        const { sanitizeHome } = await import(new URL('src/share.js', document.baseURI).href);
+        for (const k of Object.keys(localStorage)) if (k.startsWith('agarago.') || k.endsWith('.best')) localStorage.removeItem(k);
+        localStorage.setItem('agarago.home.v3', JSON.stringify(sanitizeHome(d.local)));
+        localStorage.setItem('agarago.picture', '"duck"');
+        localStorage.setItem('agarago.settings', JSON.stringify({ sound: false, ...d.settings }));
+        for (const [k, v] of Object.entries(d.records)) localStorage.setItem(`${k}.best`, JSON.stringify(v));
+        localStorage.setItem('agarago.cloud', JSON.stringify({ uid: 'fake-uid', refresh: 'fake-refresh', id, sent: d.sent, ...d.cloud }));
+      }, extra, SYNC_ID);
+      await open();
+      await page.run(fakeCloud, how, server ? { [SYNC_ID]: server } : {}, [], {});
+      await page.run((id, o) => {
+        window.__cloudOwners[id] = 'fake-uid';
+        const st = JSON.parse(localStorage.getItem('agarago.cloud'));
+        if (o.pw) st.pw = true;
+        if (o.pw && o.known && window.__cloudRevs[id]) st.rev = window.__cloudRevs[id];
+        localStorage.setItem('agarago.cloud', JSON.stringify(st));
+        if (o.other) window.__otherEdits(id, o.other);
+        if (o.gone) window.__otherDeletes(id);
+        window.__cloudHoldReads = !!o.hold;
+        window.__cloudRefuse = o.refuse;
+        window.__cloudLog.length = 0;
+      }, SYNC_ID, { pw, known, other, gone, hold, refuse });
+      await powerOn();
+      await until(page, () => !!document.querySelector('.users-own .user:not(.new)'), 8000);
+      const t0 = Date.now();
+      await clickOwn();
+      if (during) await page.run(during.fn, ...during.args);
+      const ok = await desktop();
+      return { ok, ms: Date.now() - t0 };
+    }
+    const leave = async () => { // 로그아웃하고 다시 내 컴퓨터로 들어간다(같은 페이지)
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickText, '#start-menu .start-item', '로그아웃');
+      await until(page, () => !document.getElementById('login').hidden && !!document.querySelector('.users-own .user:not(.new)'), 6000);
+      await clickOwn();
+      return desktop();
+    };
+    const rename = async name => {
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickOnce, '#start-menu .start-name');
+      await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+      await page.run(nameSubmit, name);
+    };
+    await open();
+    const base = await codeOf(HOME);
+    const mineCode = await codeOf(MINE);
+    const theirsCode = await codeOf(THEIRS);
+
+    // --- 비밀번호가 없는 사용자는 전과 같은 요청만 보낸다 ---
+    await enterWith({ local: MINE, sent: base, pw: false });
+    check('비밀번호가 없는 사용자는 들어올 때 내 방을 서버에서 읽지 않는다', (await reads()) === 0, JSON.stringify(await page.run(() => window.__cloudLog)));
+    check('비밀번호가 없는 사용자는 고친 방을 판 조건 없이 전과 같은 모양으로 올린다', await until(page, () => window.__cloudSent.length === 1, 6000)
+      && (await commits()).every(w => Object.keys(w).join() === 'update,updateTransforms' && Object.keys(w.update).join() === 'name,fields'), JSON.stringify(await commits()));
+    check('비밀번호가 없는 사용자의 저장소에는 판과 고친 시각과 올리던 글자를 남기지 않는다', (await page.run(() => Object.keys(JSON.parse(localStorage.getItem('agarago.cloud'))).sort().join())) === 'id,refresh,sent,uid');
+    await rename('새이름');
+    check('비밀번호가 없는 사용자의 이름 바꾸기도 전과 같은 모양으로 올린다', await until(page, () => window.__cloudSent.length === 2, 6000)
+      && (await commits()).every(w => !('currentDocument' in w)) && (await reads()) === 0 && !('edited' in (await cloudState())));
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 3 });
+    check('링크가 있는 방은 펫을 바꾸거나 쓰다듬으면 서버의 방에도 펫이 담긴다', await until(page, async () => {
+      const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      const pet = decodeHome(window.__cloudSent.at(-1))?.pet;
+      return pet?.id === 'cat/gray' && pet.pats === 3;
+    }, 6000), JSON.stringify(await decoded(await page.run(() => window.__cloudSent.at(-1)))));
+    check('펫을 고르지 않은 집의 글자에는 펫이 없다', (await page.run(async c => !((await import(new URL('src/share.js', document.baseURI).href)).decodeHome(c).pet), base)));
+
+    // --- 이 컴퓨터만 바뀜: 조건(판)을 걸어 올린다 ---
+    await enterWith({ local: MINE, sent: base });
+    const before = await cloudState();
+    check('이 컴퓨터만 바뀐 방은 아무것도 묻지 않고 조건을 걸어 올린다', await until(page, () => window.__cloudSent.length === 1, 6000)
+      && (await commits())[0]?.currentDocument?.updateTime === before.rev && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify(await commits()));
+    const after = await cloudState();
+    check('올린 뒤에는 새 판과 글자가 남고 올리던 글자는 지워진다', after.rev !== before.rev && after.rev === await page.run(id => window.__cloudRevs[id], SYNC_ID) && after.sent === (await page.run(() => window.__cloudSent.at(-1))) && after.trying === null);
+    await rename('고친이름');
+    check('방을 고치면 고친 시각이 남고 새 판을 걸어 다시 올린다', await until(page, () => window.__cloudSent.length === 2, 6000)
+      && (await commits()).at(-1).currentDocument.updateTime === after.rev && Date.now() - (await cloudState()).edited < 60000);
+
+    // 가구를 놓은 차례만 다른 방은 같은 방이라 올리지 않는다. 그러지 않으면 두 브라우저가 같은 방을 서로 다른 글자로 번갈아 올린다
+    await enterWith({ local: { ...HOME, scenes: { room: [...HOME.scenes.room].reverse() } }, sent: base });
+    await sleep(3800);
+    check('가구 차례만 다른 방은 같은 방이라 다시 올리지 않는다', (await commits()).length === 0 && ids(await page.run(savedHome)) === ids(HOME), JSON.stringify(await commits()));
+
+    // --- 서버만 바뀜: 묻지 않고 서버의 방으로 바꾼다. 기록은 큰 쪽, 펫은 서버의 것 ---
+    const theirsFull = await codeOf({ ...THEIRS, owner: '저쪽' }, { picture: 'cat', records: { 'tidy-up': 500, 'file-ten': 40 }, pet: { id: 'dog/brown', pats: 7 } });
+    await enterWith({ sent: base, other: theirsFull, records: { 'tidy-up': 900 } });
+    const got = await page.run(savedHome);
+    check('서버만 바뀐 방은 묻지 않고 서버의 방으로 바꾼다', ids(got) === ids(THEIRS) && got.owner === '저쪽' && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify([got.owner, ids(got)]));
+    check('서버의 사진으로 바꾼다', (await page.run(() => localStorage.getItem('agarago.picture'))) === '"cat"');
+    check('게임 기록은 양쪽 가운데 큰 쪽이 남는다', (await page.run(() => [localStorage.getItem('tidy-up.best'), localStorage.getItem('file-ten.best')].join())) === '900,40');
+    check('펫은 서버의 펫과 쓰다듬은 횟수가 된다', JSON.stringify(await page.run(async () => { const s = (await import(new URL('src/settings.js', document.baseURI).href)).settings; return [s.get('pet'), s.get('petPats')]; })) === '["dog/brown",7]');
+    check('이 컴퓨터가 더 큰 기록은 서버에 올린다', await until(page, async () => {
+      const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      return decodeHome(window.__cloudSent.at(-1) || '')?.records?.['tidy-up'] === 900;
+    }, 6000) && (await commits()).at(-1).currentDocument.updateTime && (await sendBack()) === 1, JSON.stringify(await commits()));
+    check('서버의 방으로 바꾼 뒤의 벽지 그림에 서버의 가구가 있다', await page.run(() => !document.querySelector('#wallpaper .furn[data-id="tv"]') && !!document.querySelector('#wallpaper .furn[data-id="console"]')));
+
+    // --- 둘 다 바뀜: 두 방을 보이고 고르게 한다 ---
+    const ask = async (state = {}) => {
+      const r = await enterWith({ local: MINE, sent: base, other: theirsCode, cloud: { edited: 1764079800000 }, ...state });
+      return r.ok && until(page, winTitle, 6000, '두 곳에서 고친 방');
+    };
+    check('양쪽이 다르게 바뀌면 두 곳에서 고친 방 창이 뜬다', await ask());
+    await until(page, () => document.querySelectorAll('.two-rooms-pic').length === 2, 4000);
+    check('창의 첫 줄과 두 방과 맨 아래 안내를 보인다', await page.run(() => {
+      const w = [...document.querySelectorAll('#windows .win')].find(x => x.querySelector('.win-title')?.textContent === '두 곳에서 고친 방');
+      const t = [...w.querySelectorAll('p')].map(p => p.textContent);
+      return t[0] === '다른 브라우저에서도 이 방을 고쳤습니다. 남길 방을 골라 주세요.' && t.at(-1) === '고르지 않은 방은 지워집니다.'
+        && [...w.querySelectorAll('.two-rooms-card b')].map(b => b.textContent).join() === '이 컴퓨터의 방,서버의 방'
+        && [...w.querySelectorAll('.btn')].map(b => b.textContent).join() === '이 방 남기기,이 방 남기기';
+    }));
+    check('그림 아래에 고친 시각과 가구 수를 보인다', await page.run(() => {
+      const texts = [...document.querySelectorAll('.two-rooms-card .meta')].map(m => m.textContent);
+      return /^\d{1,2}월 \d{1,2}일 \d\d:\d\d에 고침, 가구 9개$/.test(texts[0]) && /^\d{1,2}월 \d{1,2}일 \d\d:\d\d에 고침, 가구 8개$/.test(texts[1]);
+    }), JSON.stringify(await page.run(() => [...document.querySelectorAll('.two-rooms-card .meta')].map(m => m.textContent))));
+    check('두 방의 그림이 그려진다', await until(page, () => [...document.querySelectorAll('.two-rooms-pic')].every(c => {
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set();
+      for (let i = 0; i < d.length; i += 4 * 997) seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`);
+      return seen.size > 20;
+    }), 8000));
+    check('창이 스크롤되지 않는다', await page.run(() => [...document.querySelectorAll('#windows .win-body')].every(b => b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth)));
+    await probe('두 곳에서 고친 방 창');
+    await sleep(3500);
+    check('고르기 전에는 이 컴퓨터의 방을 올리지 않는다', (await sendBack()) === 0 && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === theirsCode);
+    // 서버의 방을 고른다
+    await page.run(() => document.querySelectorAll('.two-rooms-card .btn')[1].click());
+    check('서버의 방을 남기면 저장된 방이 서버의 방이 되고 알린다', await until(page, () => document.getElementById('toast').textContent === '서버의 방을 남겼습니다.', 4000)
+      && ids(await page.run(savedHome)) === ids(THEIRS) && !(await page.run(winTitle, '두 곳에서 고친 방')));
+    await sleep(3500);
+    check('서버의 방을 남기면 지운 방을 올리지 않는다', (await sendBack()) === 0 && (await cloudState()).sent === theirsCode && (await cloudState()).rev === await page.run(id => window.__cloudRevs[id], SYNC_ID), JSON.stringify([await commits(), await cloudState()]));
+    // 이 컴퓨터의 방을 고른다
+    check('다시 다르게 고치면 또 창이 뜬다', await ask());
+    const theirsRev = await page.run(id => window.__cloudRevs[id], SYNC_ID);
+    await page.run(() => document.querySelectorAll('.two-rooms-card .btn')[0].click());
+    check('이 컴퓨터의 방을 남기면 서버의 지금 판을 걸어 올리고 알린다', await until(page, () => document.getElementById('toast').textContent === '이 컴퓨터의 방을 남겼습니다.', 6000)
+      && (await sendBack()) === 1 && (await commits())[0].currentDocument.updateTime === theirsRev && ids(await page.run(savedHome)) === ids(MINE)
+      && ids(await decoded(await page.run(() => window.__cloudSent[0]))) === ids(MINE));
+    // 고르지 않고 닫는다
+    check('양쪽이 다르게 바뀐 방에 다시 들어가면 또 묻는다', await ask());
+    const closeOne = () => page.run(() => { for (const w of document.querySelectorAll('#windows .win')) if (w.querySelector('.win-title')?.textContent === '두 곳에서 고친 방') w.querySelector('.win-close').click(); });
+    await closeOne();
+    await rename('닫은뒤');
+    await sleep(3800);
+    check('고르지 않고 닫으면 그 뒤에 고쳐도 올려 보지 않고 다시 묻지도 않는다', (await commits()).length === 0 && (await sendBack()) === 0
+      && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === theirsCode && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify(await commits()));
+    check('고르지 않고 닫은 방은 내 컴퓨터로 다시 들어오면 다시 묻는다', await leave() && await until(page, winTitle, 6000, '두 곳에서 고친 방'));
+    check('다시 물을 때는 그사이에 고친 이 컴퓨터의 방을 보인다', await page.run(() => /가구 9개/.test(document.querySelector('.two-rooms-card .meta').textContent)) && (await page.run(savedOwner)) === '닫은뒤');
+    await closeOne();
+
+    // --- 앉아 있는 동안 거절됨 ---
+    await enterWith({ sent: base });
+    await page.run((id, code) => window.__otherEdits(id, code), SYNC_ID, theirsCode);
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 2 });
+    check('앉아 있는 동안 서버만 바뀌었으면 방을 다시 그리고 알린다', await until(page, () => document.getElementById('toast').textContent === '다른 브라우저에서 고친 방으로 바꿨습니다.', 9000)
+      && ids(await page.run(savedHome)) === ids(THEIRS) && await page.run(() => !document.querySelector('#wallpaper .furn[data-id="tv"]') && !!document.querySelector('#wallpaper .furn[data-id="console"]')), JSON.stringify([await page.run(toastText), await page.run(() => document.querySelectorAll('#wallpaper .furn').length)]));
+    check('앉아 있는 동안 서버의 방으로 바꿔도 고른 펫은 남고 서버에 올라간다', await until(page, async () => {
+      const { decodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      return decodeHome(window.__cloudSent.at(-1) || '')?.pet?.id === 'cat/gray' && decodeHome(window.__cloudSent.at(-1)).scenes.room.length === 8;
+    }, 8000), JSON.stringify(await commits()));
+    // 둘 다 바뀜(앉아 있는 동안)
+    await page.run((id, code) => window.__otherEdits(id, code), SYNC_ID, mineCode);
+    await rename('앉은동안');
+    check('앉아 있는 동안 양쪽이 바뀌었으면 두 곳에서 고친 방 창이 뜬다', await until(page, winTitle, 9000, '두 곳에서 고친 방'));
+    await closeOne();
+
+    // 방을 서버의 방으로 바꾸면 그 전에 예약하거나 줄 세운 올리기를 버린다(known-issues 127). 버리지 않으면 예전 방이 서버의 방을 덮는다
+    await enterWith({ sent: base });
+    check('방을 서버의 방으로 바꾸면 그 전에 예약한 올리기를 버린다', await page.run(async (code, id) => {
+      const cloud = await import(new URL('src/cloud.js', document.baseURI).href);
+      const [before, rev] = [window.__cloudSent.length, window.__cloudRevs[id]];
+      cloud.syncLater(() => 'old-code-1');
+      cloud.acceptServer({ code, rev });
+      await new Promise(done => setTimeout(done, 3600));
+      return window.__cloudSent.length === before;
+    }, theirsCode, SYNC_ID));
+    check('방을 서버의 방으로 바꾸면 줄 선 올리기도 예전 글자를 올리지 않는다', await page.run(async (code, id) => {
+      const cloud = await import(new URL('src/cloud.js', document.baseURI).href);
+      const before = window.__cloudSent.length;
+      const queued = cloud.syncNow(() => 'old-code-2').then(() => 'ok', err => err.reason);
+      cloud.acceptServer({ code, rev: window.__cloudRevs[id] });
+      return (await queued) === 'changed' && window.__cloudSent.length === before;
+    }, theirsCode, SYNC_ID));
+
+    // 방 꾸미기를 하는 동안에는 서버만 바뀌었어도 방을 갈아 끼우지 않고, 창을 닫으면 바꾼다
+    await enterWith({ sent: base });
+    await openIcon('room');
+    await until(page, () => !!document.querySelector('#windows .room-app'), 4000);
+    await page.run((id, code) => window.__otherEdits(id, code), SYNC_ID, theirsCode);
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 });
+    await sleep(5000);
+    check('방 꾸미기를 하는 동안에는 서버만 바뀌었어도 방을 바꾸지 않는다', ids(await page.run(savedHome)) === ids(HOME) && await page.run(() => !!document.querySelector('#windows .room-app')));
+    await closeWindows();
+    check('방 꾸미기 창을 닫으면 서버의 방으로 바꾼다', await until(page, () => document.getElementById('toast').textContent === '다른 브라우저에서 고친 방으로 바꿨습니다.', 6000) && ids(await page.run(savedHome)) === ids(THEIRS));
+
+    // --- 답을 잃은 올리기 ---
+    await enterWith({ sent: base });
+    await page.run(() => { window.__cloudLose = 1; });
+    await rename('답잃음');
+    check('답을 잃은 올리기는 올리던 글자를 남긴다', await until(page, () => window.__cloudSent.length === 1 && !!JSON.parse(localStorage.getItem('agarago.cloud')).trying, 6000));
+    const lostRev = await page.run(id => window.__cloudRevs[id], SYNC_ID);
+    check('답을 잃은 올리기의 판은 아직 모른다', (await cloudState()).rev !== lostRev);
+    await rename('이어서');
+    check('다음 올리기는 서버에 들어간 내 올리기를 알아보고 이어서 올린다', await until(page, () => window.__cloudSent.length === 2 && !JSON.parse(localStorage.getItem('agarago.cloud')).trying, 8000)
+      && (await commits()).at(-1).currentDocument.updateTime === lostRev && (await decoded(await page.run(() => window.__cloudSent.at(-1)))).owner === '이어서' && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify([await cloudState(), await commits()]));
+    // 답을 잃은 채 다시 들어온 경우
+    await page.run(() => { window.__cloudLose = 1; });
+    await rename('또잃음');
+    await until(page, () => window.__cloudSent.length === 3 && !!JSON.parse(localStorage.getItem('agarago.cloud')).trying, 6000);
+    check('답을 잃은 채 다시 들어오면 내 올리기로 알아보고 묻지 않는다', await leave() && await until(page, () => !JSON.parse(localStorage.getItem('agarago.cloud')).trying, 6000)
+      && !(await page.run(winTitle, '두 곳에서 고친 방')) && (await decoded((await cloudState()).sent)).owner === '또잃음', JSON.stringify(await cloudState()));
+
+    // 환영 화면에서 기다리는 사이에 이 컴퓨터가 방을 올렸으면 그 전에 읽은 서버의 방은 낡은 값이다. 그것으로 방을 되돌리면 방금 올린 고침을 잃는다
+    const raced = await enterWith({
+      local: MINE, sent: base,
+      during: { fn: async code => { await (await import(new URL('src/cloud.js', document.baseURI).href)).syncNow(() => code); }, args: [mineCode] },
+    });
+    check('읽은 뒤에 이 컴퓨터가 올렸으면 낡은 값으로 방을 되돌리지 않는다', raced.ok && ids(await page.run(savedHome)) === ids(MINE) && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === mineCode
+      && !(await page.run(winTitle, '두 곳에서 고친 방')), JSON.stringify([await page.run(savedHome).then(ids), await cloudState()]));
+
+    // Firestore가 아니라 중간의 차단 화면이 답한 404로는 방 번호를 잊지 않는다(known-issues 119)
+    const blockPage = { status: 404, body: '<html>차단된 사이트입니다</html>' };
+    await enterWith({ sent: base, refuse: [{ at: `/homes/${SYNC_ID}?`, ...blockPage }] });
+    check('들어올 때 차단 화면의 404가 와도 방 번호를 잊지 않는다', (await cloudState()).id === SYNC_ID && !(await page.run(winTitle, '공유 링크 끊김')) && ids(await page.run(savedHome)) === ids(HOME), JSON.stringify(await cloudState()));
+    await page.run(list => { window.__cloudRefuse = list; }, [{ at: ':commit', ...blockPage }]);
+    await rename('차단됨');
+    await sleep(3800);
+    check('올릴 때 차단 화면의 404가 와도 방 번호를 잊지 않는다', (await cloudState()).id === SYNC_ID && (await cloudState()).pw === true, JSON.stringify(await cloudState()));
+
+    // --- 서버의 방이 지워짐 ---
+    await enterWith({ sent: base, cloud: { handle: '점검' } });
+    await page.run(id => window.__otherDeletes(id), SYNC_ID);
+    await rename('지워진뒤');
+    check('앉아 있는 동안 링크가 지워졌으면 알리고 방 번호만 잊는다', await until(page, () => document.getElementById('toast').textContent === '다른 브라우저에서 공유 링크를 지웠습니다.', 9000)
+      && await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.cloud')); return s.id === null && s.sent === null && s.rev === null && s.handle === null && s.pw === true && s.uid === 'fake-uid' && !s.lost; }), JSON.stringify(await cloudState()));
+    check('지워진 방을 같은 번호로 다시 만들지 않고 "공유 링크 끊김" 창도 띄우지 않는다', (await page.run(() => window.__cloudRooms().length)) === 0 && !(await page.run(winTitle, '공유 링크 끊김')));
+    check('링크가 지워져도 이 컴퓨터의 방은 남는다', (await page.run(savedOwner)) === '지워진뒤');
+    await openIcon('share');
+    await page.run(clickText, '#windows .win .btn', '링크 만들기');
+    check('링크가 지워진 뒤에 링크를 만들면 새 번호로 만들고 판을 남긴다', await until(page, () => {
+      const s = JSON.parse(localStorage.getItem('agarago.cloud'));
+      return !!s.id && s.id !== 'Sync0001' && s.rev === window.__cloudRevs[s.id] && s.pw === true && window.__cloudRooms().length === 1;
+    }, 6000), JSON.stringify(await cloudState()));
+    await closeWindows();
+    await enterWith({ sent: base, gone: true, cloud: { handle: '점검' } });
+    check('들어올 때 링크가 지워져 있으면 알리고 방 번호를 잊는다', await until(page, () => document.getElementById('toast').textContent === '다른 브라우저에서 공유 링크를 지웠습니다.', 9000)
+      && (await cloudState()).id === null && (await cloudState()).pw === true && (await sendBack()) === 0 && !(await page.run(winTitle, '공유 링크 끊김')), JSON.stringify(await cloudState()));
+
+    // --- 서버에 닿지 못함 ---
+    const off = await enterWith({ local: MINE, sent: base, how: 'offline' });
+    check('서버에 닿지 못해도 이 컴퓨터의 방으로 들어간다', off.ok && off.ms < 6000 && ids(await page.run(savedHome)) === ids(MINE) && !(await page.run(winTitle, '두 곳에서 고친 방')), String(off.ms));
+    // 서버의 판을 모르는 채(들어올 때 닿지 못함) 방을 고치면 올리기 전에 서버의 방을 먼저 읽는다. 조건 없이 덮지 않는다
+    const unknownRev = async server => {
+      await enterWith({ sent: base, known: false, how: 'offline' });
+      await page.run(fakeCloud, 'write', { [SYNC_ID]: server });
+      await page.run(id => { window.__cloudOwners[id] = 'fake-uid'; }, SYNC_ID);
+      await rename('판모름');
+    };
+    await unknownRev(base);
+    check('서버의 판을 모르면 서버를 읽어 맞춘 뒤 조건을 걸어 올린다', await until(page, () => window.__cloudSent.length === 1, 8000)
+      && (await commits())[0].currentDocument?.updateTime && (await reads()) === 1, JSON.stringify(await commits()));
+    await unknownRev(theirsCode);
+    check('서버의 판을 모를 때 서버가 달라졌으면 덮지 않고 묻는다', await until(page, winTitle, 9000, '두 곳에서 고친 방')
+      && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === theirsCode && (await commits()).length === 0, JSON.stringify(await commits()));
+    await closeOne();
+    const slow = await enterWith({ local: MINE, sent: base, other: theirsCode, hold: true });
+    check('서버의 방을 4초까지만 기다리고 들어간다', slow.ok && slow.ms >= 3500 && slow.ms < 8000, String(slow.ms));
+    await page.run(() => { window.__cloudHoldReads = false; window.__cloudAnswer(); });
+
+    // --- 연습 방 ---
+    await enterWith({ sent: base });
+    await page.run((id, code) => window.__otherEdits(id, code), SYNC_ID, theirsCode);
+    await rename('연습전');
+    await page.run(clickOnce, '.start-btn');
+    await page.run(clickText, '#start-menu .start-item', '튜토리얼 다시 보기');
+    await page.run(clickText, '#windows .btn', '빈 방에서 연습하기');
+    await sleep(4500); // 올리기가 거절되어 서버의 방이 다르다고 알아도 연습 방에서는 기다린다
+    check('튜토리얼 연습 방에서는 두 곳에서 고친 방을 묻지 않고 방도 바꾸지 않는다', !(await page.run(winTitle, '두 곳에서 고친 방')) && (await page.run(() => document.querySelectorAll('#wallpaper .furn').length)) === 0 && ids(await page.run(savedHome)) === ids(HOME) && (await page.run(savedOwner)) === '연습전');
+    await page.run(() => document.querySelector('.coach-btn').click());
+    check('연습을 마치면 두 곳에서 고친 방을 묻는다', await until(page, winTitle, 9000, '두 곳에서 고친 방'));
+    await closeOne();
+
+    // --- 풀 수 없는 서버의 방 ---
+    await enterWith({ local: MINE, sent: base, other: 'not-a-room-code' });
+    await rename('깨진서버');
+    await sleep(3800);
+    check('서버의 방을 풀 수 없으면 이 컴퓨터의 방을 그대로 두고 덮지 않는다', (await sendBack()) === 0 && (await page.run(id => window.__cloudRoom(id), SYNC_ID)) === 'not-a-room-code' && ids(await page.run(savedHome)) === ids(MINE) && !(await page.run(winTitle, '두 곳에서 고친 방')));
+
+    // 저장소를 되돌린다
+    await page.run(k => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith('agarago.') || key.endsWith('.best')) localStorage.removeItem(key);
+      for (const [key, v] of Object.entries(k)) localStorage.setItem(key, v);
+    }, kept);
   }
 
   // 바탕화면의 가구를 두 번 눌러 아바타가 걸어가 쓸 때까지 기다린다.
@@ -4061,6 +4422,9 @@ async function walk(page, base) {
   }));
   await closeWindows();
   await extraNeighbor(page, null);
+
+  // ---------- 비밀번호가 있는 사용자의 방을 서버와 맞추기(F36) ----------
+  await homeSync();
 
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)

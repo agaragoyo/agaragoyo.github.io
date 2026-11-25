@@ -6,9 +6,6 @@
 // 링크를 만든 뒤에는 방에 아이디를 달 수 있다. 친구는 이웃집 목록 창에서 아이디를 쳐서 링크 없이 찾아온다(src/cloud.js의 "아이디", src/neighbors.js).
 // 내려받기는 누르기 전에 결과를 알 수 있게 단추 이름이 "무엇을 PNG로 내려받기"인 것으로 둔다(known-issues 32).
 import { SCENES } from '../config.js';
-import { encodeHome } from '../share.js';
-import { withPicture } from '../user-pictures.js';
-import { withRecords } from '../records.js';
 import { sharedId, share, unshare, syncNow, myHandle, claimHandle, dropHandle, normalHandle, handleFrom, HANDLE_RE, markLostTold } from '../cloud.js';
 import { pinnedHere } from '../neighbors.js';
 import { line } from '../likes.js';
@@ -53,7 +50,7 @@ export function openLinkLost(os, app, lost) {
 
 export function openShareApp(os, app) {
   const home = () => os.realHome || os.home; // 튜토리얼 연습 방은 공유하지 않는다(known-issues 40)
-  const code = () => encodeHome(withRecords(withPicture(home()))); // 서버에 올리는 방 글자. 내 사진(F25, 그림 파일로 만든 사진은 F26)과 미니게임 최고 기록(F34)도 담는다
+  const code = () => os.roomCode(home()); // 서버에 올리는 방 글자. 내 사진(F25, 그림 파일로 만든 사진은 F26), 미니게임 최고 기록(F34), 고른 펫(F36)도 담는다(src/os.js)
   const link = id => `${location.origin}${location.pathname}#s=${id}`;
   const button = (label, onclick, title) => h('button', { type: 'button', className: 'btn', onclick, title }, label);
   const win = os.wm.open({
@@ -288,9 +285,12 @@ export function openShareApp(os, app) {
   });
   win.refreshLink();
   // 링크가 있으면 창을 열 때 서버의 방을 지금 방으로 맞춘다(고친 지 3초가 지나기 전에 열었을 수 있다).
+  // 서버의 방이 다른 브라우저에서 바뀌었거나(changed) 지워졌으면(removed) src/home-sync.js가 따로 알린다
   syncNow(code).catch(err => {
-    console.warn(err);
-    if (err.reason !== 'lost') os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
+    if (!['lost', 'changed', 'removed'].includes(err.reason)) {
+      console.warn(err);
+      os.toast('고친 방을 서버에 올리지 못했습니다. 잠시 후 창을 다시 열어 주세요.', 7000);
+    }
     win.refreshLink();
   });
   return win;
