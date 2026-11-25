@@ -18,6 +18,8 @@
 // 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 비밀번호가 있는 사용자의 방을 서버와 맞추기(비밀번호가 없는 사용자의 요청이 그대로인지, 서버만, 이 컴퓨터만, 양쪽이 바뀜, 앉아 있는 동안 거절됨, 답을 잃은 올리기,
 // 지워진 링크, 닿지 못하는 서버, 연습 방, 펫과 기록 합치기, 두 곳에서 고친 방 창),
+// 아이디와 비밀번호(비밀번호 만들기와 바꾸기, 거절되거나 답을 잃은 요청, 토큰이 끊긴 뒤의 다시 로그인, 로그인 화면의 로그인 칸과 오류, 다른 사용자가 있을 때의 지우고 로그인과 빼고 로그인,
+// 이 컴퓨터에서 빼기와 빼지 않는 경우, 다른 탭에서 사용자가 바뀐 경우, 비밀번호가 저장소와 콘솔에 남지 않는지, 비밀번호가 없는 사용자의 요청이 그대로인지),
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -196,7 +198,13 @@ async function linkOf(home, owner) {
 //   FAILED_PRECONDITION, 문서가 없으면 404 NOT_FOUND로 거절한다. 다른 브라우저가 고치거나 지운 것은 window.__otherEdits(번호, 글자), window.__otherDeletes(번호)로 흉내 낸다.
 //   window.__cloudLose에 숫자를 넣으면 다음 쓰기들은 서버에 들어가되 답을 잃는다(연결이 끊긴 것처럼). 모든 방 읽기를 멈추게 하려면 window.__cloudHoldReads에 참을 넣고
 //   window.__cloudAnswer()로 푼다. 방에 온 요청은 차례로 window.__cloudLog에 { method, at, writes }로 남는다(쓴 것은 본문의 writes)
-function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
+// 계정(F36): accounts는 계정 번호마다 { email, password, gen }이다. 비밀번호를 붙이거나 바꾸면 실제 서버처럼 토큰의 판(gen)이 올라 그 전의 토큰은 TOKEN_EXPIRED가 된다.
+//   익명 로그인은 fake-uid를 준다(그 계정에 비밀번호가 붙었으면 fake-anon-1부터). 쓰는 요청은 토큰의 계정과 문서의 uid가 다르면 규칙처럼 막는다.
+//   인증 서버에 온 요청은 window.__authLog에 { what, body, linking: 그때 저장소의 붙이는 중 표시 }로 남는다.
+//   window.__authLose에 { 'accounts:signUp': 1 }처럼 넣으면 그 요청은 서버에서 되고 답만 잃는다. window.__authHold나 window.__cloudHoldWrites가 참이면
+//   인증 서버의 답이나 쓰기의 답을 __cloudAnswer()까지 미룬다(서버에서는 이미 되었다). 온 요청 모두의 차례는 window.__requests에 한 줄씩 남는다
+// revs: 방마다의 판. 페이지를 다시 열어 같은 서버를 이어 쓸 때 넘긴다
+function fakeCloud(how, rooms = {}, notes = [], handles = {}, accounts = {}, revs = {}) {
   const real = window.fetch;
   const held = [];
   window.__cloudCalls = {};
@@ -210,9 +218,11 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
   window.__cloudLose = 0;
   window.__cloudHoldReads = false;
   window.__cloudRevs = {};
-  let tick = 0; // 판마다 다른 시각(마이크로초 자리를 하나씩 올린다)
+  window.__cloudHoldWrites = false;
+  window.__requests = [];
+  let tick = Math.floor(Date.now() / 10) % 900000; // 판마다 다른 시각(마이크로초 자리를 하나씩 올린다). 페이지를 다시 열어도 앞의 판과 겹치지 않는다
   const bump = id => (window.__cloudRevs[id] = new Date(1790000000000 + tick * 1000).toISOString().replace('.000Z', `.${String(++tick).padStart(6, '0')}Z`));
-  for (const id of Object.keys(rooms)) bump(id);
+  for (const id of Object.keys(rooms)) if (revs[id]) window.__cloudRevs[id] = revs[id]; else bump(id);
   window.__cloudRooms = () => Object.keys(rooms);
   window.__cloudRoom = id => rooms[id];
   window.__otherEdits = (id, code) => {
@@ -224,12 +234,49 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
     delete window.__cloudRevs[id];
   };
   window.__cloudAnswer = () => held.splice(0).forEach(done => done());
+  window.__accounts = accounts;
+  window.__authLog = [];
+  window.__authLose = {};
+  window.__authHold = false;
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status });
   const firestoreError = (status, code) => reply({ error: { code: status, message: 'fake', status: code } }, status);
   const denied = () => firestoreError(403, 'PERMISSION_DENIED');
+  // 토큰 글자 'fake-token.<계정 번호>.<판>'. fake-uid의 첫 판은 예전 점검이 심어 둔 fake-token과 fake-refresh다
+  let anon = 0;
+  const account = uid => (accounts[uid] ??= { email: '', password: '', gen: 0 });
+  const tokenText = (kind, uid) => (uid === 'fake-uid' && !account(uid).gen ? `fake-${kind}` : `fake-${kind}.${uid}.${account(uid).gen}`);
+  const tokenOf = text => {
+    const [, uid = 'fake-uid', gen = '0'] = String(text || '').split('.');
+    return { uid, live: Number(gen) === account(uid).gen };
+  };
+  const signedIn = uid => ({ localId: uid, idToken: tokenText('token', uid), refreshToken: tokenText('refresh', uid), expiresIn: '3600' });
+  const authError = message => reply({ error: { code: 400, message, errors: [{ message, domain: 'global', reason: 'invalid' }] } }, 400);
+  const bearer = opts => tokenOf((opts.headers?.Authorization || '').replace('Bearer ', '')).uid;
+  // 인증 서버. 실제 서버에서 확인한 대로 답한다(비밀번호가 있는 계정에 같은 이메일로 다시 붙이기도 된다)
+  const identity = (what, body) => {
+    if (what === 'accounts:signUp' && !body.idToken) return reply(signedIn(account('fake-uid').password ? `fake-anon-${++anon}` : 'fake-uid'));
+    const me = body.idToken ? tokenOf(body.idToken) : null;
+    if (me && !me.live) return authError('TOKEN_EXPIRED');
+    if (what === 'accounts:signInWithPassword') {
+      const [uid, a] = Object.entries(accounts).find(([, v]) => v.email && v.email === body.email) || [];
+      return a && a.password === body.password ? reply(signedIn(uid)) : authError('INVALID_LOGIN_CREDENTIALS');
+    }
+    if (String(body.password).length < 6) return authError('WEAK_PASSWORD : Password should be at least 6 characters');
+    if (what === 'accounts:signUp' && Object.entries(accounts).some(([uid, v]) => v.email === body.email && uid !== me.uid)) return authError('EMAIL_EXISTS');
+    Object.assign(account(me.uid), { password: body.password, gen: account(me.uid).gen + 1 }, what === 'accounts:signUp' ? { email: body.email } : {});
+    return reply(signedIn(me.uid));
+  };
   window.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (!u.includes('googleapis.com')) return real(url, opts);
+    const what = (u.match(/accounts:\w+/) || [])[0];
+    if (what) window.__authLog.push({ what, body: opts.body, linking: JSON.parse(localStorage.getItem('agarago.cloud') || '{}').linking });
+    const names = opts.body && u.includes(':commit') ? JSON.parse(opts.body).writes.map(w => (w.update?.name || w.delete).replace(/^.*\/documents/, '')) : [];
+    window.__requests.push(what ? `${what}${JSON.parse(opts.body).idToken ? '+token' : ''}` : u.includes('securetoken') ? 'securetoken' : [opts.method || 'GET', names.length ? 'commit' : u.replace(/^.*\/documents/, '').replace(/\?.*$/, ''), ...names].join(' '));
+    const answered = async (hold, answer) => {
+      if (hold) await new Promise(done => held.push(done));
+      return answer;
+    };
     if (u.includes('firestore.googleapis.com')) {
       window.__cloudLog.push({ method: opts.method || 'GET', at: u.replace(/^.*\/documents/, '').replace(/\?.*$/, ''), writes: opts.body && u.includes(':commit') ? JSON.parse(opts.body).writes : null });
     }
@@ -240,8 +287,20 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
       const [r] = window.__cloudRefuse.splice(refuse, 1);
       return new Response(r.body, { status: r.status });
     }
-    if (u.includes('accounts:signUp')) return write ? reply({ idToken: 'fake-token', localId: 'fake-uid', refreshToken: 'fake-refresh', expiresIn: '3600' }) : reply({}, 403);
-    if (u.includes('securetoken.googleapis.com')) return write ? reply({ id_token: 'fake-token', user_id: 'fake-uid', refresh_token: 'fake-refresh', expires_in: '3600' }) : reply({}, 403);
+    if (what) {
+      if (!write) return reply({}, 403);
+      const answer = identity(what, JSON.parse(opts.body));
+      if (window.__authLose[what] > 0) {
+        window.__authLose[what] -= 1;
+        throw new TypeError('Failed to fetch'); // 서버에서는 되었는데 답을 잃었다
+      }
+      return answered(window.__authHold, answer);
+    }
+    if (u.includes('securetoken.googleapis.com')) {
+      if (!write) return reply({}, 403);
+      const { uid, live } = tokenOf(new URLSearchParams(opts.body).get('refresh_token'));
+      return answered(window.__authHold, live ? reply({ id_token: tokenText('token', uid), user_id: uid, refresh_token: tokenText('refresh', uid), expires_in: '3600' }) : authError('TOKEN_EXPIRED'));
+    }
     if (u.includes(':runQuery')) {
       window.__noteBoards.push((u.match(/\/homes\/([0-9A-Za-z]+):runQuery/) || [])[1]);
       return reply(notes.map((n, i) => ({ document: { name: `notes/smoke${i}`, fields: {
@@ -254,6 +313,7 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
       for (const w of JSON.parse(opts.body).writes) {
         const handle = (w.update?.name?.match(/\/handles\/(.+)$/) || [])[1];
         if (handle) {
+          if (bearer(opts) !== w.update.fields.uid.stringValue) return denied();
           if (w.currentDocument?.exists === false && handle in handles) return firestoreError(409, 'ALREADY_EXISTS');
           handles[handle] = { uid: w.update.fields.uid.stringValue, room: w.update.fields.room.stringValue };
           continue;
@@ -263,6 +323,7 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
           const id = w.update.name.split('/').pop();
           const uid = w.update.fields.uid.stringValue;
           const at = w.currentDocument?.updateTime;
+          if (bearer(opts) !== uid) return denied();
           if (at && !(id in rooms)) return firestoreError(404, 'NOT_FOUND');
           if (at && at !== window.__cloudRevs[id]) return firestoreError(400, 'FAILED_PRECONDITION');
           if ((window.__cloudOwners[id] ??= uid) !== uid) return denied();
@@ -276,23 +337,23 @@ function fakeCloud(how, rooms = {}, notes = [], handles = {}) {
         throw new TypeError('Failed to fetch'); // 서버에는 들어갔는데 답을 잃었다
       }
       const last = JSON.parse(opts.body).writes.at(-1)?.update?.name?.split('/').pop();
-      return reply({ writeResults: [{ updateTime: window.__cloudRevs[last] }], commitTime: new Date().toISOString() });
+      return answered(window.__cloudHoldWrites, reply({ writeResults: [{ updateTime: window.__cloudRevs[last] }], commitTime: new Date().toISOString() }));
     }
     const handle = (u.match(/\/handles\/([^?/:]+)/) || [])[1];
     if (handle) {
       const key = decodeURIComponent(handle);
       if ((opts.method || 'GET') === 'DELETE') {
-        if (!write) return denied();
+        if (!write || (handles[key] && handles[key].uid !== bearer(opts))) return denied();
         delete handles[key];
         return reply({});
       }
       window.__handleCalls[key] = (window.__handleCalls[key] || 0) + 1;
       const doc = handles[key];
-      return doc ? reply({ fields: { uid: { stringValue: doc.uid }, room: { stringValue: doc.room } } }) : reply({}, 404);
+      return doc ? reply({ fields: { uid: { stringValue: doc.uid }, room: { stringValue: doc.room } } }) : firestoreError(404, 'NOT_FOUND');
     }
     const id = (u.match(/\/homes\/([0-9A-Za-z]+)/) || [])[1];
     if ((opts.method || 'GET') === 'DELETE') {
-      if (!write) return denied();
+      if (!write || (window.__cloudOwners[id] && window.__cloudOwners[id] !== bearer(opts))) return denied();
       delete rooms[id];
       return reply({});
     }
@@ -1499,6 +1560,1039 @@ async function walk(page, base) {
     }, kept);
   }
 
+  // 아이디와 비밀번호(F36)를 눌러 본다: 비밀번호 만들기와 바꾸기, 답을 잃거나 거절된 요청, 로그인이 풀린 뒤의 다시 로그인, 로그인 화면의 로그인 칸,
+  // 이 컴퓨터에서 빼기, 다른 탭에서 사용자가 바뀐 경우(src/cloud.js의 "비밀번호", src/user-account.js, src/sign-in.js, src/seat.js).
+  // 서버 대신 fakeCloud('write')가 계정까지 흉내 낸다. 움직임 줄이기를 켜서 부팅과 환영 화면을 건너뛴다. 끝나면 저장소와 움직임 설정을 되돌린다.
+  // 민지(fake-uid)의 방은 MINE, 나리(nari-uid)의 방은 NARI다. 나리는 다른 브라우저에서 비밀번호까지 만든 사용자다
+  async function account() {
+    const [MINE, NARI] = ['Acct0001', 'Acct0002'];
+    const PASS = ' minji pass '; // 앞뒤 공백을 자르지 않는지 같이 본다
+    const NEXT = 'minji-next-8';
+    const NARI_PASS = 'nari-secret-9';
+    const WORDS = ['minji pass', NEXT, NARI_PASS, 'wrong-pass-0']; // 저장소, 주소, 콘솔 어디에도 남으면 안 되는 글자
+    const emailOf = uid => `u${Buffer.from(uid, 'utf8').toString('hex')}@agaragoyo.invalid`;
+    const kept = await page.run(() => ({ ...localStorage }));
+    const reduce = on => page.send('Emulation.setEmulatedMedia', { features: on ? [{ name: 'prefers-reduced-motion', value: 'reduce' }] : [] });
+    await reduce(true);
+
+    // ---------- 도우미 ----------
+    const cleanHome = home => page.run(async h => JSON.stringify((await import(new URL('src/share.js', document.baseURI).href)).sanitizeHome(h)), home);
+    const codeOf = (home, extra = {}) => page.run(async (h, x) => {
+      const { sanitizeHome, encodeHome } = await import(new URL('src/share.js', document.baseURI).href);
+      return encodeHome(sanitizeHome({ ...h, picture: 'duck', ...x }));
+    }, home, extra);
+    const decoded = code => page.run(async c => (await import(new URL('src/share.js', document.baseURI).href)).decodeHome(c), code);
+    const cloudState = () => page.run(() => JSON.parse(localStorage.getItem('agarago.cloud') || '{}'));
+    const requests = () => page.run(() => window.__requests.map(decodeURIComponent));
+    // 이웃집의 방 읽기와 새 쪽지 찾기를 뺀 요청
+    const ownRequests = async () => (await requests()).filter(r => !r.startsWith('GET /homes') && !r.includes(':runQuery'));
+    const sentCount = () => page.run(() => window.__cloudSent.length);
+    const ids = home => [...home.scenes.room].map(i => i.id).sort().join();
+    const toastIs = (text, ms = 5000) => until(page, t => { const b = document.getElementById('toast'); return b.classList.contains('show') && b.textContent === t; }, ms, text);
+    const toastNow = () => page.run(() => document.getElementById('toast').textContent);
+    const onLogin = (ms = 4000) => until(page, () => !document.getElementById('login').hidden, ms);
+    const winNamed = t => [...document.querySelectorAll('#windows .win')].some(w => w.querySelector('.win-title')?.textContent === t);
+    const noScroll = () => page.run(() => [...document.querySelectorAll('#windows .win-body')].every(b => b.scrollHeight <= b.clientHeight && b.scrollWidth <= b.clientWidth));
+    const links = () => page.run(() => [...document.querySelectorAll('.users-own .reset-link, .users-own .own-link')].map(b => b.textContent).join());
+    const btn = (sel, text) => page.run((s, t) => { const b = [...document.querySelectorAll(s)].find(x => x.textContent === t); if (!b) return false; b.click(); return true; }, sel, text);
+    // 지금 페이지에서 비밀번호 글자가 남은 곳을 찾는다(저장소, 주소, 쿠키, 콘솔, 화면의 글)
+    const leaks = () => page.run(words => {
+      const places = [...Object.entries({ ...localStorage }), ...Object.entries({ ...sessionStorage })].map(e => e.join('=')).concat(location.href, document.cookie, window.__console || [], document.documentElement.outerHTML);
+      return words.filter(w => places.some(p => p.includes(w)));
+    }, WORDS);
+    // 예약한 올리기를 3초 기다리지 않고 지금 올린다(탭을 뒤로 보낼 때와 같은 길)
+    const flushNow = () => page.run(async () => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      delete document.visibilityState;
+      for (let i = 0; i < 40; i++) await new Promise(done => setTimeout(done)); // 올리는 일이 끝날 틈
+    });
+    // 다른 탭 흉내. 같은 출처의 iframe이 저장소에 쓰면 이 문서에 storage 이벤트가 온다. quiet면 이 문서가 직접 써서 이벤트 없이 바뀐 것(멈춰 있던 탭)을 흉내 낸다
+    const otherTab = (entries, quiet = false) => page.run((list, q) => {
+      const f = document.createElement('iframe');
+      if (!q) document.body.append(f);
+      const to = q ? localStorage : f.contentWindow.localStorage;
+      for (const [k, v] of Object.entries(list)) if (v === null) to.removeItem(k); else to.setItem(k, v);
+      f.remove();
+    }, entries, quiet);
+
+    const serverNow = () => page.run(() => ({
+      rooms: Object.fromEntries(window.__cloudRooms().map(id => [id, window.__cloudRoom(id)])),
+      owners: window.__cloudOwners, handles: window.__handles, accounts: window.__accounts, revs: window.__cloudRevs,
+    }));
+    // 저장소와 서버를 심고 로그인 화면까지 간다. store: 우리 키를 모두 지우고 둘 것(비우면 그대로). server: 가짜 서버(비우면 지금 페이지의 것을 잇는다)
+    async function boot({ store = null, server = null, how = 'write', hash = '', seen = null } = {}) {
+      const now = server || await serverNow();
+      await open();
+      if (store) {
+        await page.run(list => {
+          for (const k of Object.keys(localStorage)) if (k.startsWith('agarago.') || /^(tidy-up|file-ten)\./.test(k)) localStorage.removeItem(k);
+          for (const [k, v] of Object.entries(list)) localStorage.setItem(k, v);
+        }, store);
+      }
+      await open(hash);
+      await page.run(fakeCloud, how, now.rooms, [], now.handles, now.accounts, now.revs || {});
+      await page.run(owners => {
+        window.__cloudOwners = owners;
+        window.__console = [];
+        for (const k of ['log', 'info', 'warn', 'error', 'debug']) {
+          const real = console[k];
+          console[k] = (...a) => {
+            window.__console.push(a.map(x => (x instanceof Error ? `${x.message} ${x.stack} ${JSON.stringify(x)}` : typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' '));
+            real.apply(console, a);
+          };
+        }
+      }, now.owners);
+      // 판을 아는 브라우저(방금 서버와 맞춘 것)로 만든다
+      if (seen) {
+        await page.run(id => {
+          const st = JSON.parse(localStorage.getItem('agarago.cloud'));
+          localStorage.setItem('agarago.cloud', JSON.stringify({ ...st, rev: window.__cloudRevs[id] }));
+        }, seen);
+      }
+      await powerOn();
+      return until(page, () => !!document.querySelector('.users-own .user'), 4000);
+    }
+    const enterOwn = async () => {
+      await page.run(clickOnce, '.users-own .user:not(.new)');
+      return desktop();
+    };
+    const logOut = async () => {
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickText, '#start-menu .start-item', '로그아웃');
+      return onLogin();
+    };
+    const rename = async name => {
+      await page.run(clickOnce, '.start-btn');
+      await page.run(clickOnce, '#start-menu .start-name');
+      await until(page, () => !!document.querySelector('#windows .name-app'), 3000);
+      await page.run(nameSubmit, name);
+    };
+
+    // 아이디와 비밀번호 창
+    const openAccount = async () => {
+      await page.run(clickOnce, '.start-btn');
+      const row = await page.run(clickText, '#start-menu .start-item', '아이디와 비밀번호');
+      return row && until(page, () => !!document.querySelector('#windows .account-app form'), 3000);
+    };
+    // 읽기 전용이 아닌 칸에 차례로 채우고 보낸다
+    const submitAccount = (...values) => page.run(list => {
+      const f = document.querySelector('#windows .account-app form');
+      if (!f) return false;
+      const inputs = [...f.querySelectorAll('input:not([readonly])')];
+      list.forEach((v, i) => { inputs[i].value = v; inputs[i].dispatchEvent(new Event('input', { bubbles: true })); });
+      f.requestSubmit();
+      return true;
+    }, values);
+    const accountError = () => { const e = document.querySelector('#windows .account-app .like-error'); return e && !e.hidden ? e.textContent : ''; };
+    const errorIs = text => until(page, t => { const e = document.querySelector('#windows .account-app .like-error'); return !!e && !e.hidden && e.textContent === t; }, 5000, text);
+    const accountWindow = () => {
+      const w = [...document.querySelectorAll('#windows .win')].find(x => x.querySelector('.account-app'));
+      if (!w) return null;
+      const f = w.querySelector('form');
+      return {
+        title: w.querySelector('.win-title').textContent,
+        labels: [...f.querySelectorAll('.like-field span')].map(s => s.textContent).join(),
+        id: f.querySelector('input[name="username"]')?.value ?? null,
+        fixed: !!f.querySelector('input[name="username"]')?.readOnly,
+        auto: [...f.querySelectorAll('input')].map(i => i.autocomplete).join(),
+        notes: [...f.querySelectorAll('.meta')].map(m => m.innerText).join(' / ').replace(/\n+/g, '|'),
+        buttons: [...f.querySelectorAll('.btn')].map(b => b.textContent).join(),
+      };
+    };
+
+    // 로그인 칸
+    const openForm = async () => {
+      if (!(await page.run(() => !!document.querySelector('.sign-in')))) await page.run(() => [...document.querySelectorAll('.own-link, .reset-link')].find(b => /아이디로 로그인$/.test(b.textContent)).click());
+      return page.run(() => !!document.querySelector('.sign-in'));
+    };
+    const signIn = async (handle, password) => {
+      await openForm();
+      return page.run((id, pw) => {
+        const f = document.querySelector('.sign-in');
+        const put = (name, v) => { const i = f.querySelector(`input[name="${name}"]`); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); };
+        put('username', id);
+        put('password', pw);
+        f.requestSubmit();
+      }, handle, password);
+    };
+    const tipIs = text => until(page, t => { const e = document.querySelector('.sign-in .name-tip'); return !!e && !e.hidden && e.textContent === t; }, 6000, text);
+    const tipNow = () => page.run(() => document.querySelector('.sign-in .name-tip')?.textContent ?? '칸 없음');
+    const asked = () => page.run(() => ({ lines: [...document.querySelectorAll('.users-own .reset-box p')].map(p => p.textContent).join('|'), buttons: [...document.querySelectorAll('.users-own .reset-row .btn')].map(b => b.textContent).join() }));
+    const askedIs = text => until(page, t => [...document.querySelectorAll('.users-own .reset-box p')].map(p => p.textContent).join('|') === t, 6000, text);
+
+    // src/cloud.js의 한 줄을 바꿔 끼운 채로 run을 한다
+    const withCloud = async (from, to, run) => {
+      const source = fs.readFileSync(new URL('../src/cloud.js', import.meta.url), 'utf8');
+      if (!source.includes(from)) throw new Error(`src/cloud.js에서 "${from}"을 찾지 못했다`);
+      page.on('Fetch.requestPaused', ({ requestId }) => page.send('Fetch.fulfillRequest', {
+        requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/javascript' }], body: Buffer.from(source.replace(from, to)).toString('base64'),
+      }));
+      await page.send('Fetch.enable', { patterns: [{ urlPattern: '*/src/cloud.js*' }] });
+      try {
+        await run();
+      } finally {
+        page.on('Fetch.requestPaused', null);
+        await page.send('Fetch.disable');
+      }
+    };
+
+    // ---------- 심을 것 ----------
+    await open();
+    const HOME_M = { ...HOME, owner: '민지' };
+    const HOME_N = { ...HOME, owner: '나리', scenes: { room: HOME.scenes.room.filter(it => it.id !== 'tv') } };
+    const [minjiHome, minjiCode, nariCode] = [await cleanHome(HOME_M), await codeOf(HOME_M), await codeOf(HOME_N, { picture: 'cat', records: { 'tidy-up': 500, 'file-ten': 40 }, pet: { id: 'dog/brown', pats: 7 } })];
+    const nariAccount = { email: emailOf('nari-uid'), password: NARI_PASS, gen: 3 };
+    const minjiAccount = { email: emailOf('fake-uid'), password: PASS, gen: 1 };
+    const mineStore = (cloud = null, extra = {}) => ({
+      'agarago.home.v3': minjiHome, 'agarago.picture': '"duck"', 'agarago.settings': JSON.stringify({ sound: false, pet: 'none' }), 'agarago.said': 'true',
+      ...(cloud ? { 'agarago.cloud': JSON.stringify(cloud) } : {}), ...extra,
+    });
+    const linked = { uid: 'fake-uid', refresh: 'fake-refresh', id: MINE, sent: minjiCode, handle: '민지' }; // 비밀번호가 없는 사용자
+    const locked = { ...linked, refresh: 'fake-refresh.fake-uid.1', pw: true }; // 비밀번호가 있는 사용자
+    // pw: 민지의 계정(비우면 비밀번호가 없다). 나리는 늘 비밀번호가 있다
+    const serverWith = (pw = null, more = {}) => ({
+      rooms: { [MINE]: minjiCode, [NARI]: nariCode }, owners: { [MINE]: 'fake-uid', [NARI]: 'nari-uid' },
+      handles: { 민지: { uid: 'fake-uid', room: MINE }, 나리: { uid: 'nari-uid', room: NARI }, 이웃집: { uid: 'other-uid', room: 'Othr5678' } },
+      accounts: { 'nari-uid': { ...nariAccount }, ...(pw ? { 'fake-uid': { ...pw } } : {}) }, revs: {}, ...more,
+    });
+
+    // ---------- 비밀번호 만들기(링크가 없는 사용자) ----------
+    await boot({ store: mineStore(), server: serverWith(null, { rooms: { [NARI]: nariCode }, handles: { 이웃집: { uid: 'other-uid', room: 'Othr5678' } } }) });
+    check('내 사용자 아래에 다른 아이디로 로그인과 이 컴퓨터 초기화가 있다', (await links()) === '다른 아이디로 로그인,이 컴퓨터 초기화', await links());
+    await enterOwn();
+    await page.run(clickOnce, '.start-btn');
+    check('시작 메뉴의 이름 바꾸기와 로그아웃 사이에 아이디와 비밀번호가 있다', await page.run(() => [...document.querySelectorAll('#start-menu .start-item')].map(b => b.textContent).join().includes('이름 바꾸기,아이디와 비밀번호,로그아웃')));
+    await page.run(clickOnce, '.start-btn');
+    check('아이디와 비밀번호를 누르면 창이 뜬다', await openAccount());
+    const made = await page.run(accountWindow);
+    check('비밀번호가 없으면 아이디와 비밀번호와 확인 칸이 있고 아이디에 닉네임이 들어 있다', made.title === '아이디와 비밀번호' && made.labels === '아이디,비밀번호,비밀번호 확인' && made.id === '민지' && !made.fixed && made.buttons === '비밀번호 만들기,취소', JSON.stringify(made));
+    check('만들기 전에 다른 브라우저에서 로그인한다는 것과 잊으면 되찾을 수 없다는 것, 서버에 저장된다는 것을 알린다', made.notes === '다른 브라우저에서도 로그인해 이 방을 고칠 수 있습니다.|비밀번호를 잊으면 되찾을 수 없습니다.|다른 곳에서 쓰지 않는 비밀번호로 정해 주세요.|만들면 방이 Firebase(구글) 서버에 저장됩니다.', made.notes);
+    check('비밀번호 저장이 돌게 칸에 autocomplete를 단다', made.auto === 'username,new-password,new-password', made.auto);
+    check('창이 스크롤되지 않는다', await noScroll());
+    await probe('아이디와 비밀번호 창');
+    for (const [values, text] of [
+      [['', PASS, PASS], '아이디를 입력해 주세요.'],
+      [['a', PASS, PASS], '아이디는 한글, 영문, 숫자 2~12자입니다.다시 입력해 주세요.'],
+      [['민지', '', ''], '비밀번호를 입력해 주세요.'],
+      [['민지', '12345', '12345'], '비밀번호는 6자 이상으로 입력해 주세요.'],
+      [['민지', PASS, ''], '비밀번호 확인을 입력해 주세요.'],
+      [['민지', PASS, PASS.trim()], '비밀번호가 일치하지 않습니다.다시 입력해 주세요.'], // 공백을 자르면 같아진다
+      [['이웃집', PASS, PASS], '이미 사용 중인 아이디입니다.다른 아이디를 입력해 주세요.'],
+    ]) {
+      await submitAccount(...values);
+      check(`비밀번호 만들기: "${text}"`, await errorIs(text), await page.run(accountError));
+    }
+    check('오류가 떠도 창이 스크롤되지 않는다', await noScroll());
+    await probe('오류가 뜬 아이디와 비밀번호 창');
+    check('남이 쓰는 아이디면 방을 올리지도 계정을 만들지도 않는다', (await page.run(() => window.__cloudRooms().join())) === NARI && (await page.run(() => window.__authLog.length)) === 0, (await requests()).join(' / '));
+    await page.run(() => { window.__requests.length = 0; });
+    await submitAccount('민지', PASS, PASS);
+    check('비밀번호를 만들면 알리고 창이 닫힌다', await toastIs('비밀번호를 만들었습니다. 다른 브라우저에서도 로그인해 보세요.') && !(await page.run(accountWindow)), await page.run(accountError));
+    const first = await cloudState();
+    check('아이디를 쓸 수 있는지 먼저 보고 방, 아이디, 비밀번호 차례로 보낸다', JSON.stringify(await requests()) === JSON.stringify([
+      'GET /handles/민지', 'accounts:signUp', `POST commit /homes/${first.id}`, 'GET /handles/민지', 'POST commit /handles/민지', 'accounts:signUp+token',
+    ]), (await requests()).join(' / '));
+    check('비밀번호는 앞뒤 공백까지 그대로, 이메일 자리에는 계정 번호로 만든 주소가 간다', await page.run((pass, mail) => JSON.stringify(window.__accounts['fake-uid']) === JSON.stringify({ email: mail, password: pass, gen: 1 }), PASS, emailOf('fake-uid')), JSON.stringify(await page.run(() => window.__accounts['fake-uid'])));
+    check('비밀번호를 붙이는 요청을 보낼 때는 붙이는 중이라고 먼저 남겨 두었다', await page.run(() => window.__authLog.at(-1).linking === true && window.__authLog[0].linking === undefined));
+    check('붙인 뒤에는 비밀번호가 있다는 것과 새 토큰만 남고 표시는 지워진다', Object.keys(first).sort().join() === 'handle,id,pw,refresh,sent,uid' && first.pw === true && first.uid === 'fake-uid' && first.handle === '민지' && first.refresh === 'fake-refresh.fake-uid.1', JSON.stringify(first));
+    check('비밀번호를 만들어도 앉은 사용자의 표시는 바뀌지 않는다', (await page.run(() => localStorage.getItem('agarago.seat'))) === null);
+    await rename('민지둘');
+    await flushNow();
+    check('비밀번호를 만든 뒤에는 새 토큰으로 서버의 판을 걸어 올린다', await until(page, () => window.__cloudSent.length === 2, 5000) && !!(await cloudState()).rev && (await decoded(await page.run(() => window.__cloudSent.at(-1)))).owner === '민지둘', JSON.stringify(await cloudState()));
+    check('비밀번호는 저장소, 주소, 콘솔 어디에도 남지 않는다(만들기)', (await leaks()).length === 0, (await leaks()).join());
+
+    // ---------- 비밀번호 바꾸기 ----------
+    await openAccount();
+    const change = await page.run(accountWindow);
+    check('비밀번호가 있으면 정한 아이디를 보이고 지금 비밀번호와 새 비밀번호를 묻는다', change.labels === '아이디,지금 비밀번호,새 비밀번호,비밀번호 확인' && change.id === '민지' && change.fixed && change.buttons === '비밀번호 바꾸기,취소'
+      && change.auto === 'username,current-password,new-password,new-password' && change.notes.startsWith('바꾸면 다른 브라우저에서는 다시 로그인해야 합니다.'), JSON.stringify(change));
+    await probe('비밀번호 바꾸기 창');
+    for (const [values, text] of [
+      [['', NEXT, NEXT], '지금 비밀번호를 입력해 주세요.'],
+      [[PASS, '12345', '12345'], '비밀번호는 6자 이상으로 입력해 주세요.'],
+      [[PASS, NEXT, `${NEXT}x`], '비밀번호가 일치하지 않습니다.다시 입력해 주세요.'],
+      [['wrong-pass-0', NEXT, NEXT], '지금 비밀번호가 맞지 않습니다.다시 확인해 주세요.'],
+    ]) {
+      await submitAccount(...values);
+      check(`비밀번호 바꾸기: "${text}"`, await errorIs(text), await page.run(accountError));
+    }
+    check('틀린 비밀번호로는 바뀌지 않는다', (await page.run(() => window.__accounts['fake-uid'].password)) === PASS && (await cloudState()).refresh === 'fake-refresh.fake-uid.1');
+    await page.run(() => { window.__cloudRefuse = [{ at: 'accounts:signInWithPassword', status: 400, body: JSON.stringify({ error: { code: 400, message: 'TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account has been temporarily disabled' } }) }]; });
+    await submitAccount(PASS, NEXT, NEXT);
+    check('여러 번 틀려 막히면 그렇다고 알린다(바꾸기)', await errorIs('비밀번호를 여러 번 잘못 입력했습니다.잠시 후 다시 시도해 주세요.'), await page.run(accountError));
+    await submitAccount(PASS, NEXT, NEXT);
+    check('비밀번호를 바꾸면 알리고 새 토큰이 남는다', await toastIs('비밀번호를 바꿨습니다.') && (await page.run(() => window.__accounts['fake-uid'].password)) === NEXT && (await cloudState()).refresh === 'fake-refresh.fake-uid.2' && !(await page.run(accountWindow)), JSON.stringify(await cloudState()));
+    // 바꾸는 요청의 답을 잃음
+    await page.run(() => { window.__authLose = { 'accounts:update': 1 }; });
+    await openAccount();
+    await submitAccount(NEXT, PASS, PASS);
+    check('바꾸는 요청의 답을 잃어도 새 비밀번호로 로그인되면 바뀐 것으로 안다', await toastIs('비밀번호를 바꿨습니다.') && (await cloudState()).refresh === 'fake-refresh.fake-uid.3', JSON.stringify(await cloudState()));
+    await page.run(() => {
+      window.__authLose = { 'accounts:update': 1, 'accounts:signInWithPassword': 0 };
+      const block = { at: 'accounts:signInWithPassword', status: 503, body: 'blocked' };
+      window.__later = () => { window.__cloudRefuse = [block]; };
+    });
+    // 첫 로그인(지금 비밀번호 확인)은 되고, 바꾸는 요청의 답을 잃은 뒤의 확인 로그인이 막힌다
+    await openAccount();
+    await page.run(() => {
+      const real = window.fetch;
+      window.fetch = async (u, o) => { if (String(u).includes('accounts:update')) window.__later(); return real(u, o); };
+    });
+    await submitAccount(PASS, NEXT, NEXT);
+    check('바뀌었는지 알 수 없으면 확인하지 못했다고 알린다', await errorIs('비밀번호가 바뀌었는지 확인하지 못했습니다.잠시 후 다시 시도해 주세요.'), await page.run(accountError));
+    check('비밀번호는 저장소, 주소, 콘솔 어디에도 남지 않는다(바꾸기)', (await leaks()).length === 0, (await leaks()).join());
+
+    // ---------- 붙이는 요청의 거절과 답 잃기 ----------
+    const beforeLink = async (more = {}) => {
+      await boot({ store: mineStore({ ...linked, ...more }), server: serverWith() });
+      await enterOwn();
+      await openAccount();
+      return cloudState();
+    };
+    const google = message => JSON.stringify({ error: { code: 400, message } });
+    const refuse = (at, status, body) => page.run(r => { window.__cloudRefuse.push(r); }, { at, status, body });
+    for (const [message, text] of [
+      ['WEAK_PASSWORD : Password should be at least 6 characters', '쓸 수 없는 비밀번호입니다.다른 비밀번호를 입력해 주세요.'],
+      ['OPERATION_NOT_ALLOWED', '비밀번호를 만들지 못했습니다.잠시 후 다시 시도해 주세요.'],
+    ]) {
+      const was = await beforeLink();
+      await refuse('accounts:signUp', 400, google(message));
+      await submitAccount(PASS, PASS);
+      check(`붙이기를 ${message.split(' ')[0]}(으)로 거절하면 표시를 지우고 알린다`, await errorIs(text) && JSON.stringify(await cloudState()) === JSON.stringify(was), `${await page.run(accountError)} ${JSON.stringify(await cloudState())}`);
+    }
+    // 남이 그 이메일을 먼저 등록해 두었다
+    await boot({ store: mineStore(linked), server: serverWith(null, { accounts: { 'evil-uid': { email: emailOf('fake-uid'), password: 'evil-pass', gen: 0 } } }) });
+    await enterOwn();
+    await openAccount();
+    check('링크가 있으면 서버에 저장된다는 줄은 보이지 않고 아이디는 정한 것 그대로다', (({ notes, id, fixed }) => !notes.includes('Firebase') && id === '민지' && fixed)(await page.run(accountWindow)), JSON.stringify(await page.run(accountWindow)));
+    await submitAccount(PASS, PASS);
+    check('남이 먼저 등록한 주소(EMAIL_EXISTS)면 표시를 지우고 알린다', await errorIs('비밀번호를 만들지 못했습니다.잠시 후 다시 시도해 주세요.') && JSON.stringify(await cloudState()) === JSON.stringify(linked), JSON.stringify(await cloudState()));
+
+    await beforeLink();
+    await page.run(() => { window.__authLose = { 'accounts:signUp': 1 }; });
+    await submitAccount(PASS, PASS);
+    check('붙이는 요청의 답을 잃어도 같은 비밀번호로 로그인되면 붙은 것으로 안다', await toastIs('비밀번호를 만들었습니다. 다른 브라우저에서도 로그인해 보세요.')
+      && (({ pw, linking, refresh }) => pw === true && linking === undefined && refresh === 'fake-refresh.fake-uid.1')(await cloudState()), JSON.stringify(await cloudState()));
+
+    const loseLink = async () => { // 서버에는 붙었는데 답도 확인 로그인도 잃는다
+      const was = await beforeLink();
+      await page.run(() => { window.__authLose = { 'accounts:signUp': 1 }; });
+      await refuse('accounts:signInWithPassword', 503, 'blocked');
+      await submitAccount(PASS, PASS);
+      return { was, ok: await errorIs('비밀번호를 만들지 못했습니다.잠시 후 다시 시도해 주세요.') };
+    };
+    const lost1 = await loseLink();
+    const unsure = await cloudState();
+    check('붙었는지 알 수 없으면 표시를 둔 채 다시 해 달라고 알린다', lost1.ok && unsure.linking === true && unsure.pw === undefined && JSON.stringify({ ...unsure, linking: undefined }) === JSON.stringify(lost1.was), JSON.stringify(unsure));
+    await refuse('accounts:signUp', 400, google('WEAK_PASSWORD : x'));
+    await submitAccount(PASS, PASS);
+    check('앞의 답을 잃은 채 다음 요청이 거절되어도 표시는 남는다', await errorIs('쓸 수 없는 비밀번호입니다.다른 비밀번호를 입력해 주세요.') && (await cloudState()).linking === true, JSON.stringify(await cloudState()));
+    await submitAccount(PASS, PASS);
+    check('같은 비밀번호로 다시 하면 붙은 것을 알아보고 표시를 지운다', await toastIs('비밀번호를 만들었습니다. 다른 브라우저에서도 로그인해 보세요.') && (({ pw, linking }) => pw === true && linking === undefined)(await cloudState()), JSON.stringify(await cloudState()));
+
+    await loseLink();
+    await refuse('accounts:signUp', 400, google('EMAIL_EXISTS'));
+    await submitAccount(PASS, PASS);
+    check('앞의 요청이 붙어 있어 주소가 이미 있다고 거절되면 로그인해 보아 알아본다', await toastIs('비밀번호를 만들었습니다. 다른 브라우저에서도 로그인해 보세요.') && (({ pw, linking }) => pw === true && linking === undefined)(await cloudState()), JSON.stringify(await cloudState()));
+
+    await loseLink();
+    await submitAccount(NEXT, NEXT);
+    check('앞의 요청이 다른 비밀번호로 붙었으면 잊지 않고 다시 로그인하게 한다', await until(page, () => [...document.querySelectorAll('#windows .win-title')].some(t => t.textContent === '다시 로그인'), 5000)
+      && (({ id, uid, out, pw, handle }) => id === 'Acct0001' && uid === 'fake-uid' && out === true && pw === undefined && handle === '민지')(await cloudState()), JSON.stringify(await cloudState()));
+    await submitAccount(PASS);
+    check('앞에서 정한 비밀번호로 로그인하면 비밀번호가 있는 사용자가 된다', await toastIs('다시 로그인했습니다.') && (({ pw, linking, out }) => pw === true && linking === undefined && out === undefined)(await cloudState()), JSON.stringify(await cloudState()));
+
+    const lost2 = await loseLink();
+    await boot();
+    await enterOwn();
+    await rename('답잃은뒤');
+    await flushNow();
+    const kicked = await cloudState();
+    check('답을 잃은 채 다시 열면 저장해 둔 토큰이 끊겨도 방 번호와 계정을 잊지 않고 로그인이 풀린 것으로 안다', kicked.out === true && ['id', 'uid', 'sent', 'handle'].every(k => kicked[k] === lost2.was[k]) && !kicked.lost
+      && await until(page, () => !!document.querySelector('#windows .account-app'), 4000) && !(await requests()).includes('accounts:signUp'), `${JSON.stringify(kicked)} ${(await requests()).join(' / ')}`);
+
+    await beforeLink();
+    await refuse('accounts:signUp', 503, 'blocked');
+    await submitAccount(PASS, PASS);
+    check('붙지 않은 채 끊겨도 표시를 두고 다시 하면 붙는다', await errorIs('비밀번호를 만들지 못했습니다.잠시 후 다시 시도해 주세요.') && (await cloudState()).linking === true
+      && await submitAccount(PASS, PASS) && await toastIs('비밀번호를 만들었습니다. 다른 브라우저에서도 로그인해 보세요.') && (await cloudState()).pw === true, JSON.stringify(await cloudState()));
+    check('비밀번호는 저장소, 주소, 콘솔 어디에도 남지 않는다(답 잃기)', (await leaks()).length === 0, (await leaks()).join());
+
+    // 다른 탭에서 이미 만들었으면 다시 붙여 그 비밀번호를 바꾸지 않는다
+    await beforeLink();
+    await otherTab({ 'agarago.cloud': JSON.stringify({ ...locked }) }, true);
+    await page.run((m, p) => { window.__accounts['fake-uid'] = { email: m, password: p, gen: 1 }; }, minjiAccount.email, PASS);
+    await submitAccount(NEXT, NEXT);
+    check('다른 탭에서 이미 비밀번호를 만들었으면 다시 붙이지 않고 바꾸기로 바뀐다', await until(page, () => document.querySelector('#windows .account-app')?.textContent.includes('지금 비밀번호'), 4000)
+      && (await page.run(() => window.__accounts['fake-uid'].password)) === PASS && !(await requests()).includes('accounts:signUp+token'), (await requests()).join(' / '));
+
+    // ---------- 비밀번호는 있는데 링크나 아이디가 없음 ----------
+    await boot({ store: mineStore({ ...locked, id: null, sent: null, handle: null }), server: serverWith(minjiAccount, { rooms: { [NARI]: nariCode }, handles: { 이웃집: { uid: 'other-uid', room: 'Othr5678' } } }) });
+    check('비밀번호가 있어도 서버에 방이 없으면 이 컴퓨터 초기화를 보인다', (await links()) === '다른 아이디로 로그인,이 컴퓨터 초기화', await links());
+    await enterOwn();
+    await openAccount();
+    const pub = await page.run(accountWindow);
+    check('링크를 지웠으면 다시 올리고 아이디를 정하는 길만 있다', pub.labels === '아이디' && pub.buttons === '방 올리고 아이디 정하기,취소' && pub.notes.startsWith('링크가 없으면 다른 브라우저에서 로그인할 수 없습니다.') && pub.notes.includes('Firebase'), JSON.stringify(pub));
+    await probe('다시 올리는 아이디와 비밀번호 창');
+    await submitAccount('이웃집');
+    check('다시 올릴 때도 남이 쓰는 아이디면 방을 올리지 않는다', await errorIs('이미 사용 중인 아이디입니다.다른 아이디를 입력해 주세요.') && (await page.run(() => window.__cloudRooms().join())) === NARI);
+    await submitAccount('민지셋');
+    check('다시 올리면 새 번호와 아이디가 생기고 비밀번호는 그대로다', await toastIs('아이디를 정했습니다.') && (({ id, handle, pw, rev }) => !!id && handle === '민지셋' && pw === true && !!rev)(await cloudState()) && (await page.run(() => window.__accounts['fake-uid'].password)) === PASS, JSON.stringify(await cloudState()));
+    await boot({ store: mineStore({ ...locked, handle: null }), server: serverWith(minjiAccount, { handles: {} }) });
+    await enterOwn();
+    await openAccount();
+    check('아이디만 지웠으면 아이디를 정하는 길만 있다', (({ labels, buttons, notes }) => labels === '아이디' && buttons === '아이디 정하기,취소' && notes === '아이디가 없으면 다른 브라우저에서 로그인할 수 없습니다.|아이디를 정하면 같은 비밀번호로 로그인합니다.')(await page.run(accountWindow)), JSON.stringify(await page.run(accountWindow)));
+
+    // ---------- 로그인이 풀림 ----------
+    const other = { ...minjiAccount, password: NEXT, gen: 5 }; // 다른 브라우저에서 비밀번호를 바꿨다
+    const outWith = async (more = {}, server = {}) => {
+      await boot({ store: mineStore({ ...locked, edited: 1764079800000, ...more }), server: serverWith(other, server), seen: MINE });
+      await enterOwn();
+    };
+    await outWith();
+    const held = await cloudState();
+    await page.run(() => { window.__requests.length = 0; });
+    await rename('풀린뒤');
+    await flushNow();
+    const out = await cloudState();
+    check('토큰이 끊긴 비밀번호 사용자는 방 번호, 계정, 바탕을 잊지 않고 로그인이 풀렸다고만 남긴다', out.out === true && ['id', 'uid', 'sent', 'rev', 'handle', 'pw', 'refresh'].every(k => out[k] === held[k]) && !out.lost, JSON.stringify(out));
+    check('로그인이 풀리면 새 익명 계정을 만들지 않고 올리지도 않는다', (await requests()).join() === 'securetoken' && (await sentCount()) === 0, (await requests()).join(' / '));
+    check('로그인이 풀려도 이 컴퓨터의 방은 저장된다', (await page.run(savedOwner)) === '풀린뒤');
+    check('로그인이 풀린 것을 알면 다시 로그인하는 창이 저절로 뜨고 공유 링크 끊김 창은 뜨지 않는다', await until(page, winNamed, 4000, '다시 로그인') && !(await page.run(winNamed, '공유 링크 끊김')));
+    const again = await page.run(accountWindow);
+    check('다시 로그인하는 창은 아이디를 보이고 비밀번호만 묻는다', again.labels === '아이디,비밀번호' && again.id === '민지' && again.fixed && again.buttons === '로그인,나중에' && again.auto === 'username,current-password' && again.notes === '로그인하기 전에 고친 방은 이 컴퓨터에만 저장됩니다.', JSON.stringify(again));
+    check('저절로 뜬 창은 비밀번호 칸에 초점을 두지 않는다', await page.run(() => document.activeElement?.type !== 'password'));
+    check('다시 로그인하는 창이 스크롤되지 않는다', await noScroll());
+    await probe('다시 로그인하는 창');
+    await btn('#windows .account-app .btn', '나중에');
+    await rename('나중에');
+    await flushNow();
+    await sleep(300);
+    check('나중에를 누르면 닫히고, 그 뒤에 고쳐도 다시 뜨지 않으며 서버에 묻지도 않는다', !(await page.run(accountWindow)) && (await requests()).join() === 'securetoken', (await requests()).join(' / '));
+    await openAccount();
+    check('시작 메뉴의 아이디와 비밀번호로도 다시 로그인하는 창이 열린다', (await page.run(accountWindow)).title === '다시 로그인');
+    await submitAccount('');
+    check('다시 로그인: 빈 비밀번호', await errorIs('비밀번호를 입력해 주세요.'));
+    await submitAccount('wrong-pass-0');
+    check('다시 로그인: 틀린 비밀번호', await errorIs('비밀번호가 맞지 않습니다.다시 확인해 주세요.') && (await cloudState()).out === true, await page.run(accountError));
+    await page.run(() => { window.__requests.length = 0; window.__authHold = true; });
+    await submitAccount(NEXT);
+    await until(page, () => window.__requests.length > 0, 3000);
+    check('다시 로그인하는 동안 단추를 잠근다', await page.run(() => { const b = document.querySelector('#windows .account-app button[type="submit"]'); return b.disabled && b.textContent === '로그인 중'; }));
+    await page.run(() => { window.__authHold = false; window.__cloudAnswer(); });
+    check('다시 로그인하면 알리고 풀린 표시가 지워진다', await toastIs('다시 로그인했습니다.') && (({ out: o, pw, uid, refresh }) => o === undefined && pw === true && uid === 'fake-uid' && refresh === 'fake-refresh.fake-uid.5')(await cloudState()), JSON.stringify(await cloudState()));
+    check('다시 로그인은 아이디 문서를 읽지 않고 저장해 둔 계정 번호로 한다', await page.run(m => JSON.parse(window.__authLog.at(-1).body).email === m, emailOf('fake-uid')) && !(await requests()).some(r => r.includes('/handles/')), (await requests()).join(' / '));
+    await flushNow();
+    check('다시 로그인하면 그동안 올리지 못한 고침을 서버의 판을 걸어 올린다', await until(page, () => window.__cloudSent.length === 1, 5000) && (await decoded(await page.run(() => window.__cloudSent[0]))).owner === '나중에'
+      && (await page.run(id => window.__cloudLog.findLast(l => l.writes?.some(w => w.update?.name?.endsWith(`/homes/${id}`))).writes[0].currentDocument?.updateTime, MINE)) === held.rev, JSON.stringify(await cloudState()));
+    check('비밀번호는 저장소, 주소, 콘솔 어디에도 남지 않는다(다시 로그인)', (await leaks()).length === 0, (await leaks()).join());
+
+    // 로그인이 풀린 채 다시 켰다. 올릴 것이 없어도 들어올 때 알린다
+    await outWith({ out: true });
+    check('로그인이 풀린 채 들어오면 올릴 것이 없어도 다시 로그인하는 창이 바로 뜬다', await until(page, winNamed, 1500, '다시 로그인') && !(await requests()).some(r => /securetoken|accounts:/.test(r)), (await requests()).join(' / '));
+
+    // 비밀번호가 있는데 저장해 둔 토큰이 없어도 새 익명 계정을 만들지 않는다
+    await outWith({ refresh: null });
+    await rename('토큰없음');
+    await flushNow();
+    check('비밀번호가 있는데 토큰이 없으면 새 계정을 만들지 않고 다시 로그인하게 한다', (({ out: o, uid, id }) => o === true && uid === 'fake-uid' && id === 'Acct0001')(await cloudState()) && (await ownRequests()).length === 0 && await until(page, winNamed, 4000, '다시 로그인'), `${JSON.stringify(await cloudState())} ${(await ownRequests()).join(' / ')}`);
+    await closeWindows();
+
+    // 내 컴퓨터로 들어올 때마다 한 번 뜬다. 글을 치는 동안과 튜토리얼 연습 방에서는 끼어들지 않는다
+    await outWith({ out: true });
+    check('풀린 채로 내 컴퓨터에 들어오면 다시 로그인하는 창이 뜬다', await until(page, winNamed, 4000, '다시 로그인'));
+    await btn('#windows .account-app .btn', '나중에');
+    await logOut();
+    await enterOwn();
+    check('다시 들어오면 한 번 더 뜬다', await until(page, winNamed, 4000, '다시 로그인'));
+    await btn('#windows .account-app .btn', '나중에');
+    await outWith();
+    await press(page, 'Enter');
+    await until(page, () => document.activeElement?.matches('.say-input'), 2000);
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 });
+    await flushNow();
+    await sleep(1300);
+    check('말하기 칸에 글을 치는 동안에는 저절로 뜨지 않는다', (await cloudState()).out === true && !(await page.run(accountWindow)), JSON.stringify(await cloudState()));
+    await press(page, 'Escape');
+    check('말하기를 마치면 뜬다', await until(page, winNamed, 4000, '다시 로그인'));
+    await closeWindows();
+
+    // 로그인이 풀린 사이에 다른 브라우저가 방을 고쳤다. 기다리던 올리기가 없어도 다시 로그인하면 서버의 방과 견준다
+    const THEIRS = await codeOf({ ...HOME_M, scenes: { room: HOME.scenes.room.filter(it => it.id !== 'bed') } });
+    await outWith({ out: true });
+    await until(page, winNamed, 4000, '다시 로그인');
+    await rename('이쪽이름');
+    await flushNow();
+    await page.run((id, code) => window.__otherEdits(id, code), MINE, THEIRS);
+    await openAccount();
+    await submitAccount(NEXT);
+    check('다시 로그인했더니 서버의 방도 바뀌어 있으면 두 곳에서 고친 방을 묻는다', await until(page, winNamed, 6000, '두 곳에서 고친 방') && (await sentCount()) === 0, await page.run(accountError));
+    await closeWindows();
+    // 공유하기 창에서 하던 일이 막히면 알림 대신 다시 로그인하는 창이 열린다
+    await outWith({ out: true });
+    await until(page, winNamed, 4000, '다시 로그인');
+    await btn('#windows .account-app .btn', '나중에');
+    await openIcon('share');
+    await btn('#windows .btn', '아이디 지우기');
+    await btn('#windows .btn', '지우기');
+    check('로그인이 풀린 채 아이디 지우기를 누르면 다시 로그인하는 창이 열리고 아이디는 남는다', await until(page, winNamed, 4000, '다시 로그인') && (await cloudState()).handle === '민지' && await page.run(() => '민지' in window.__handles));
+    await closeWindows();
+    // 친구 집에서는 창이 뜨지 않고, 쪽지를 붙이지 못하면 까닭을 알린다
+    await boot({ store: mineStore({ ...locked, out: true }), server: serverWith(other), hash: `#s=${NARI}` });
+    await until(page, () => [...document.querySelectorAll('.users .user')].some(u => u.textContent.includes('손님으로 구경하기')), 4000);
+    await page.run(clickText, '.users .user', '손님으로 구경하기');
+    await desktop();
+    await page.run(clickOnce, '.start-btn');
+    check('친구 집의 시작 메뉴에는 아이디와 비밀번호가 없다', await page.run(() => ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent === '아이디와 비밀번호')));
+    await page.run(clickOnce, '.start-btn');
+    await use('corkboard', () => !!document.querySelector('.closeup .cork-empty, .closeup .cork-notes'), '나리의 코르크 보드가 열린다');
+    await until(page, () => [...document.querySelectorAll('.closeup .btn')].some(b => b.textContent === '쪽지 남기기'), 4000);
+    await page.run(clickText, '.closeup .btn', '쪽지 남기기');
+    await page.run(() => { const f = document.querySelector('.cork-form'); f.querySelector('input').value = '민지'; f.querySelector('textarea').value = '안녕'; f.requestSubmit(); });
+    check('친구 집에서 로그인이 풀린 채 쪽지를 붙이면 내 컴퓨터에서 다시 로그인하라고 알린다', await until(page, () => document.querySelector('.cork-form .like-error:not([hidden])')?.textContent === '로그인이 풀렸습니다. 내 컴퓨터에서 다시 로그인해 주세요.', 4000)
+      && !(await page.run(accountWindow)), await page.run(() => document.querySelector('.cork-form .like-error')?.textContent ?? ''));
+    await page.run(() => document.activeElement?.blur());
+    await press(page, 'Escape');
+
+    // 튜토리얼 연습 방의 시작 메뉴에는 없다
+    await outWith();
+    await page.run(clickOnce, '.start-btn');
+    await page.run(clickText, '#start-menu .start-item', '튜토리얼 다시 보기');
+    await page.run(clickText, '#windows .btn', '빈 방에서 연습하기');
+    await page.run(clickOnce, '.start-btn');
+    check('튜토리얼 연습 방의 시작 메뉴에는 아이디와 비밀번호가 없다', await page.run(() => ![...document.querySelectorAll('#start-menu .start-item')].some(b => b.textContent === '아이디와 비밀번호')));
+    await page.run(clickOnce, '.start-btn');
+    await page.run(() => document.querySelector('.coach-btn').click());
+
+    // ---------- 공유하기 창의 권유 ----------
+    const shareText = () => page.run(() => document.querySelector('#windows .win')?.textContent || '');
+    await boot({ store: mineStore({ ...linked, handle: null }), server: serverWith(null, { handles: {} }) });
+    await enterOwn();
+    await openIcon('share');
+    check('아이디를 정하기 전에는 비밀번호를 권하지 않는다', !(await shareText()).includes('비밀번호'));
+    await closeWindows();
+    await boot({ store: mineStore(linked), server: serverWith() });
+    await enterOwn();
+    await openIcon('share');
+    check('아이디를 정했고 비밀번호가 없으면 공유하기 창이 한 줄 권한다', (await shareText()).includes('비밀번호를 만들면 다른 브라우저에서도 로그인할 수 있습니다.') && await noScroll());
+    await probe('비밀번호를 권하는 공유하기 창');
+    await btn('#windows .btn', '아이디 지우기');
+    check('비밀번호가 없으면 아이디 지우기 확인에 로그인 이야기가 없다', (await shareText()).includes('지운 아이디는 다른 사람이 정할 수 있습니다.') && !(await shareText()).includes('로그인할 수 없게'));
+    await btn('#windows .btn', '그대로 두기');
+    await btn('#windows .share-password .btn', '비밀번호 만들기');
+    check('권유의 단추를 누르면 아이디와 비밀번호 창이 열린다', await until(page, winNamed, 3000, '아이디와 비밀번호'));
+    await submitAccount(PASS, PASS);
+    check('비밀번호를 만들면 열려 있던 공유하기 창의 권유가 로그인 안내로 바뀐다', await until(page, () => document.querySelector('#windows .share-password')?.textContent === '다른 브라우저에서는 이 아이디와 비밀번호로 로그인합니다.', 5000));
+    await probe('비밀번호가 있는 공유하기 창');
+    await btn('#windows .btn', '아이디 지우기');
+    check('비밀번호가 있으면 아이디 지우기 확인에 로그인할 수 없게 된다고 적는다', (await shareText()).includes('지운 아이디는 다른 사람이 정할 수 있습니다. 다른 브라우저에서 로그인할 수 없게 됩니다.'));
+    await btn('#windows .btn', '그대로 두기');
+    await btn('#windows .btn', '링크 지우기');
+    check('비밀번호가 있으면 링크 지우기 확인에 로그인할 수 없게 된다고 적는다', (await shareText()).includes('이 링크는 더는 열리지 않습니다. 다른 브라우저에서 로그인할 수 없게 됩니다.') && await noScroll());
+    await probe('비밀번호가 있을 때의 링크 지우기 확인');
+    await closeWindows();
+
+    // ---------- 튜토리얼 끝 카드 ----------
+    const endCard = async cloud => {
+      await boot({ store: mineStore(cloud), server: serverWith(cloud?.pw ? minjiAccount : null) });
+      await page.run(async () => {
+        const { TUTORIAL_FURNITURE: t } = await import(new URL('data/furniture.js', document.baseURI).href);
+        const passed = Object.fromEntries(['open', `place-${t.first}`, `place-${t.light}`, 'close', 'night', 'day', 'say', 'neighbor'].map(k => [k, true]));
+        localStorage.setItem('agarago.tutorial', JSON.stringify({ active: true, passed }));
+      });
+      await boot();
+      await enterOwn();
+      await until(page, () => document.querySelector('.coach-title')?.textContent === '튜토리얼 끝', 4000);
+      return page.run(() => document.querySelector('.coach-text').textContent);
+    };
+    const plainEnd = await endCard(linked);
+    check('튜토리얼 끝 카드가 비밀번호 만들기를 한 줄 권하고, 글이 줄마다 나눈 대로 선다', plainEnd.endsWith('다시 볼 수 있습니다.\n다른 브라우저에서도 고치려면\n시작 메뉴에서 비밀번호를 만드세요.') && await page.run(() => {
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector('.coach-text'));
+      return new Set([...r.getClientRects()].map(x => Math.round(x.top))).size === document.querySelector('.coach-text').textContent.split('\n').length;
+    }), plainEnd);
+    await probe('비밀번호를 권하는 튜토리얼 끝 카드');
+    check('비밀번호가 있으면 튜토리얼 끝 카드가 권하지 않는다', !(await endCard(locked)).includes('비밀번호'));
+
+    // ---------- 로그인 화면의 로그인(사용자가 없는 브라우저) ----------
+    // 손님으로 쪽지를 남긴 적이 있어 익명 계정과 닉네임이 남은 브라우저다. 로그인하면 이 칸들이 섞이지 않는다
+    const EMPTY = {
+      'agarago.settings': JSON.stringify({ sound: false, night: false, pet: 'cat/gray', petPats: 2 }), 'tidy-up.best': '900', 'file-ten.best': '10',
+      'agarago.cloud': JSON.stringify({ uid: 'guest-uid', refresh: 'fake-refresh.guest-uid.0', nick: '손님', seen: 5 }),
+    };
+    await boot({ store: EMPTY, server: serverWith(minjiAccount) });
+    check('사용자가 없으면 새 사용자 만들기 아래에 내 아이디로 로그인이 있다', (await links()) === '내 아이디로 로그인' && await page.run(() => !!document.querySelector('.user.new input[aria-label="닉네임"]')));
+    await page.run(() => document.querySelector('.user.new').requestSubmit());
+    check('빈 닉네임의 오류 풍선이 글자 단추를 가리지 않는다', await page.run(() => document.querySelector('.users-own .name-tip:not([hidden])').getBoundingClientRect().bottom <= document.querySelector('.own-link').getBoundingClientRect().top));
+    await btn('.own-link', '내 아이디로 로그인');
+    check('누르면 왼쪽 단이 로그인 칸으로 바뀐다', await page.run(() => {
+      const f = document.querySelector('.sign-in');
+      const inputs = [...f.querySelectorAll('input')];
+      return !!f.querySelector('.user-pic[data-pic="key"] svg') && f.querySelector('.user-name').firstChild.textContent === '내 아이디로 로그인' && inputs.map(i => `${i.type}/${i.autocomplete}/${i.placeholder}`).join() === 'text/username/아이디,password/current-password/비밀번호'
+        && f.querySelector('.btn').textContent === '로그인' && f.querySelector('small').textContent === '비밀번호는 시작 메뉴에서 만듭니다.' && !document.querySelector('.user.new input[aria-label="닉네임"]');
+    }) && (await links()) === '새 사용자 만들기', await links());
+    await probe('로그인 칸');
+    await btn('.own-link', '새 사용자 만들기');
+    check('새 사용자 만들기를 누르면 돌아온다', await page.run(() => !!document.querySelector('.user.new input[aria-label="닉네임"]') && !document.querySelector('.sign-in')) && (await links()) === '내 아이디로 로그인');
+    const before = JSON.stringify(await page.run(() => ({ ...localStorage })));
+    const failing = async (what, text, handle, password, setUp = null, ...args) => {
+      if (setUp) await page.run(setUp, ...args);
+      await signIn(handle, password);
+      check(`로그인: ${what}`, await tipIs(text) && JSON.stringify(await page.run(() => ({ ...localStorage }))) === before && await page.run(() => !document.getElementById('login').hidden && !document.querySelector('.sign-in .btn').disabled), await tipNow());
+    };
+    const WRONG = '아이디나 비밀번호가 맞지 않습니다.다시 확인해 주세요.';
+    const FAILED = '로그인하지 못했습니다.잠시 후 다시 시도해 주세요.';
+    const NO_ROOM = '방을 불러오지 못했습니다.잠시 후 다시 시도해 주세요.';
+    await failing('빈 아이디', '아이디를 입력해 주세요.', ' ', NARI_PASS);
+    await failing('빈 비밀번호', '비밀번호를 입력해 주세요.', '나리', '');
+    check('빈 칸과 꼴이 틀린 아이디는 서버에 묻지 않는다', (await requests()).filter(r => !r.startsWith('GET /homes')).length === 0, (await requests()).join(' / '));
+    await failing('꼴이 틀린 아이디', WRONG, '!!!', NARI_PASS);
+    await failing('틀린 비밀번호', WRONG, '나리', 'wrong-pass-0');
+    check('틀리면 두 칸을 빨갛게 두르고 오류 풍선이 글자 단추를 가리지 않는다', await page.run(() => document.querySelectorAll('.sign-in input[aria-invalid="true"]').length === 2
+      && document.querySelector('.sign-in .name-tip').getBoundingClientRect().bottom <= document.querySelector('.own-link').getBoundingClientRect().top));
+    await probe('오류가 뜬 로그인 칸');
+    await failing('없는 아이디도 같은 문구', WRONG, '없는아이디', NARI_PASS);
+    await failing('여러 번 틀려 막힘', '비밀번호를 여러 번 잘못 입력했습니다.잠시 후 다시 시도해 주세요.', '나리', NARI_PASS, body => { window.__cloudRefuse = [{ at: 'accounts:signInWithPassword', status: 400, body }]; }, google('TOO_MANY_ATTEMPTS_TRY_LATER : later'));
+    await failing('인증 서버에 닿지 못함', FAILED, '나리', NARI_PASS, () => { window.__cloudRefuse = [{ at: 'accounts:signInWithPassword', status: 503, body: 'x' }]; });
+    await failing('아이디를 읽다가 차단 화면의 404를 받음', FAILED, '나리', NARI_PASS, () => { window.__cloudRefuse = [{ at: '/handles/', status: 404, body: '<html>차단된 사이트입니다</html>' }]; });
+    await failing('아이디를 읽지 못함', FAILED, '나리', NARI_PASS, () => { window.__cloudRefuse = [{ at: '/handles/', status: 503, body: 'x' }]; });
+    await failing('방을 읽지 못함', FAILED, '나리', NARI_PASS, id => { window.__cloudRefuse = [{ at: `/homes/${id}`, status: 503, body: 'x' }]; }, NARI);
+    await failing('남이 먼저 등록한 주소(계정 번호가 다름)', WRONG, '나리', 'evil-pass', m => { window.__accounts['nari-uid'].email = ''; window.__accounts['evil-uid'] = { email: m, password: 'evil-pass', gen: 0 }; }, emailOf('nari-uid'));
+    await failing('아이디를 정한 사람의 방이 아님', WRONG, '나리', NARI_PASS, (id, m) => { delete window.__accounts['evil-uid']; window.__accounts['nari-uid'].email = m; window.__cloudOwners[id] = 'other-uid'; }, NARI, emailOf('nari-uid'));
+    await failing('풀 수 없는 방', NO_ROOM, '나리', NARI_PASS, id => { window.__cloudOwners[id] = 'nari-uid'; window.__otherEdits(id, 'not-a-room-code'); }, NARI);
+    await failing('방이 없음', NO_ROOM, '나리', NARI_PASS, id => window.__otherDeletes(id), NARI);
+    await page.run((id, code) => { window.__otherEdits(id, code); window.__authHold = true; }, NARI, nariCode);
+    await signIn(' @나리 ', NARI_PASS); // 띄어쓰기와 앞의 @는 아이디를 찾아갈 때처럼 맞춘다
+    await until(page, () => window.__requests.at(-1)?.startsWith('accounts:signIn'), 3000);
+    check('로그인하는 동안 단추를 잠근다', await page.run(() => { const b = document.querySelector('.sign-in .btn'); return b.disabled && b.textContent === '로그인 중'; }));
+    await page.run(() => { window.__authHold = false; window.__cloudAnswer(); });
+    check('로그인하면 그 방의 바탕화면이 뜬다', await desktop() && ids(await page.run(savedHome)) === ids(HOME_N) && (await page.run(savedOwner)) === '나리'
+      && await page.run(() => !document.querySelector('#wallpaper .furn[data-id="tv"]') && !!document.querySelector('#wallpaper .furn[data-id="bed"]')));
+    check('로그인한 뒤에는 로그인 칸과 친 비밀번호가 화면에 남지 않는다', await page.run(() => !document.querySelector('.sign-in') && !document.querySelector('input[type="password"]')));
+    const nari = await cloudState();
+    check('로그인하면 계정과 방과 판을 새로 쓴다', Object.keys(nari).sort().join() === 'handle,id,pw,refresh,rev,sent,uid' && nari.uid === 'nari-uid' && nari.id === NARI && nari.handle === '나리' && nari.pw === true && nari.sent === nariCode && nari.refresh === 'fake-refresh.nari-uid.3'
+      && nari.rev === await page.run(id => window.__cloudRevs[id], NARI), JSON.stringify(nari));
+    check('로그인하면 사진과 펫이 그 사용자의 것이 되고, 사용자가 없던 브라우저의 게임 기록과는 큰 쪽이 남는다', (await page.run(() => [localStorage.getItem('agarago.picture'), localStorage.getItem('tidy-up.best'), localStorage.getItem('file-ten.best')].join())) === '"cat",900,40'
+      && await page.run(() => { const s = JSON.parse(localStorage.getItem('agarago.settings')); return s.pet === 'dog/brown' && s.petPats === 7 && s.sound === false; }));
+    check('로그인한 사용자에게는 튜토리얼이 뜨지 않는다', await page.run(() => JSON.parse(localStorage.getItem('agarago.tutorial')).active === false && document.querySelector('.coach-card').hidden));
+    check('로그인은 앉은 사용자가 바뀌었다는 표시를 남긴다', /^"[0-9a-f]{16}"$/.test(await page.run(() => localStorage.getItem('agarago.seat') || '')));
+    check('이 브라우저가 더 큰 게임 기록은 서버에 올린다', (await flushNow(), await until(page, async () => (await import(new URL('src/share.js', document.baseURI).href)).decodeHome(window.__cloudSent.at(-1) || '')?.records?.['tidy-up'] === 900, 6000)));
+    check('로그인은 서버의 방이나 아이디를 지우지 않는다', !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
+    check('비밀번호는 저장소, 주소, 콘솔 어디에도 남지 않는다(로그인)', (await leaks()).length === 0, (await leaks()).join());
+    check('로그인한 사용자를 앉히면 그 전에 예약한 올리기를 버린다', await page.run(async () => {
+      const cloud = await import(new URL('src/cloud.js', document.baseURI).href);
+      let made = 0;
+      cloud.syncLater(() => { made++; return 'old-code'; });
+      const st = JSON.parse(localStorage.getItem('agarago.cloud'));
+      cloud.adoptLogin({ me: { token: 'fake-token', uid: st.uid, until: Date.now() + 1e6 }, refresh: st.refresh, handle: st.handle, room: st.id, code: st.sent, rev: st.rev });
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+      delete document.visibilityState;
+      await new Promise(done => setTimeout(done, 100));
+      return made === 0;
+    }));
+    await boot();
+    check('한 번 로그인한 브라우저는 다시 켜도 비밀번호를 묻지 않는다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기' && await enterOwn() && !(await page.run(accountWindow)));
+
+    // 로그인하는 사이에 다른 탭에서 사용자가 바뀌었으면 아무것도 바꾸지 않는다. 이벤트를 받지 못했어도(missed) 같다
+    for (const missed of [false, true]) {
+      await boot({ store: EMPTY, server: serverWith(minjiAccount) });
+      await page.run(() => { window.__authHold = true; });
+      await signIn('나리', NARI_PASS);
+      await until(page, () => window.__requests.at(-1)?.startsWith('accounts:signIn'), 3000);
+      await otherTab({ ...mineStore(locked), 'agarago.seat': '"other-tab-seat-1"' }, missed);
+      await page.run(() => { window.__authHold = false; window.__cloudAnswer(); });
+      await sleep(500);
+      check(`로그인하는 사이에 다른 탭에서 로그인하면 이 탭의 로그인은 버리고 그 사용자를 보인다${missed ? '(이벤트를 받지 못함)' : ''}`, (await page.run(savedOwner)) === '민지' && (await cloudState()).uid === 'fake-uid' && await page.run(() => document.querySelector('.users-own .user:not(.new)')?.textContent.startsWith('민지')) && (await asked()).buttons === '', JSON.stringify(await asked()));
+    }
+    // 친구 링크로 온 브라우저에서 로그인하면 주소의 링크를 지우고 내 컴퓨터로 들어간다
+    await boot({ store: EMPTY, server: serverWith(minjiAccount), hash: `#s=${MINE}` });
+    await signIn('나리', NARI_PASS);
+    check('친구 링크로 온 화면에서도 로그인하면 내 컴퓨터로 들어간다', await desktop() && await page.run(() => location.hash === '' && document.getElementById('stage').dataset.mode === 'edit') && (await page.run(savedOwner)) === '나리');
+
+    // ---------- 다른 사용자가 있는 브라우저 ----------
+    const extra = { 'tidy-up.best': '3000', 'agarago.recent': JSON.stringify([{ room: 'Rcnt0001', name: '최근', picture: 'cake' }]), 'agarago.quiz': '{}', 'file-ten.clears': '5', 'other-site.smoke2': '1' };
+    await boot({ store: mineStore(null, extra), server: serverWith(minjiAccount) });
+    const own0 = JSON.stringify(await page.run(() => ({ ...localStorage })));
+    await signIn('나리', 'wrong-pass-0');
+    check('비밀번호가 틀리면 지울 것을 묻지 않는다', await tipIs(WRONG) && (await asked()).buttons === '');
+    await signIn('나리', NARI_PASS);
+    check('비밀번호가 없는 사용자가 있으면 비밀번호가 맞은 다음에 지울 것을 보인다', await askedIs('이 컴퓨터에 저장된 민지의 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.') && (await asked()).buttons === '지우고 로그인,그대로 두기', JSON.stringify(await asked()));
+    await probe('지우고 로그인 확인');
+    check('고르기 전에는 아무것도 바뀌지 않는다', JSON.stringify(await page.run(() => ({ ...localStorage }))) === own0);
+    await btn('.reset-row .btn', '그대로 두기');
+    check('그대로 두기를 누르면 내 사용자가 그대로 있다', await page.run(() => !!document.querySelector('.users-own .user:not(.new)')) && JSON.stringify(await page.run(() => ({ ...localStorage }))) === own0);
+    await signIn('나리', NARI_PASS);
+    await askedIs('이 컴퓨터에 저장된 민지의 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.');
+    await btn('.reset-row .btn', '지우고 로그인');
+    check('지우고 로그인하면 앞 사용자의 기록과 펫과 놀러 간 집이 섞이지 않는다', await desktop() && (await page.run(savedOwner)) === '나리'
+      && await page.run(() => localStorage.getItem('tidy-up.best') === '500' && localStorage.getItem('file-ten.best') === '40' && !localStorage.getItem('file-ten.clears') && !localStorage.getItem('agarago.recent') && !localStorage.getItem('agarago.quiz') && !localStorage.getItem('agarago.said')
+        && localStorage.getItem('other-site.smoke2') === '1' && JSON.parse(localStorage.getItem('agarago.settings')).pet === 'dog/brown'), JSON.stringify(await page.run(() => ({ ...localStorage }))));
+    await page.run(() => localStorage.removeItem('other-site.smoke2'));
+    // 링크를 만든 사용자
+    await boot({ store: mineStore({ ...linked, nick: '예전닉', seen: 5, lost: { id: 'Lost0001', told: true } }), server: serverWith() });
+    await signIn('나리', NARI_PASS);
+    check('링크를 만든 사용자면 더는 고칠 수 없다는 것과 먼저 비밀번호를 만들라는 말을 함께 보인다', await askedIs('이 컴퓨터에 저장된 민지의 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.|링크의 방은 서버에 남지만 더는 고칠 수 없습니다.|계속 고치려면 먼저 시작 메뉴에서 비밀번호를 만들어 주세요.'), JSON.stringify(await asked()));
+    await probe('링크가 있을 때의 지우고 로그인 확인');
+    await btn('.reset-row .btn', '지우고 로그인');
+    await desktop();
+    check('지우고 로그인해도 서버의 방과 아이디는 남는다', await page.run(id => window.__cloudRooms().includes(id) && '민지' in window.__handles, MINE) && !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
+    check('앞 사용자의 쪽지 닉네임 같은 칸이 섞이지 않는다', Object.keys(await cloudState()).sort().join() === 'handle,id,pw,refresh,rev,sent,uid', JSON.stringify(await cloudState()));
+    // 집은 없고 올린 기록만 남은 브라우저
+    await boot({ store: { 'agarago.cloud': JSON.stringify(linked) }, server: serverWith() });
+    await signIn('나리', NARI_PASS);
+    check('집은 없고 올린 기록만 있어도 더는 고칠 수 없다고 먼저 묻는다', await askedIs('이 컴퓨터에서 만든 링크의 방은 서버에 남지만 더는 고칠 수 없습니다.|되돌릴 수 없습니다.'), JSON.stringify(await asked()));
+    await btn('.reset-row .btn', '그대로 두기');
+    // 집만 사라진 브라우저에서 자기 아이디로 로그인한다. 비밀번호가 있는지 모르는 기록(답을 잃은 붙이기)이어도 같은 계정이라 묻지 않는다
+    await boot({ store: { 'agarago.cloud': JSON.stringify(linked), 'agarago.picture': '"duck"' }, server: serverWith(minjiAccount, { rooms: { [MINE]: await codeOf(HOME_M, { picture: null }), [NARI]: nariCode } }) });
+    await signIn('민지', PASS);
+    check('집만 사라진 브라우저에서 자기 아이디로 로그인하면 묻지 않고 서버의 방을 받는다', await desktop() && (await page.run(savedOwner)) === '민지' && (await cloudState()).pw === true && (await cloudState()).id === MINE, JSON.stringify(await asked()));
+    check('서버의 방에 사진이 없으면 이 브라우저에 남은 사진을 쓰지 않는다', (await page.run(() => localStorage.getItem('agarago.picture'))) === null);
+    // 이웃집에 고정한 방
+    const PINNED = { id: 'smoke-pinned', name: '고정이웃', link: MINE, keep: minjiCode };
+    await extraNeighbor(page, PINNED);
+    await boot({ store: mineStore(linked), server: serverWith() });
+    check('고정한 방을 올린 비밀번호 없는 사용자는 다른 아이디로 로그인과 초기화할 수 없는 이유만 보인다', (await links()) === '다른 아이디로 로그인' && (await asked()).lines.includes('초기화할 수 없습니다'), JSON.stringify(await asked()));
+    await signIn('나리', NARI_PASS);
+    check('이웃집에 고정한 방이면 막고 이유를 보인다', await askedIs('내 방이 이웃집에 고정되어 있어 지울 수 없습니다.|먼저 시작 메뉴에서 비밀번호를 만들어 주세요.') && (await asked()).buttons === '그대로 두기', JSON.stringify(await asked()));
+    await probe('고정한 방이라 막힌 로그인');
+    await boot({ store: mineStore(locked), server: serverWith(minjiAccount), seen: MINE });
+    check('고정한 방이어도 비밀번호가 있으면 이 컴퓨터에서 빼기를 보인다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기', await links());
+    await btn('.reset-link', '이 컴퓨터에서 빼기');
+    await btn('.reset-row .btn', '빼기');
+    check('고정한 방이어도 뺄 수 있다', await toastIs('민지의 집을 이 컴퓨터에서 뺐습니다.') && (await page.run(savedOwner)) === null);
+    await extraNeighbor(page, null);
+
+    // ---------- 이 컴퓨터에서 빼기 ----------
+    const OUT_LINES = '서버의 방은 그대로이고, 다시 로그인하면 이어집니다.|최근에 놀러 간 집과 푼 시험지, 파일 정리 10의 다 정리 횟수는 돌아오지 않습니다.';
+    const takeOut = async () => {
+      await btn('.reset-link', '이 컴퓨터에서 빼기');
+      return btn('.reset-row .btn', '빼기');
+    };
+    const pwBoot = async ({ cloud = {}, more = {}, server = {}, seen = MINE } = {}) => boot({ store: mineStore({ ...locked, ...cloud }, more), server: serverWith(minjiAccount, server), seen });
+    const unsaved = JSON.stringify({ ...JSON.parse(minjiHome), owner: '못올린이름' }); // 이 컴퓨터에서만 고친 방
+    await pwBoot({ more: { ...extra, 'agarago.settings': JSON.stringify({ sound: false, night: true, pet: 'cat/gray', petPats: 4 }) } });
+    await btn('.reset-link', '이 컴퓨터에서 빼기');
+    check('빼기 전에 서버의 방은 그대로라는 것과 돌아오지 않는 것을 보인다', (await asked()).lines === OUT_LINES && (await asked()).buttons === '빼기,그대로 두기', JSON.stringify(await asked()));
+    await probe('이 컴퓨터에서 빼기 확인');
+    await btn('.reset-row .btn', '그대로 두기');
+    check('그대로 두기를 누르면 글자 단추로 돌아온다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기' && (await page.run(savedOwner)) === '민지');
+    await takeOut();
+    check('빼면 알리고 새 사용자 만들기가 나온다', await toastIs('민지의 집을 이 컴퓨터에서 뺐습니다.') && await page.run(() => !!document.querySelector('.user.new input[aria-label="닉네임"]')) && (await links()) === '내 아이디로 로그인', await toastNow());
+    const leftKeys = await page.run(() => ({ ...localStorage }));
+    check('빼면 초기화와 같은 것만 지우고 설정과 표시, 다른 사이트의 키는 남긴다', Object.keys(leftKeys).filter(k => /^(agarago|tidy-up|file-ten)\./.test(k)).sort().join() === 'agarago.seat,agarago.settings' && leftKeys['other-site.smoke2'] === '1', Object.keys(leftKeys).join());
+    check('빼면 펫은 기본으로 돌아가고 밤과 소리는 그대로다', (s => s.pet === '' && s.petPats === 0 && s.night === true && s.sound === false)(JSON.parse(leftKeys['agarago.settings'])), leftKeys['agarago.settings']);
+    check('빼도 서버의 방과 아이디와 쪽지를 지우지 않는다', await page.run(id => window.__cloudRooms().includes(id) && '민지' in window.__handles, MINE) && !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
+    await page.run(() => localStorage.removeItem('other-site.smoke2'));
+    await signIn('민지', PASS);
+    check('뺀 컴퓨터에서 다시 로그인하면 이어진다', await desktop() && ids(await page.run(savedHome)) === ids(HOME_M) && (await page.run(savedOwner)) === '민지');
+    // 올리지 못한 고침
+    await pwBoot({ more: { 'agarago.home.v3': unsaved } });
+    await takeOut();
+    check('올리지 못한 고침이 있으면 먼저 올리고 뺀다', await toastIs('못올린이름의 집을 이 컴퓨터에서 뺐습니다.') && (await sentCount()) === 1 && (await decoded(await page.run(id => window.__cloudRoom(id), MINE))).owner === '못올린이름', await toastNow());
+    const stuck = async (what, text, options, setUp = null, ...args) => {
+      await pwBoot(options);
+      if (setUp) await page.run(setUp, ...args);
+      const was = JSON.stringify((({ 'agarago.settings': s, 'agarago.cloud': c, ...rest }) => rest)(await page.run(() => ({ ...localStorage }))));
+      await takeOut();
+      check(`빼지 않음: ${what}`, await askedIs(text) && JSON.stringify((({ 'agarago.settings': s, 'agarago.cloud': c, ...rest }) => rest)(await page.run(() => ({ ...localStorage })))) === was && (await cloudState()).id === MINE
+        && (await asked()).buttons === '빼기,그대로 두기' && await page.run(() => !document.querySelector('.reset-row .btn').disabled), JSON.stringify(await asked()));
+    };
+    const KEEP_HOME = { 'agarago.home.v3': unsaved };
+    await stuck('서버에 닿지 못함', '서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.', { more: KEEP_HOME }, () => { window.__cloudRefuse = [{ at: ':commit', status: 503, body: 'x' }]; });
+    await stuck('로그인이 풀림', '로그인이 풀려 고친 방을 올리지 못했습니다.|내 컴퓨터로 들어가 다시 로그인해 주세요.', { more: KEEP_HOME, cloud: { out: true } });
+    await stuck('다른 브라우저에서도 고침', '다른 브라우저에서도 이 방을 고쳤습니다.|내 컴퓨터로 들어가 남길 방을 골라 주세요.', { more: KEEP_HOME }, (id, code) => window.__otherEdits(id, code), MINE, THEIRS);
+    await stuck('아이디가 없음', '아이디가 없으면 다시 로그인할 수 없습니다.|내 컴퓨터로 들어가 시작 메뉴의 아이디와 비밀번호에서 아이디를 정해 주세요.', { cloud: { handle: null } });
+    await stuck('아이디가 다른 방을 가리킴', '아이디가 없으면 다시 로그인할 수 없습니다.|내 컴퓨터로 들어가 시작 메뉴의 아이디와 비밀번호에서 아이디를 정해 주세요.', { server: { handles: { 민지: { uid: 'fake-uid', room: 'Else0001' } } } });
+    await btn('.reset-row .btn', '그대로 두기');
+    await enterOwn();
+    await openAccount();
+    check('서버와 다른 아이디는 잊어서 아이디를 다시 정할 수 있다', (await cloudState()).handle === null && (await page.run(accountWindow))?.buttons === '아이디 정하기,취소', JSON.stringify(await page.run(accountWindow)));
+    await submitAccount('민지');
+    check('다시 정하면 아이디가 이 방을 가리킨다', await toastIs('아이디를 정했습니다.') && await page.run(id => window.__handles.민지?.room === id, MINE), await page.run(accountError));
+    await stuck('방은 그대로인데 서버를 확인하지 못함', '서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.', {}, id => { window.__cloudRefuse = [{ at: `/homes/${id}`, status: 503, body: 'x' }]; }, MINE);
+    // 지금 한도로는 한 방이 서버의 글자 수 한도(MAX_CODE)를 넘지 못해, 한도를 줄인 src/cloud.js를 끼워 그 갈래를 본다
+    await withCloud('export const MAX_CODE = 30000', 'export const MAX_CODE = 300', () => stuck('글자 수 한도를 넘김', '방에 쓴 글이 너무 길어 서버에 올리지 못했습니다.|내 컴퓨터로 들어가 글을 줄여 주세요.', { more: KEEP_HOME }));
+    // 서버에 방이 없으면 빼지 않고 초기화로 바뀐다
+    await pwBoot();
+    await page.run(id => window.__otherDeletes(id), MINE);
+    await takeOut();
+    check('다른 브라우저에서 링크를 지웠으면 빼지 않고 알린 뒤 초기화를 보인다', await toastIs('다른 브라우저에서 링크를 지워 서버에 방이 없습니다.') && (await page.run(savedOwner)) === '민지' && (await cloudState()).id === null && (await cloudState()).pw === true && (await links()) === '다른 아이디로 로그인,이 컴퓨터 초기화', JSON.stringify(await cloudState()));
+    // 비밀번호가 있는 사용자가 있는 브라우저에서 다른 아이디로 로그인
+    await pwBoot({ more: { ...extra, 'agarago.home.v3': unsaved } });
+    await signIn('나리', NARI_PASS);
+    check('비밀번호가 있는 사용자가 있으면 뺀다는 것을 보이고 받는다', await askedIs(`이 컴퓨터에서 못올린이름의 집을 뺍니다.|${OUT_LINES}`) && (await asked()).buttons === '빼고 로그인,그대로 두기', JSON.stringify(await asked()));
+    await page.run(() => { window.__cloudRefuse = [{ at: ':commit', status: 503, body: 'x' }]; });
+    await btn('.reset-row .btn', '빼고 로그인');
+    check('올리지 못하면 로그인하지 않고 까닭을 알린다', await askedIs('서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.') && (await page.run(savedOwner)) === '못올린이름' && (await cloudState()).uid === 'fake-uid', JSON.stringify(await asked()));
+    await btn('.reset-row .btn', '빼고 로그인');
+    check('다시 누르면 앞 사용자의 고침을 올린 뒤 로그인한다', await desktop() && (await page.run(savedOwner)) === '나리' && (await decoded(await page.run(id => window.__cloudRoom(id), MINE))).owner === '못올린이름' && (await cloudState()).uid === 'nari-uid'
+      && (await page.run(id => window.__cloudRoom(id), NARI)) === nariCode, JSON.stringify(await cloudState()));
+    await page.run(() => localStorage.removeItem('other-site.smoke2'));
+
+    // ---------- 같은 사용자의 다시 로그인(로그인 칸) ----------
+    await boot({ store: mineStore({ ...locked, out: true, edited: 1764079800000 }, { 'agarago.home.v3': unsaved, 'tidy-up.best': '77' }), server: serverWith(other), seen: MINE });
+    const sameBefore = await cloudState();
+    // 방 읽기를 멈춰 두고, 로그인하느라 읽은 방만 풀어 준다. 들어가며 서버의 방을 다시 읽기 전의 모습을 본다
+    await page.run(() => { window.__cloudHoldReads = true; window.__requests.length = 0; });
+    await signIn('민지', NEXT);
+    await until(page, id => window.__requests.includes(`GET /homes/${id}`), 4000, MINE);
+    await page.run(() => window.__cloudAnswer());
+    await until(page, id => window.__requests.filter(r => r === `GET /homes/${id}`).length === 2, 4000, MINE);
+    const sameAfter = await cloudState();
+    await page.run(() => { window.__cloudHoldReads = false; window.__cloudAnswer(); });
+    check('같은 사용자의 아이디로 로그인하면 묻지 않고 이 컴퓨터의 방으로 들어간다', await desktop() && (await page.run(savedOwner)) === '못올린이름' && (await page.run(() => localStorage.getItem('tidy-up.best'))) === '77', await page.run(savedOwner));
+    check('다시 로그인하면 바탕과 판과 고친 시각은 그대로이고 풀린 표시만 지워진다', sameAfter.out === undefined && sameAfter.refresh === 'fake-refresh.fake-uid.5' && ['id', 'uid', 'handle', 'sent', 'rev', 'edited', 'pw'].every(k => sameAfter[k] === sameBefore[k]), JSON.stringify(sameAfter));
+    check('같은 사용자의 다시 로그인은 앉은 사용자의 표시를 남기지 않는다', (await page.run(() => localStorage.getItem('agarago.seat'))) === null);
+    await flushNow();
+    check('같은 사용자로 다시 로그인하면 올리지 못한 고침이 올라간다', await until(page, () => window.__cloudSent.length === 1, 5000) && (await decoded(await page.run(() => window.__cloudSent[0]))).owner === '못올린이름');
+    // 다른 브라우저에서 링크를 지우고 새로 만들어 아이디가 다른 방을 가리킨다
+    await boot({ store: mineStore({ ...locked, out: true, trying: 'old-code' }), server: serverWith(other, { rooms: { New00001: THEIRS, [NARI]: nariCode }, owners: { New00001: 'fake-uid', [NARI]: 'nari-uid' }, handles: { 민지: { uid: 'fake-uid', room: 'New00001' }, 나리: { uid: 'nari-uid', room: NARI } } }) });
+    await signIn('민지', NEXT);
+    check('아이디가 다른 방을 가리키면 그 방을 내 방으로 삼고 바뀐 방을 받는다', await desktop() && (await cloudState()).id === 'New00001' && !(await page.run(savedHome)).scenes.room.some(i => i.id === 'bed') && !(await cloudState()).trying, JSON.stringify(await cloudState()));
+
+    // ---------- 여러 탭 ----------
+    const nariStore = { 'agarago.home.v3': await cleanHome(HOME_N), 'agarago.picture': '"cat"', 'agarago.settings': JSON.stringify({ sound: false, pet: 'dog/brown', petPats: 7 }), 'agarago.cloud': JSON.stringify(nari), 'tidy-up.best': '500', 'file-ten.best': '40', 'agarago.seat': '"other-tab-seat-2"' };
+    const nariKept = () => page.run(() => JSON.stringify([JSON.parse(localStorage.getItem('agarago.home.v3')).owner, localStorage.getItem('agarago.picture'), JSON.parse(localStorage.getItem('agarago.settings')).pet, JSON.parse(localStorage.getItem('agarago.cloud')).uid, JSON.parse(localStorage.getItem('agarago.cloud')).sent.length]));
+    const nariWant = JSON.stringify(['나리', '"cat"', 'dog/brown', 'nari-uid', nariCode.length]);
+    const sitting = async () => {
+      await pwBoot();
+      await enterOwn();
+    };
+    const TOLD = '다른 탭에서 사용자가 바뀌었습니다.';
+    await sitting();
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 }); // 올리기가 예약된다
+    await otherTab(nariStore);
+    check('다른 탭에서 로그인하면 이 탭은 로그인 화면으로 돌아가 알리고 그 사용자를 보인다', await onLogin() && await toastIs(TOLD) && await page.run(() => document.querySelector('.users-own .user:not(.new)')?.textContent.startsWith('나리')));
+    await flushNow();
+    await sleep(3300);
+    check('다른 탭에서 로그인하면 예약한 올리기를 버린다', (await sentCount()) === 0 && (await nariKept()) === nariWant, await nariKept());
+    await page.run(setSettings, { sound: false });
+    check('로그인 화면으로 돌아온 탭이 설정을 저장해도 새 사용자의 펫을 덮지 않는다', (await nariKept()) === nariWant, await nariKept());
+    await enterOwn();
+    await flushNow();
+    check('돌아온 탭에서 들어가면 새 사용자의 방과 펫이고, 앞 사용자의 펫을 올리지 않는다', await page.run(() => document.querySelector('#wallpaper .room-pet') !== null) && (await sentCount()) === 0 && (await nariKept()) === nariWant, await nariKept());
+
+    await sitting();
+    await page.run(() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }));
+    await otherTab(nariStore);
+    await onLogin();
+    await sleep(200);
+    const quiet = await page.run(() => !document.getElementById('toast').classList.contains('show') || document.getElementById('toast').textContent !== '다른 탭에서 사용자가 바뀌었습니다.');
+    await page.run(() => { delete document.visibilityState; document.dispatchEvent(new Event('visibilitychange', { bubbles: true })); });
+    check('뒤에 있던 탭은 돌아왔을 때 사용자가 바뀌었다고 알린다', quiet && await toastIs(TOLD));
+
+    await sitting();
+    await otherTab(nariStore, true); // 이벤트가 오지 않은 탭
+    await rename('앞사용자');
+    check('이벤트를 받지 못한 탭이 저장하려 하면 저장하지 않고 로그인 화면으로 돌아간다', await onLogin() && await toastIs(TOLD) && (await nariKept()) === nariWant, await nariKept());
+    await flushNow();
+    check('이벤트를 받지 못한 탭도 올리지 않는다', (await sentCount()) === 0);
+    await sitting();
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 });
+    await otherTab(nariStore, true);
+    await flushNow();
+    check('예약한 올리기만 있던 탭도 올릴 때 알아보고 버린 뒤 로그인 화면으로 돌아간다', await onLogin() && await toastIs(TOLD) && (await sentCount()) === 0 && (await nariKept()) === nariWant, await nariKept());
+    // 바뀐 것을 모른 채 로그아웃하면 로그인 화면이 새 사용자를 읽는다. 그 전에 예약한 올리기는 앞 사용자의 방이다
+    await sitting();
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 });
+    await otherTab(nariStore, true);
+    await logOut();
+    await flushNow();
+    check('사용자가 바뀐 것을 모른 채 로그아웃해도 예약한 올리기가 새 사용자의 방으로 가지 않는다', (await sentCount()) === 0 && (await page.run(id => window.__cloudRoom(id), NARI)) === nariCode && (await nariKept()) === nariWant, `${await sentCount()} ${await nariKept()}`);
+    await sitting();
+    await openIcon('share');
+    await btn('#windows .btn', '아이디 지우기');
+    await otherTab(nariStore, true);
+    await btn('#windows .btn', '지우기');
+    check('공유하기 창에서 하던 일도 사용자가 바뀌었으면 하지 않는다', await onLogin() && await page.run(() => '민지' in window.__handles && '나리' in window.__handles) && !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
+    // 멈춰 있던 탭이 설정과 사진을 저장
+    await sitting();
+    await otherTab(nariStore, true);
+    await page.run(setSettings, { sound: true });
+    await page.run(async () => { (await import(new URL('src/user-pictures.js', document.baseURI).href)).saveOwnPicture('dog'); });
+    check('이벤트를 받지 못한 탭이 설정과 사진을 저장해도 새 사용자의 펫과 사진을 덮지 않는다', (await nariKept()) === nariWant, await nariKept());
+    // 올리는 요청이 가 있는 동안 바뀜
+    await sitting();
+    await page.run(() => { window.__cloudHoldWrites = true; });
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 2 });
+    await flushNow();
+    await until(page, () => window.__cloudSent.length === 1, 4000);
+    await otherTab(nariStore);
+    await onLogin();
+    await page.run(() => { window.__cloudHoldWrites = false; window.__cloudAnswer(); });
+    await sleep(400);
+    check('올리는 요청이 가 있는 동안 사용자가 바뀌면 그 답을 새 사용자의 칸에 적지 않는다', (await nariKept()) === nariWant && (await cloudState()).id === NARI && (await cloudState()).rev === nari.rev, JSON.stringify(await cloudState()));
+    // 비밀번호가 없는 사용자가 올리는 동안 바뀐 것도 같다
+    await boot({ store: mineStore(linked), server: serverWith() });
+    await enterOwn();
+    await page.run(() => { window.__cloudHoldWrites = true; });
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 2 });
+    await flushNow();
+    await until(page, () => window.__cloudSent.length === 1, 4000);
+    await otherTab(nariStore);
+    await onLogin();
+    await page.run(() => { window.__cloudHoldWrites = false; window.__cloudAnswer(); });
+    await sleep(400);
+    check('비밀번호가 없는 사용자의 올리는 요청이 가 있는 동안 사용자가 바뀌어도 그 답을 새 사용자의 칸에 적지 않는다', (await nariKept()) === nariWant && (await cloudState()).id === NARI, JSON.stringify(await cloudState()));
+    // 토큰을 받는 동안 바뀜
+    await pwBoot();
+    await enterOwn();
+    await page.run(() => { window.__authHold = true; });
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 3 });
+    await flushNow();
+    await until(page, () => window.__requests.includes('securetoken'), 4000);
+    await otherTab(nariStore);
+    await onLogin();
+    await page.run(() => { window.__authHold = false; window.__cloudAnswer(); });
+    await sleep(400);
+    check('토큰을 받는 동안 사용자가 바뀌면 앞 사용자의 토큰을 남기지 않는다', (({ uid, refresh }) => uid === 'nari-uid' && refresh === 'fake-refresh.nari-uid.3')(await cloudState()) && (await sentCount()) === 0, JSON.stringify(await cloudState()));
+    await enterOwn();
+    await page.run(setSettings, { pet: 'dog/brown', petPats: 9 });
+    await flushNow();
+    check('그 탭에서 이어 쓰는 새 사용자는 앞 사용자의 토큰을 쓰지 않는다', await until(page, () => window.__cloudSent.length === 1, 4000) && (({ owner, pet }) => owner === '나리' && pet?.pats === 9)(await decoded(await page.run(() => window.__cloudSent[0]))), `${await sentCount()} ${(await requests()).slice(-3).join(' / ')}`);
+    // 로그인 화면에 멈춰 있던 탭
+    await pwBoot();
+    await otherTab(nariStore, true);
+    const entered = await page.run(async () => {
+      document.querySelector('.users-own .user:not(.new)').click();
+      for (let i = 0; i < 40; i++) {
+        await new Promise(done => setTimeout(done, 20));
+        if (!document.getElementById('desktop').hidden) return true;
+      }
+      return false;
+    });
+    check('로그인 화면에 멈춰 있던 탭에서 앞 사용자를 누르면 들어가지 않고 지금 사용자를 보인다', !entered && await toastIs(TOLD) && await page.run(() => !document.getElementById('login').hidden && document.querySelector('.users-own .user:not(.new)').textContent.startsWith('나리')));
+    await boot({ store: EMPTY, server: serverWith(minjiAccount) });
+    await otherTab(nariStore, true);
+    await page.run(() => { const f = document.querySelector('.user.new'); f.querySelector('input[aria-label="닉네임"]').value = '새사람'; f.requestSubmit(); });
+    check('로그인 화면에 멈춰 있던 탭에서 새 사용자를 만들려 해도 로그인한 사용자를 덮지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant, await nariKept());
+    await boot({ store: mineStore(), server: serverWith() });
+    await otherTab(nariStore, true);
+    await btn('.reset-link', '이 컴퓨터 초기화');
+    await btn('.reset-row .btn', '지우기');
+    check('로그인 화면에 멈춰 있던 탭의 초기화는 로그인한 사용자를 지우지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant && !(await requests()).some(r => r.startsWith('DELETE')), await nariKept());
+    await pwBoot();
+    await btn('.reset-link', '이 컴퓨터에서 빼기');
+    await otherTab(nariStore, true);
+    await btn('.reset-row .btn', '빼기');
+    check('로그인 화면에 멈춰 있던 탭의 빼기는 로그인한 사용자를 빼지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant, await nariKept());
+    // 친구 집에 있는 탭은 그대로 두고, 내 컴퓨터로 돌아오면 지금 사용자다
+    await boot({ store: mineStore(locked), server: serverWith(minjiAccount, { owners: { [MINE]: 'fake-uid', [NARI]: 'nari-uid', Frnd0001: 'frnd-uid' }, rooms: { [MINE]: minjiCode, [NARI]: nariCode, Frnd0001: await codeOf({ ...HOME, owner: '친구' }) } }), hash: '#s=Frnd0001' });
+    await until(page, () => [...document.querySelectorAll('.users .user')].some(u => u.textContent.includes('손님으로 구경하기')), 4000);
+    await page.run(clickText, '.users .user', '손님으로 구경하기');
+    await desktop();
+    await otherTab(nariStore);
+    await sleep(400);
+    check('친구 집에 있는 탭은 다른 탭에서 로그인해도 그대로다', await page.run(() => document.getElementById('login').hidden && document.getElementById('stage').dataset.mode === 'visit'));
+    await openIcon('my-computer');
+    check('친구 집에서 내 컴퓨터로 돌아오면 지금 사용자의 집이다', await until(page, () => document.getElementById('stage').dataset.mode === 'edit' && !document.getElementById('desktop').hidden, 5000) && await page.run(() => !document.querySelector('#wallpaper .furn[data-id="tv"]')) && (await nariKept()) === nariWant, await nariKept());
+    await page.run(setSettings, { pet: 'dog/brown', petPats: 9 });
+    await flushNow();
+    check('친구 집에서 돌아와 고친 것은 지금 사용자의 방에 올라간다', await until(page, () => window.__cloudSent.length === 1, 4000) && (({ owner, pet }) => owner === '나리' && pet?.pats === 9)(await decoded(await page.run(() => window.__cloudSent[0]))) && await page.run(() => document.getElementById('login').hidden), `${await sentCount()} ${await toastNow()}`);
+    // 사이트 데이터만 지워진 것은 사용자가 바뀐 것이 아니다
+    await boot({ store: { ...mineStore(locked), 'agarago.seat': '"seat-a"' }, server: serverWith(minjiAccount), seen: MINE });
+    await enterOwn();
+    await otherTab({ 'agarago.seat': null, 'agarago.home.v3': null });
+    await rename('되살림');
+    check('저장소가 비워졌을 뿐이면 쓰던 탭이 집을 다시 저장한다', (await page.run(savedOwner)) === '되살림' && await page.run(() => document.getElementById('login').hidden));
+    // 초기화와 같은 탭에서 이어 로그인
+    await boot({ store: mineStore(linked), server: serverWith() });
+    await enterOwn();
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 }); // 3초 뒤에 올릴 방을 예약한 채 로그아웃한다
+    await logOut();
+    await signIn('나리', NARI_PASS);
+    await askedIs('이 컴퓨터에 저장된 민지의 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.|링크의 방은 서버에 남지만 더는 고칠 수 없습니다.|계속 고치려면 먼저 시작 메뉴에서 비밀번호를 만들어 주세요.');
+    await btn('.reset-row .btn', '지우고 로그인');
+    await desktop();
+    await flushNow();
+    await sleep(3300);
+    check('같은 탭에서 로그아웃하고 3초 안에 다른 아이디로 로그인해도 예약한 올리기가 새 사용자의 방으로 가지 않는다', (await page.run(id => window.__cloudRoom(id), NARI)) === nariCode && (await page.run(id => window.__cloudRoom(id), MINE)) === minjiCode && (await sentCount()) === 0, JSON.stringify(await requests()));
+    check('같은 탭에서 이어 쓴 앞 사용자의 로그인(메모리)이 남지 않는다', (await cloudState()).uid === 'nari-uid');
+    await rename('나리둘');
+    await flushNow();
+    check('로그인한 사용자의 방은 그 사용자의 토큰으로 올라간다', await until(page, () => window.__cloudSent.length === 1, 5000) && (await decoded(await page.run(id => window.__cloudRoom(id), NARI))).owner === '나리둘', JSON.stringify(await cloudState()));
+    // 앞 사용자의 올리기가 서버의 답을 기다리고 그 뒤에 하나 더 줄 서 있는 채로 같은 탭에서 다른 아이디로 로그인한다
+    await boot({ store: mineStore(linked), server: serverWith() });
+    await enterOwn();
+    await page.run(() => { window.__cloudHoldWrites = true; });
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 1 });
+    await flushNow();
+    await until(page, () => window.__cloudSent.length === 1, 4000);
+    await page.run(setSettings, { pet: 'cat/gray', petPats: 2 });
+    await flushNow();
+    await logOut();
+    await signIn('나리', NARI_PASS);
+    await until(page, () => !!document.querySelector('.reset-row .btn'), 4000);
+    await btn('.reset-row .btn', '지우고 로그인');
+    await desktop();
+    await page.run(setSettings, { pet: 'dog/brown', petPats: 8 });
+    await page.run(() => { window.__cloudHoldWrites = false; window.__cloudAnswer(); });
+    await sleep(300);
+    await flushNow();
+    check('앞 사용자가 줄 세운 올리기는 멈추고, 새 사용자가 예약한 올리기는 버려지지 않는다', await until(page, () => window.__cloudSent.length === 2, 4000)
+      && (({ owner, pet }) => owner === '나리' && pet?.pats === 8)(await decoded(await page.run(() => window.__cloudSent[1]))) && (await cloudState()).uid === 'nari-uid' && (await cloudState()).id === NARI, JSON.stringify([await sentCount(), await cloudState()]));
+
+    await boot({ store: mineStore(linked), server: serverWith() });
+    const seatBefore = await page.run(() => localStorage.getItem('agarago.seat'));
+    await btn('.reset-link', '이 컴퓨터 초기화');
+    await btn('.reset-row .btn', '지우기');
+    check('초기화도 사용자가 바뀌었다는 표시를 남긴다', await until(page, () => !!document.querySelector('.user.new input[aria-label="닉네임"]'), 5000) && seatBefore === null && !!(await page.run(() => localStorage.getItem('agarago.seat'))));
+    check('초기화는 설정을 남긴다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.settings') || 'null')?.sound)) === false);
+
+    // ---------- 비밀번호가 없는 사용자의 요청은 전과 같다 ----------
+    await boot({ store: mineStore(), server: serverWith(null, { rooms: {}, handles: {} }) });
+    await enterOwn();
+    await openIcon('share');
+    await page.run(clickText, '#windows .btn', '링크 만들기');
+    await until(page, () => !!document.querySelector('#windows input[aria-label="공유 링크"]'), 4000);
+    await page.run(() => { const i = document.querySelector('#windows input[aria-label="내 아이디"]'); i.value = '민지'; i.closest('form').requestSubmit(); });
+    await until(page, () => !!JSON.parse(localStorage.getItem('agarago.cloud')).handle, 4000);
+    await closeWindows();
+    await rename('요청보기');
+    await flushNow();
+    await until(page, () => window.__cloudSent.length === 2, 4000);
+    const plain = await cloudState();
+    check('비밀번호가 없는 사용자의 요청은 전과 같다(만들기)', JSON.stringify((await ownRequests())) === JSON.stringify(['accounts:signUp', `POST commit /homes/${plain.id}`, 'GET /handles/민지', 'POST commit /handles/민지', `POST commit /homes/${plain.id}`])
+      && await page.run(() => window.__authLog.map(a => a.body).join() === '{"returnSecureToken":true}'), (await requests()).join(' / '));
+    check('비밀번호가 없는 사용자의 저장소에는 새 칸이 생기지 않는다', Object.keys(plain).sort().join() === 'handle,id,refresh,sent,uid' && (await page.run(() => localStorage.getItem('agarago.seat'))) === null, Object.keys(plain).join());
+    await boot();
+    await enterOwn();
+    await rename('요청둘');
+    await flushNow();
+    await until(page, () => window.__cloudSent.length === 1, 4000);
+    check('비밀번호가 없는 사용자의 요청은 전과 같다(다시 열어 고치기)', JSON.stringify((await ownRequests())) === JSON.stringify(['securetoken', `POST commit /homes/${plain.id}`])
+      && await page.run(() => window.__cloudLog.filter(l => l.writes).every(l => l.writes.every(w => !('currentDocument' in w)))), (await requests()).join(' / '));
+    // 들어온 지 3초 안에 친구 집이나 튜토리얼 연습 방으로 가도, 들어올 때 예약한 올리기는 그 방이 아니라 내 방을 올린다(비밀번호가 있는 사용자)
+    const friendCode = await codeOf({ ...HOME, owner: '친구' });
+    const minjiRoom = async () => (await decoded(await page.run(id => window.__cloudRoom(id), MINE)));
+    await pwBoot({ server: { owners: { [MINE]: 'fake-uid', Frnd0001: 'frnd-uid' }, rooms: { [MINE]: minjiCode, Frnd0001: friendCode } } });
+    await enterOwn();
+    await page.run(() => { location.hash = '#s=Frnd0001'; });
+    await until(page, () => [...document.querySelectorAll('.users .user')].some(u => u.textContent.includes('손님으로 구경하기')), 2500);
+    await page.run(clickText, '.users .user', '손님으로 구경하기');
+    await until(page, () => document.getElementById('stage').dataset.mode === 'visit' && !document.getElementById('desktop').hidden, 3000);
+    await flushNow();
+    // 펫을 "없음"으로 둔 것이 서버의 방에 없어서, 들어올 때 한 번은 올라간다
+    check('예약한 채 친구 집으로 가도 친구의 방을 내 방에 올리지 않는다', (await minjiRoom()).owner === '민지' && (await sentCount()) === 1, `${(await minjiRoom()).owner} ${await sentCount()}`);
+    await pwBoot();
+    await enterOwn();
+    await page.run(clickOnce, '.start-btn');
+    await page.run(clickText, '#start-menu .start-item', '튜토리얼 다시 보기');
+    await page.run(clickText, '#windows .btn', '빈 방에서 연습하기');
+    await flushNow();
+    check('예약한 채 튜토리얼 연습 방으로 가도 빈 방을 올리지 않는다', ids(await minjiRoom()) === ids(HOME_M) && (await sentCount()) === 1, `${ids(await minjiRoom())} ${await sentCount()}`);
+
+    // 저장소와 움직임 설정을 되돌린다
+    await reduce(false);
+    await open();
+    await page.run(k => {
+      for (const key of Object.keys(localStorage)) if (key.startsWith('agarago.') || /^(tidy-up|file-ten)\./.test(key)) localStorage.removeItem(key);
+      for (const [key, v] of Object.entries(k)) localStorage.setItem(key, v);
+    }, kept);
+  }
+
   // 바탕화면의 가구를 두 번 눌러 아바타가 걸어가 쓸 때까지 기다린다.
   // ready는 페이지 안에서 돌고 인자를 받지 않으므로 이 파일의 변수(LONG 같은 것)를 쓰지 못한다. 쓰면 ReferenceError로 점검이 그 자리에서 멈춘다
   const use = async (id, ready, what) => {
@@ -1558,7 +2652,7 @@ async function walk(page, base) {
   check('로그인 화면 왼쪽 단에 내 사용자가 있다', await page.run(() => document.querySelectorAll('.users-own .user:not(.new)').length === 1));
   check('로그인 화면의 내 사용자에 고른 사진이 보인다', (await page.run(shownPic, '.users-own .user:not(.new)')) === firstPic);
   check('내 집이 있어도 로그인 화면 오른쪽 단 끝에 친구 아이디 칸이 있다', await page.run(() => !!document.querySelector('.users-friends')?.lastElementChild?.matches('.user.by-handle')));
-  await page.run(clickOnce, '.reset-link');
+  await page.run(clickText, '.reset-link', '이 컴퓨터 초기화');
   await probe('초기화 확인');
   await page.run(clickText, '.reset-row .btn', '그대로 두기');
   await page.run(clickOnce, '.users .user:not(.neighbor)');
@@ -1974,10 +3068,10 @@ async function walk(page, base) {
   check('취소를 누르면 창이 닫히고 이름은 그대로다', (await page.run(() => !document.querySelector('#windows .name-app'))) && (await page.run(savedOwner)) === '점검');
   // 시작 메뉴의 로그아웃 바로 위에 글자로 된 "이름 바꾸기" 줄이 있다. 맨 위의 이름은 그냥 글자처럼 보여 찾기 어려웠다(known-issues 80)
   await page.run(clickOnce, '.start-btn');
-  check('시작 메뉴의 로그아웃 바로 위에 이름 바꾸기 줄이 있다', await page.run(() => {
+  check('시작 메뉴의 로그아웃 위에 이름 바꾸기와 아이디와 비밀번호 줄이 있다', await page.run(() => {
     const items = [...document.querySelectorAll('#start-menu .start-item')].map(b => b.textContent);
     const i = items.findIndex(t => t.includes('이름 바꾸기'));
-    return i >= 0 && !!items[i + 1]?.includes('로그아웃');
+    return i >= 0 && items[i + 1] === '아이디와 비밀번호' && !!items[i + 2]?.includes('로그아웃');
   }));
   await page.run(clickText, '#start-menu .start-item', '이름 바꾸기');
   check('시작 메뉴의 이름 바꾸기 줄을 누르면 시작 메뉴가 닫히고 이름 바꾸기 창이 열린다', await until(page, () => document.getElementById('start-menu').hidden && !!document.querySelector('#windows .name-app'), 3000));
@@ -3115,7 +4209,7 @@ async function walk(page, base) {
       return {
         mine: names('.users-own .user:not(.new)'),
         near: names('.users .user.neighbor'),
-        reset: !!document.querySelector('.reset-link'),
+        reset: [...document.querySelectorAll('.reset-link')].some(b => b.textContent === '이 컴퓨터 초기화'),
         note: document.querySelector('.reset-box p')?.textContent || '',
       };
     });
@@ -4426,6 +5520,9 @@ async function walk(page, base) {
   // ---------- 비밀번호가 있는 사용자의 방을 서버와 맞추기(F36) ----------
   await homeSync();
 
+  // ---------- 아이디와 비밀번호(F36) ----------
+  await account();
+
   // ---------- 이 컴퓨터 초기화 ----------
   // 지우기는 이 사이트의 집과 앱 기록만 지우고, 설정과 같은 주소를 쓰는 다른 사이트의 키는 남긴다(localStorage.clear() 금지)
   const appKey = `${games.own[0]}.smoke`;
@@ -4439,12 +5536,12 @@ async function walk(page, base) {
   await powerOn();
   check('초기화 전에는 내 사진이 저장되어 있다', !!(await page.run(() => localStorage.getItem('agarago.picture'))));
   await page.run(() => localStorage.setItem('agarago.recent', JSON.stringify([{ room: 'Rcnt0001', name: '최근하나', picture: 'cake' }])));
-  await page.run(clickOnce, '.reset-link');
+  await page.run(clickText, '.reset-link', '이 컴퓨터 초기화');
   await page.run(clickText, '.reset-row .btn', '지우기');
   check('초기화에서 지우기를 누르면 내 사용자 대신 새 사용자 만들기가 나온다', await until(page, () => !!document.querySelector('.user.new input')
     && !document.querySelector('.users-own .user:not(.new)'), 5000));
   const left = await page.run(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
-  check('지우기는 집과 앱 기록만 지우고 설정과 다른 사이트의 키는 남긴다', Object.keys(left).every(k => k === 'agarago.settings' || !k.startsWith('agarago.'))
+  check('지우기는 집과 앱 기록만 지우고 설정과 다른 사이트의 키, 사용자가 바뀌었다는 표시는 남긴다', Object.keys(left).every(k => ['agarago.settings', 'agarago.seat'].includes(k) || !k.startsWith('agarago.'))
     && !(appKey in left) && left['other-site.smoke'] === '1' && left['agarago.settings'] === settings, Object.keys(left).join(', '));
   check('초기화하면 내 사진도 지워진다', !('agarago.picture' in left));
   check('초기화하면 최근에 놀러 간 집의 기억도 지워진다', !('agarago.recent' in left));

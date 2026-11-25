@@ -54,6 +54,12 @@ function tilt(id) {
   return (s % 7) - 3;
 }
 
+// 쪽지를 붙이거나 지우려는데 로그인이 풀려 있을 때(src/cloud.js의 signedout, F36). 다시 로그인하는 줄은 내 컴퓨터의 시작 메뉴에만 있다
+const OUT = {
+  edit: '로그인이 풀렸습니다. 시작 메뉴에서 다시 로그인해 주세요.',
+  visit: '로그인이 풀렸습니다. 내 컴퓨터에서 다시 로그인해 주세요.',
+};
+
 const button = (label, onclick, className = 'btn') => h('button', { type: 'button', className, onclick }, label);
 
 export function openCorkboardApp(os, app) {
@@ -171,7 +177,7 @@ export function openCorkboardApp(os, app) {
               } catch (err) {
                 console.warn('쪽지를 지우지 못했다', err);
                 layer.remove();
-                os.toast('쪽지를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
+                os.toast(err.reason === 'signedout' ? OUT[os.mode] : '쪽지를 지우지 못했습니다. 잠시 후 다시 눌러 주세요.', 7000);
               }
             }),
             keep));
@@ -230,7 +236,7 @@ export function openCorkboardApp(os, app) {
             await load(null); // 가장 최근 장을 다시 받아 붙인 쪽지를 맨 앞에 보인다
           } catch (err) {
             console.warn('쪽지를 붙이지 못했다', err);
-            fail('쪽지를 붙이지 못했습니다. 잠시 후 다시 눌러 주세요.');
+            fail(err.reason === 'signedout' ? OUT.visit : '쪽지를 붙이지 못했습니다. 잠시 후 다시 눌러 주세요.');
             sending = false;
             send.disabled = false;
             send.textContent = '붙이기';

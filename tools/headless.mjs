@@ -8,6 +8,7 @@
 //   await runTool(import.meta.url, main);  main이 돌려준 종료 코드로 끝낸다. 끝나거나 멈추면 크롬과 서버를 끈다
 //   await page.run(plantHome, TEST_HOME);  가구와 담아 둔 것이 있는 점검용 집을 내 집으로 심는다(다시 열면 그 집의 사용자가 나온다)
 //   await page.run(openTwoRoomsWindow);    두 곳에서 고친 방 창을 띄운다(심어 둔 집이 있을 때)
+//   await page.run(plantCloud, { ... });   서버로 가는 요청을 막고 올린 방의 기록(agarago.cloud)을 심는다
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -216,6 +217,18 @@ export async function openTwoRoomsWindow() {
   const wm = createWM({ layer: document.getElementById('windows'), tasks: document.getElementById('tasks'), toLocal: (x, y) => ({ x, y }) });
   openTwoRooms({ wm }, { mine: { home, at: Date.now() }, theirs: { home: less, at: Date.now() - 3600000 }, pick() {} });
   return document.querySelectorAll('#windows .two-rooms-card').length === 2;
+}
+
+// 페이지 안에서 도는 함수(page.run(plantCloud, 기록)). 올린 방의 기록(agarago.cloud)을 심어 링크와 아이디, 비밀번호가 있는 창(F36)을 연다. null이면 지운다.
+// 심은 기록은 가짜라서 서버에 묻지 않게 이 페이지의 서버 요청을 모두 연결 실패로 만든다
+export function plantCloud(record) {
+  if (!window.__noServer) {
+    const real = window.fetch;
+    window.__noServer = true;
+    window.fetch = (url, opts) => (String(url).includes('googleapis.com') ? Promise.reject(new TypeError('Failed to fetch')) : real(url, opts));
+  }
+  if (record) localStorage.setItem('agarago.cloud', JSON.stringify(record));
+  else localStorage.removeItem('agarago.cloud');
 }
 
 // 도구 하나를 돌린다. main은 종료 코드를 돌려준다(0 통과, 1 실패가 있음). 도구를 돌리지 못하면 2로 끝낸다.
