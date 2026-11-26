@@ -5,7 +5,7 @@
 //
 // 필요한 것: Node 22 이상, 크롬이나 엣지, 파이썬, git. 서버와 크롬을 띄우는 부분은 tools/headless.mjs에 있다.
 //
-// 하는 일: 화면 없는 크롬으로 사이트의 화면 176가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴와 오른쪽 단추 메뉴,
+// 하는 일: 화면 없는 크롬으로 사이트의 화면 180가지(꺼진 화면, 부팅, 로그인, 바탕화면, 창과 시작 메뉴와 오른쪽 단추 메뉴,
 // 가구 화면과 넣는 칸, 튜토리얼 카드, 손님 화면, 단추에 마우스를 올리거나 누른 상태)를 차례로 연다. 화면마다 같은 페이지에서 스타일시트만
 // 옛것으로 바꿔 끼워, 모든 요소(::before, ::after 포함)의 계산된 속성을 낮과 밤에서 견주고 다른 요소와 속성을 적는다.
 // 모양을 바꾸지 않는 정리(규칙 합치기, 순서 바꾸기, 쓰지 않는 규칙 지우기)라면 "다른 곳 0개"가 나와야 한다.
@@ -341,6 +341,27 @@ async function main() {
   await clickText('.reset-link', '이 컴퓨터 초기화');
   await check('로그인(내 사용자, 이웃집, 초기화 확인)', false);
   await clickText('.reset-row .btn', '그대로 두기');
+  // 한 브라우저의 여러 사용자(F37, src/user-drawers.js): 서랍에 사용자 둘(아이디가 있는 사용자와 없는 사용자)을 넣어 다른 사용자 무리와 사용자 지우기 확인을 잰다.
+  // 다 재면 서랍을 지운다. 남겨 두면 뒤의 로그인 화면에서 비밀번호가 없는 사용자의 "이 컴퓨터 초기화"가 "이 컴퓨터에서 지우기"로 바뀐다
+  await page.run(() => {
+    const home = JSON.parse(localStorage.getItem('agarago.home.v3'));
+    const drawer = (id, owner, picture, more = {}) => ({ id, keys: { 'agarago.home.v3': JSON.stringify({ ...home, owner }), 'agarago.picture': JSON.stringify(picture), ...more }, pet: { id: '', pats: 0 } });
+    localStorage.setItem('agarago.users', JSON.stringify({ list: [
+      drawer('cccccc01', '나리', 'cat', { 'agarago.cloud': JSON.stringify({ uid: 'css-diff-2', id: 'CssDiff2', handle: 'nari' }) }),
+      drawer('cccccc02', '동생', 'duck'),
+    ] }));
+  });
+  await open();
+  await page.run(() => document.getElementById('power').click());
+  await sleep(900);
+  await force('button.user.other', ['hover'], false);
+  await check('로그인(다른 사용자 무리)', false);
+  await clickText('.reset-link', '사용자 지우기');
+  await page.run(() => document.querySelector('.other-row .other-drop')?.click());
+  await check('로그인(사용자 지우기 확인)', false);
+  await force('button.user.other', ['hover'], false); // 지우기를 고른 칸(눌리지 않는 칸)에 마우스를 올린 모양
+  await clickText('.reset-row .btn', '그대로 두기');
+  await page.run(() => localStorage.removeItem('agarago.users'));
   await page.run(() => document.querySelector('.users .user:not(.neighbor)').click());
   await sleep(300);
   await check('환영 화면', false);

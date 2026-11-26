@@ -23,6 +23,7 @@ import { createHorror, CLOCK as HORROR_CLOCK } from './horror.js';
 import { sanitizeHome, encodeHome, linkCode, linkId } from './share.js';
 import { sharedId, syncLater, latestNoteAt, notesSeenAt, lostRoom, onLost, markEdited, signedOut, onSignedOut, onMoved, dropUploads } from './cloud.js';
 import { sit, moved } from './seat.js';
+import { resumeSwap } from './user-drawers.js';
 import { createTutorial } from './tutorial.js';
 import { openNeighbors, prefetchNeighbors, rememberVisit } from './neighbors.js';
 import { createLogin } from './login.js';
@@ -129,6 +130,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
   // 2005년식 부팅: 검은 화면에 로고와 진행 막대를 2초 보여 준다. 움직임 줄이기를 켠 사람에게는 바로 로그인 화면을 보여 준다.
   os.boot = async () => {
     const my = ++run;
+    resumeSwap(); // 지난번에 사용자를 바꿔 끼우다 꺼졌으면 마저 한다(F37). 저장된 사용자를 읽는 어느 일보다 먼저 한다
     show('boot');
     preloadFurniture(loginHomes()); // 부팅 화면과 로그인 화면을 지나는 동안 가구 그림을 받아 둔다(바탕화면에 임시 상자가 비치지 않게)
     preloadAvatars(); // 아바타 그림도 같다(바탕화면이 뜬 뒤에 아바타가 늦게 나타나지 않게)
@@ -162,10 +164,12 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     isCurrent: my => my === run,
     forgetSync: () => sync.forget(),
   });
-  // 저장된 사용자를 새로 읽을 때(로그인 화면, 내 컴퓨터로 돌아가기) 부른다. 지금 앉은 사용자의 표시를 기억하고(src/seat.js), 다른 탭에서 바뀌었을 수 있는 펫을 다시 읽는다
+  // 저장된 사용자를 새로 읽을 때(로그인 화면, 내 컴퓨터로 돌아가기, 로그인 화면에서 사용자를 바꾼 뒤) 부른다. 지금 앉은 사용자의 표시를 기억하고(src/seat.js),
+  // 다른 탭에서 바뀌었거나 이 탭에서 바꿔 끼운(F37) 사용자의 펫과 튜토리얼 진행을 다시 읽는다
   function takeSeat() {
     sit();
     settings.rereadUser();
+    os.tutorial.reread();
   }
   // 다른 탭에서 로그인하거나 이 컴퓨터에서 지우거나 초기화해 사용자가 바뀌었다. 이 탭이 들고 있던 앞 사용자의 집은 저장하지도 올리지도 않고 로그인 화면으로 돌아간다(F36).
   // 저장하고 올리기 바로 앞(saveHome, src/cloud.js의 checkStamp)과 storage 이벤트에서 알게 된다. 저장을 부른 쪽이 하던 일을 마친 뒤에 창을 닫는다.

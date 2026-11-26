@@ -14,6 +14,7 @@ import { NEIGHBORS } from '../data/neighbors.js';
 import { STORAGE_RECENT } from './config.js';
 import { decodeHome, linkId, sanitizeHome } from './share.js';
 import { fetchHome, sharedId, findHandle, normalHandle, HANDLE_RE } from './cloud.js';
+import { drawerRooms } from './user-drawers.js';
 import { line } from './likes.js';
 import { pictureEl } from './user-pictures.js';
 import { h, fitText, loadJSON, saveJSON } from './util.js';
@@ -60,12 +61,11 @@ function codeOf(n) {
   return asked.get(n.link);
 }
 
-// 이 브라우저가 올린 방이 고정한 이웃집이면 그 이웃집의 줄, 아니면 null. 그 방을 서버에서 지우는 길(로그인 화면의 이 컴퓨터 초기화, 공유하기의 링크 지우기)은
+// 이 브라우저의 앉은 사용자가 올린 방이 고정한 이웃집이면 그 이웃집의 줄, 아니면 null. 그 방을 서버에서 지우는 길(로그인 화면의 이 컴퓨터 초기화, 공유하기의 링크 지우기)은
 // 서버의 방을 지우기 전에 이것을 보고 막는다. 지우면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고 주인의 방도 사라진다. tools/check.py가 unshare()를 부르는 파일에 이 이름이 있는지 본다.
-export function pinnedHere() {
-  const id = sharedId();
-  return (id && NEIGHBOR_LIST.find(n => n.keep && n.link === id)) || null;
-}
+// 서랍에 든 다른 사용자(F37)를 지울 때는 그 사용자가 올린 방 번호로 pinnedRoom을 본다(src/sign-in.js의 askRemove)
+export const pinnedHere = () => pinnedRoom(sharedId());
+export const pinnedRoom = id => (id && NEIGHBOR_LIST.find(n => n.keep && n.link === id)) || null;
 
 // 그 집을 열 때마다 글자를 새로 푼다(구경하는 동안 바뀐 것이 목록에 남지 않게).
 // link 이웃집은 서버의 방 주인 이름을 그대로 쓴다. room 이웃집은 목록의 이름이다(tools/check.py가 링크 속 이름과 같은지 본다). 이름이 빈 방도 목록의 이름을 쓴다.
@@ -108,20 +108,21 @@ export const shownNeighbors = (owner = '') => NEIGHBOR_LIST.filter(n => neighbor
 // 최근에 놀러 간 집. 짧은 링크(#s=)나 아이디로 손님이 되어 들어간 서버의 방을 이 브라우저에만 기억해 로그인 화면 오른쪽 단 맨 위에 보인다(src/login.js의 recentTile).
 // 단추로 고르게 하지 않고 들어갈 때마다 저절로 남긴다(인터넷 익스플로러의 열어 본 페이지 목록). 동물의 숲의 꿈 번지는 다녀온 섬을 기억하지 않아 번지를 다시 쳐야 했다.
 // 최근 것부터 MAX_RECENT집(로그인 화면 격자의 한 줄)까지 두고, 다시 가면 맨 앞으로 옮긴다. 방 번호와 그때 본 주인 이름과 사진만 적고, 방은 로그인 화면이 서버에서 다시 받는다.
-// 이웃집 목록의 link와 같은 방과 이 컴퓨터가 올린 방(sharedId)은 이웃집이나 내 사용자로 이미 떠 있어서 적지 않는다(known-issues 84).
-// 이 컴퓨터 초기화가 agarago.로 시작하는 키를 지우므로 함께 지워진다(src/login.js의 resetButton).
+// 이웃집 목록의 link와 같은 방과 이 컴퓨터의 사용자들이 올린 방(앉은 사용자의 sharedId와 서랍의 drawerRooms)은 이웃집이나 사용자 칸으로 이미 떠 있어서 적지 않는다(known-issues 84).
+// 사용자의 것이라 이 컴퓨터 초기화와 이 컴퓨터에서 지우기가 지우고, 사용자를 바꾸면 서랍에 같이 들어간다(F37). 로그인 화면에는 앉은 사용자(마지막에 쓴 사용자)의 것이 보인다.
 export const MAX_RECENT = 3;
-const shownElsewhere = room => room === sharedId() || NEIGHBOR_LIST.some(n => n.link === room);
+const shownElsewhere = (room, mine = [sharedId(), ...drawerRooms()]) => mine.includes(room) || NEIGHBOR_LIST.some(n => n.link === room);
 
 // 기억한 집들. 최근 것부터 [{ room: 방 번호, name: 주인 이름, picture: 주인 사진 값이나 null }].
 // 저장소의 값은 손으로 고쳐졌을 수 있어서 이름과 사진은 집 상태 검사(sanitizeHome)를 거친다. 그사이 이웃집이 된 방은 뺀다
 export function recentVisits() {
   const got = loadJSON(STORAGE_RECENT);
   const seen = new Set();
+  const mine = [sharedId(), ...drawerRooms()];
   return (Array.isArray(got) ? got : []).flatMap(v => {
     const room = asLink(v?.room);
     const home = sanitizeHome({ owner: v?.name, picture: v?.picture });
-    if (!room || !home?.owner || seen.has(room) || shownElsewhere(room)) return [];
+    if (!room || !home?.owner || seen.has(room) || shownElsewhere(room, mine)) return [];
     seen.add(room);
     return [{ room, name: home.owner, picture: home.picture || null }];
   }).slice(0, MAX_RECENT);

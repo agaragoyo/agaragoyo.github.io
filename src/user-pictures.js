@@ -44,8 +44,10 @@ export const shownSize = slot => parseFloat(getComputedStyle(document.documentEl
 
 // 이 컴퓨터 사용자의 사진 값. 고른 적이 없으면(사진이 생기기 전에 만든 사용자) 닉네임으로 한 장을 정한다.
 // 그 사진은 저장하지 않지만 같은 닉네임이면 늘 같은 사진이 나온다.
-export function ownPicture(name = '') {
-  const v = loadJSON(STORAGE_PICTURE);
+export const ownPicture = (name = '') => pictureOf(loadJSON(STORAGE_PICTURE), name);
+
+// 저장해 둔 사진 값(v)으로 정한 사진. 서랍에 넣어 둔 다른 사용자(src/user-drawers.js)의 사진도 이것으로 정한다
+export function pictureOf(v, name = '') {
   if (isPicture(v)) return v;
   let n = 0;
   for (const ch of name) n = (n * 31 + ch.codePointAt(0)) >>> 0;

@@ -86,3 +86,9 @@ export const STORAGE_SEAT = 'agarago.seat'; // 이 컴퓨터에 앉은 사용자
 // 새 기능 안내 창을 이 사용자가 봤는지(src/user-account.js의 openLoginNews). 새 사용자는 튜토리얼 끝 카드가 알리므로 만들 때 본 것으로 둔다.
 // 사용자의 것이라 이 컴퓨터 초기화와 이 컴퓨터에서 지우기가 지운다
 export const STORAGE_NEWS = 'agarago.news';
+// 앉지 않은 사용자의 것을 넣어 둔 서랍(src/user-drawers.js, F37). 한 브라우저에 사용자를 MAX_USERS명까지 둔다(넷플릭스 프로필처럼 다섯).
+// 이 컴퓨터의 것이라 사용자를 지우는 일(src/home-store.js의 wipeUser)이 지우지 않는다
+export const STORAGE_USERS = 'agarago.users';
+// 앉은 사용자의 서랍 번호. 사용자의 것이라 서랍에 같이 들어가, 서랍과 앉은 자리를 오가도 같은 번호를 쓴다
+export const STORAGE_DRAWER = 'agarago.drawer';
+export const MAX_USERS = 5;

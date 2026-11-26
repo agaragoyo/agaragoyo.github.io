@@ -1,16 +1,18 @@
 // 로그인 화면. 이 컴퓨터의 내 집, 링크로 온 친구 집, 이웃집을 사용자처럼 늘어놓는다.
-// 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 이 컴퓨터 초기화(비밀번호가 있으면 이 컴퓨터에서 지우기)를, 없으면 새 사용자 만들기(닉네임과 사진)를 둔다.
-// 그 아래 글자 단추("내 아이디로 로그인", "다른 아이디로 로그인")를 누르면 왼쪽 단이 아이디와 비밀번호를 치는 로그인 칸으로 바뀐다(F36, src/sign-in.js).
+// 왼쪽 단(.users-own, 로고와 안내 아래)은 나다. 내 집이 있으면 내 사용자와 그 아래 글자 단추(다른 아이디로 로그인, 새 사용자 만들기, 이 컴퓨터 초기화나 이 컴퓨터에서 지우기)를,
+// 없으면 새 사용자 만들기(닉네임과 사진)와 "내 아이디로 로그인"을 둔다. 로그인 글자 단추를 누르면 왼쪽 단이 아이디와 비밀번호를 치는 로그인 칸으로 바뀐다(F36, src/sign-in.js).
+// 이 컴퓨터에 사용자가 둘 이상이면(F37, src/user-drawers.js) 마지막에 쓴 사용자를 내 사용자로 크게 두고, 그 아래 "다른 사용자" 무리에 나머지를 작은 칸으로 세운다(othersGroup).
 // 오른쪽 단(.users-friends)은 친구 집이다. 링크로 온 친구 집이나, 최근에 놀러 간 집과 이웃집의 사진 칸 격자와 그 아래 친구 아이디 칸(handleTile)을 둔다.
 // 이웃집은 팀원의 방을 미리 넣어 둔 친구 집이라, 아이디로 찾아가는 칸을 그 아래에 두어 친구에게 가는 길을 한 단에 모았다.
 // 격자는 넷플릭스의 프로필 고르기, 윈도우 XP의 사용자 계정 창처럼 사진 아래에 이름 한 줄만 쓴다. 칸마다 같은 설명을 되풀이하지 않고 무리마다 제목을 한 번 둔다.
 // 화면 바꾸기, 고른 집으로 들어가기(환영 화면을 지나 바탕화면으로), 진행 중인 연출을 멈추는 실행 번호는 src/os.js에 있고 여기서는 넘겨받아 쓴다.
-import { STORAGE_ROOM, STORAGE_ROOM_OLD, NEW_ROOM_DECOR } from './config.js';
+import { STORAGE_ROOM, STORAGE_ROOM_OLD, NEW_ROOM_DECOR, MAX_USERS } from './config.js';
 import { sanitizeHome, decodeHome, linkCode, linkId } from './share.js';
 import { fetchHome, sharedId, unshare, myHandle, hasPassword, standUp } from './cloud.js';
 import { moved, reseat } from './seat.js';
 import { wipeUser } from './home-store.js';
-import { createSignIn } from './sign-in.js';
+import { drawers, swapTo, clearSeat, seatDone, promoteNext, userCount } from './user-drawers.js';
+import { createSignIn, FULL, noSpace } from './sign-in.js';
 import { markNews } from './user-account.js';
 import { NEIGHBOR_LIST, neighborHome, neighborNow, neighborBoard, pinnedHere, handleInput, brLines, recentVisits, syncVisit } from './neighbors.js';
 import { ownPicture, saveOwnPicture, randomPicture, pictureEl, picturePicker } from './user-pictures.js';
@@ -33,11 +35,11 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
     return own && own.owner ? own : null;
   }
 
-  // 로그인 화면에서 고를 수 있는 집들: 내 집, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
+  // 로그인 화면에서 고를 수 있는 집들: 내 집, 이 컴퓨터의 다른 사용자, 링크로 온 친구 집, 이웃집. 부팅할 때 이 집들의 가구 그림을 미리 받는다.
   // 짧은 링크(#s=)로 온 친구 집과 link 이웃집은 서버에서 받아야 해서 여기 없고, 받은 뒤에 따로 미리 받는다(src/os.js의 boot).
   function loginHomes() {
     const m = linkCode(location.hash);
-    return [ownHome(), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborNow)].filter(Boolean);
+    return [ownHome(), ...drawers().map(d => d.home), m && decodeHome(m), ...NEIGHBOR_LIST.map(neighborNow)].filter(Boolean);
   }
 
   // 짧은 링크(#s=번호)의 방을 서버에서 받아 온다(src/cloud.js). 링크마다 한 번만 받는다.
@@ -72,10 +74,11 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
     return tile;
   }
 
-  // 이웃집이 이 브라우저에서 올린 방인가. 이 컴퓨터가 올린 짧은 링크 번호(src/cloud.js의 sharedId)와 이웃집의 link가 같으면 그렇다.
+  // 이웃집이 이 브라우저의 사용자가 올린 방인가. 앉은 사용자가 올린 짧은 링크 번호(src/cloud.js의 sharedId)나 서랍에 든 다른 사용자가 올린 번호(F37)가
+  // 이웃집의 link와 같으면 그렇다. rooms가 그 번호들이다. 그 방은 내 사용자나 다른 사용자 칸으로 이미 떠 있다.
   // 이름으로 견주지 않는다. 손님이 이웃과 같은 닉네임을 골랐을 때 그 이웃집이 사라지기 때문이다. 이웃집 목록 창만 지금 집 주인의 이름으로 거른다(src/neighbors.js의 shownNeighbors).
-  // 이 컴퓨터는 올린 방의 번호를 하나만 기억하므로 어느 사용자가 올렸든 그 방 하나가 걸린다. 이 컴퓨터 초기화처럼 올린 기록이 없어지면 걸리지 않는다.
-  const uploadedHere = n => !!n.link && n.link === sharedId();
+  // 이 컴퓨터 초기화처럼 올린 기록이 없어지면 걸리지 않는다.
+  const uploadedHere = (n, rooms) => !!n.link && rooms.includes(n.link);
 
   // 오른쪽 단 격자의 사진 칸(최근에 놀러 간 집, 이웃집). 사진 아래에 이름 한 줄만 쓰고, 누르면 바로 그 집에 손님으로 들어간다.
   // 이름은 넘치면 말줄임표로 끝내고 전체 이름을 title로 단다(fitName, known-issues 83). 이름 글자는 이름 상자의 첫 글자 마디다(tools/smoke.mjs가 그렇게 읽는다).
@@ -168,6 +171,17 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
     return true;
   }
 
+  // 이 탭에서 앉은 사용자를 바꿨다(F37). 메모리에 든 앞 사용자의 로그인과 예약한 올리기, 서버의 방과 맞추던 일을 버리고, 펫과 튜토리얼 진행을 새로 읽는다
+  function reseated() {
+    standUp();
+    forgetSync();
+    takeSeat();
+  }
+  // 서버의 답을 기다리는 동안 로그인 화면을 누를 수 없게 한다. 기다리는 사이에 다른 사용자로 들어가면 지우려던 사용자가 바뀐다
+  const hold = on => { el.login.inert = on; };
+  // 사용자를 더 두지 못할 때의 알림(F37). 다섯 명이 찼으면 먼저 지우라고 알린다
+  const tellFull = lines => toast(lines.join(' '), 7000);
+
   function showLogin() {
     const my = nextRun();
     os.wm.closeAll();
@@ -194,44 +208,110 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
     // 최근에 놀러 간 집과 이웃집은 3열 사진 칸 격자(.friend-grid)로 서고, 무리마다 위에 제목을 한 번 둔다. 칸이 없는 무리는 제목도 두지 않는다.
     // 이웃집은 누르면 바로 손님으로 들어간다. 처음 온 사람도 빈 방을 꾸미기 전에 채워진 방을 먼저 볼 수 있다.
     // 이 브라우저에서 올린 방은 내 사용자로 이미 떠 있어서 이웃집 칸에서 뺀다(같은 방이 두 번 뜨지 않게, known-issues 84).
+    const others = drawers();
     const listing = !(m || sid);
     friends.classList.toggle('friend-grid', listing);
     if (listing) {
       const group = (title, tiles) => (tiles.length ? [h('h2', { className: 'friend-head' }, title), ...tiles] : []);
+      const rooms = [sharedId(), ...others.map(d => d.room)].filter(Boolean);
       friends.append(
         ...group('최근에 놀러 간 집', recentVisits().map(v => recentTile(v, my))),
-        ...group('이웃집', NEIGHBOR_LIST.filter(n => !uploadedHere(n)).map(n => neighborTile(n, my)).filter(Boolean)),
+        ...group('이웃집', NEIGHBOR_LIST.filter(n => !uploadedHere(n, rooms)).map(n => neighborTile(n, my)).filter(Boolean)),
         handleTile(my));
       for (const tile of friends.querySelectorAll('.friend-tile')) fitName(tile);
     }
     const showMine = () => (own ? showOwn() : showNew());
     showMine();
 
-    // 내 사용자. 그 아래에 다른 아이디로 로그인과, 이 컴퓨터 초기화나 이 컴퓨터에서 지우기를 글자 단추로 둔다
+    // 내 사용자. 그 아래에 다른 아이디로 로그인, 새 사용자 만들기, 이 컴퓨터 초기화나 이 컴퓨터에서 지우기를 글자 단추로 두고, 다른 사용자가 있으면 그 무리를 둔다
     function showOwn() {
       mine.replaceChildren(userTile(own.owner, m || sid ? '내 컴퓨터로 가기' : '내 컴퓨터', () => {
         if (staleLogin()) return;
         clearHash();
         enter('edit', own, my);
-      }, '', ownPicture(own.owner)), ownLinks(openForm));
+      }, '', ownPicture(own.owner)), ownLinks(openForm, openNew, own, others.length > 0, my), ...othersGroup(others, my));
     }
+    // 앉은 사용자가 없다. 다른 사용자는 앉은 사용자를 지울 때 하나가 앉으므로, 서랍만 남는 것은 저장소를 손으로 고쳤을 때뿐이다
     function showNew() {
-      mine.replaceChildren(newUserTile((name, picture) => {
-        if (staleLogin()) return;
-        clearHash();
-        const home = sanitizeHome({ owner: name, decor: NEW_ROOM_DECOR });
-        saveJSON(STORAGE_ROOM, home);
-        saveOwnPicture(picture);
-        os.tutorial.arm();
-        markNews(); // 새 기능 안내는 튜토리얼 끝 카드가 대신한다
-        enter('edit', home, my);
-      }), linkButton('내 아이디로 로그인', openForm));
+      mine.replaceChildren(newUserTile(create), linkButton('내 아이디로 로그인', openForm), ...othersGroup(others, my));
     }
-    // 로그인 칸(src/sign-in.js). 그 아래 글자 단추로 돌아간다
+    // 내 사용자가 있을 때의 새 사용자 만들기. 만들면 내 사용자는 지우지 않고 다른 사용자로 간다(F37). 그 아래 글자 단추로 돌아간다
+    function openNew() {
+      if (userCount() >= MAX_USERS) return tellFull(FULL);
+      mine.replaceChildren(newUserTile(create), linkButton('내 사용자로 돌아가기', showMine));
+    }
+    function create(name, picture) {
+      if (staleLogin()) return;
+      const cleared = clearSeat(); // 앉은 사용자를 서랍에 넣고 비운다. 없었으면 손님으로 놀다 남은 기록을 새 사용자가 이어 쓴다
+      if (cleared !== true) return tellFull(cleared === 'full' ? FULL : noSpace('새 사용자를 만들지'));
+      if (own) reseated();
+      clearHash();
+      const home = sanitizeHome({ owner: name, decor: NEW_ROOM_DECOR });
+      saveOwnPicture(picture);
+      os.tutorial.arm();
+      markNews(); // 새 기능 안내는 튜토리얼 끝 카드가 대신한다
+      saveJSON(STORAGE_ROOM, home); // 집을 맨 나중에 쓴다. 그 전에 꺼지면 앞 사용자가 다시 앉는다(src/user-drawers.js)
+      seatDone();
+      enter('edit', home, my);
+    }
+    // 로그인 칸(src/sign-in.js). 그 아래 글자 단추로 돌아간다. 내 사용자가 있으면 받은 계정이 사용자 하나를 더하므로 다섯 명이 찼으면 먼저 알린다
     function openForm() {
+      if (own && userCount() >= MAX_USERS) return tellFull(FULL);
       mine.replaceChildren(signIn.form({ my, box: mine, title: own ? '다른 아이디로 로그인' : '내 아이디로 로그인' }),
         linkButton(own ? '내 사용자로 돌아가기' : '새 사용자 만들기', showMine));
     }
+  }
+
+  // 이 컴퓨터의 다른 사용자(F37). 무리 제목 "다른 사용자" 아래에 작은 칸(사진, 이름, 아이디)을 최근에 쓴 사용자부터 세우고, 누르면 비밀번호 없이 그 사용자로 바꿔 들어간다.
+  // 다음에 로그인 화면에 오면 그 사용자가 내 사용자 칸에 크게 선다. 다른 사용자가 없으면 아무것도 두지 않는다.
+  // 맨 아래 "사용자 지우기"를 누르면 칸마다 왼쪽에 지우기 단추가 뜨고(구글 계정 고르기의 계정 삭제), 누른 칸은 밝게, 다른 칸은 흐리게 두고 그 아래에
+  // 무엇이 지워지는지 보인 뒤 결과를 말하는 단추로 받는다(src/sign-in.js의 askRemove). "완료"를 누르면 지우기 단추를 거둔다.
+  // 지우기를 고르는 동안(.removing) 내 사용자 아래 글자 단추는 숨긴다. 사용자가 다섯 명일 때 확인 줄까지 떠도 가운데 띠 안에 들게 한다
+  function othersGroup(others, my) {
+    if (!others.length) return [];
+    const mine = el.login.querySelector('.users-own');
+    const list = h('div', { className: 'others' });
+    const foot = h('div', { className: 'reset-box' });
+    const link = (label, onclick) => h('button', { type: 'button', className: 'reset-link', onclick }, label);
+    const tile = d => h('button', { type: 'button', className: 'user other', onclick: () => switchTo(d, my) },
+      avatar(d.name, d.picture, 36),
+      h('span', { className: 'user-name' }, d.name, d.handle ? h('small', {}, `아이디 ${d.handle}`) : null));
+    const idle = () => {
+      mine.classList.remove('removing');
+      list.replaceChildren(...others.map(tile));
+      foot.replaceChildren(link('사용자 지우기', () => removing()));
+    };
+    // 지우기를 고르는 중. picked: 지우기를 누른 사용자
+    const removing = (picked = null) => {
+      mine.classList.add('removing');
+      list.replaceChildren(...others.map(d => {
+        const t = tile(d);
+        t.disabled = true;
+        t.classList.toggle('picked', d === picked);
+        t.classList.toggle('dim', !!picked && d !== picked);
+        return h('div', { className: 'other-row' },
+          h('button', { type: 'button', className: 'btn other-drop', title: `${d.name} 지우기`, onclick: () => pick(d) }, '지우기'), t);
+      }));
+      if (!picked) foot.replaceChildren(link('완료', idle));
+    };
+    const pick = d => {
+      if (staleLogin()) return;
+      removing(d);
+      signIn.askRemove(d, foot, () => removing(), my);
+    };
+    idle();
+    return [h('div', { className: 'others-box' }, h('h2', { className: 'friend-head others-head' }, '다른 사용자'), list, foot)];
+  }
+
+  // 다른 사용자 칸을 눌렀다. 그 사용자를 앉히고(앉아 있던 사용자는 다른 사용자로 간다) 내 컴퓨터로 들어간다
+  function switchTo(d, my) {
+    if (staleLogin()) return;
+    const home = swapTo(d.id);
+    if (home === null) return showLogin(); // 다른 탭에서 그 사용자를 지웠다
+    if (!home) return tellFull(noSpace('사용자를 바꾸지'));
+    reseated();
+    clearHash();
+    enter('edit', ownHome() || home, my);
   }
 
   // 친구 아이디로 놀러 가기(F31). 오른쪽 단의 이웃집 격자 아래에 단의 폭으로 서고, 처음 온 사람도 사용자를 만들지 않고 아이디만으로 들어간다.
@@ -274,39 +354,53 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
   // 로그인 화면 왼쪽 단의 글자 단추. 로그인 칸을 열거나 거기서 돌아온다
   const linkButton = (label, onclick) => h('button', { type: 'button', className: 'own-link', onclick }, label);
 
-  // 내 사용자 아래의 작은 글자 단추들: 다른 아이디로 로그인, 이 컴퓨터 초기화(비밀번호가 있고 서버에 방이 있으면 이 컴퓨터에서 지우기).
+  // 내 사용자 아래의 작은 글자 단추들: 다른 아이디로 로그인, 새 사용자 만들기, 이 컴퓨터 초기화(비밀번호가 있고 서버에 방이 있으면 이 컴퓨터에서 지우기).
+  // 다른 아이디로 로그인과 새 사용자 만들기는 내 사용자를 지우지 않고 다른 사용자로 보낸다(F37).
   // 이 컴퓨터 초기화: 저장된 집(계정)과 게임 최고 점수를 지운다. 이 컴퓨터의 설정(밤, 소리, 배경음악)은 남긴다(src/home-store.js의 wipeUser).
-  // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다.
+  // 새 계정 만들기와 친구 링크 구경을 다시 시험할 때 쓴다. 다른 사용자가 있으면(others) 이 컴퓨터의 것이 다 지워지지 않으므로 "이 컴퓨터에서 지우기"로 쓰고
+  // 확인 줄에 누구의 것인지 적는다(known-issues 130). 지운 뒤에는 가장 최근에 쓴 다른 사용자가 내 사용자 칸에 선다.
   // 이 컴퓨터에서 지우기: 서버의 방을 남겨 두고 이 컴퓨터의 것만 지운다(F36, src/sign-in.js의 askTakeOut).
   // 되돌릴 수 없는 일이라 바로 지우지 않고, 지울 것을 보여 준 뒤 결과를 말하는 단추로 받는다(known-issues 32).
   // 초기화는 짧은 링크로 서버에 올린 방(src/cloud.js)도 같이 지운다. 서버가 늦으면 3초까지만 기다리고 이 컴퓨터의 것은 지운다.
   // 이웃집에 고정한 방(data/neighbors.js의 keep)을 올린 브라우저에서는 초기화를 내놓지 않고 이유만 보인다.
   // 서버의 방이 지워지면 그 이웃집이 복사본(넣은 때의 모습)으로 멈추고, 이 컴퓨터의 방도 사라지기 때문이다. 서버의 방을 남기는 이 컴퓨터에서 지우기는 막지 않는다.
-  function ownLinks(openForm) {
-    const box = h('div', { className: 'reset-box' });
+  function ownLinks(openForm, openNew, own, others, my) {
+    const box = h('div', { className: 'reset-box own-links' });
     const link = (label, onclick) => h('button', { type: 'button', className: 'reset-link', onclick }, label);
     const ask = (lines, yes) => box.replaceChildren(
       ...lines.map(text => h('p', {}, text)),
       h('div', { className: 'reset-row' }, yes, h('button', { type: 'button', className: 'btn', onclick: idle }, '그대로 두기')));
-    const wipe = async () => {
+    const wipe = async e => {
       if (pinnedHere()) return showLogin(); // 확인 창을 띄워 둔 사이에 다른 탭에서 방이 고정되었을 수 있다
-      if (sharedId()) await Promise.race([unshare().catch(err => console.warn('서버의 방을 지우지 못했다', err)), wait(3000)]);
+      e.currentTarget.disabled = true;
+      hold(true); // 서버를 기다리는 사이에 다른 사용자로 들어가면 그 사용자를 지운다
+      try {
+        if (sharedId()) await Promise.race([unshare().catch(err => console.warn('서버의 방을 지우지 못했다', err)), wait(3000)]);
+      } finally {
+        hold(false);
+      }
       if (staleLogin()) return; // 누르기 전이나 기다리는 사이에 다른 탭에서 사용자가 바뀌었다. 서버의 방은 unshare가 지우지 않는다(src/cloud.js의 queueMine)
       reseat();
       wipeUser();
       standUp();
       forgetSync();
+      const next = promoteNext(); // 다른 사용자가 있으면 가장 최근에 쓴 사용자를 앉힌다
+      if (next) reseated();
+      if (!isCurrent(my)) return; // 기다리는 사이에 전원을 껐다. 다음에 켜면 지금 상태로 그린다
       showLogin();
+      if (next) toast(`${own.owner}의 집을 이 컴퓨터에서 지웠습니다.`, 5000); // 내 사용자 칸이 다른 사용자로 바뀌었다
     };
-    const askReset = () => ask([sharedId()
-      ? `이 컴퓨터의 집과 게임 기록, 링크의 방과 쪽지${myHandle() ? ', 아이디' : ''}를 지웁니다. 되돌릴 수 없습니다.`
-      : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'],
+    const linked = () => `링크의 방과 쪽지${myHandle() ? ', 아이디' : ''}`;
+    const askReset = () => ask(others
+      ? [`이 컴퓨터에 저장된 ${own.owner}의 집과 게임 기록을 지웁니다.`, sharedId() ? `${linked()}도 지웁니다. 되돌릴 수 없습니다.` : '되돌릴 수 없습니다.']
+      : [sharedId() ? `이 컴퓨터의 집과 게임 기록, ${linked()}를 지웁니다. 되돌릴 수 없습니다.` : '이 컴퓨터에 저장된 집과 게임 기록을 지웁니다. 되돌릴 수 없습니다.'],
     h('button', { type: 'button', className: 'btn', onclick: wipe }, '지우기'));
     const last = () => {
-      if (hasPassword() && sharedId()) return link('이 컴퓨터에서 지우기', () => signIn.askTakeOut(box, idle));
-      return pinnedHere() ? h('p', {}, '내 방이 이웃집에 고정되어 있어 초기화할 수 없습니다.') : link('이 컴퓨터 초기화', askReset);
+      if (hasPassword() && sharedId()) return link('이 컴퓨터에서 지우기', () => signIn.askTakeOut(box, idle, my));
+      if (pinnedHere()) return h('p', {}, `내 방이 이웃집에 고정되어 있어 ${others ? '지울' : '초기화할'} 수 없습니다.`);
+      return link(others ? '이 컴퓨터에서 지우기' : '이 컴퓨터 초기화', askReset);
     };
-    const idle = () => box.replaceChildren(link('다른 아이디로 로그인', openForm), last());
+    const idle = () => box.replaceChildren(link('다른 아이디로 로그인', openForm), link('새 사용자 만들기', openNew), last());
     idle();
     return box;
   }
@@ -370,7 +464,7 @@ export function createLogin({ os, el, show, enter, toast, clearHash, takeSeat, n
     return form;
   }
 
-  const signIn = createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast, clearHash, isCurrent, forgetSync, keySound });
+  const signIn = createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast, clearHash, isCurrent, forgetSync, keySound, reseated, hold });
 
   return { ownHome, loginHomes, cloudHome, showLogin, avatar };
 }
