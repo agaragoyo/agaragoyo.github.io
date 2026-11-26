@@ -317,6 +317,11 @@ export function createTutorial(os) {
       state = newState(false);
       save();
     },
+    // 저장된 진행 상태를 다시 읽는다. 이 탭이나 다른 탭에서 앉은 사용자가 바뀌었을 수 있을 때 부른다(src/os.js의 takeSeat, F37).
+    // 연습 방에 있는 동안은 저장하지 않은 연습 상태라 그대로 둔다
+    reread() {
+      if (!os.realHome) state = loadState();
+    },
     // 내 컴퓨터의 바탕화면에 들어올 때 부른다. 하던 중이면 이어서 보여 준다(손님은 부르지 않는다).
     resume() {
       if (!state.active) return;

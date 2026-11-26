@@ -1141,7 +1141,7 @@ body.moving-window iframe { pointer-events: none; }
 /* 사용자 목록은 두 단이다(src/login.js). 오른쪽 .users-friends는 친구 집(링크로 온 친구 집이나 이웃집과 친구 아이디 칸),
    왼쪽 .users-own은 로고와 안내 아래의 나(내 사용자와 이 컴퓨터 초기화, 또는 새 사용자 만들기)이고 오른쪽 끝을 안내에 맞춘다 */
 .users { display: grid; gap: 14px; padding-left: 60px; justify-items: start; }
-.users.users-own { margin-top: 36px; padding-left: 0; justify-items: end; }
+.users.users-own { margin-top: 24px; padding-left: 0; justify-items: end; }
 .user {
   display: flex;
   align-items: center;
@@ -1276,6 +1276,29 @@ form.user { cursor: var(--cur-arrow); }
 /* 왼쪽 단의 글자 단추(내 아이디로 로그인, 새 사용자 만들기). 그림 파일 찾아보기(.pic-browse)와 같은 밑줄 글자이고, 오른쪽 끝을 위 칸의 안쪽 여백(18px)에 맞춘다.
    위 여백 32px은 칸 아래에 뜨는 오류 풍선(.name-tip, 두 줄까지)이 이 단추를 가리지 않는 값이다 */
 .own-link { margin: 32px 18px 0 0; padding: 2px 4px; border: 0; background: none; font-size: 15px; text-decoration: underline; color: inherit; cursor: var(--cur-hand); }
+/* 내 사용자 아래의 글자 단추 묶음(src/login.js의 ownLinks: 다른 아이디로 로그인, 새 사용자 만들기, 이 컴퓨터 초기화나 이 컴퓨터에서 지우기). 줄 사이 3px로 붙여 세운다.
+   지울 것을 묻는 줄과 단추 줄도 이 안에 뜬다. 사용자가 다섯 명이면 왼쪽 단이 가운데 띠(660px)를 거의 채워서 줄 사이를 시안(6px)보다 줄였다 */
+.users-own .own-links { display: grid; justify-items: end; }
+.own-links .reset-link { margin-top: 3px; }
+.own-links .reset-row { margin-top: 8px; }
+/* 이 컴퓨터의 다른 사용자(F37, src/login.js의 othersGroup). 내 사용자 아래에 무리 제목과 폭 320px의 작은 칸을 단의 오른쪽 끝에 맞춰 세운다(구글 계정 고르기, 넷플릭스 프로필).
+   작은 칸은 사진 상자 40px(사진 36px에 테두리 2px), 이름 18px, 아이디 13px이고 칸 사이는 4px이다. 1920×1080 화면에서는 사진이 47px로 커져 칸이 61px가 된다.
+   사용자 지우기를 누르면 칸 왼쪽 8px에 지우기 단추(13px)가 뜨고, 고른 칸은 흰색 15% 바탕, 다른 칸은 불투명도 45%가 된다 */
+.users-own .others-box { display: grid; gap: 4px; justify-items: end; }
+.users-own .others-head { justify-self: end; width: 320px; margin: 0; text-align: left; }
+.users-own .others { display: grid; gap: 4px; justify-items: end; }
+.user.other { width: 320px; gap: 12px; padding: 5px 14px 5px 6px; }
+.user.other .avatar { border-width: 2px; }
+.user.other .user-name { gap: 2px; min-width: 0; font-size: 18px; }
+.user.other .user-name small { font-size: 13px; }
+.user.other:disabled { cursor: var(--cur-arrow); }
+button.user.other:disabled:hover { background: none; }
+.user.other.picked, button.user.other.picked:hover { background: #ffffff26; }
+.user.other.dim { opacity: 0.45; }
+.other-row { display: flex; align-items: center; gap: 8px; }
+.btn.other-drop { padding: 3px 10px; font-size: 13px; }
+/* 지우기를 고르는 동안에는 내 사용자 아래 글자 단추를 숨긴다. 사용자가 다섯 명이어도 확인 줄까지 가운데 띠(660px) 안에 든다 */
+.users-own.removing > .own-links { display: none; }
 /* 시작 메뉴 맨 위의 내 사진. 누르면 사진 바꾸기 창이 열리고, 마우스를 올리면 테두리가 주황으로 바뀐다 */
 .start-pic { display: grid; flex: none; padding: 0; border: 0; border-radius: 4px; background: none; cursor: var(--cur-hand); }
 .start-pic:hover .avatar { border-color: #f8b33a; }
