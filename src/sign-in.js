@@ -1,8 +1,8 @@
-// 로그인 화면 왼쪽 단의 로그인 칸과 이 컴퓨터에서 빼기(F36). 로그인 화면(src/login.js)이 쓴다. 계정과 서버에 묻는 일은 src/cloud.js의 "비밀번호"에 있다.
+// 로그인 화면 왼쪽 단의 로그인 칸과 이 컴퓨터에서 지우기(F36). 로그인 화면(src/login.js)이 쓴다. 계정과 서버에 묻는 일은 src/cloud.js의 "비밀번호"에 있다.
 //   로그인   아이디와 비밀번호로 계정과 방을 모두 받은 다음에 이 브라우저의 것을 한꺼번에 바꾼다. 중간에 실패하면 하나도 바꾸지 않는다
-//   빼기     서버의 방을 남겨 두고 이 컴퓨터의 것만 지운다. 다시 로그인하면 이어진다. 같이 쓰는 컴퓨터에서 쓴다
+//   지우기   서버의 방을 남겨 두고 이 컴퓨터의 것만 지운다. 다시 로그인하면 이어진다. 같이 쓰는 컴퓨터에서 쓴다
 // 이 컴퓨터에 다른 사용자가 있으면 비밀번호가 맞은 다음에 무엇이 지워지는지 보이고 결과를 말하는 단추로 받는다(known-issues 32).
-//   비밀번호가 있고 서버에 방이 있는 사용자   빼기와 같은 검사를 하고 뺀다
+//   비밀번호가 있고 서버에 방이 있는 사용자   이 컴퓨터에서 지우기와 같은 검사를 하고 지운다
 //   그 밖의 사용자                          이 컴퓨터의 집이 하나뿐이라 지워진다고 알린다. 이웃집에 고정한 방이면 막는다(pinnedHere)
 // 같은 사용자의 로그인은 다시 로그인이다. 아무것도 지우지 않고, 올리지 못한 고침은 들어갈 때 서버의 방과 맞춘다(src/home-sync.js).
 // 비밀번호는 칸에서 요청으로만 가고 어디에도 남기지 않는다. 브라우저의 비밀번호 저장이 돌게 칸에 autocomplete를 단다.
@@ -23,7 +23,7 @@ const LOCKED = ['비밀번호를 여러 번 잘못 입력했습니다.', '잠시
 const NO_ROOM = ['방을 불러오지 못했습니다.', '잠시 후 다시 시도해 주세요.'];
 const FAILED = ['로그인하지 못했습니다.', '잠시 후 다시 시도해 주세요.'];
 
-// 빼거나 빼고 로그인하기 전에 보이는 것. 서버에 담기지 않아 돌아오지 않는 것도 적는다
+// 이 컴퓨터에서 지우거나 지우고 로그인하기 전에 보이는 것(비밀번호가 있는 사용자). 서버에 담기지 않아 돌아오지 않는 것도 적는다
 const OUT_LINES = [
   '서버의 방은 그대로이고, 다시 로그인하면 이어집니다.',
   '최근에 놀러 간 집과 푼 시험지, 파일 정리 10의 다 정리 횟수는 돌아오지 않습니다.',
@@ -116,7 +116,7 @@ export function createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast,
     if (job.got.me.uid === myUid()) return own ? back(job, own) : settle(job); // 같은 사용자다. 집만 사라진 브라우저면 서버의 방을 푼다
     if (!own && (!sharedId() || hasPassword())) return settle(job); // 지워질 것이 없다
     if (own && hasPassword() && sharedId()) {
-      return ask(job.box, [`이 컴퓨터에서 ${own.owner}의 집을 뺍니다.`, ...OUT_LINES], '빼고 로그인', '빼는 중', showLogin, async () => {
+      return ask(job.box, [`이 컴퓨터에서 ${own.owner}의 집을 지웁니다.`, ...OUT_LINES], '지우고 로그인', '지우는 중', showLogin, async () => {
         const why = await blocked();
         if (!isCurrent(job.my) || staleLogin()) return null;
         return why || settle(job);
@@ -151,7 +151,7 @@ export function createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast,
     box.replaceChildren(part);
   }
 
-  // 이 컴퓨터의 사용자를 빼면 안 되는 까닭과 할 일(한 줄씩). 빼도 되면 null이다.
+  // 이 컴퓨터의 사용자를 지우면 안 되는 까닭과 할 일(한 줄씩). 지워도 되면 null이다.
   // 올리지 못한 고침이 있으면 먼저 올리고, 다시 로그인해 이어 갈 수 있게 서버에 방과 아이디가 있는지 본다
   async function blocked() {
     const CHANGED = ['다른 브라우저에서도 이 방을 고쳤습니다.', '내 컴퓨터로 들어가 남길 방을 골라 주세요.'];
@@ -172,21 +172,21 @@ export function createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast,
       if (err.reason === 'changed') return CHANGED;
       if (err.reason === 'signedout') return ['로그인이 풀려 고친 방을 올리지 못했습니다.', '내 컴퓨터로 들어가 다시 로그인해 주세요.'];
       if (err.reason === 'removed') return gone('다른 브라우저에서 링크를 지워 서버에 방이 없습니다.');
-      if (err.reason === 'lost' || err.reason === 'denied') return gone('서버의 방을 고칠 수 없어 빼지 않았습니다.');
+      if (err.reason === 'lost' || err.reason === 'denied') return gone('서버의 방을 고칠 수 없어 지우지 않았습니다.');
       console.warn('서버의 방을 확인하지 못했다', err);
       return ['서버에 연결하지 못했습니다.', '잠시 후 다시 시도해 주세요.'];
     }
   }
-  // 서버에 방이 없다는 것을 이제 알았다. 빼면 이 컴퓨터의 방까지 사라지므로 빼지 않고, 로그인 화면을 지금 상태로 다시 그린 뒤 알린다
+  // 서버에 방이 없다는 것을 이제 알았다. 지우면 이 컴퓨터의 방까지 사라지므로 지우지 않고, 로그인 화면을 지금 상태로 다시 그린 뒤 알린다
   function gone(text) {
     showLogin();
     toast(text, 7000);
     return [text];
   }
 
-  // 이 컴퓨터에서 빼기. box는 글자 단추들이 있던 자리이고, idle은 그 단추들로 돌아가는 함수다
+  // 이 컴퓨터에서 지우기. box는 글자 단추들이 있던 자리이고, idle은 그 단추들로 돌아가는 함수다
   function askTakeOut(box, idle) {
-    ask(box, OUT_LINES, '빼기', '빼는 중', idle, async () => {
+    ask(box, [`이 컴퓨터에서 ${ownHome()?.owner}의 집을 지웁니다.`, ...OUT_LINES], '지우기', '지우는 중', idle, async () => {
       if (staleLogin()) return null;
       const why = await blocked();
       if (!box.isConnected || staleLogin()) return null; // 기다리는 사이에 내 컴퓨터로 들어갔거나 다른 탭에서 사용자가 바뀌었다
@@ -198,7 +198,7 @@ export function createSignIn({ os, ownHome, showLogin, staleLogin, enter, toast,
       usePet(null);
       forgetSync();
       showLogin();
-      toast(`${name}의 집을 이 컴퓨터에서 뺐습니다.`, 5000);
+      toast(`${name}의 집을 이 컴퓨터에서 지웠습니다.`, 5000);
       return null;
     });
   }

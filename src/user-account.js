@@ -15,7 +15,8 @@ import {
 } from './cloud.js';
 import { ownPicture, pictureEl, shownSize } from './user-pictures.js';
 import { brLines } from './neighbors.js';
-import { h } from './util.js';
+import { STORAGE_NEWS } from './config.js';
+import { h, loadJSON, saveJSON } from './util.js';
 
 const APP = { title: '아이디와 비밀번호', icon: 'builtin:key' };
 
@@ -283,3 +284,39 @@ export function openAccountWindow(os, { auto = false } = {}) {
 
 // 공유하기 창이 열려 있으면 링크와 아이디, 비밀번호 줄을 지금 상태로 맞춘다
 const refreshShare = os => os.wm.get('share')?.refreshLink?.();
+
+// 새 기능 안내. 아이디와 비밀번호가 생기기 전부터 있던 사용자에게 내 컴퓨터로 들어올 때 한 번 띄운다(src/os.js의 tellNews).
+// 비밀번호를 이미 만들었거나 로그인이 풀린 사용자(다시 로그인 창이 뜬다)에게는 띄우지 않는다.
+// 새 사용자는 튜토리얼 끝 카드가 같은 것을 알리므로 만들 때 본 것으로 둔다(src/login.js의 showNew). 창을 어떻게 닫든 본 것으로 둔다.
+// 같이 쓰는 컴퓨터의 줄은 로그아웃만으로는 이 컴퓨터에 사용자가 남는다는 것을 알린다(로그인 화면에서 비밀번호 없이 들어갈 수 있다)
+const NEWS = 'login';
+export const newsDue = () => !hasPassword() && !signedOut() && loadJSON(STORAGE_NEWS) !== NEWS;
+export const markNews = () => saveJSON(STORAGE_NEWS, NEWS);
+
+// 메뉴와 단추 이름. 윈도우 도움말처럼 굵게 쓰고, 이름 가운데나 뒤의 조사 앞에서 줄이 꺾이지 않게 한 묶음으로 둔다
+const named = (name, tail) => h('span', { style: { whiteSpace: 'nowrap' } }, h('b', {}, name), tail);
+
+export function openLoginNews(os) {
+  return os.wm.open({
+    key: 'login-news',
+    app: APP,
+    title: '새 기능 안내',
+    width: 470,
+    height: 190, // 여는 순간의 높이. 바로 내용에 맞춘다
+    onClose: markNews,
+    build(body, win) {
+      body.append(
+        h('p', {}, '아이디와 비밀번호로 로그인하는 기능이 추가되었습니다.'),
+        h('ol', { className: 'news-steps' },
+          h('li', {}, '시작 메뉴의 ', named('아이디와 비밀번호', '에서'), ' 비밀번호를 만드세요.'),
+          h('li', {}, '다른 브라우저의 로그인 화면에서 ', named('내 아이디로 로그인', '을'), ' 누르세요.'),
+          h('li', {}, '같이 쓰는 컴퓨터라면 다 쓴 뒤 ', named('로그아웃', '하고'), ' ', named('이 컴퓨터에서 지우기', '를'), ' 누르세요.')),
+        h('div', { className: 'link-row' },
+          h('button', { type: 'button', className: 'btn', onclick: () => { win.close(); openAccountWindow(os); } }, '비밀번호 만들기'),
+          h('button', { type: 'button', className: 'btn', onclick: () => win.close() }, '닫기')),
+      );
+      win.el.style.height = 'auto';
+      win.el.style.height = `${win.el.offsetHeight}px`;
+    },
+  });
+}

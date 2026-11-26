@@ -31,7 +31,7 @@ import { withRecords } from './records.js';
 import { withPet } from './pet-link.js';
 import { createHomeSync } from './home-sync.js';
 import { openNameWindow } from './user-name.js';
-import { openAccountWindow } from './user-account.js';
+import { openAccountWindow, openLoginNews, newsDue } from './user-account.js';
 import { h, wait, reduceMotion, saveJSON, doubleClick, isField } from './util.js';
 import { furnitureLine } from './furniture-line.js';
 import { play, setPlace } from './sound.js';
@@ -167,7 +167,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     sit();
     settings.rereadUser();
   }
-  // 다른 탭에서 로그인하거나 빼거나 초기화해 사용자가 바뀌었다. 이 탭이 들고 있던 앞 사용자의 집은 저장하지도 올리지도 않고 로그인 화면으로 돌아간다(F36).
+  // 다른 탭에서 로그인하거나 이 컴퓨터에서 지우거나 초기화해 사용자가 바뀌었다. 이 탭이 들고 있던 앞 사용자의 집은 저장하지도 올리지도 않고 로그인 화면으로 돌아간다(F36).
   // 저장하고 올리기 바로 앞(saveHome, src/cloud.js의 checkStamp)과 storage 이벤트에서 알게 된다. 저장을 부른 쪽이 하던 일을 마친 뒤에 창을 닫는다.
   // 내 컴퓨터에 앉아 있을 때만 돌아간다. 친구 집은 남의 집이라 그대로 두고, 내 컴퓨터로 돌아올 때 저장된 사용자를 새로 읽는다(goHome)
   let leaving = 0;
@@ -237,6 +237,7 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     checkNotes(my);
     tellLost(my);
     tellSignedOut(my);
+    tellNews(my);
     if (reading) sync.arrived(my); // 다르게 고친 방이 있으면 묻고, 없으면 지금 방을 올린다
   }
 
@@ -272,6 +273,20 @@ export function createOS({ stage, toStage, requestPowerOff, settings }) {
     openAccountWindow(os, { auto: true });
   }
   onSignedOut(() => tellSignedOut(run));
+
+  // 아이디와 비밀번호가 생기기 전부터 있던 사용자에게 새 기능 안내를 한 번 띄운다(F36, src/user-account.js의 openLoginNews).
+  // 다른 저절로 뜨는 창처럼 끼어들면 안 되는 때와 다른 칸에 글을 치는 동안, 공유 링크 끊김 창이 떠 있는 동안에는 1초마다 다시 본다.
+  // 튜토리얼을 하는 중이면 끝 카드가 같은 것을 알리므로 띄우지 않는다
+  let newsTimer = 0;
+  function tellNews(my) {
+    clearTimeout(newsTimer);
+    if (!newsDue() || my !== run || os.mode !== 'edit' || os.tutorial.active) return;
+    if (busy() || isField(document.activeElement) || os.wm.get('link-lost')) {
+      newsTimer = setTimeout(() => tellNews(my), 1000);
+      return;
+    }
+    openLoginNews(os);
+  }
 
   // 서버의 방과 맞추기(F36, src/home-sync.js). 비밀번호가 있는 사용자만 해당한다
   const sync = createHomeSync({

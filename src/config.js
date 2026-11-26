@@ -83,3 +83,6 @@ export const STORAGE_PICTURE = 'agarago.picture'; // 내 사용자 사진의 id(
 export const STORAGE_RECENT = 'agarago.recent'; // 최근에 놀러 간 집(로그인 화면 오른쪽 단 맨 위, src/neighbors.js의 recentVisits)
 export const STORAGE_QUIZ = 'agarago.quiz'; // 손님으로 풀고 채점한 시험지의 고른 답(src/apps/test-paper-app.js)
 export const STORAGE_SEAT = 'agarago.seat'; // 이 컴퓨터에 앉은 사용자가 바뀔 때마다 새로 남기는 무작위 표시(src/seat.js)
+// 새 기능 안내 창을 이 사용자가 봤는지(src/user-account.js의 openLoginNews). 새 사용자는 튜토리얼 끝 카드가 알리므로 만들 때 본 것으로 둔다.
+// 사용자의 것이라 이 컴퓨터 초기화와 이 컴퓨터에서 지우기가 지운다
+export const STORAGE_NEWS = 'agarago.news';

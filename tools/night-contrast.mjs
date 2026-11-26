@@ -15,13 +15,13 @@
 // 아이디와 비밀번호 창(시작 메뉴 줄), 이웃집 목록 창(방의 현관문으로 연다), 시작 메뉴를 연 채로 settings.set({ night })로
 // 2005 화면의 낮과 밤을 바꾸며, 화면에 보이는 글자마다 글자색과 그 뒤 바탕의 WCAG 대비를 잰다.
 // 바탕이 그라데이션이면 가장 나쁜 색으로, 반투명이면 조상의 바탕과 겹친 색으로 잰다.
-// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)과 두 곳에서 고친 방 창(openTwoRoomsWindow),
+// 이어서 점검용 집(tools/headless.mjs의 TEST_HOME)을 내 집으로 심어 다시 들어가, 올린 방을 잊었다고 알리는 창(공유 링크 끊김)과 두 곳에서 고친 방 창(openTwoRoomsWindow), 새 기능 안내 창(openLoginNewsWindow),
 // 공유하기 창의 비밀번호 줄과 다시 로그인하는 창(plantCloud)을 재고 가구를 두 번 눌러 여는 화면(SCREENS)마다 같은 방법으로 잰다.
 // 마지막으로 오른쪽 단추 메뉴 두 가지를 잰다. 방의 펫을 눌러 뜨는 메뉴(openPetMenu, 굵은 쓰다듬기 한 줄)와 창 제목 줄을 눌러 뜨는 창 메뉴(openWindowMenu, 회색 줄이 있다)다.
 // 낮에는 4.5:1 이상인데 밤에 그 아래로 떨어지는 글자가 실패다. 낮에도 낮은 글자(창 제목줄의 흰 글자 같은 시대의 모양)는 세지 않는다.
 // 낮과 밤은 자바스크립트 한 번 안에서 바꿔 가며 잰다. 그사이에 알림이나 말풍선이 바뀌어 낮과 밤의 화면이 달라지지 않게 하려는 것이다.
 // 종료 코드: 0 통과, 1 실패가 있음, 2 도구를 돌리지 못함(크롬이나 파이썬이 없음 등).
-import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, plantCloud, openTwoRoomsWindow } from './headless.mjs';
+import { Stop, sleep, startServer, launchChrome, runTool, TEST_HOME, plantHome, plantCloud, openTwoRoomsWindow, openLoginNewsWindow } from './headless.mjs';
 
 const LIMIT = 4.5; // WCAG AA가 보통 크기 글자에 요구하는 대비
 // 시대는 2005로 정했다(2026-11-10). 그 전에는 1998, 2005, 2010을 차례로 쟀다. 지금은 결과 줄의 이름표로만 쓴다(화면에는 시대를 가리는 속성이 없다).
@@ -457,6 +457,10 @@ async function main() {
     if (!(await page.run(openTwoRoomsWindow))) throw new Stop('두 곳에서 고친 방 창이 열리지 않았다. 창이 바뀌었으면 tools/headless.mjs의 openTwoRoomsWindow도 고친다.');
     await sleep(500);
     await measure('두 곳에서 고친 방 창');
+    await page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
+    if (!(await page.run(openLoginNewsWindow))) throw new Stop('새 기능 안내 창이 열리지 않았다. 창이 바뀌었으면 tools/headless.mjs의 openLoginNewsWindow도 고친다.');
+    await sleep(300);
+    await measure('새 기능 안내 창');
     await page.run(() => { for (const b of document.querySelectorAll('#windows .win .win-close')) b.click(); });
     // 비밀번호가 있고 로그인이 풀린 사용자(F36). 공유하기 창을 열면 올리려다 알게 되어 다시 로그인하는 창이 저절로 뜬다
     await page.run(plantCloud, { uid: 'contrast', refresh: 'contrast', id: 'Contrst1', handle: '점검', sent: 'contrast', pw: true, out: true });

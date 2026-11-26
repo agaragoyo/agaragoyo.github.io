@@ -17,7 +17,7 @@ import { loadJSON, saveJSON } from './util.js';
 //      펫 창에서 다른 종류나 "없음"을 고르면 0으로 돌아간다. 2026-11-18까지는 병아리만 세고 닭이 되면 0으로 돌렸다
 // tvHint: TV가 다음에 보일 소문의 차례(src/secrets.js의 HINTS, src/apps/tv-app.js). 소문을 보일 때마다 하나씩 는다
 const DEFAULTS = { night: false, sound: true, musicOn: true, music: 'kpop', labsOpen: false, labs: [], pet: '', petPats: 0, tvHint: 0 };
-// 이 컴퓨터가 아니라 사용자의 것인 설정. 방 글자에 담겨 로그인을 따라다니고(src/pet-link.js), 이 컴퓨터에서 빼면 기본으로 돌아간다(F36)
+// 이 컴퓨터가 아니라 사용자의 것인 설정. 방 글자에 담겨 로그인을 따라다니고(src/pet-link.js), 이 컴퓨터에서 지우면 기본으로 돌아간다(F36)
 const USER_KEYS = ['pet', 'petPats'];
 // 2026-11-10에 뺀 설정(그레인, 볼록, 시대, 마우스 앱의 커서). 예전에 저장된 값은 읽을 때 버린다.
 const DROPPED = ['grain', 'curve', 'era', 'cursor'];

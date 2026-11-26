@@ -18,8 +18,8 @@
 // 칸마다 한도까지 가장 나쁜 글로 채운 집(LONG)의 주인 화면과 손님 화면,
 // 비밀번호가 있는 사용자의 방을 서버와 맞추기(비밀번호가 없는 사용자의 요청이 그대로인지, 서버만, 이 컴퓨터만, 양쪽이 바뀜, 앉아 있는 동안 거절됨, 답을 잃은 올리기,
 // 지워진 링크, 닿지 못하는 서버, 연습 방, 펫과 기록 합치기, 두 곳에서 고친 방 창),
-// 아이디와 비밀번호(비밀번호 만들기와 바꾸기, 거절되거나 답을 잃은 요청, 토큰이 끊긴 뒤의 다시 로그인, 로그인 화면의 로그인 칸과 오류, 다른 사용자가 있을 때의 지우고 로그인과 빼고 로그인,
-// 이 컴퓨터에서 빼기와 빼지 않는 경우, 다른 탭에서 사용자가 바뀐 경우, 비밀번호가 저장소와 콘솔에 남지 않는지, 비밀번호가 없는 사용자의 요청이 그대로인지),
+// 아이디와 비밀번호(비밀번호 만들기와 바꾸기, 거절되거나 답을 잃은 요청, 토큰이 끊긴 뒤의 다시 로그인, 로그인 화면의 로그인 칸과 오류, 다른 사용자가 있을 때의 지우고 로그인 두 가지,
+// 이 컴퓨터에서 지우기와 지우지 않는 경우, 예전 사용자에게 한 번 뜨는 새 기능 안내, 다른 탭에서 사용자가 바뀐 경우, 비밀번호가 저장소와 콘솔에 남지 않는지, 비밀번호가 없는 사용자의 요청이 그대로인지),
 // 이 컴퓨터 초기화의 지우기를 차례로 본다.
 // 화면을 바꿀 때마다 되풀이된 함정 세 가지도 같이 잰다: hidden인데 보이는 요소(known-issues 10, 13), 창 안에서 가로로 넘친 상자,
 // 상자 밖으로 나가거나 말없이 잘린 글(83).
@@ -1271,6 +1271,7 @@ async function walk(page, base) {
         for (const k of Object.keys(localStorage)) if (k.startsWith('agarago.') || k.endsWith('.best')) localStorage.removeItem(k);
         localStorage.setItem('agarago.home.v3', JSON.stringify(sanitizeHome(d.local)));
         localStorage.setItem('agarago.picture', '"duck"');
+        localStorage.setItem('agarago.news', '"login"'); // 새 기능 안내는 본 것으로 둔다
         localStorage.setItem('agarago.settings', JSON.stringify({ sound: false, ...d.settings }));
         for (const [k, v] of Object.entries(d.records)) localStorage.setItem(`${k}.best`, JSON.stringify(v));
         localStorage.setItem('agarago.cloud', JSON.stringify({ uid: 'fake-uid', refresh: 'fake-refresh', id, sent: d.sent, ...d.cloud }));
@@ -1561,7 +1562,7 @@ async function walk(page, base) {
   }
 
   // 아이디와 비밀번호(F36)를 눌러 본다: 비밀번호 만들기와 바꾸기, 답을 잃거나 거절된 요청, 로그인이 풀린 뒤의 다시 로그인, 로그인 화면의 로그인 칸,
-  // 이 컴퓨터에서 빼기, 다른 탭에서 사용자가 바뀐 경우(src/cloud.js의 "비밀번호", src/user-account.js, src/sign-in.js, src/seat.js).
+  // 이 컴퓨터에서 지우기, 새 기능 안내, 다른 탭에서 사용자가 바뀐 경우(src/cloud.js의 "비밀번호", src/user-account.js, src/sign-in.js, src/seat.js).
   // 서버 대신 fakeCloud('write')가 계정까지 흉내 낸다. 움직임 줄이기를 켜서 부팅과 환영 화면을 건너뛴다. 끝나면 저장소와 움직임 설정을 되돌린다.
   // 민지(fake-uid)의 방은 MINE, 나리(nari-uid)의 방은 NARI다. 나리는 다른 브라우저에서 비밀번호까지 만든 사용자다
   async function account() {
@@ -1746,6 +1747,7 @@ async function walk(page, base) {
     const minjiAccount = { email: emailOf('fake-uid'), password: PASS, gen: 1 };
     const mineStore = (cloud = null, extra = {}) => ({
       'agarago.home.v3': minjiHome, 'agarago.picture': '"duck"', 'agarago.settings': JSON.stringify({ sound: false, pet: 'none' }), 'agarago.said': 'true',
+      'agarago.news': '"login"', // 새 기능 안내는 본 것으로 둔다. 안내는 아래 "새 기능 안내"에서 이 줄을 빼고 본다
       ...(cloud ? { 'agarago.cloud': JSON.stringify(cloud) } : {}), ...extra,
     });
     const linked = { uid: 'fake-uid', refresh: 'fake-refresh', id: MINE, sent: minjiCode, handle: '민지' }; // 비밀번호가 없는 사용자
@@ -1756,6 +1758,51 @@ async function walk(page, base) {
       handles: { 민지: { uid: 'fake-uid', room: MINE }, 나리: { uid: 'nari-uid', room: NARI }, 이웃집: { uid: 'other-uid', room: 'Othr5678' } },
       accounts: { 'nari-uid': { ...nariAccount }, ...(pw ? { 'fake-uid': { ...pw } } : {}) }, revs: {}, ...more,
     });
+
+    // ---------- 새 기능 안내 ----------
+    // 아이디와 비밀번호가 생기기 전부터 있던 사용자(본 표시가 없고 비밀번호가 없음)에게 내 컴퓨터로 들어올 때 한 번 뜬다(src/os.js의 tellNews).
+    // 새 사용자에게 뜨지 않는 것은 처음의 새 사용자 만들기에서 본다
+    const unseen = cloud => Object.fromEntries(Object.entries(mineStore(cloud)).filter(([k]) => k !== 'agarago.news'));
+    const titles = () => page.run(() => [...document.querySelectorAll('#windows .win-title')].map(t => t.textContent).join());
+    const newsNow = () => page.run(() => {
+      const w = [...document.querySelectorAll('#windows .win')].find(x => x.querySelector('.win-title').textContent === '새 기능 안내');
+      return w && {
+        text: [...w.querySelectorAll('.win-body p, .win-body li')].map(e => e.textContent).join('|'),
+        named: [...w.querySelectorAll('.win-body li b')].map(b => b.textContent).join(),
+        buttons: [...w.querySelectorAll('.win-body .btn')].map(b => b.textContent).join(),
+      };
+    });
+    const NEWS_TEXT = ['아이디와 비밀번호로 로그인하는 기능이 추가되었습니다.', '시작 메뉴의 아이디와 비밀번호에서 비밀번호를 만드세요.',
+      '다른 브라우저의 로그인 화면에서 내 아이디로 로그인을 누르세요.', '같이 쓰는 컴퓨터라면 다 쓴 뒤 로그아웃하고 이 컴퓨터에서 지우기를 누르세요.'].join('|');
+    await boot({ store: unseen(linked), server: serverWith() });
+    await enterOwn();
+    await until(page, () => !!document.querySelector('#windows .win'), 4000);
+    const told = await newsNow();
+    check('비밀번호가 없는 예전 사용자가 들어오면 새 기능 안내가 뜬다', told?.text === NEWS_TEXT && told.buttons === '비밀번호 만들기,닫기'
+      && told.named === '아이디와 비밀번호,내 아이디로 로그인,로그아웃,이 컴퓨터에서 지우기', JSON.stringify(told));
+    check('새 기능 안내 창이 스크롤되지 않는다', await noScroll());
+    await probe('새 기능 안내 창');
+    await btn('#windows .win-body .btn', '비밀번호 만들기');
+    check('비밀번호 만들기를 누르면 안내를 닫고 아이디와 비밀번호 창을 연다', await until(page, () => [...document.querySelectorAll('#windows .win-title')].map(t => t.textContent).join() === '아이디와 비밀번호', 3000)
+      && (await page.run(() => localStorage.getItem('agarago.news'))) === '"login"', await titles());
+    await logOut();
+    await enterOwn();
+    await sleep(1500);
+    check('한 번 본 새 기능 안내는 다시 뜨지 않는다', (await titles()) === '', await titles());
+    // 닫기로 닫아도 본 것으로 둔다
+    await boot({ store: unseen(null), server: serverWith() });
+    await enterOwn();
+    await until(page, () => !!document.querySelector('#windows .win'), 4000);
+    check('링크가 없는 예전 사용자에게도 뜬다', (await newsNow())?.text === NEWS_TEXT, await titles());
+    await btn('#windows .win-body .btn', '닫기');
+    check('닫기를 누르면 창만 닫고 본 것으로 둔다', (await titles()) === '' && (await page.run(() => localStorage.getItem('agarago.news'))) === '"login"', await titles());
+    // 비밀번호가 있는 사용자와 로그인이 풀린 사용자(다시 로그인하는 창이 대신 뜬다)에게는 뜨지 않는다
+    for (const [what, cloud, want] of [['비밀번호가 있는 사용자', locked, ''], ['로그인이 풀린 사용자', { ...locked, out: true }, '다시 로그인']]) {
+      await boot({ store: unseen(cloud), server: serverWith(minjiAccount), seen: MINE });
+      await enterOwn();
+      await sleep(1500);
+      check(`${what}에게는 새 기능 안내가 뜨지 않는다`, (await titles()) === want && (await page.run(() => localStorage.getItem('agarago.news'))) === null, await titles());
+    }
 
     // ---------- 비밀번호 만들기(링크가 없는 사용자) ----------
     await boot({ store: mineStore(), server: serverWith(null, { rooms: { [NARI]: nariCode }, handles: { 이웃집: { uid: 'other-uid', room: 'Othr5678' } } }) });
@@ -2193,7 +2240,7 @@ async function walk(page, base) {
       return made === 0;
     }));
     await boot();
-    check('한 번 로그인한 브라우저는 다시 켜도 비밀번호를 묻지 않는다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기' && await enterOwn() && !(await page.run(accountWindow)));
+    check('한 번 로그인한 브라우저는 다시 켜도 비밀번호를 묻지 않는다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 지우기' && await enterOwn() && !(await page.run(accountWindow)));
 
     // 로그인하는 사이에 다른 탭에서 사용자가 바뀌었으면 아무것도 바꾸지 않는다. 이벤트를 받지 못했어도(missed) 같다
     for (const missed of [false, true]) {
@@ -2258,46 +2305,46 @@ async function walk(page, base) {
     check('이웃집에 고정한 방이면 막고 이유를 보인다', await askedIs('내 방이 이웃집에 고정되어 있어 지울 수 없습니다.|먼저 시작 메뉴에서 비밀번호를 만들어 주세요.') && (await asked()).buttons === '그대로 두기', JSON.stringify(await asked()));
     await probe('고정한 방이라 막힌 로그인');
     await boot({ store: mineStore(locked), server: serverWith(minjiAccount), seen: MINE });
-    check('고정한 방이어도 비밀번호가 있으면 이 컴퓨터에서 빼기를 보인다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기', await links());
-    await btn('.reset-link', '이 컴퓨터에서 빼기');
-    await btn('.reset-row .btn', '빼기');
-    check('고정한 방이어도 뺄 수 있다', await toastIs('민지의 집을 이 컴퓨터에서 뺐습니다.') && (await page.run(savedOwner)) === null);
+    check('고정한 방이어도 비밀번호가 있으면 이 컴퓨터에서 지우기를 보인다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 지우기', await links());
+    await btn('.reset-link', '이 컴퓨터에서 지우기');
+    await btn('.reset-row .btn', '지우기');
+    check('고정한 방이어도 지울 수 있다', await toastIs('민지의 집을 이 컴퓨터에서 지웠습니다.') && (await page.run(savedOwner)) === null);
     await extraNeighbor(page, null);
 
-    // ---------- 이 컴퓨터에서 빼기 ----------
+    // ---------- 이 컴퓨터에서 지우기 ----------
     const OUT_LINES = '서버의 방은 그대로이고, 다시 로그인하면 이어집니다.|최근에 놀러 간 집과 푼 시험지, 파일 정리 10의 다 정리 횟수는 돌아오지 않습니다.';
     const takeOut = async () => {
-      await btn('.reset-link', '이 컴퓨터에서 빼기');
-      return btn('.reset-row .btn', '빼기');
+      await btn('.reset-link', '이 컴퓨터에서 지우기');
+      return btn('.reset-row .btn', '지우기');
     };
     const pwBoot = async ({ cloud = {}, more = {}, server = {}, seen = MINE } = {}) => boot({ store: mineStore({ ...locked, ...cloud }, more), server: serverWith(minjiAccount, server), seen });
     const unsaved = JSON.stringify({ ...JSON.parse(minjiHome), owner: '못올린이름' }); // 이 컴퓨터에서만 고친 방
     await pwBoot({ more: { ...extra, 'agarago.settings': JSON.stringify({ sound: false, night: true, pet: 'cat/gray', petPats: 4 }) } });
-    await btn('.reset-link', '이 컴퓨터에서 빼기');
-    check('빼기 전에 서버의 방은 그대로라는 것과 돌아오지 않는 것을 보인다', (await asked()).lines === OUT_LINES && (await asked()).buttons === '빼기,그대로 두기', JSON.stringify(await asked()));
-    await probe('이 컴퓨터에서 빼기 확인');
+    await btn('.reset-link', '이 컴퓨터에서 지우기');
+    check('지우기 전에 이 컴퓨터에서 지울 것과 서버의 방은 그대로라는 것, 돌아오지 않는 것을 보인다', (await asked()).lines === `이 컴퓨터에서 민지의 집을 지웁니다.|${OUT_LINES}` && (await asked()).buttons === '지우기,그대로 두기', JSON.stringify(await asked()));
+    await probe('이 컴퓨터에서 지우기 확인');
     await btn('.reset-row .btn', '그대로 두기');
-    check('그대로 두기를 누르면 글자 단추로 돌아온다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 빼기' && (await page.run(savedOwner)) === '민지');
+    check('그대로 두기를 누르면 글자 단추로 돌아온다', (await links()) === '다른 아이디로 로그인,이 컴퓨터에서 지우기' && (await page.run(savedOwner)) === '민지');
     await takeOut();
-    check('빼면 알리고 새 사용자 만들기가 나온다', await toastIs('민지의 집을 이 컴퓨터에서 뺐습니다.') && await page.run(() => !!document.querySelector('.user.new input[aria-label="닉네임"]')) && (await links()) === '내 아이디로 로그인', await toastNow());
+    check('지우면 알리고 새 사용자 만들기가 나온다', await toastIs('민지의 집을 이 컴퓨터에서 지웠습니다.') && await page.run(() => !!document.querySelector('.user.new input[aria-label="닉네임"]')) && (await links()) === '내 아이디로 로그인', await toastNow());
     const leftKeys = await page.run(() => ({ ...localStorage }));
-    check('빼면 초기화와 같은 것만 지우고 설정과 표시, 다른 사이트의 키는 남긴다', Object.keys(leftKeys).filter(k => /^(agarago|tidy-up|file-ten)\./.test(k)).sort().join() === 'agarago.seat,agarago.settings' && leftKeys['other-site.smoke2'] === '1', Object.keys(leftKeys).join());
-    check('빼면 펫은 기본으로 돌아가고 밤과 소리는 그대로다', (s => s.pet === '' && s.petPats === 0 && s.night === true && s.sound === false)(JSON.parse(leftKeys['agarago.settings'])), leftKeys['agarago.settings']);
-    check('빼도 서버의 방과 아이디와 쪽지를 지우지 않는다', await page.run(id => window.__cloudRooms().includes(id) && '민지' in window.__handles, MINE) && !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
+    check('이 컴퓨터에서 지우기는 초기화와 같은 것만 지우고 설정과 표시, 다른 사이트의 키는 남긴다', Object.keys(leftKeys).filter(k => /^(agarago|tidy-up|file-ten)\./.test(k)).sort().join() === 'agarago.seat,agarago.settings' && leftKeys['other-site.smoke2'] === '1', Object.keys(leftKeys).join());
+    check('지우면 펫은 기본으로 돌아가고 밤과 소리는 그대로다', (s => s.pet === '' && s.petPats === 0 && s.night === true && s.sound === false)(JSON.parse(leftKeys['agarago.settings'])), leftKeys['agarago.settings']);
+    check('이 컴퓨터에서 지워도 서버의 방과 아이디와 쪽지는 지우지 않는다', await page.run(id => window.__cloudRooms().includes(id) && '민지' in window.__handles, MINE) && !(await requests()).some(r => r.startsWith('DELETE')), (await requests()).join(' / '));
     await page.run(() => localStorage.removeItem('other-site.smoke2'));
     await signIn('민지', PASS);
-    check('뺀 컴퓨터에서 다시 로그인하면 이어진다', await desktop() && ids(await page.run(savedHome)) === ids(HOME_M) && (await page.run(savedOwner)) === '민지');
+    check('지운 컴퓨터에서 다시 로그인하면 이어진다', await desktop() && ids(await page.run(savedHome)) === ids(HOME_M) && (await page.run(savedOwner)) === '민지');
     // 올리지 못한 고침
     await pwBoot({ more: { 'agarago.home.v3': unsaved } });
     await takeOut();
-    check('올리지 못한 고침이 있으면 먼저 올리고 뺀다', await toastIs('못올린이름의 집을 이 컴퓨터에서 뺐습니다.') && (await sentCount()) === 1 && (await decoded(await page.run(id => window.__cloudRoom(id), MINE))).owner === '못올린이름', await toastNow());
+    check('올리지 못한 고침이 있으면 먼저 올리고 지운다', await toastIs('못올린이름의 집을 이 컴퓨터에서 지웠습니다.') && (await sentCount()) === 1 && (await decoded(await page.run(id => window.__cloudRoom(id), MINE))).owner === '못올린이름', await toastNow());
     const stuck = async (what, text, options, setUp = null, ...args) => {
       await pwBoot(options);
       if (setUp) await page.run(setUp, ...args);
       const was = JSON.stringify((({ 'agarago.settings': s, 'agarago.cloud': c, ...rest }) => rest)(await page.run(() => ({ ...localStorage }))));
       await takeOut();
-      check(`빼지 않음: ${what}`, await askedIs(text) && JSON.stringify((({ 'agarago.settings': s, 'agarago.cloud': c, ...rest }) => rest)(await page.run(() => ({ ...localStorage })))) === was && (await cloudState()).id === MINE
-        && (await asked()).buttons === '빼기,그대로 두기' && await page.run(() => !document.querySelector('.reset-row .btn').disabled), JSON.stringify(await asked()));
+      check(`지우지 않음: ${what}`, await askedIs(text) && JSON.stringify((({ 'agarago.settings': s, 'agarago.cloud': c, ...rest }) => rest)(await page.run(() => ({ ...localStorage })))) === was && (await cloudState()).id === MINE
+        && (await asked()).buttons === '지우기,그대로 두기' && await page.run(() => !document.querySelector('.reset-row .btn').disabled), JSON.stringify(await asked()));
     };
     const KEEP_HOME = { 'agarago.home.v3': unsaved };
     await stuck('서버에 닿지 못함', '서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.', { more: KEEP_HOME }, () => { window.__cloudRefuse = [{ at: ':commit', status: 503, body: 'x' }]; });
@@ -2314,19 +2361,19 @@ async function walk(page, base) {
     await stuck('방은 그대로인데 서버를 확인하지 못함', '서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.', {}, id => { window.__cloudRefuse = [{ at: `/homes/${id}`, status: 503, body: 'x' }]; }, MINE);
     // 지금 한도로는 한 방이 서버의 글자 수 한도(MAX_CODE)를 넘지 못해, 한도를 줄인 src/cloud.js를 끼워 그 갈래를 본다
     await withCloud('export const MAX_CODE = 30000', 'export const MAX_CODE = 300', () => stuck('글자 수 한도를 넘김', '방에 쓴 글이 너무 길어 서버에 올리지 못했습니다.|내 컴퓨터로 들어가 글을 줄여 주세요.', { more: KEEP_HOME }));
-    // 서버에 방이 없으면 빼지 않고 초기화로 바뀐다
+    // 서버에 방이 없으면 지우지 않고 초기화로 바뀐다
     await pwBoot();
     await page.run(id => window.__otherDeletes(id), MINE);
     await takeOut();
-    check('다른 브라우저에서 링크를 지웠으면 빼지 않고 알린 뒤 초기화를 보인다', await toastIs('다른 브라우저에서 링크를 지워 서버에 방이 없습니다.') && (await page.run(savedOwner)) === '민지' && (await cloudState()).id === null && (await cloudState()).pw === true && (await links()) === '다른 아이디로 로그인,이 컴퓨터 초기화', JSON.stringify(await cloudState()));
+    check('다른 브라우저에서 링크를 지웠으면 이 컴퓨터에서 지우지 않고 알린 뒤 초기화를 보인다', await toastIs('다른 브라우저에서 링크를 지워 서버에 방이 없습니다.') && (await page.run(savedOwner)) === '민지' && (await cloudState()).id === null && (await cloudState()).pw === true && (await links()) === '다른 아이디로 로그인,이 컴퓨터 초기화', JSON.stringify(await cloudState()));
     // 비밀번호가 있는 사용자가 있는 브라우저에서 다른 아이디로 로그인
     await pwBoot({ more: { ...extra, 'agarago.home.v3': unsaved } });
     await signIn('나리', NARI_PASS);
-    check('비밀번호가 있는 사용자가 있으면 뺀다는 것을 보이고 받는다', await askedIs(`이 컴퓨터에서 못올린이름의 집을 뺍니다.|${OUT_LINES}`) && (await asked()).buttons === '빼고 로그인,그대로 두기', JSON.stringify(await asked()));
+    check('비밀번호가 있는 사용자가 있으면 이 컴퓨터에서 지운다는 것을 보이고 받는다', await askedIs(`이 컴퓨터에서 못올린이름의 집을 지웁니다.|${OUT_LINES}`) && (await asked()).buttons === '지우고 로그인,그대로 두기', JSON.stringify(await asked()));
     await page.run(() => { window.__cloudRefuse = [{ at: ':commit', status: 503, body: 'x' }]; });
-    await btn('.reset-row .btn', '빼고 로그인');
+    await btn('.reset-row .btn', '지우고 로그인');
     check('올리지 못하면 로그인하지 않고 까닭을 알린다', await askedIs('서버에 연결하지 못했습니다.|잠시 후 다시 시도해 주세요.') && (await page.run(savedOwner)) === '못올린이름' && (await cloudState()).uid === 'fake-uid', JSON.stringify(await asked()));
-    await btn('.reset-row .btn', '빼고 로그인');
+    await btn('.reset-row .btn', '지우고 로그인');
     check('다시 누르면 앞 사용자의 고침을 올린 뒤 로그인한다', await desktop() && (await page.run(savedOwner)) === '나리' && (await decoded(await page.run(id => window.__cloudRoom(id), MINE))).owner === '못올린이름' && (await cloudState()).uid === 'nari-uid'
       && (await page.run(id => window.__cloudRoom(id), NARI)) === nariCode, JSON.stringify(await cloudState()));
     await page.run(() => localStorage.removeItem('other-site.smoke2'));
@@ -2474,10 +2521,10 @@ async function walk(page, base) {
     await btn('.reset-row .btn', '지우기');
     check('로그인 화면에 멈춰 있던 탭의 초기화는 로그인한 사용자를 지우지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant && !(await requests()).some(r => r.startsWith('DELETE')), await nariKept());
     await pwBoot();
-    await btn('.reset-link', '이 컴퓨터에서 빼기');
+    await btn('.reset-link', '이 컴퓨터에서 지우기');
     await otherTab(nariStore, true);
-    await btn('.reset-row .btn', '빼기');
-    check('로그인 화면에 멈춰 있던 탭의 빼기는 로그인한 사용자를 빼지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant, await nariKept());
+    await btn('.reset-row .btn', '지우기');
+    check('로그인 화면에 멈춰 있던 탭의 이 컴퓨터에서 지우기는 로그인한 사용자를 지우지 않는다', await toastIs(TOLD) && (await nariKept()) === nariWant, await nariKept());
     // 친구 집에 있는 탭은 그대로 두고, 내 컴퓨터로 돌아오면 지금 사용자다
     await boot({ store: mineStore(locked), server: serverWith(minjiAccount, { owners: { [MINE]: 'fake-uid', [NARI]: 'nari-uid', Frnd0001: 'frnd-uid' }, rooms: { [MINE]: minjiCode, [NARI]: nariCode, Frnd0001: await codeOf({ ...HOME, owner: '친구' }) } }), hash: '#s=Frnd0001' });
     await until(page, () => [...document.querySelectorAll('.users .user')].some(u => u.textContent.includes('손님으로 구경하기')), 4000);
@@ -2635,6 +2682,8 @@ async function walk(page, base) {
     return !!art && ['left', 'right', 'top', 'bottom'].every(k => Math.abs(art[k] - hit[k]) <= 3);
   }));
   check('새 사용자를 만들면 고른 사진이 저장된다', (await page.run(() => JSON.parse(localStorage.getItem('agarago.picture')))) === firstPic);
+  check('새 사용자에게는 새 기능 안내를 띄우지 않고 본 것으로 둔다', (await page.run(() => localStorage.getItem('agarago.news'))) === '"login"'
+    && !(await page.run(() => [...document.querySelectorAll('#windows .win-title')].some(t => t.textContent === '새 기능 안내'))));
   check('새 사용자에게 튜토리얼 안내 카드가 뜬다', await until(page, () => { const c = document.querySelector('.coach-card'); return !!c && !c.hidden; }, 3000));
   await probe('튜토리얼 첫 단계');
   check('튜토리얼 카드가 떠 있는 동안에는 아바타 머리 위의 말하기 표시가 숨는다', await page.run(sayCue, '없음'), await page.run(sayCue));
