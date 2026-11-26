@@ -1170,6 +1170,25 @@ def check_cloud():
         err('src/cloud.js', f"NOTE.page({vals['page']})에 한 장을 더 받으면 firestore.rules의 읽기 한도({found['page'].group(1)}장)를 넘는다")
 
 
+# 관리자 도구(tools/admin-password.mjs)는 Cloud Shell에 파일 하나만 올려 돌리므로 사이트 코드를 부르지 않고 같은 줄을 따로 둔다.
+# 이메일 꼴이나 아이디 규칙이 사이트와 달라지면 그 도구로 넣은 비밀번호로 로그인할 수 없으므로, 두 파일의 그 줄이 글자까지 같은지 본다.
+ADMIN_SAME = ('HANDLE_RE', 'normalHandle', 'ROOM_RE', 'emailOf', 'MIN_PASSWORD')
+
+
+def check_admin_password():
+    where = 'tools/admin-password.mjs'
+    if not (ROOT / where).exists():
+        return
+    tool, site = read(where), read('src/cloud.js')
+    for name in ADMIN_SAME:
+        pat = re.compile(rf'^(?:export )?const {name} = (.+?);[ \t]*(?://.*)?$', re.M)
+        a, b = pat.search(tool), pat.search(site)
+        if not a or not b:
+            err(where, f'{name} 줄을 찾지 못했다. 모양을 바꿨다면 tools/check.py 의 check_admin_password 도 고친다')
+        elif a.group(1) != b.group(1):
+            err(where, f'{name} 줄이 src/cloud.js의 같은 줄과 다르다. 사이트를 고쳤다면 이 도구의 줄도 똑같이 고친다')
+
+
 # ---------- 실험실 ----------
 # 실험실 항목(src/labs.js의 LABS)은 팀이 아직 정하지 않은 기능이라, 항목마다 docs/requirements.md의 "아직 정하지 않은 것"에
 # 그 id가 든 줄이 있어야 한다(정하면 기본으로 켜거나 지운다). 코드가 묻는 labOn('<id>')은 LABS에 있어야 하고,
@@ -1556,6 +1575,7 @@ def main():
     check_ui_font()
     check_secrets()
     check_cloud()
+    check_admin_password()
     check_room_image()
     check_link_keys()
     check_cd_colors()
