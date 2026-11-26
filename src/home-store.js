@@ -1,7 +1,7 @@
 // 이 브라우저에 저장된 사용자의 것을 풀고 지운다(F36). 서버에서 받은 방(decodeHome으로 푼 집)을 이 브라우저의 집으로 삼는 길은 둘이다.
 // 다른 브라우저에서 고친 내 방으로 바꿀 때(src/home-sync.js)와 로그인할 때(src/sign-in.js)다. 둘 다 여기의 함수를 쓴다.
 // 집 상태에는 사진, 기록, 펫을 두지 않는다. 사진은 STORAGE_PICTURE, 기록은 '<앱 id>.best', 펫은 설정에 따로 저장한다.
-// 지우는 일(wipeUser)은 이 컴퓨터 초기화, 이 컴퓨터에서 빼기, 다른 사용자를 지우고 로그인하기가 같이 쓴다.
+// 지우는 일(wipeUser)은 이 컴퓨터 초기화, 이 컴퓨터에서 지우기, 다른 사용자를 지우고 로그인하기가 같이 쓴다.
 import { STORAGE_ROOM, STORAGE_SETTINGS, STORAGE_SEAT, STORAGE_PICTURE } from './config.js';
 import { APPS } from '../data/apps.js';
 import { saveOwnPicture } from './user-pictures.js';

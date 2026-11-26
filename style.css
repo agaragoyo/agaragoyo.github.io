@@ -1301,6 +1301,9 @@ form.user { cursor: var(--cur-arrow); }
 /* 아이디와 비밀번호 창(src/user-account.js). 위에 내 사진과 이름을 두는 것은 이름 바꾸기 창과 같다. 칸 이름 열은 "비밀번호 확인"이 한 줄에 드는 104px이다.
    창 높이는 내용에 맞춘다(fit) */
 .account-app .like-field { grid-template-columns: 104px 1fr; }
+/* 새 기능 안내 창(src/user-account.js의 openLoginNews)의 번호 붙은 차례. 번호가 창 안쪽 여백 안에 들게 들여 쓴다 */
+.news-steps { margin: 0; padding-left: 22px; }
+.news-steps li { margin: 0 0 6px; }
 /* 두 곳에서 고친 방 창(src/apps/two-rooms-app.js). 두 방의 그림을 나란히 두고 그 아래에 고친 시각과 가구 수, 남기기 단추를 둔다.
    그림 폭(PIC_W, 298px)에 테두리 2px을 더한 상자 두 개와 사이 14px이 창 안쪽 폭 614px에 꼭 들고, 그림이 만들어지기 전에는 같은 크기의 방 바깥 색 상자다 */
 .two-rooms { display: flex; flex-direction: column; }

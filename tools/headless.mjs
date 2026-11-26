@@ -8,6 +8,7 @@
 //   await runTool(import.meta.url, main);  main이 돌려준 종료 코드로 끝낸다. 끝나거나 멈추면 크롬과 서버를 끈다
 //   await page.run(plantHome, TEST_HOME);  가구와 담아 둔 것이 있는 점검용 집을 내 집으로 심는다(다시 열면 그 집의 사용자가 나온다)
 //   await page.run(openTwoRoomsWindow);    두 곳에서 고친 방 창을 띄운다(심어 둔 집이 있을 때)
+//   await page.run(openLoginNewsWindow);   새 기능 안내 창을 띄운다
 //   await page.run(plantCloud, { ... });   서버로 가는 요청을 막고 올린 방의 기록(agarago.cloud)을 심는다
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -217,6 +218,17 @@ export async function openTwoRoomsWindow() {
   const wm = createWM({ layer: document.getElementById('windows'), tasks: document.getElementById('tasks'), toLocal: (x, y) => ({ x, y }) });
   openTwoRooms({ wm }, { mine: { home, at: Date.now() }, theirs: { home: less, at: Date.now() - 3600000 }, pick() {} });
   return document.querySelectorAll('#windows .two-rooms-card').length === 2;
+}
+
+// 페이지 안에서 도는 함수(page.run(openLoginNewsWindow)). 새 기능 안내 창(src/user-account.js의 openLoginNews)을 띄우고 떴는지 돌려준다.
+// 비밀번호가 없는 예전 사용자가 들어올 때 한 번만 저절로 뜨는 창이라, 창 관리자를 하나 더 만들어 직접 띄운다
+export async function openLoginNewsWindow() {
+  const at = file => new URL(file, document.baseURI).href;
+  const { createWM } = await import(at('src/win.js'));
+  const { openLoginNews } = await import(at('src/user-account.js'));
+  const wm = createWM({ layer: document.getElementById('windows'), tasks: document.getElementById('tasks'), toLocal: (x, y) => ({ x, y }) });
+  openLoginNews({ wm });
+  return [...document.querySelectorAll('#windows .win-title')].some(t => t.textContent === '새 기능 안내');
 }
 
 // 페이지 안에서 도는 함수(page.run(plantCloud, 기록)). 올린 방의 기록(agarago.cloud)을 심어 링크와 아이디, 비밀번호가 있는 창(F36)을 연다. null이면 지운다.

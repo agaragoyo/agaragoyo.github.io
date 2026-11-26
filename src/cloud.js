@@ -64,7 +64,7 @@ export class CloudError extends Error {
 
 const state = () => loadJSON(STORAGE_CLOUD) || {};
 const remember = patch => saveJSON(STORAGE_CLOUD, { ...state(), ...patch }); // 값이 undefined인 칸은 지워진다(JSON에 담기지 않는다)
-// 서버의 답을 기다린 뒤에 남길 때 쓴다. 그사이에 이 컴퓨터의 계정이 바뀌었으면(로그인, 빼기, 초기화) 앞 계정의 값을 섞지 않는다
+// 서버의 답을 기다린 뒤에 남길 때 쓴다. 그사이에 이 컴퓨터의 계정이 바뀌었으면(로그인, 이 컴퓨터에서 지우기, 초기화) 앞 계정의 값을 섞지 않는다
 const rememberFor = (me, patch) => {
   if (state().uid === me.uid) remember(patch);
 };
@@ -693,7 +693,7 @@ export function rejoin({ handle, room, ...login }) {
   keepLogin(login, { handle, ...(state().id === room ? {} : { id: room, rev: null, trying: null }) });
 }
 
-// 이 컴퓨터에서 빼도 다시 로그인해 이어 갈 수 있는지. 서버에 이 사용자의 방이 있고 아이디가 그 방을 가리켜야 한다.
+// 이 컴퓨터에서 지워도 다시 로그인해 이어 갈 수 있는지. 서버에 이 사용자의 방이 있고 아이디가 그 방을 가리켜야 한다.
 // 돌려주는 것: 빈 글자(됨), 'room'(방이 없음), 'handle'(아이디가 없거나 다른 방을 가리킴). 서버에 닿지 못하면 CloudError를 던진다.
 // 이 컴퓨터가 기억하는 아이디가 서버와 다르면(다른 브라우저에서 지웠다) 잊어서, 아이디와 비밀번호 창과 공유하기 창에서 다시 정할 수 있게 한다
 export const canReturn = () => queueMine(async () => {
@@ -706,7 +706,7 @@ export const canReturn = () => queueMine(async () => {
   return 'handle';
 });
 
-// 이 컴퓨터의 사용자를 지웠다(빼기, 초기화). 예약한 올리기와 메모리의 로그인을 버린다
+// 이 컴퓨터의 사용자를 지웠다(이 컴퓨터에서 지우기, 초기화). 예약한 올리기와 메모리의 로그인을 버린다
 export function standUp() {
   dropUploads();
   session = null;
